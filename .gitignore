@@ -1,0 +1,9 @@
+# Nunca versionar dado real
+*.pdf
+*.docx
+*.WAV
+*.wav
+*.xlsx
+.env
+.env.*
+!.env.example
