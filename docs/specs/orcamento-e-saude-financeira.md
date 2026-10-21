@@ -7,6 +7,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
 ## Comportamento
 
 - **Onde nasce:** o orçamento é montado **na abertura do projeto, no P+ Connect**, dividido por **categoria de custo** (entrevistadores, incentivo, fornecedores, supervisão, telefonia...). Cada categoria tem valor e **data prevista de pagamento** [Reunião 21/10 29:17–34:15].
+  - Um **item** é uma linha de custo, como "pagamento a fornecedores" ou "incentivos" (decidido, D2). O orçamento do projeto é a soma dos itens.
   - O nível é a categoria, não cada fornecedor: "18 mil com fornecedor" basta [Reunião 21/10 32:28].
 - **Chegada:** o orçamento chega ao Financeiro **sozinho**, pela integração. Ninguém digita de novo; hoje o financeiro recebe por e-mail e lança à mão [Reunião 21/10 33:26].
 - **Provisão:** cada categoria × data prevista vira um título `provisao` em contas a pagar. Isso alimenta o fluxo de caixa ("vamos precisar de R$ X na data Y") para a direção [Reunião 21/10 29:38–30:44].
@@ -36,10 +37,10 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
 
 ## Regras
 
-1. **O dono do orçamento é o Connect.** O Financeiro **não edita** o orçamento: lê e aplica. Mudar exige autorização de um administrador, no Connect, auditada [Reunião 21/10 33:26; handoff/01 decisão 8].
+1. **O dono do orçamento é o Connect.** Só **supervisor autorizado pelo administrador** altera os itens, e toda mudança aparece aqui (D1). O Financeiro **não edita** o orçamento: lê e aplica. Mudar exige autorização de um administrador, no Connect, auditada [Reunião 21/10 33:26; handoff/01 decisão 8].
 2. **Teto por categoria:**
    - um lançamento real que leva comprometido + realizado acima do orçado da categoria entra como `pendente_autorizacao`;
-   - só segue (programação, lote, baixa) depois da autorização de um administrador;
+   - só segue (programação, lote, baixa) depois da autorização de **algum administrador**, e **a autorização fica em log** (quem, quando, valor e motivo) (D3);
    - exemplo: R$ 20.000 de fornecedores divididos entre 45 fornecedores não podem passar de R$ 20.000 sem autorização [Reunião 21/10 34:02].
 3. Para entrevistas, o **teto duro** continua no Connect, que nem deixa lançar acima. Não existe "pendente" para entrevistas.
 4. Saldo, % e projeção são **calculados**, nunca digitados.
@@ -50,6 +51,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
    - total real de uma categoria muito diferente do provisionado na data ("tinha 18 mil, chegou 35 mil" [Reunião 21/10 32:28]);
    - **projeção de estouro:** o consumo proporcional ao campo feito passa do orçado (fórmula inicial `realizado / % campo concluído > orçado × 1,05`).
 8. O alerta explica a causa e **nunca altera o orçamento**.
+   - **Consumo no Connect (D5):** o supervisor vê no Connect quanto já foi gasto dos itens que não são entrevista. O Financeiro **fornece** o consumo por categoria do projeto (só valores, sem dado pessoal), pelo contrato (N4).
 9. Competência × caixa: a carteira usa **competência**; o fluxo de caixa usa a **data prevista** (provisão) e a **data de baixa** (realizado).
 
 ## Casos negados
@@ -82,5 +84,7 @@ Origem do requisito:
 - [SWOT S02, S03, S11]; [Connect: projetos-cotas-e-orcamento] regras 6–10.
 
 ## Ajustes
+
+- 2026-10-21: item de orçamento = linha de custo (fornecedores, incentivos); autorização de estouro por algum administrador, com log; o Connect passa a mostrar o consumo ao supervisor ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md)).
 
 - 2026-10-21: o orçamento por rubrica editado no Financeiro (versão de 20/10) virou orçamento por categoria **montado no Connect** e só aplicado aqui, como o PO descreveu na reunião. O remanejamento entre rubricas saiu: passa a ser uma alteração de orçamento no Connect, com autorização.

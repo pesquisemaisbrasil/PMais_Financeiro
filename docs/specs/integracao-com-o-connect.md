@@ -38,6 +38,11 @@ Contrato do que o **Financeiro** implementa para conversar com o P+ Connect. O c
 | `interviewer.pix_changed` | marca as planilhas geradas antes da troca ("chave alterada") |
 | `payment.applied` / `payment.reversed` | confirma a baixa local (`aplicada`) ou registra a reversão |
 
+- **O que a reunião de 21/10 acrescenta (a entrar no contrato, N4):**
+  - itens do orçamento com data (leitura);
+  - modelo fiscal (NF ou RPA) e status da NF do entrevistador (leitura). **O arquivo da NF não passa por aqui**: fica no Connect (D8);
+  - **consumo do orçamento por categoria**, que o **Financeiro fornece** e o Connect lê para mostrar ao supervisor (D5): só valores, sem dado pessoal;
+  - prazo de pagamento do projeto, definido pelo supervisor (D9).
 - **Sincronização de segurança:**
   - feed `GET /events?after=<maior seq>` a cada 5 min e no início do dia;
   - **conferência diária** por projeto com item a pagar ou baixa nos últimos 30 dias: o espelho é comparado com `GET /payables` (contagem e soma por status).
@@ -88,5 +93,7 @@ Quando o Financeiro recebe eventos:
 - Lado do Connect: lista de tarefas em [handoff/07 §7](../handoff/07-integracao-com-o-connect.md)
 
 ## Ajustes
+
+- 2026-10-21: NF fica no Connect e só o status chega aqui; o Financeiro passa a fornecer o consumo do orçamento ao Connect ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md)).
 
 - 2026-10-21: o cancelamento de baixa (`POST /payments/{ref}/reversal`) não entra até o PO decidir (pergunta aberta Q4).

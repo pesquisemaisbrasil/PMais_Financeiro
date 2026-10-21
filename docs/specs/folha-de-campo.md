@@ -10,7 +10,7 @@ A reunião de 21/10 confirmou o caminho [Reunião 21/10 24:10–25:50]:
 
 ## Comportamento
 
-- **Data de pagamento por área** (como funciona hoje, a confirmar por escrito; pendência F4) [Reunião 21/10 25:52–29:06]:
+- **Data de pagamento.** Decidido ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D9): o **supervisor define o prazo de cada projeto** e ele **vale para todas as equipes**. A tabela abaixo é só a **orientação** de como cada área conta hoje; não é regra do sistema. Falta só decidir o formato do prazo (dias depois do lançamento ou depois do fim do projeto) [Reunião 21/10 25:52–29:06]:
 
 | Área | Regra |
 |---|---|
