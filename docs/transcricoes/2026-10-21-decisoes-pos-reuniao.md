@@ -18,6 +18,7 @@
 | D9 | Prazo de pagamento | O **supervisor define** o prazo de cada projeto e ele **vale para todas as equipes**. As regras por área (15 dias, 2 vezes por mês, 10 dias) viram orientação para o supervisor, não regra do sistema. |
 | D10 | Contrato por projeto (ZapSign) | Já planejado, **só do Connect**. Sem contrato assinado o supervisor não lança entrevistas. Não passa pela integração. |
 | D11 | Pagar direto pelo Itaú | **Anotado para pesquisar.** É assunto só do Financeiro; o Connect não participa. |
+| D13 | Orçamento: o que se informa | Ao passar o orçamento, cada item vem com **item, valor e data estimada de pagamento**. A data estimada alimenta a provisão. |
 | D12 | Escopo do Financeiro | **Sem ordem de módulos ainda.** A base antiga (SGE4B) deve ser **pedida ao fornecedor**. |
 
 ## Pontos ainda abertos que isto levanta
