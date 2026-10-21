@@ -7,6 +7,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
 ## Comportamento
 
 - **Onde nasce:** o orçamento é montado **na abertura do projeto, no P+ Connect**, dividido por **categoria de custo** (entrevistadores, incentivo, fornecedores, supervisão, telefonia...). Cada categoria tem valor e **data prevista de pagamento** [Reunião 21/10 29:17–34:15].
+  - Quem passa o orçamento informa, para cada item, **item, valor e data estimada de pagamento**, os três obrigatórios (decidido, D13).
   - Um **item** é uma linha de custo, como "pagamento a fornecedores" ou "incentivos" (decidido, D2). O orçamento do projeto é a soma dos itens.
   - O nível é a categoria, não cada fornecedor: "18 mil com fornecedor" basta [Reunião 21/10 32:28].
 - **Chegada:** o orçamento chega ao Financeiro **sozinho**, pela integração. Ninguém digita de novo; hoje o financeiro recebe por e-mail e lança à mão [Reunião 21/10 33:26].
