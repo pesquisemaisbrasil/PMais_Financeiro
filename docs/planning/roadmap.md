@@ -12,6 +12,7 @@ Ordem dos módulos do Financeiro e o estado de cada um. Cada módulo segue o mes
 - [ ] Login de consulta no SGE4B para o time de desenvolvimento (funcionalidades e relatórios).
 - [ ] Reunião só para levantar as **11 bases** e os relatórios usados, e pedir ao fornecedor do SGE4B a **exportação completa**.
 - [ ] Levantar com a Camila os dados de RPA e da ficha de fornecedor (N3).
+- [ ] Ampliar o contrato `v1` com o que as decisões de 21/10 pedem (N4): itens do orçamento com data, modelo fiscal e status da NF, consumo do orçamento, prazo do projeto. ADR da integração no Connect.
 - [ ] Pesquisas técnicas: integração Itaú (N1) e captura automática de NF (N2).
 
 ## Módulos
