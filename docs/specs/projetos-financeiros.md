@@ -12,7 +12,7 @@ Contrato da ficha financeira do projeto, do seu ciclo de vida e dos eventos de a
   - datas: mês de **venda** e mês de **execução** (são diferentes: vende num ano e executa no outro [S1 08:25]), início e término de campo previstos e reais;
   - regras financeiras: **fonte do incentivo** (`caixa_proprio` | `link_cliente` — no link do cliente o dinheiro não sai do nosso caixa [S1 03:50]), **origem da lista** (`propria` | `cliente` | `mista`, com cotas por origem quando houver), modelo de pagamento do campo (por entrevista, por hora, por diária ou misto), ciclo de folha;
   - valores: valor vendido (receita), orçamento por rubrica (ver [orcamento-e-saude-financeira](orcamento-e-saude-financeira.md)) e reserva de contingência.
-- **Fim do projeto:** o encerramento no Connect marca a data que conta para a folha final (15 dias corridos no consumo, 10 no CATI; ver [folha-de-campo](folha-de-campo.md)) e transforma em data certa a provisão da folha final.
+- **Fim do projeto:** o encerramento no Connect marca a data que conta para a folha final (o prazo é definido pelo supervisor no projeto e vale para todas as equipes; ver [folha-de-campo](folha-de-campo.md)) e transforma em data certa a provisão da folha final.
 - **Ciclo de vida:** `proposta` → `aprovado` → `em_campo` → `campo_encerrado` → `em_fechamento` → `fechado`; pode ir para `cancelado` a partir de qualquer estado antes de `fechado`.
 - **Abertura** (ao passar para `em_campo`): gera um **checklist de abertura** com tarefas por área (processamento, verificação, delivery/online, financeiro). Cada tarefa tem responsável, prazo e aceite, e o checklist inclui itens como "checagem de consistência" que hoje são esquecidos no copia-e-cola de e-mail [S2 11:01–15:20]. Gera também uma comunicação curta com o link da ficha, em vez do e-mail longo.
 - **Fechamento** em dois passos:
@@ -66,3 +66,7 @@ Origem do requisito:
 - [S2 11:01–18:05]: abertura e fechamento por e-mail, aviso ao processamento.
 - [SGE4B §5.8]: campos do cadastro de projeto.
 - [SWOT §2, D6, S14, RF09].
+
+## Ajustes
+
+- 2026-10-21: o projeto **fica no Connect** e o supervisor administra tudo lá ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D4). O ciclo de vida e a aprovação do orçamento descritos aqui precisam ser revistos (pergunta Q16).

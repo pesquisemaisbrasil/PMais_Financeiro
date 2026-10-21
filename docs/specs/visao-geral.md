@@ -37,6 +37,7 @@ Outros papéis (direção, gestora de projeto, comercial, auditor): [papeis-e-es
 |---|---|---|
 | Pessoas, CPF (hash), chave Pix (cifrada), **modelo fiscal (NF/RPA) e NF enviada** | Connect | **não copia**. Lê pela API; a chave completa só ao gerar a planilha, com auditoria nos dois lados |
 | Projetos, valor por entrevista, prazo, **orçamento por categoria** | Connect | lê pela API, guarda espelho mínimo e cria as provisões |
+| **Contrato por projeto (ZapSign)** e **guarda temporária da NF do entrevistador** (6 meses, por projeto) | Connect | não participa; recebe só o status da NF. Sem contrato assinado o supervisor não lança entrevistas |
 | Entrevistas lançadas | Connect | guarda o espelho mínimo por id (`payable_items`) |
 | Status "pago" da entrevista | Connect | **pede** a baixa (`POST /payments`, idempotente) |
 | Lotes, comprovantes, conciliação, contas a pagar/receber, extrato, documentos fiscais de fornecedores, relatórios | **Financeiro** | — |
@@ -51,7 +52,7 @@ As de 1 a 10 são decisões do [handoff/01](../handoff/01-visao-escopo-e-decisoe
 2. **Valor exato:** Pix = soma dos itens pagos. Não existe resto; se não fecha, é divergência e vai para revisão humana.
 3. **Orçamento é teto, e quem controla é o Connect.** Para entrevistas, é teto duro no lançamento. Nas outras categorias, o lançamento acima fica aguardando a autorização de um administrador.
 4. **Nada é pago sem confirmação humana.**
-5. **O PDF do comprovante Pix do entrevistador não é guardado.** Notas fiscais são guardadas por 5 anos no cofre cifrado ([documentos-fiscais](documentos-fiscais.md)).
+5. **O PDF do comprovante Pix do entrevistador não é guardado.** A NF do entrevistador fica 6 meses no Connect e 5 anos na rede da empresa; as notas de fornecedores seguem em [documentos-fiscais](documentos-fiscais.md).
 6. **Quem recebeu sem estar no projeto** gera alerta e nunca é pago automaticamente.
 7. **Chave Pix mascarada** em toda tela; completa só na planilha e no lote, que são auditados.
 8. **CPF nunca aparece:** só existe como hash, no Connect.

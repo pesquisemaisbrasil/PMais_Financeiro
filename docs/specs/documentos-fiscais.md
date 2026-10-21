@@ -9,11 +9,13 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 **Modelo fiscal do prestador** (entrevistador, recrutador, supervisor autônomo):
 - No **cadastro do Connect**, a pessoa escolhe como recebe [Reunião 21/10 40:11–41:41]:
   - **NF** (pessoa jurídica): razão social, nome fantasia, CNPJ e o que mais o financeiro pedir (a fechar com a Camila: regime tributário? pendência N3);
-  - **RPA** (autônomo, pessoa física): dados para o recibo, como o **PIS/NIT** (a fechar com a Camila: N3). O cadastro avisa que há **desconto de 11% de INSS**.
+  - **RPA** (autônomo, pessoa física): **CPF e PIS/NIT** bastam, além do nome e do endereço que o Connect já tem (decidido, D7). CPF inteiro depende do DPO (Q15). O cadastro avisa que há **desconto de 11% de INSS**.
 - O cadastro deixa claro que a empresa trabalha só com esses dois modelos [Reunião 21/10 41:21–41:37].
 - Isso mora no Connect, que é dono da pessoa. O Financeiro recebe só o modelo e o status do documento pela API (pendência N4).
 
-**NF do entrevistador** (libera o pagamento):
+**NF do entrevistador** (libera o pagamento). Decidido ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D8):
+- **O Connect guarda o arquivo**, agrupado **por projeto**, por **6 meses**. O papel financeiro baixa por projeto e leva para a **rede da empresa**, onde a nota fica 5 anos. Depois de 6 meses o Connect apaga.
+- **O Financeiro não guarda o arquivo.** Recebe só o status ("recebida" ou "pendente") e confere número e valor na conciliação.
 - A NF é enviada **no sistema**, pelo entrevistador ou pelo supervisor do projeto, e não mais por e-mail ao supervisor [Reunião 21/10 23:28, 34:35, 42:30].
 - Ela fica ligada aos itens a pagar daquele pagamento (projeto + período).
 - **Quem recebe por NF e não enviou a nota não entra na planilha de pagamento.** Aparece em "Aguardando NF" com o valor [Reunião 21/10 42:30–42:44].
@@ -45,13 +47,15 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 1. Todo item pago tem um documento fiscal ou a marca explícita "sem documento" com o motivo (incentivo, adiantamento, reembolso sem cupom, outro).
 2. Item de prestador "NF" só entra em planilha ou lote com a NF anexada e com número e data de emissão preenchidos.
 3. A **data de emissão** é guardada separada da data de pagamento: há notas emitidas num mês e pagas no seguinte, com crédito de imposto já usado [Reunião 21/10 15:18–15:57].
-4. **Guarda fiscal de 5 anos** (auditoria fiscal [Reunião 21/10 15:02]), no cofre cifrado de [handoff/06 §4](../handoff/06-seguranca-e-lgpd.md), com `retainUntil`. Apagar antes do prazo é bloqueado. O prazo final é definido com o DPO e a contabilidade (Q5).
+4. **Guarda fiscal de 5 anos** (auditoria fiscal [Reunião 21/10 15:02]):
+   - **NF do entrevistador:** os 5 anos ficam na **rede da empresa**. O sistema guarda **6 meses, no Connect**, agrupada por projeto, e apaga sozinho depois (D8). O Financeiro não guarda o arquivo.
+   - **Notas de fornecedores e demais notas dos títulos:** continuam no cofre cifrado de [handoff/06 §4](../handoff/06-seguranca-e-lgpd.md), com `retainUntil`; apagar antes do prazo é bloqueado. Se o prazo de 6 meses vale para elas também, é a pendência Q17.
 5. Nota marcada **cancelada** na origem gera alerta no título pago com ela.
 6. RPA:
    - o desconto de INSS é calculado, nunca digitado;
    - a alíquota fica em configuração (11% hoje), com vigência;
    - o teto do INSS e as outras retenções são confirmados com a contabilidade (N3).
-7. O arquivo de NF de pessoa de campo é dado pessoal fiscal: acesso só do financeiro e do admin, com cada download auditado.
+7. O arquivo de NF de pessoa de campo é dado pessoal fiscal: no Connect, acesso só do financeiro e do admin, com cada download auditado.
 8. A exportação para a contabilidade (planilha de conciliação do mês) leva, por pagamento: data, valor, tipo de documento, número da NF, data de emissão e emitente.
 
 ## Casos negados
@@ -85,3 +89,4 @@ Origem do requisito:
 ## Ajustes
 
 - 2026-10-21: spec criado a partir da reunião de 21/10.
+- 2026-10-21: NF do entrevistador passa a ficar 6 meses no Connect, por projeto, e 5 anos na rede da empresa; o Financeiro só recebe o status. Dados do RPA: CPF e PIS/NIT. [decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md).
