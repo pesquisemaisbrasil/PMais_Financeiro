@@ -163,13 +163,14 @@ Mesmo formato da API do Connect (`{"detail": "..."}`), com `code` estável para 
 | Status | `code` | Quando |
 |---|---|---|
 | 400 | `invalid_request`, `invalid_scope` | Parâmetro inválido |
+| 401 | `invalid_client` | Só em `/oauth/token`: identificador ou segredo errados, ou conta desativada (a mesma resposta para os três) |
 | 401 | `invalid_token` | Token ausente, expirado, assinatura errada, cliente desativado |
 | 403 | `insufficient_scope` | Escopo não cobre a rota |
 | 404 | `not_found` | Recurso não existe |
 | 409 | `already_paid`, `idempotency_conflict`, `duplicate_e2e`, `not_reversible` | Conflito de estado |
 | 422 | `validation_error`, `amount_mismatch`, `mixed_interviewer`, `not_payable` | Regra de negócio. No `/integrations`, o handler converte o 422 padrão do FastAPI (lista) para este formato |
 | 429 | `rate_limited` | Com `Retry-After` em segundos |
-| 503 | `unavailable` | Manutenção; o Financeiro tenta de novo |
+| 503 | `unavailable` | Manutenção, ou integração desligada no ambiente (sem `INTEGRATION_JWT_SECRET`); o Financeiro tenta de novo |
 
 `detail` em pt-BR simples (pode chegar à tela do Financeiro); `code` é o que o código do Financeiro trata.
 
@@ -278,6 +279,8 @@ GET /integrations/v1/payables?projectId=12&status=to_pay&launchedFrom=2026-10-01
 | `paidOn`, `paymentRef` | Baixa (seção 4.6) |
 
 Filtros: `projectId`, `interviewerId`, `status`, `launchedFrom`/`launchedTo`, `dueTo`, `updatedSince` (sincronização). Cursor ordena por `(updatedAt, interviewId)`.
+
+**Paginação com `dueTo`:** o filtro de vencimento é aplicado no servidor depois de ler as linhas, e cada chamada examina no máximo 2000. No teto a resposta pode vir **curta ou vazia com `nextCursor` preenchido**: siga o cursor até ele vir nulo.
 
 **Entrevista apagada:** o supervisor pode apagar entrevista ainda não paga. Para o Financeiro não ficar com item fantasma, o Connect guarda uma marca (`interview_tombstones(interviewId, projectId, removedAt)`) e devolve `status: "removed"` em `updatedSince`.
 
@@ -596,6 +599,9 @@ async def receive(request: Request, db: Session = Depends(get_db)) -> None:
 ## 7. O que cada lado implementa
 
 ### Connect, nesta ordem
+
+> **Feito (fatia 1):** itens 1 a 5 e a leitura de `payables`, `projects` e `interviewers` (chave mascarada). Falta: `payment-data` e `pix-key-matches` com `pii_access_logs` por conta de serviço (6), baixa e `idempotency_keys` (7), outbox e webhooks (8), feed `/events` (9), cancelamento (10), `FINANCE_EXTERNAL_ENABLED` (11).
+> `/projects/{id}/budget` devolve hoje o orçamento único; os itens do orçamento entram quando existirem.
 
 1. ADR "Integração máquina a máquina com o Financeiro" + atualizar `integracao-entre-sistemas.md`, ROPA (OP-04: Financeiro como destinatário interno da chave Pix) e inventário de dados.
 2. `service_clients`, `service_client_logs`, `POST /oauth/token` (`client_credentials`), `INTEGRATION_JWT_SECRET`, `get_current_service_client`, `require_scope`; `get_current_user` recusando `typ: "service"`. Script `scripts/create_service_client.py` (mostra o segredo uma vez).
