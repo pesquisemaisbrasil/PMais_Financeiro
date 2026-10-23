@@ -20,7 +20,6 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q13 | Comprovante de outros bancos ou em imagem (OCR) | PO | Só Itaú/Sispag, PDF com texto | handoff/01, 08 |
 | Q14 | Login único entre Connect e Financeiro | PO | Contas separadas; desenhar pensando em OIDC | handoff/01 |
 | Q15 | **CPF inteiro e PIS/NIT para o RPA** (D7): o Connect hoje só guarda o hash do CPF (ADR 0003). Guardar inteiro cifrado, ou a contabilidade coletar fora do sistema? | DPO | O Connect não coleta nenhum dos dois | decisões pós-reunião |
-| Q16 | O ciclo de vida do projeto (`proposta` a `fechado`), o checklist e a aprovação do orçamento ficam no Financeiro ou no Connect, já que o **supervisor administra o projeto no Connect** (D4)? | PO + técnico | Spec projetos-financeiros descreve no Financeiro; revisar | decisões pós-reunião |
 | Q17 | O prazo de **6 meses** vale também para as **notas de fornecedores** (hoje 5 anos no cofre do Financeiro)? | DPO + Bruna | 5 anos no cofre, com `retainUntil` | decisões pós-reunião |
 
 ## Módulos 2 a 7
@@ -30,7 +29,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | N1 | **Integração com o Itaú**: API Pix em lote ou arquivo de remessa? Como vem o retorno por pagamento (erro por pessoa)? Quanto custa? | Pesquisa técnica + PO | Etapa 2 do Módulo 5; até lá, planilha e comprovante em PDF | reunião 21/10 11:23–13:19; handoff/01 punha "pagar pelo banco" fora do escopo |
 | N2 | **Captura automática de NF**: NFS-e (prefeitura / Emissor Nacional), NF-e (DANFE/XML) emitidas contra o CNPJ, cancelamentos. Que serviço ou API usar? NFC-e parece não ter fonte nacional | Pesquisa técnica (Manoel, Gustavo) + financeiro | Importar o arquivo exportado dos portais; NFC-e anexada à mão | reunião 21/10 34:41–38:39 |
 | N3 | **Dados de RPA e ficha de fornecedor.** Decidido para o RPA ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D7): **CPF e PIS/NIT** bastam, além de nome e endereço. Aberto: teto do INSS, retenções, regime tributário do PJ e os campos da ficha de fornecedor | Camila + contabilidade | Alíquota de 11% configurável; campos da ficha `(a validar)` | reunião 21/10 39:44–44:00 |
-| N4 | **Contrato com o Connect ampliado** (mudança aditiva no `v1`): itens do orçamento com data; modelo fiscal (NF/RPA) e status da NF do entrevistador; prazo definido pelo supervisor; **consumo do orçamento** lido pelo Connect (D5); fim do projeto. O arquivo da NF **não** atravessa a integração (D8) | PO + técnico (os dois repos) | Previsto nos specs; ainda não no [handoff/07](../handoff/07-integracao-com-o-connect.md) | reunião 21/10 e decisões pós-reunião |
+| N4 | **Contrato com o Connect ampliado** (mudança aditiva no `v1`): itens do orçamento com data; modelo fiscal (NF/RPA) e status da NF do entrevistador; prazo definido pelo supervisor; **consumo do orçamento**: lançado no Connect pelo coordenador e **lido** pelo Financeiro (E3 de 23/10, que inverte a D5); fim do projeto. O arquivo da NF **não** atravessa a integração (D8) | PO + técnico (os dois repos) | Previsto nos specs; ainda não no [handoff/07](../handoff/07-integracao-com-o-connect.md) | reunião 21/10 e decisões pós-reunião |
 | N5 | Os itens por pessoa do lançamento agrupado viram um título por pessoa ou continuam itens de um lançamento? | Financeiro | Itens de um lançamento (como o financeiro trabalha hoje) | reunião 21/10 20:36–22:55 |
 | F2 | Pix que paga entrevistas **e** outros itens da mesma pessoa: a baixa no Connect exige `amount` = soma das entrevistas. Muda o contrato, ou cada natureza tem Pix próprio? | PO + técnico | Um Pix por natureza | alinhamento 21/10 |
 | F3 | Lista oficial de **categorias** (plano de contas, cerca de 10 hoje?) e o vínculo com o DRE e com as categorias do orçamento | Financeiro + direção | Proposta de 8 categorias de custo | reunião 21/10 2:32 |
@@ -38,6 +37,22 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | F8 | Multiempresa: quais empresas/CNPJs e unidades, e se há segregação de acesso | Direção + financeiro | Multiempresa com escopo por empresa | levantamento |
 | F9 | Obrigações fiscais e contábeis além da exportação para a contabilidade (SPED, integração contábil) | Financeiro + contabilidade | Só a exportação mensal | levantamento |
 | F11 | Novos papéis (direção, gestora de projeto, supervisor, comercial, auditor) no Financeiro | PO + Vivi | Só `financeiro` e `admin` | alinhamento 21/10 |
+
+## Respostas do financeiro de 23/10 (novas)
+
+Respostas e consequências: [registro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md).
+
+| # | Pergunta | Quem decide | Hoje |
+|---|---|---|---|
+| F13 | A **I-hea** (unidade de negócio com sistema próprio) entra no consolidado do Grupo? Como os números dela chegam (importação, lançamento resumido)? | Direção + financeiro | Fora do Financeiro |
+| F14 | **Invoice internacional**: em que moeda é o valor, e o câmbio é registrado? | Financeiro | Título em reais; PDF da invoice anexado; moeda e câmbio não tratados |
+| F15 | **Transferência entre empresas**: marcar no lançamento e eliminar no consolidado quando houver repasse | PO + direção | O lançamento pode ser marcado; a eliminação entra com o DRE consolidado |
+| F16 | **Boleto recebido por e-mail**: ler o código de barras do PDF automaticamente | PO | Campo "código de barras" digitado; leitura automática é futuro |
+| F17 | **Fatura do cartão**: importar a fatura e conferir com os lançamentos rateados | PO | Lançamento manual rateado; importação é futuro |
+| F18 | **Adiantamentos e prestação de contas** de viagem ([spec futuro](../specs/futuro/adiantamentos-e-prestacao-de-contas.md)) | PO + financeiro | Lançamento comum com anexos |
+| F19 | **Cobrança e comunicação com o cliente** pelo sistema (hoje por e-mail, de forma pessoal) | PO + financeiro | Fora do escopo; revisar depois |
+| F20 | **Autorização para passar do orçamento** (D3): como fica agora que o gasto é lançado no Connect pelo coordenador (E3). O mesmo pedido existe no Connect (Q4 de lá) | PO | O Connect bloqueia gasto acima do item; sem autorização por enquanto |
+| F21 | O Financeiro pode lançar o gasto de um item do orçamento, ou só **ler** o que o coordenador lançou no Connect (Q5 do Connect)? | PO | Só lê |
 
 ## Escopo futuro
 
@@ -54,6 +69,8 @@ Decisões do PO depois da reunião de 21/10: [registro](../transcricoes/2026-10-
 - **F4**, datas de pagamento por área: o **supervisor define o prazo do projeto e vale para todas as equipes** (D9). As regras por área viram orientação. Falta só o formato do prazo (depois do lançamento ou do fim do projeto).
 - **F5**, quem autoriza gasto acima do orçamento: **algum administrador**, com **log** da autorização (D3).
 - **Orçamento em itens** (D1, D2) e **projeto fica no Connect** (D4); pedido de aumento de limite registrado: fora por enquanto.
+- **Q16**, ciclo de vida do projeto: **fica no Connect**, com o papel de **coordenador** (cria o projeto, atribui o supervisor, monta o orçamento por itens e lança o gasto). O Financeiro só tem a visão financeira do projeto. Registro de 23/10 (E1 a E5).
+- **Consumo do orçamento** (muda a D5): lançado no Connect pelo coordenador; o Financeiro **lê** o gasto por item. Registro de 23/10 (E3).
 - **NF ou RPA:** a pessoa escolhe no cadastro do Connect (D6). **Pagar pelo Itaú:** segue como pesquisa N1 (D11).
 
 - **Q11**, o Financeiro altera o orçamento? **Não.** O orçamento é montado no Connect e só muda com autorização de administrador; o Financeiro aplica. Reunião de 21/10 (33:26).

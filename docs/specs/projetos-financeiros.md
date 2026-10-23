@@ -69,4 +69,5 @@ Origem do requisito:
 
 ## Ajustes
 
-- 2026-10-21: o projeto **fica no Connect** e o supervisor administra tudo lá ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D4). O ciclo de vida e a aprovação do orçamento descritos aqui precisam ser revistos (pergunta Q16).
+- 2026-10-21: o projeto **fica no Connect** e o supervisor administra tudo lá ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D4). O ciclo de vida e a aprovação do orçamento descritos aqui precisam ser revistos (pergunta Q16, resolvida em 23/10: ver o ajuste abaixo).
+- 2026-10-23: **resolvida a Q16.** O ciclo de vida do projeto, o orçamento por itens e o gasto ficam no **Connect**, com o papel de **coordenador** (cria o projeto, atribui o supervisor, muda orçamento e preço com histórico e lança o gasto dos itens que não são entrevista); o supervisor só lança entrevistas nos projetos atribuídos ([decisões do PO](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), E1 a E5). Este spec deve ser reduzido à **visão financeira** do projeto (receita, custo, provisão, margem), sem ciclo de vida próprio.

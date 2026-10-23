@@ -99,3 +99,10 @@ Origem do requisito:
 
 - [Reunião 21/10 1:04–9:53, 20:36–23:06, 27:41, 46:33–47:49]: lançamento atual, rateio, lote, provisão, atraso de documentação.
 - [SGE4B §5.1, §6.1, §10 CT-01, CT-07]; [SGE4B §4.3].
+
+## Ajustes
+
+- 2026-10-23: o lançamento ganha o campo **código de barras / linha digitável**, separado da observação, porque hoje o financeiro o guarda na observação e copia para o banco ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A3). Ler o boleto do e-mail automaticamente é futuro (F16).
+- 2026-10-23: gasto de **cartão de crédito** é lançamento rateado por fornecedor, projeto e categoria, conforme o extrato (A2). Importar a fatura é futuro (F17).
+- 2026-10-23: **boletos de impostos** vêm da contabilidade e entram como contas a pagar comuns; o sistema não apura impostos (A5). **Adiantamentos de viagem** são lançamentos comuns com anexos; o controle de saldo a comprovar é futuro ([spec](futuro/adiantamentos-e-prestacao-de-contas.md)).
+- 2026-10-23: **transferência entre empresas** do Grupo (hoje não usada, mas pode acontecer) é marcada no lançamento, para o consolidado não contar duas vezes (F15).

@@ -68,3 +68,7 @@ Origem do requisito:
 - [SGE4B §4, §5.7, §5.8, §7.1]; lista de campos a validar: [SGE4B §5.7].
 - [S1 05:03, 07:45]: planilha de controle e planejamento recebido.
 - Pendências F8 (multiempresa), F9 (fiscal). Formulário completo do SGE4B: ver o login de consulta e a exportação no roadmap.
+
+## Ajustes
+
+- 2026-10-23: o Grupo tem **4 empresas** (MC, PPlus, P Plus Log e Medtrek). A **I-hea** é uma unidade de negócio com sistema próprio e fica **fora** do Financeiro por enquanto (pergunta F13) ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A1).

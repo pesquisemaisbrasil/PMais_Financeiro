@@ -51,3 +51,8 @@ Origem do requisito:
 
 
 - [SGE4B §5.5, §6.2, §10 CT-02, CT-04].
+
+## Ajustes
+
+- 2026-10-23: o título a receber guarda **valor bruto, abatimentos (retenções) e valor líquido**; a retenção é lançada junto da NF emitida, como o financeiro faz hoje ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A5). Os impostos apurados pela contabilidade não são calculados aqui.
+- 2026-10-23: a **emissão da NF fica fora** (o financeiro emite no site da prefeitura). O título guarda **número e data da NF** e aceita o **PDF anexado**, inclusive o da invoice internacional (moeda: pergunta F14). A cobrança e a comunicação com o cliente seguem por e-mail, fora do sistema (F19).
