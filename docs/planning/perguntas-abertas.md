@@ -45,6 +45,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 |---|---|---|---|
 | F1 | Entram telefonia/consumo digital, atribuição de produção, calculadora de orçamento e evidências/OCR? Quando? | PO + direção | Fora do escopo ([specs/futuro](../specs/futuro/README.md)) |
 | F7 | Regra corporativa de atribuição (online × recrutador × entrevistador) | Operação + financeiro + direção | Só se F1 trouxer a atribuição |
+| F12 | **Planejamento orçamentário do Grupo:** orçamento de todas as áreas, comparado com o realizado. Como o Fabiano planeja hoje, quem preenche, se há versões ([spec](../specs/futuro/planejamento-orcamentario-do-grupo.md)) | PO + Fabiano | Fora do escopo; fase seguinte |
 
 ## Decididas (histórico)
 

@@ -9,6 +9,7 @@
 | [consumo-telefonia-e-digital](consumo-telefonia-e-digital.md) | Custo de telefonia, listas, disparos e bot por projeto |
 | [atribuicao-de-producao](atribuicao-de-producao.md) | Online × recrutador × entrevistador, em shadow mode |
 | [calculadora-e-previsao](calculadora-e-previsao.md) | Calculadora de orçamento e previsão de custo, em shadow mode |
+| [planejamento-orcamentario-do-grupo](planejamento-orcamentario-do-grupo.md) | Orçamento de todas as áreas do Grupo comparado com o realizado (pedido do Fabiano) |
 | [evidencias-e-catalogo](evidencias-e-catalogo.md) | Cofre de evidências com OCR/renomeação e catálogo Big Base |
 
 Vêm das entrevistas com a gestão operacional e do relatório SWOT:
