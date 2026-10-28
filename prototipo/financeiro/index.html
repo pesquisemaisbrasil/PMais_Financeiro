@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>P+ Financeiro · Protótipo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="logo-branco.png" alt="P+ Financeiro">
+        <span>Financeiro</span>
+      </div>
+      <nav class="menu" id="menu" aria-label="Menu principal"></nav>
+      <div class="sidebar-footer">
+        <button class="btn btn-outline btn-sm w-full" data-acao="restaurar">
+          <i data-lucide="rotate-ccw"></i> Restaurar dados de exemplo
+        </button>
+        <div class="usuario">
+          <span class="avatar">BC</span>
+          <div><strong>Bruna (exemplo)</strong><small>Financeiro</small></div>
+        </div>
+      </div>
+    </aside>
+    <div class="conteudo">
+      <div class="faixa-prototipo">Protótipo com dados fictícios. Nada aqui é real nem é salvo fora deste navegador.</div>
+      <main id="tela" class="main"></main>
+    </div>
+  </div>
+
+  <!-- Netlify Forms: guarda as respostas de validação de todo mundo no painel do Netlify. -->
+  <form name="validacao" data-netlify="true" netlify-honeypot="bot-field" hidden>
+    <input name="bot-field"><input name="quem"><input name="tela"><input name="ponto"><input name="resposta"><textarea name="comentario"></textarea><input name="quando">
+  </form>
+
+  <dialog id="dialogo" class="dialogo"></dialog>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="lucide.min.js"></script>
+  <script src="dados.js"></script>
+  <script src="base.js"></script>
+  <script src="dominio.js"></script>
+  <script src="telas/inicio.js"></script>
+  <script src="telas/entrevistadores.js"></script>
+  <script src="telas/pagar.js"></script>
+  <script src="telas/folha.js"></script>
+  <script src="telas/receber.js"></script>
+  <script src="telas/banco.js"></script>
+  <script src="telas/cadastros.js"></script>
+  <script src="telas/auditoria.js"></script>
+  <script src="telas/validacao.js"></script>
+  <script>iniciar();</script>
+</body>
+</html>
