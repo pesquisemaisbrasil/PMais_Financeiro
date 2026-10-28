@@ -1,0 +1,492 @@
+{
+  "entities": [
+    {
+      "name": "DemoPartyType",
+      "fields": [],
+      "validation": "TypeScript union: fornecedor | cliente",
+      "source": "client/src/lib/demoModel.ts:3"
+    },
+    {
+      "name": "DemoDirection",
+      "fields": [],
+      "validation": "TypeScript union: pagar | receber",
+      "source": "client/src/lib/demoModel.ts:4"
+    },
+    {
+      "name": "DemoFlow",
+      "fields": [],
+      "validation": "TypeScript union: saida | entrada",
+      "source": "client/src/lib/demoModel.ts:5"
+    },
+    {
+      "name": "DemoProjectStatus",
+      "fields": [],
+      "validation": "TypeScript union: ativo | fechado",
+      "source": "client/src/lib/demoModel.ts:6"
+    },
+    {
+      "name": "DemoProvisionStatus",
+      "fields": [],
+      "validation": "TypeScript union: prevista | substituida | cancelada",
+      "source": "client/src/lib/demoModel.ts:7"
+    },
+    {
+      "name": "DemoBatchStatus",
+      "fields": [],
+      "validation": "TypeScript union: pendente | em_lote | paga_simulada",
+      "source": "client/src/lib/demoModel.ts:8"
+    },
+    {
+      "name": "DemoTitleStatus",
+      "fields": [],
+      "validation": "Derived TypeScript union: em_aberto | parcial | vencido | vence_hoje | a_vencer | liquidado_simulado; em_aberto is declared/UI-visible but is not returned by titleStatus",
+      "source": "client/src/lib/demoModel.ts:9,121-132; client/src/pages/demo/DemoAccountsPage.tsx:54-62"
+    },
+    {
+      "name": "DemoParty",
+      "fields": [
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; /^[a-z]+-demo-[A-Za-z0-9-]+$/","source":"client/src/lib/demoModel.ts:11; client/src/lib/demoValidation.ts:10,18"},
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"label: min 1, max 180, must contain demo case-insensitively","source":"client/src/lib/demoModel.ts:11; client/src/lib/demoValidation.ts:11,18"},
+        {"name":"type","type":"DemoPartyType","required":true,"nullable":false,"validation":"enum fornecedor | cliente","source":"client/src/lib/demoModel.ts:11; client/src/lib/demoValidation.ts:18"},
+        {"name":"active","type":"boolean","required":true,"nullable":false,"validation":"boolean","source":"client/src/lib/demoModel.ts:11; client/src/lib/demoValidation.ts:18"}
+      ],
+      "validation":"Collection max 2500; IDs unique within parties; name is normalized by store with DEMO label when created/renamed",
+      "source":"client/src/lib/demoModel.ts:11; client/src/lib/demoValidation.ts:15,18; client/src/contexts/DemoStore.tsx:38-40,225-233"
+    },
+    {
+      "name":"DemoCategory",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:12; client/src/lib/demoValidation.ts:10,19"},
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:12; client/src/lib/demoValidation.ts:11,19"},
+        {"name":"type","type":"\"despesa\" | \"receita\"","required":true,"nullable":false,"validation":"enum despesa | receita","source":"client/src/lib/demoModel.ts:12; client/src/lib/demoValidation.ts:19"},
+        {"name":"code","type":"string","required":true,"nullable":false,"validation":"min 1, max 50; store normalizes to DEMO- plus uppercase payload","source":"client/src/lib/demoModel.ts:12; client/src/lib/demoValidation.ts:14,19; client/src/contexts/DemoStore.tsx:234-238"},
+        {"name":"active","type":"boolean","required":true,"nullable":false,"validation":"boolean","source":"client/src/lib/demoModel.ts:12; client/src/lib/demoValidation.ts:19"}
+      ],
+      "validation":"Collection max 2500; IDs unique within categories; addCategory rejects duplicate normalized code case-insensitively",
+      "source":"client/src/lib/demoModel.ts:12; client/src/lib/demoValidation.ts:15,19; client/src/contexts/DemoStore.tsx:234-238"
+    },
+    {
+      "name":"DemoCostCenter",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:13; client/src/lib/demoValidation.ts:10,20"},
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:13; client/src/lib/demoValidation.ts:11,20"},
+        {"name":"code","type":"string","required":true,"nullable":false,"validation":"min 1, max 50; store normalizes to DEMO- plus uppercase payload","source":"client/src/lib/demoModel.ts:13; client/src/lib/demoValidation.ts:14,20; client/src/contexts/DemoStore.tsx:240-244"},
+        {"name":"active","type":"boolean","required":true,"nullable":false,"validation":"boolean","source":"client/src/lib/demoModel.ts:13; client/src/lib/demoValidation.ts:20"}
+      ],
+      "validation":"Collection max 2500; IDs unique within centers; schema defaults missing centers array to [] at object parse; active centers are selectable for titles",
+      "source":"client/src/lib/demoModel.ts:13,176-179; client/src/lib/demoValidation.ts:15,20; client/src/contexts/DemoStore.tsx:240-246"
+    },
+    {
+      "name":"DemoProject",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:15; client/src/lib/demoValidation.ts:10,21"},
+        {"name":"code","type":"string","required":true,"nullable":false,"validation":"min 1, max 50; store normalizes to DEMO- plus uppercase payload; duplicate normalized code rejected","source":"client/src/lib/demoModel.ts:15; client/src/lib/demoValidation.ts:14,21; client/src/contexts/DemoStore.tsx:247-252"},
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:15; client/src/lib/demoValidation.ts:11,21"},
+        {"name":"clientId","type":"string","required":true,"nullable":false,"validation":"DEMO ID; must reference a party of type cliente","source":"client/src/lib/demoModel.ts:15; client/src/lib/demoValidation.ts:21,49"},
+        {"name":"budgetCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000; store requires safe positive cents","source":"client/src/lib/demoModel.ts:15; client/src/lib/demoValidation.ts:13,21; client/src/contexts/DemoStore.tsx:42,248-252"},
+        {"name":"progressPercent","type":"number","required":true,"nullable":false,"validation":"schema min 0 max 100; not required to be integer; new projects are initialized at 0","source":"client/src/lib/demoModel.ts:16; client/src/lib/demoValidation.ts:21; client/src/contexts/DemoStore.tsx:252"},
+        {"name":"status","type":"DemoProjectStatus","required":true,"nullable":false,"validation":"enum ativo | fechado","source":"client/src/lib/demoModel.ts:16; client/src/lib/demoValidation.ts:21"}
+      ],
+      "validation":"Collection max 2500; IDs unique within projects; setProjectBudget checks existence but not active status; title/provision/lot/sheet creation separately checks active status",
+      "source":"client/src/lib/demoModel.ts:14-17; client/src/lib/demoValidation.ts:15,21,44-45; client/src/contexts/DemoStore.tsx:247-257"
+    },
+    {
+      "name":"DemoSettlement",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex; unique across all title settlements during state validation","source":"client/src/lib/demoModel.ts:18; client/src/lib/demoValidation.ts:10,25,54-57"},
+        {"name":"date","type":"string","required":true,"nullable":false,"validation":"valid demo date 2000-01-01..2100-12-31","source":"client/src/lib/demoModel.ts:18; client/src/lib/demoValidation.ts:12,25"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000","source":"client/src/lib/demoModel.ts:18; client/src/lib/demoValidation.ts:13,25"},
+        {"name":"bankTransactionId","type":"string","required":true,"nullable":false,"validation":"DEMO ID; unique across settlements and must point to matching bank transaction","source":"client/src/lib/demoModel.ts:18; client/src/lib/demoValidation.ts:10,25,54-60"}
+      ],
+      "validation":"Settlement total for a title cannot exceed title amount; matching transaction must have same title, settlement, date, amount and direction",
+      "source":"client/src/lib/demoModel.ts:18; client/src/lib/demoValidation.ts:50-60"
+    },
+    {
+      "name":"DemoTitle",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:20; client/src/lib/demoValidation.ts:10,23"},
+        {"name":"direction","type":"DemoDirection","required":true,"nullable":false,"validation":"enum pagar | receber; party/category compatibility derives from direction","source":"client/src/lib/demoModel.ts:20; client/src/lib/demoValidation.ts:23; client/src/contexts/DemoStore.tsx:262-264"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:20; client/src/lib/demoValidation.ts:11,23"},
+        {"name":"partyId","type":"string","required":true,"nullable":false,"validation":"DEMO ID; supplier for pagar, client for receber; state validation checks type, action checks active","source":"client/src/lib/demoModel.ts:20; client/src/lib/demoValidation.ts:10,23,50-52; client/src/contexts/DemoStore.tsx:262-264"},
+        {"name":"projectId","type":"string | null","required":true,"nullable":true,"validation":"nullable; if non-null must reference an existing project in persisted state; creation accepts null or active project","source":"client/src/lib/demoModel.ts:20; client/src/lib/demoValidation.ts:23,52; client/src/contexts/DemoStore.tsx:221,265"},
+        {"name":"categoryId","type":"string","required":true,"nullable":false,"validation":"DEMO ID and existing category; creation requires active compatible type","source":"client/src/lib/demoModel.ts:21; client/src/lib/demoValidation.ts:10,23,52; client/src/contexts/DemoStore.tsx:263-264"},
+        {"name":"centerId","type":"string | null","required":false,"nullable":true,"validation":"optional and nullable in TS/schema; if non-null persisted reference must exist; creation chooses first active center for nullish input","source":"client/src/lib/demoModel.ts:21; client/src/lib/demoValidation.ts:23-24,52; client/src/contexts/DemoStore.tsx:268-270"},
+        {"name":"issueDate","type":"string","required":true,"nullable":false,"validation":"valid demo date; addTitle also blocks closed month","source":"client/src/lib/demoModel.ts:21; client/src/lib/demoValidation.ts:12,24; client/src/contexts/DemoStore.tsx:259-262"},
+        {"name":"competenceDate","type":"string","required":true,"nullable":false,"validation":"valid demo date; addTitle also blocks closed month","source":"client/src/lib/demoModel.ts:21; client/src/lib/demoValidation.ts:12,24; client/src/contexts/DemoStore.tsx:259-262"},
+        {"name":"dueDate","type":"string","required":true,"nullable":false,"validation":"valid demo date; addTitle also blocks closed month","source":"client/src/lib/demoModel.ts:21; client/src/lib/demoValidation.ts:12,24; client/src/contexts/DemoStore.tsx:259-262"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000; store requires safe positive cents","source":"client/src/lib/demoModel.ts:21; client/src/lib/demoValidation.ts:13,24; client/src/contexts/DemoStore.tsx:266"},
+        {"name":"settlements","type":"DemoSettlement[]","required":true,"nullable":false,"validation":"array max 2500; each settlement validates; total cannot exceed title amount; settlement/transaction IDs unique globally across titles","source":"client/src/lib/demoModel.ts:22; client/src/lib/demoValidation.ts:15,25,50-60"},
+        {"name":"source","type":"\"manual\" | \"provision\" | \"interviewer\" | \"field\"","required":true,"nullable":false,"validation":"enum; manual addTitle defaults to manual; generated flows set provision/interviewer/field","source":"client/src/lib/demoModel.ts:22; client/src/lib/demoValidation.ts:26; client/src/contexts/DemoStore.tsx:270,301,323,362"},
+        {"name":"sourceId","type":"string | null","required":true,"nullable":true,"validation":"nullable DEMO ID; schema does not verify source-specific relation","source":"client/src/lib/demoModel.ts:23; client/src/lib/demoValidation.ts:10,26"},
+        {"name":"fiscalDocument","type":"\"nao_aplicavel\" | \"aguardando_demo\" | \"demo_ok\"","required":true,"nullable":false,"validation":"enum; awaiting blocks settlement until resolveDemoDocument","source":"client/src/lib/demoModel.ts:23; client/src/lib/demoValidation.ts:27; client/src/contexts/DemoStore.tsx:273-284"}
+      ],
+      "validation":"Collection max 2500; title status is derived, not persisted; no persisted date-order invariant; no validation that center/project is active after reload",
+      "source":"client/src/lib/demoModel.ts:19-24; client/src/lib/demoValidation.ts:15,22-28,50-60; client/src/contexts/DemoStore.tsx:259-284"
+    },
+    {
+      "name":"DemoProvision",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:26; client/src/lib/demoValidation.ts:10,29"},
+        {"name":"projectId","type":"string","required":true,"nullable":false,"validation":"existing project in state; addProvision additionally requires active","source":"client/src/lib/demoModel.ts:26; client/src/lib/demoValidation.ts:29,65-67; client/src/contexts/DemoStore.tsx:288"},
+        {"name":"categoryId","type":"string","required":true,"nullable":false,"validation":"existing category; addProvision requires active expense category","source":"client/src/lib/demoModel.ts:26; client/src/lib/demoValidation.ts:29,65-67; client/src/contexts/DemoStore.tsx:288"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:26; client/src/lib/demoValidation.ts:11,29"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000","source":"client/src/lib/demoModel.ts:26; client/src/lib/demoValidation.ts:13,29"},
+        {"name":"dueDate","type":"string","required":true,"nullable":false,"validation":"valid demo date; add/cancel/convert guard closed month","source":"client/src/lib/demoModel.ts:27; client/src/lib/demoValidation.ts:12,29; client/src/contexts/DemoStore.tsx:286-309"},
+        {"name":"status","type":"DemoProvisionStatus","required":true,"nullable":false,"validation":"enum prevista | substituida | cancelada","source":"client/src/lib/demoModel.ts:27; client/src/lib/demoValidation.ts:29"},
+        {"name":"titleId","type":"string | null","required":true,"nullable":true,"validation":"if non-null must reference existing title; conversion sets generated title ID","source":"client/src/lib/demoModel.ts:27; client/src/lib/demoValidation.ts:29,65-67; client/src/contexts/DemoStore.tsx:291,301-302"},
+        {"name":"cancelReason","type":"string | null","required":true,"nullable":true,"validation":"max 300 when persisted; cancellation stores trim; conversion/seed use null","source":"client/src/lib/demoModel.ts:27; client/src/lib/demoValidation.ts:29; client/src/contexts/DemoStore.tsx:291,304-309"}
+      ],
+      "validation":"Collection max 2500; only prevista can convert/cancel through public store methods",
+      "source":"client/src/lib/demoModel.ts:25-28; client/src/lib/demoValidation.ts:15,29,65-67"
+    },
+    {
+      "name":"DemoInterviewerItem",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:30; client/src/lib/demoValidation.ts:10,30"},
+        {"name":"label","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:30; client/src/lib/demoValidation.ts:11,30"},
+        {"name":"projectId","type":"string","required":true,"nullable":false,"validation":"existing project","source":"client/src/lib/demoModel.ts:30; client/src/lib/demoValidation.ts:30,68"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000","source":"client/src/lib/demoModel.ts:30; client/src/lib/demoValidation.ts:13,30"},
+        {"name":"dueDate","type":"string","required":true,"nullable":false,"validation":"valid demo date","source":"client/src/lib/demoModel.ts:30; client/src/lib/demoValidation.ts:12,30"},
+        {"name":"status","type":"DemoBatchStatus","required":true,"nullable":false,"validation":"enum pendente | em_lote | paga_simulada","source":"client/src/lib/demoModel.ts:31; client/src/lib/demoValidation.ts:30"},
+        {"name":"batchTitleId","type":"string | null","required":true,"nullable":true,"validation":"if non-null must reference existing title; batch creation sets title ID","source":"client/src/lib/demoModel.ts:31; client/src/lib/demoValidation.ts:30,68; client/src/contexts/DemoStore.tsx:123-128"}
+      ],
+      "validation":"Collection max 2500; batch selection requires pending items from same project; title/payment sync sets paid_simulated",
+      "source":"client/src/lib/demoModel.ts:29-32; client/src/lib/demoValidation.ts:15,30,68; client/src/contexts/DemoStore.tsx:311-333"
+    },
+    {
+      "name":"DemoFieldItem",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:34; client/src/lib/demoValidation.ts:10,31"},
+        {"name":"projectId","type":"string","required":true,"nullable":false,"validation":"existing project; public add requires active project","source":"client/src/lib/demoModel.ts:34; client/src/lib/demoValidation.ts:31,69-72; client/src/contexts/DemoStore.tsx:335"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:34; client/src/lib/demoValidation.ts:11,31"},
+        {"name":"categoryId","type":"string","required":true,"nullable":false,"validation":"existing category; public add requires active expense category","source":"client/src/lib/demoModel.ts:34; client/src/lib/demoValidation.ts:31,69-72; client/src/contexts/DemoStore.tsx:335"},
+        {"name":"quantityHundredths","type":"number","required":true,"nullable":false,"validation":"integer positive max 1000000 in persistence schema; public method checks only safe integer > 0","source":"client/src/lib/demoModel.ts:35; client/src/lib/demoValidation.ts:31,70; client/src/contexts/DemoStore.tsx:336"},
+        {"name":"unitCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000","source":"client/src/lib/demoModel.ts:35; client/src/lib/demoValidation.ts:13,31; client/src/contexts/DemoStore.tsx:336"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"must equal round-half-up quantityHundredths * unitCents / 100 and be integer 1..900000000000","source":"client/src/lib/demoModel.ts:35; client/src/lib/demoValidation.ts:13,31,69-72; client/src/contexts/DemoStore.tsx:337-340"},
+        {"name":"status","type":"\"pendente\" | \"em_lote\" | \"paga_simulada\"","required":true,"nullable":false,"validation":"enum","source":"client/src/lib/demoModel.ts:36; client/src/lib/demoValidation.ts:31"}
+      ],
+      "validation":"Collection max 2500; exact product validation on reload; field settlement completion changes linked items to paga_simulada",
+      "source":"client/src/lib/demoModel.ts:33-37; client/src/lib/demoValidation.ts:15,31,69-72; client/src/contexts/DemoStore.tsx:46-68,334-340"
+    },
+    {
+      "name":"DemoFieldSheet",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex","source":"client/src/lib/demoModel.ts:39; client/src/lib/demoValidation.ts:10,32"},
+        {"name":"projectId","type":"string","required":true,"nullable":false,"validation":"existing project; create requires active project","source":"client/src/lib/demoModel.ts:39; client/src/lib/demoValidation.ts:32,73-77; client/src/contexts/DemoStore.tsx:344"},
+        {"name":"date","type":"string","required":true,"nullable":false,"validation":"valid demo date; creation/approval/cancel/payment apply period guards","source":"client/src/lib/demoModel.ts:39; client/src/lib/demoValidation.ts:12,32; client/src/contexts/DemoStore.tsx:342-377"},
+        {"name":"itemIds","type":"string[]","required":true,"nullable":false,"validation":"rows(id) max 2500; non-empty and unique per sheet; each item must exist and match project","source":"client/src/lib/demoModel.ts:39; client/src/lib/demoValidation.ts:15,32,73-77"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000; must equal sum of referenced field item amounts","source":"client/src/lib/demoModel.ts:39; client/src/lib/demoValidation.ts:13,32,73-77"},
+        {"name":"status","type":"\"aberta\" | \"aprovada_demo\" | \"paga_simulada\"","required":true,"nullable":false,"validation":"enum","source":"client/src/lib/demoModel.ts:40; client/src/lib/demoValidation.ts:32"},
+        {"name":"titleId","type":"string | null","required":true,"nullable":true,"validation":"if non-null must reference existing title; approval sets title ID","source":"client/src/lib/demoModel.ts:40; client/src/lib/demoValidation.ts:32,74; client/src/contexts/DemoStore.tsx:148"}
+      ],
+      "validation":"Collection max 2500; create takes all pending items for a project; cancel removes the sheet and resets items, with no cancellation history entity",
+      "source":"client/src/lib/demoModel.ts:38-41; client/src/lib/demoValidation.ts:15,32,73-77; client/src/contexts/DemoStore.tsx:136-168"
+    },
+    {
+      "name":"DemoBankTransaction",
+      "fields":[
+        {"name":"id","type":"string","required":true,"nullable":false,"validation":"max 100; DEMO ID regex; settlement transaction IDs unique","source":"client/src/lib/demoModel.ts:43; client/src/lib/demoValidation.ts:10,33,54-63"},
+        {"name":"date","type":"string","required":true,"nullable":false,"validation":"valid demo date; period actions use date prefix YYYY-MM","source":"client/src/lib/demoModel.ts:43; client/src/lib/demoValidation.ts:12,33"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"label min 1/max 180 and contains demo","source":"client/src/lib/demoModel.ts:43; client/src/lib/demoValidation.ts:11,33"},
+        {"name":"flow","type":"DemoFlow","required":true,"nullable":false,"validation":"enum saida | entrada; must match title direction for linked settlement","source":"client/src/lib/demoModel.ts:43; client/src/lib/demoValidation.ts:33,58-60"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"integer 1..900000000000; must match linked settlement","source":"client/src/lib/demoModel.ts:44; client/src/lib/demoValidation.ts:13,33,59"},
+        {"name":"originTitleId","type":"string","required":true,"nullable":false,"validation":"DEMO ID; must point to title containing origin settlement","source":"client/src/lib/demoModel.ts:44; client/src/lib/demoValidation.ts:10,33,62-63"},
+        {"name":"originSettlementId","type":"string","required":true,"nullable":false,"validation":"DEMO ID; must point to settlement whose bankTransactionId is this transaction","source":"client/src/lib/demoModel.ts:44; client/src/lib/demoValidation.ts:10,33,62-63"},
+        {"name":"reconciled","type":"boolean","required":true,"nullable":false,"validation":"boolean; reconciliation/exception set true","source":"client/src/lib/demoModel.ts:44; client/src/lib/demoValidation.ts:33; client/src/contexts/DemoStore.tsx:170-171"},
+        {"name":"classification","type":"string | null","required":true,"nullable":true,"validation":"max 100 in persistence; public action requires non-empty but accepts any string","source":"client/src/lib/demoModel.ts:45; client/src/lib/demoValidation.ts:33; client/src/contexts/DemoStore.tsx:379-389"},
+        {"name":"exceptionReason","type":"string | null","required":true,"nullable":true,"validation":"max 300 in persistence; exception action requires non-empty","source":"client/src/lib/demoModel.ts:45; client/src/lib/demoValidation.ts:33; client/src/contexts/DemoStore.tsx:385-389"},
+        {"name":"source","type":"\"simulado\"","required":true,"nullable":false,"validation":"literal simulado","source":"client/src/lib/demoModel.ts:45; client/src/lib/demoValidation.ts:33"}
+      ],
+      "validation":"Collection max 2500; every bank transaction must be linked to a settlement; closePeriod requires reconciled/classified for month",
+      "source":"client/src/lib/demoModel.ts:42-46; client/src/lib/demoValidation.ts:15,33,62-64; client/src/contexts/DemoStore.tsx:46-68,172-177"
+    },
+    {
+      "name":"DemoState",
+      "fields":[
+        {"name":"version","type":"1","required":true,"nullable":false,"validation":"literal 1","source":"client/src/lib/demoModel.ts:48; client/src/lib/demoValidation.ts:17"},
+        {"name":"parties","type":"DemoParty[]","required":true,"nullable":false,"validation":"max 2500; per-collection IDs unique","source":"client/src/lib/demoModel.ts:49; client/src/lib/demoValidation.ts:15,18,41-43"},
+        {"name":"categories","type":"DemoCategory[]","required":true,"nullable":false,"validation":"max 2500; per-collection IDs unique","source":"client/src/lib/demoModel.ts:50; client/src/lib/demoValidation.ts:15,19,41-43"},
+        {"name":"centers","type":"DemoCostCenter[]","required":true,"nullable":false,"validation":"max 2500; schema default [] when omitted; per-collection IDs unique","source":"client/src/lib/demoModel.ts:51; client/src/lib/demoValidation.ts:15,20,41-43"},
+        {"name":"projects","type":"DemoProject[]","required":true,"nullable":false,"validation":"max 2500; client references validated","source":"client/src/lib/demoModel.ts:52; client/src/lib/demoValidation.ts:15,21,44-49"},
+        {"name":"titles","type":"DemoTitle[]","required":true,"nullable":false,"validation":"max 2500; parties/categories/projects/centers/settlements validated","source":"client/src/lib/demoModel.ts:53; client/src/lib/demoValidation.ts:15,22-28,50-64"},
+        {"name":"provisions","type":"DemoProvision[]","required":true,"nullable":false,"validation":"max 2500; project/category/title references validated","source":"client/src/lib/demoModel.ts:54; client/src/lib/demoValidation.ts:15,29,65-67"},
+        {"name":"interviewerItems","type":"DemoInterviewerItem[]","required":true,"nullable":false,"validation":"max 2500; project/batch references validated","source":"client/src/lib/demoModel.ts:55; client/src/lib/demoValidation.ts:15,30,68"},
+        {"name":"fieldItems","type":"DemoFieldItem[]","required":true,"nullable":false,"validation":"max 2500; product/project/category validated","source":"client/src/lib/demoModel.ts:56; client/src/lib/demoValidation.ts:15,31,69-72"},
+        {"name":"fieldSheets","type":"DemoFieldSheet[]","required":true,"nullable":false,"validation":"max 2500; item sum/project/title references validated","source":"client/src/lib/demoModel.ts:57; client/src/lib/demoValidation.ts:15,32,73-77"},
+        {"name":"bankTransactions","type":"DemoBankTransaction[]","required":true,"nullable":false,"validation":"max 2500; every transaction must be linked to a settlement","source":"client/src/lib/demoModel.ts:58; client/src/lib/demoValidation.ts:15,33,62-64"},
+        {"name":"closedPeriods","type":"string[]","required":true,"nullable":false,"validation":"each matches YYYY-MM for years 2000-2099; max 1200; no uniqueness check in schema","source":"client/src/lib/demoModel.ts:59; client/src/lib/demoValidation.ts:34"}
+      ],
+      "validation":"Validated before localStorage load and storage-event sync; malformed state falls back to seed; provider writes JSON after state changes",
+      "source":"client/src/lib/demoModel.ts:47-60; client/src/contexts/DemoStore.tsx:26-36,408-430"
+    },
+    {
+      "name":"PartyInput",
+      "fields":[
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"store requires trim non-empty; creation labels DEMO; rename additionally trim length <=160","source":"client/src/contexts/DemoStore.tsx:15,225-233"},
+        {"name":"type","type":"DemoPartyType","required":true,"nullable":false,"validation":"TypeScript union; store uses supplied type","source":"client/src/contexts/DemoStore.tsx:15,227"}
+      ],
+      "validation":"Input type, not persisted entity",
+      "source":"client/src/contexts/DemoStore.tsx:15"
+    },
+    {
+      "name":"CategoryInput",
+      "fields":[
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"store requires trim non-empty","source":"client/src/contexts/DemoStore.tsx:16,234-238"},
+        {"name":"type","type":"\"despesa\" | \"receita\"","required":true,"nullable":false,"validation":"TypeScript union","source":"client/src/contexts/DemoStore.tsx:16"},
+        {"name":"code","type":"string","required":true,"nullable":false,"validation":"store requires trim non-empty then normalizes DEMO-/uppercase","source":"client/src/contexts/DemoStore.tsx:16,235-238"}
+      ],
+      "validation":"Input type, not persisted entity",
+      "source":"client/src/contexts/DemoStore.tsx:16"
+    },
+    {
+      "name":"ProjectInput",
+      "fields":[
+        {"name":"code","type":"string","required":true,"nullable":false,"validation":"trim non-empty; normalized DEMO-/uppercase; duplicate rejected","source":"client/src/contexts/DemoStore.tsx:17,248-252"},
+        {"name":"name","type":"string","required":true,"nullable":false,"validation":"trim non-empty","source":"client/src/contexts/DemoStore.tsx:17,248-252"},
+        {"name":"clientId","type":"string","required":true,"nullable":false,"validation":"active party of type cliente","source":"client/src/contexts/DemoStore.tsx:17,248"},
+        {"name":"budgetCents","type":"number","required":true,"nullable":false,"validation":"safe integer >0 and <=900000000000","source":"client/src/contexts/DemoStore.tsx:17,249"}
+      ],
+      "validation":"Input type, not persisted entity",
+      "source":"client/src/contexts/DemoStore.tsx:17"
+    },
+    {
+      "name":"TitleInput",
+      "fields":[
+        {"name":"direction","type":"DemoDirection","required":true,"nullable":false,"validation":"pagar | receber","source":"client/src/contexts/DemoStore.tsx:19"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"trim non-empty; stored with DEMO label","source":"client/src/contexts/DemoStore.tsx:19,264,270"},
+        {"name":"partyId","type":"string","required":true,"nullable":false,"validation":"active compatible party","source":"client/src/contexts/DemoStore.tsx:19,262-264"},
+        {"name":"projectId","type":"string | null","required":true,"nullable":true,"validation":"null or active project","source":"client/src/contexts/DemoStore.tsx:19,221,265"},
+        {"name":"categoryId","type":"string","required":true,"nullable":false,"validation":"active compatible category","source":"client/src/contexts/DemoStore.tsx:20,263-264"},
+        {"name":"centerId","type":"string | null","required":false,"nullable":true,"validation":"nullish input replaced by first active center or null; explicit non-null must be active","source":"client/src/contexts/DemoStore.tsx:20,268-269"},
+        {"name":"issueDate","type":"string","required":true,"nullable":false,"validation":"valid date and open month","source":"client/src/contexts/DemoStore.tsx:20,260-262"},
+        {"name":"competenceDate","type":"string","required":true,"nullable":false,"validation":"valid date and open month","source":"client/src/contexts/DemoStore.tsx:20,260-262"},
+        {"name":"dueDate","type":"string","required":true,"nullable":false,"validation":"valid date and open month","source":"client/src/contexts/DemoStore.tsx:20,260-262"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"safe positive cents","source":"client/src/contexts/DemoStore.tsx:21,266"},
+        {"name":"source","type":"DemoTitle[\"source\"]","required":false,"nullable":false,"validation":"defaults to manual when absent","source":"client/src/contexts/DemoStore.tsx:21,270"},
+        {"name":"sourceId","type":"string | null","required":false,"nullable":true,"validation":"defaults to null when absent","source":"client/src/contexts/DemoStore.tsx:21,270"}
+      ],
+      "validation":"Input type; UI manual form omits source/sourceId and store defaults them",
+      "source":"client/src/contexts/DemoStore.tsx:18-22"
+    },
+    {
+      "name":"ProvisionInput",
+      "fields":[
+        {"name":"projectId","type":"string","required":true,"nullable":false,"validation":"existing active project","source":"client/src/contexts/DemoStore.tsx:23,288"},
+        {"name":"categoryId","type":"string","required":true,"nullable":false,"validation":"existing active expense category","source":"client/src/contexts/DemoStore.tsx:23,288"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"trim non-empty","source":"client/src/contexts/DemoStore.tsx:23,289"},
+        {"name":"amountCents","type":"number","required":true,"nullable":false,"validation":"safe positive cents","source":"client/src/contexts/DemoStore.tsx:23,289"},
+        {"name":"dueDate","type":"string","required":true,"nullable":false,"validation":"valid date in open month","source":"client/src/contexts/DemoStore.tsx:23,287,290"}
+      ],
+      "validation":"Input type, not persisted entity",
+      "source":"client/src/contexts/DemoStore.tsx:23"
+    },
+    {
+      "name":"FieldItemInput",
+      "fields":[
+        {"name":"projectId","type":"string","required":true,"nullable":false,"validation":"active project","source":"client/src/contexts/DemoStore.tsx:24,335"},
+        {"name":"categoryId","type":"string","required":true,"nullable":false,"validation":"active expense category","source":"client/src/contexts/DemoStore.tsx:24,335"},
+        {"name":"description","type":"string","required":true,"nullable":false,"validation":"trim non-empty","source":"client/src/contexts/DemoStore.tsx:24,336"},
+        {"name":"quantityHundredths","type":"number","required":true,"nullable":false,"validation":"safe integer >0; UI parser accepts max two decimal places","source":"client/src/contexts/DemoStore.tsx:24,336; client/src/pages/demo/DemoPayrollPage.tsx:41-64"},
+        {"name":"unitCents","type":"number","required":true,"nullable":false,"validation":"safe positive cents","source":"client/src/contexts/DemoStore.tsx:24,336"}
+      ],
+      "validation":"amountCents is derived by the store and is not an input field",
+      "source":"client/src/contexts/DemoStore.tsx:24"
+    },
+    {
+      "name":"Result",
+      "fields":[
+        {"name":"ok","type":"true | false","required":true,"nullable":false,"validation":"discriminant","source":"client/src/contexts/DemoStore.tsx:11-13"},
+        {"name":"message","type":"string","required":false,"nullable":false,"validation":"present only in failure variant","source":"client/src/contexts/DemoStore.tsx:11-13"}
+      ],
+      "validation":"Synchronous store mutation result; toggle/status methods do not return Result",
+      "source":"client/src/contexts/DemoStore.tsx:11-13,181-211"
+    },
+    {
+      "name":"InternalAction",
+      "fields":[],
+      "validation":"Reducer union: RESET, ADD_PARTY, TOGGLE_PARTY, RENAME_PARTY, ADD_CATEGORY, ADD_CENTER, TOGGLE_CENTER, ADD_PROJECT, PROJECT_STATUS, PROJECT_BUDGET, ADD_TITLE, RESOLVE_DOCUMENT, SETTLE_TITLE, ADD_PROVISION, CONVERT_PROVISION, CANCEL_PROVISION, CREATE_INTERVIEW_BATCH, PAY_INTERVIEW_BATCH, ADD_FIELD_ITEM, CREATE_FIELD_SHEET, APPROVE_FIELD_SHEET, PAY_FIELD_SHEET, CANCEL_FIELD_SHEET, RECONCILE, EXCEPTION, CLOSE_PERIOD, REOPEN_PERIOD",
+      "source":"client/src/contexts/DemoStore.tsx:71-98"
+    },
+    {
+      "name":"DemoStore",
+      "fields":[
+        {"name":"state","type":"DemoState","required":true,"nullable":false,"validation":"current reducer state","source":"client/src/contexts/DemoStore.tsx:181-183"},
+        {"name":"persistenceError","type":"string | null","required":true,"nullable":true,"validation":"set when localStorage write fails; memory use continues","source":"client/src/contexts/DemoStore.tsx:181-184,410-417"},
+        {"name":"publicMethods","type":"function set","required":true,"nullable":false,"validation":"Methods listed in actions array of this artifact","source":"client/src/contexts/DemoStore.tsx:184-210"}
+      ],
+      "validation":"Created by createDemoStore; context throws if DemoProvider is absent",
+      "source":"client/src/contexts/DemoStore.tsx:213-224,431-439"
+    },
+    {
+      "name":"ConfirmationHandler",
+      "fields":[],
+      "validation":"Function type (message: string, resolve: (confirmed: boolean) => void) => void",
+      "source":"client/src/lib/demoConfirm.ts:1"
+    },
+    {
+      "name":"AccessStatus",
+      "fields":[],
+      "validation":"Union: loading | authenticated | anonymous | error | unconfigured",
+      "source":"client/src/contexts/DemoAccess.tsx:4"
+    },
+    {
+      "name":"AccessResult",
+      "fields":[
+        {"name":"ok","type":"boolean","required":true,"nullable":false,"validation":"response result flag","source":"client/src/contexts/DemoAccess.tsx:5"},
+        {"name":"message","type":"string | undefined","required":false,"nullable":false,"validation":"optional user-facing error","source":"client/src/contexts/DemoAccess.tsx:5"},
+        {"name":"code","type":"string | undefined","required":false,"nullable":false,"validation":"optional response code","source":"client/src/contexts/DemoAccess.tsx:5"}
+      ],
+      "validation":"Access boundary type, not part of DemoState",
+      "source":"client/src/contexts/DemoAccess.tsx:5"
+    },
+    {
+      "name":"Access",
+      "fields":[
+        {"name":"status","type":"AccessStatus","required":true,"nullable":false,"validation":"current access status","source":"client/src/contexts/DemoAccess.tsx:7"},
+        {"name":"expired","type":"boolean","required":true,"nullable":false,"validation":"true when prior authenticated session becomes unauthenticated","source":"client/src/contexts/DemoAccess.tsx:7,33-37"},
+        {"name":"login","type":"(username: string, password: string) => Promise<AccessResult>","required":true,"nullable":false,"validation":"serialized through access queue","source":"client/src/contexts/DemoAccess.tsx:8,82-89"},
+        {"name":"logout","type":"() => Promise<AccessResult>","required":true,"nullable":false,"validation":"serialized through access queue","source":"client/src/contexts/DemoAccess.tsx:9,90-100"},
+        {"name":"retry","type":"() => Promise<void>","required":true,"nullable":false,"validation":"enqueues session refresh","source":"client/src/contexts/DemoAccess.tsx:10,81"}
+      ],
+      "validation":"Access boundary; not persisted in DemoState",
+      "source":"client/src/contexts/DemoAccess.tsx:6-11"
+    }
+  ],
+  "actions": [
+    {
+      "name":"resetDemo",
+      "rules":"No input and no Result. Dispatches RESET with a fresh createSeedDemoState(); dashboard asks confirmDemo before calling, but store itself does not confirm. State is then persisted by provider effect.",
+      "sources":"client/src/contexts/DemoStore.tsx:71-73,224; client/src/pages/demo/DemoDashboard.tsx:108-119; client/src/contexts/DemoStore.tsx:411-418"
+    },
+    {
+      "name":"addParty",
+      "rules":"Input name must trim non-empty; otherwise error 'Informe um nome demonstrativo.'. Creates new party ID, withDemoLabel(name), supplied type and active=true. No duplicate-name guard and no explicit length guard in method.",
+      "sources":"client/src/contexts/DemoStore.tsx:225-228"
+    },
+    {
+      "name":"toggleParty",
+      "rules":"No Result. Reducer toggles active when ID matches; unknown ID is a no-op. Existing references are not removed, so history remains.",
+      "sources":"client/src/contexts/DemoStore.tsx:73-75,103-105,229"
+    },
+    {
+      "name":"renameParty",
+      "rules":"Requires existing party, non-empty trimmed name and trimmed length <=160; otherwise 'Selecione um cadastro DEMO e informe nome de até 160 caracteres.'. Stores withDemoLabel(name), preserves ID and all references.",
+      "sources":"client/src/contexts/DemoStore.tsx:230-233; client/src/pages/demo/DemoRegistryPage.tsx:369-419"
+    },
+    {
+      "name":"addCategory",
+      "rules":"Requires non-empty name and code; otherwise 'Informe nome e código sintéticos.'. Normalizes code to DEMO- + payload without an existing DEMO- prefix, uppercase; duplicate normalized code case-insensitive yields 'Já existe uma categoria demo com esse código.'. Creates active category with new ID.",
+      "sources":"client/src/contexts/DemoStore.tsx:234-239"
+    },
+    {
+      "name":"addCenter",
+      "rules":"Requires non-empty name and code; otherwise 'Informe nome e código do centro DEMO.'. Normalizes code to DEMO- + uppercase payload; duplicate normalized code case-insensitive yields 'Já existe um centro DEMO com esse código.'. Creates active center with new ID.",
+      "sources":"client/src/contexts/DemoStore.tsx:240-245"
+    },
+    {
+      "name":"toggleCenter",
+      "rules":"No Result. Reducer toggles active when ID matches; unknown ID is a no-op. Inactive centers cannot be selected by new titles but remain in historical state.",
+      "sources":"client/src/contexts/DemoStore.tsx:77-78,107-108,246; client/src/pages/demo/DemoCentersPanel.tsx:17-29"
+    },
+    {
+      "name":"addProject",
+      "rules":"Requires non-empty name/code, active client party, and safe positive budget. Failure: 'Selecione um cliente DEMO ativo e informe nome/código.' or 'Informe um orçamento sintético maior que zero.'. Normalizes code; duplicate code gives 'Já existe um projeto DEMO com esse código.'. Creates progressPercent=0, status=ativo, new ID.",
+      "sources":"client/src/contexts/DemoStore.tsx:247-253"
+    },
+    {
+      "name":"setProjectStatus",
+      "rules":"No Result and no guard beyond TypeScript status union. Reducer replaces status when ID matches; UI asks confirmation before close/reopen, but direct store callers can dispatch immediately.",
+      "sources":"client/src/contexts/DemoStore.tsx:79-80,109-110,191-193,254; client/src/pages/demo/DemoRegistryPage.tsx:147-163"
+    },
+    {
+      "name":"setProjectBudget",
+      "rules":"Requires safe positive cents and existing project; failure text is 'Informe um valor DEMO válido para um projeto ativo.'. Implementation checks existence but not active status. Reducer replaces budgetCents; unknown ID is a failed Result.",
+      "sources":"client/src/contexts/DemoStore.tsx:193,255-257"
+    },
+    {
+      "name":"addTitle",
+      "rules":"Requires all three valid demo dates and none in closed period; compatible active party/category by direction; null or active project; safe positive amount; active center when explicitly non-null. Errors include 'Informe datas válidas para o título DEMO.', 'Uma das datas pertence a período DEMO fechado.', 'Selecione contraparte e categoria DEMO ativos e preencha a descrição.', 'O projeto DEMO precisa estar ativo.', 'Informe um valor sintético maior que zero.', and 'Selecione um centro de custo DEMO ativo.'. Creates manual-by-default title with DEMO label, sourceId null, fiscalDocument=nao_aplicavel and empty settlements. centerId uses nullish fallback to first active center or null.",
+      "sources":"client/src/contexts/DemoStore.tsx:259-272"
+    },
+    {
+      "name":"resolveDemoDocument",
+      "rules":"Requires an existing title with fiscalDocument=aguardando_demo; otherwise 'Este título não tem pendência documental DEMO.'. Sets fiscalDocument=demo_ok. No real document/file is accepted and no period guard is applied.",
+      "sources":"client/src/contexts/DemoStore.tsx:273-276; client/src/pages/demo/DemoAccountsPage.tsx:809-814"
+    },
+    {
+      "name":"settleTitle",
+      "rules":"Requires valid date, no awaiting document, exact full pending amount for field/interviewer source, title present, safe positive amount <= pending, and open settlement month. Errors include invalid date, document pending, exact-lot requirement, positive/non-exceeding balance, and closed period. Dispatches new settlement/bank IDs. appendSettlement creates one synthetic bank transaction; when fully settled, source interviewer/field item statuses become paga_simulada.",
+      "sources":"client/src/contexts/DemoStore.tsx:46-68,277-285"
+    },
+    {
+      "name":"addProvision",
+      "rules":"Requires valid dueDate, existing active project, active expense category, non-empty description, safe positive amount, and open due month. Errors: invalid date, 'Selecione projeto e categoria DEMO ativos.', 'Informe descrição e valor sintético positivo.', or 'O período demo está fechado.'. Creates prevista provision with titleId/cancelReason null.",
+      "sources":"client/src/contexts/DemoStore.tsx:286-293"
+    },
+    {
+      "name":"convertProvision",
+      "rules":"Requires today's Sao Paulo month open, provision status prevista, active project, active supplier, and provision due month open. Errors cover today's closed competence, closed project, missing provision/supplier, and closed due period. Creates a pagar title source=provision/sourceId=provision.id, issue/competence=today, due/amount/category/project copied; changes provision to substituida and stores titleId. Repeating conversion fails.",
+      "sources":"client/src/contexts/DemoStore.tsx:294-303"
+    },
+    {
+      "name":"cancelProvision",
+      "rules":"Blocks when provision due month is closed; requires non-empty reason and status prevista. Errors: closed period, 'Registre um motivo demonstrativo para cancelar.', or 'Somente provisão ainda prevista pode ser cancelada.'. Reducer sets status=cancelada and stores trimmed reason; no cancellation if status changed concurrently.",
+      "sources":"client/src/contexts/DemoStore.tsx:304-310,121"
+    },
+    {
+      "name":"createInterviewerBatch",
+      "rules":"Requires today's Sao Paulo month open, valid dueDate, unique itemIds, selected pending items all from the same supplied project, active project, and open due month. Selects first active supplier and cat-demo-field active category, falling back to first active expense category; otherwise fails with 'Cadastre uma contraparte e categoria de despesa DEMO antes de criar o lote.'. Sums exact item cents, creates payer title source=interviewer/sourceId=title.id, marks items em_lote. It does not require same item dueDate.",
+      "sources":"client/src/contexts/DemoStore.tsx:311-325"
+    },
+    {
+      "name":"payInterviewerBatch",
+      "rules":"Requires valid date, interviewer title, associated items in em_lote, untouched full pending balance, exact item sum equal to title amount, and open payment month. Otherwise 'O lote precisa fechar exatamente com a soma dos itens demo e não pode ter sido liquidado.' or date error/closed-period error. Appends full settlement/bank transaction and marks items paga_simulada.",
+      "sources":"client/src/contexts/DemoStore.tsx:326-333,130-134"
+    },
+    {
+      "name":"addFieldItem",
+      "rules":"Requires active project, active expense category, non-empty description, safe positive integer quantityHundredths, safe positive unitCents; invalid input yields 'Selecione projeto e categoria de despesa DEMO ativos.' or 'Informe item DEMO, quantidade e valor unitário válidos.'. Calculates amountCents with BigInt round-half-up formula and rejects unsafe result; adds pendente item. No period guard because item has no date.",
+      "sources":"client/src/contexts/DemoStore.tsx:334-341"
+    },
+    {
+      "name":"createFieldSheet",
+      "rules":"Requires valid date, active project, open sheet month, and at least one pending item in project. Errors include invalid date, inactive project, closed period, and no pending items. Automatically includes every pending project item, creates aberta sheet with exact sum and marks those items em_lote.",
+      "sources":"client/src/contexts/DemoStore.tsx:342-350"
+    },
+    {
+      "name":"approveFieldSheet",
+      "rules":"Requires today's Sao Paulo month open, an open sheet, open sheet date, active project, active supplier, active expense category, nonzero amount and exact sum of referenced items. Creates payer title source=field/sourceId=sheet.id, issue/competence=today, dueDate=sheet.date; sets sheet status=aprovada_demo/titleId. Errors cover open/closed state and unavailable project/vendor/category/sum.",
+      "sources":"client/src/contexts/DemoStore.tsx:351-364"
+    },
+    {
+      "name":"payFieldSheet",
+      "rules":"Requires valid payment date, approved sheet with title, non-empty itemIds, exact item sum equal to title amount, and open payment month. Appends full title settlement/bank transaction and sets sheet/items paga_simulada; invalid/unapproved/divergent sheet yields 'Folha demo não aprovada ou soma de itens divergente.'.",
+      "sources":"client/src/contexts/DemoStore.tsx:365-372,150-159"
+    },
+    {
+      "name":"cancelFieldSheet",
+      "rules":"Requires sheet date in open month and sheet status aberta. Errors cover closed period and 'Somente uma folha aberta pode ser cancelada.'. Removes the sheet entirely and resets referenced items to pendente; no cancellation reason/history is persisted. UI confirmation is outside the store.",
+      "sources":"client/src/contexts/DemoStore.tsx:373-378,161-168; client/src/pages/demo/DemoPayrollPage.tsx:186-193"
+    },
+    {
+      "name":"reconcileTransaction",
+      "rules":"Requires existing transaction, open transaction month, not reconciled, and non-empty classification. Errors cover closed period or 'Selecione uma transação aberta e sua classificação.'. Stores DEMO-labeled classification, reconciled=true, exceptionReason=null. UI offers four options but method accepts any non-empty string.",
+      "sources":"client/src/contexts/DemoStore.tsx:379-384,170; client/src/pages/demo/DemoReconciliationPage.tsx:19-20,398-434"
+    },
+    {
+      "name":"markTransactionException",
+      "rules":"Requires existing open transaction, open month, non-empty classification and non-empty reason; otherwise 'Exceção DEMO exige transação aberta, classificação e motivo.' or closed-period error. Stores DEMO-labeled classification/reason, reconciled=true; this satisfies closePeriod pending check but leaves exceptionReason visible.",
+      "sources":"client/src/contexts/DemoStore.tsx:385-390,171; client/src/pages/demo/DemoReconciliationPage.tsx:174-201"
+    },
+    {
+      "name":"closePeriod",
+      "rules":"Requires regex YYYY-MM with month 01..12 and year 2000..2099; rejects if any transaction date starts with period and is not reconciled or has no classification; rejects already closed. Errors: invalid month, 'Classifique ou concilie todas as linhas DEMO do mês antes de fechar.', or already closed. Adds period sorted. Direct call may close a month with no transactions.",
+      "sources":"client/src/contexts/DemoStore.tsx:391-397,172-176"
+    },
+    {
+      "name":"reopenPeriod",
+      "rules":"Requires valid YYYY-MM, period currently closed, and non-empty reason; otherwise invalid-period, not-closed, or reason error. Dispatches only REOPEN_PERIOD with period; the reason is validated then discarded and is not persisted. Removes period from closedPeriods.",
+      "sources":"client/src/contexts/DemoStore.tsx:398-403,97-98,177; client/src/pages/demo/DemoReconciliationPage.tsx:218-239"
+    }
+  ]
+}

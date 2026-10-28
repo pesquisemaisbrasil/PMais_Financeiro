@@ -1,0 +1,12 @@
+erDiagram
+    USERS {
+        int id PK
+        varchar64 open_id UK
+        text name
+        varchar320 email
+        varchar64 login_method
+        enum_user_admin role
+        timestamp created_at
+        timestamp updated_at
+        timestamp last_signed_in
+    }

@@ -1,0 +1,23 @@
+flowchart LR
+    B[Browser]
+    F[React Wouter DemoStore]
+    A[DemoAccessProvider]
+    E[Express]
+    D[demo-access]
+    G[readOnlyGuard]
+    H[Health Status Config]
+    T[tRPC]
+    M[(MySQL users migrations)]
+    L[(localStorage demo v1)]
+    S[dist public static]
+    B --> F
+    B --> A
+    F --> L
+    A --> D
+    B --> E
+    E --> D
+    E --> G
+    G --> H
+    G --> T
+    H --> M
+    E --> S

@@ -1,0 +1,31 @@
+
+> pmaisfin@1.0.0 test <raiz-do-repositorio>
+> vitest run
+
+
+ RUN  v2.1.9 <raiz-do-repositorio>
+
+ ✓ server/auth.logout.test.ts (14 tests) 13ms
+ ✓ server/deployment.test.ts (25 tests) 36ms
+ ✓ server/demo.test.ts (14 tests) 91ms
+ ✓ server/access-queue.test.ts (3 tests) 24ms
+ ✓ server/contentPolicy.test.ts (3 tests) 5ms
+stdout | server/platform.test.ts
+[OAuth] Initialized with baseURL: https://api.manus.ai
+
+stderr | server/platform.test.ts > current platform integration > binds signed app sessions to this project and accepts an empty display name
+[Auth] Session payload missing required fields
+
+ ✓ server/platform.test.ts (5 tests) 23ms
+ ✓ server/demo-access.test.ts (9 tests) 1048ms
+   ✓ Acesso compartilhado restrito à demonstração > limita tentativas por janela sem imprimir credenciais 502ms
+ ✓ server/demo-render.test.tsx (8 tests) 245ms
+
+ Test Files  8 passed (8)
+      Tests  81 passed (81)
+   Start at  21:24:09
+   Duration  2.24s (transform 1.17s, setup 0ms, collect 3.57s, tests 1.49s, environment 2ms, prepare 1.25s)
+
+
+__ELAPSED_SECONDS__=4
+__EXIT_STATUS__=0

@@ -1,0 +1,618 @@
+PROMPT PARA O MANUS: PROTÓTIPO DE VALIDAÇÃO DO FINANCEIRO DA PESQUISE+
+=======================================================================
+
+COMO USAR
+Cole tudo abaixo da linha "=== INÍCIO DO PROMPT ===" no Manus. O prompt é
+autossuficiente: o Manus não precisa ler nenhum arquivo do repositório.
+Depois de gerado, o protótipo é mostrado à equipe do financeiro (Bruna e
+Camila) para o "é isso" / "não é isso" de cada tela. O que sair da
+validação volta para os specs em docs/specs/ e para docs/planning/perguntas-abertas.md.
+
+=== INÍCIO DO PROMPT ===
+
+# Missão
+
+Construa um PROTÓTIPO NAVEGÁVEL, 100% no navegador, com DADOS MOCKADOS, do
+"Financeiro da Pesquise+": o sistema financeiro de uma empresa de pesquisa de
+mercado que vai substituir um sistema antigo (chamado SGE4B, "só um controle,
+tipo um caixa"). O protótipo serve para VALIDAR TELAS E REGRAS com a equipe do
+financeiro. Não é o produto final. Nada de backend, banco ou login real.
+
+Prioridade absoluta: COBRIR TODAS as funcionalidades listadas abaixo, com
+dados que mostrem cada regra funcionando (inclusive os casos de erro). UI
+simples e limpa é melhor que UI bonita e incompleta.
+
+# Restrições técnicas e de forma
+
+- App web de página única (SPA), em português do Brasil (pt-BR), em qualquer
+  stack que você gere rápido e que rode abrindo o link (React + Vite +
+  Tailwind é uma boa escolha). Tudo no front-end.
+- Dados mockados em arquivos/objetos locais, mantidos em memória e salvos em
+  localStorage, para que as ações (baixar, conciliar, aprovar) persistam ao
+  recarregar. Botão fixo no topo "Restaurar dados de exemplo" que zera tudo.
+- Dinheiro sempre com 2 casas, formato brasileiro (R$ 1.234,56). Cálculos em
+  centavos inteiros (nunca float). Datas dd/mm/aaaa, fuso de São Paulo.
+- Dados 100% FICTÍCIOS. Nunca use CPF, chave Pix, CNPJ ou nome reais. CPF não
+  aparece em nenhuma tela. Chave Pix sempre MASCARADA (ex.: hmo***@gmail.com,
+  +55 41 9****-1234), exceto no arquivo "planilha de pagamentos", onde é
+  completa (e fictícia).
+- Textos para usuário NÃO técnico: frases curtas, sem jargão, mensagens de erro
+  em português simples (use as mensagens exatas indicadas abaixo quando houver).
+- Ícones de ação sempre com legenda (tooltip ao passar o mouse e ao focar pelo
+  teclado). Hoje a falta de legenda é uma queixa do financeiro.
+- Layout: menu lateral por módulo, barra superior com seletor de PAPEL (veja
+  "Papéis"), busca, e botão "Restaurar dados de exemplo". Tabelas com
+  pesquisa, filtros, ordenação, escolha de colunas, paginação e exportar
+  (exportar pode baixar um CSV de verdade gerado no navegador).
+- Em TODA tela, um selo discreto "Regra a validar" nos pontos que estão como
+  pergunta aberta (lista na seção "Perguntas abertas") e um botão
+  "Isto está certo?" com três opções (Sim / Não / Comentar) que grava a
+  resposta + comentário em localStorage e aparece na tela "Validação" (veja
+  adiante), com exportação em CSV. Isso é o principal resultado do protótipo.
+- Responsivo básico (usa-se em notebook; não precisa de app mobile).
+
+# Papéis (seletor no topo, sem senha)
+
+Troca instantânea de papel para mostrar o que cada um vê e pode fazer:
+- Financeiro (usuário principal; padrão ao abrir).
+- Administrador (tudo, mais usuários, auditoria, contas de serviço, autorizar
+  gasto acima do orçamento, reabrir período e projeto).
+- Direção (vê tudo do escopo; aprova acima da alçada; vê fluxo de caixa).
+- Gestora de projeto (seus projetos: abre, acompanha, fecha, aprova a folha).
+- Supervisor (vê só a folha dos seus projetos, chave Pix mascarada, não aprova,
+  não vê relatório geral: mostra "Seu perfil não permite essa ação").
+- Comercial (cria orçamento inicial; vê resultado dos seus clientes).
+- Auditor (só leitura, inclusive a trilha; não exporta chave Pix).
+Aplicar a matriz de permissões abaixo; ação fora do papel = mensagem
+"Seu perfil não permite essa ação"; registro fora do escopo = "não encontrado".
+
+Matriz resumida (C criar, E editar, V ver, A aprovar, X exportar):
+- Cadastros: Direção V | Gestora V | Supervisor — | Financeiro CEV | Comercial V | Auditor V
+- Projeto (ficha): Direção CEVA | Gestora CEV (seus) | Supervisor V (seus) | Financeiro V | Comercial CV | Auditor V
+- Lançamento de custo: Gestora CEV (seus) | Supervisor C (diária/hora/supervisão, seus) | Financeiro CEV
+- Folha: Direção VA | Gestora VEA (seus) | Supervisor V (seus) | Financeiro V
+- Lote, planilha e chave Pix completa: SÓ Financeiro (e Admin)
+- Contas a pagar/receber e baixas: Financeiro CEVX | Direção V | Gestora V (seus) | Auditor V
+- Bancos/conciliação: Financeiro CEV | Direção V | Auditor V
+- Relatórios: Financeiro VX | Direção VX | Gestora VX (seus) | Auditor VX
+Segregação: quem aprova a folha não paga o lote dela (mostrar o erro
+"Quem aprova a folha não pode ser quem paga o lote"). Quem cria título acima
+da alçada não o baixa sozinho.
+
+# Login e segurança (apenas simulados, uma tela)
+
+Tela "Entrar" opcional na abertura (botão "Entrar como demonstração"):
+e-mail + senha de mentira; depois uma tela de código MFA de 6 dígitos (qualquer
+código de 6 dígitos serve; "000000" mostra "Código de verificação inválido").
+Ações críticas pedem o código de novo (reautenticação): gerar planilha com
+chave completa, confirmar baixa, cancelar baixa, criar/girar conta de serviço.
+Mostrar também: troca de senha (pede a senha atual; erro "A senha atual não
+confere"), sessão que expira, e bloqueio "Muitas tentativas — aguarde alguns
+minutos" após 5 códigos errados.
+
+# DADOS MOCKADOS (crie exatamente estes, para os cenários funcionarem)
+
+Datas de referência: "hoje" do protótipo = 22/10/2026 (fixo, para os números
+baterem sempre). Valores em R$.
+
+## Empresa e dimensões
+- Empresa: "Pesquise+ Pesquisas Ltda" (CNPJ fictício 00.000.000/0001-00),
+  unidades: "São Paulo (Consumo)", "Health", "Curitiba (CATI)".
+- Centros de custo: Campo SP, Health, CATI, Administrativo, Comercial.
+- Conta bancária: "Itaú — Conta corrente principal", saldo inicial
+  R$ 250.000,00 em 01/10/2026.
+- Plano de contas (analítico, cada um aponta para uma linha do DRE):
+  Receita de pesquisas (Receita bruta) | Impostos sobre receita (Deduções) |
+  Entrevistas de campo (Custos diretos de campo) | Horas e diárias (Custos
+  diretos) | Supervisão (Custos diretos) | Recrutamento (Custos diretos) |
+  Incentivo ao respondente (Custos diretos) | Fornecedores — telefonia/listas/
+  plataforma (Custos diretos) | Despesas e reembolsos (Despesas operacionais) |
+  Folha administrativa (Despesas operacionais) | Tarifas bancárias
+  (Despesas financeiras) | Rendimentos (Receitas financeiras).
+  Inclua uma conta SINTÉTICA ("Custos") para mostrar o erro
+  "Escolha uma conta analítica".
+- Linhas do DRE ordenadas: Receita bruta, Deduções, Custos diretos de campo,
+  Despesas operacionais, Despesas financeiras, Receitas financeiras.
+- Fornecedores (12, fictícios): TeleVoz Telecom, ListaCerta Dados, PlataformaSurvey,
+  BotDisparo, Gráfica Rápida, Locadora de Salas Centro, Café & Cia (reembolso),
+  Contabilidade Alfa (emite RPA), Limpeza Brilho, Internet Net+, Energia Sul,
+  Aluguel Edifício Central. Cada um com apelido, nome, CPF/CNPJ fictício
+  válido, contato, telefone (+55 DDD número), e-mail, endereço, dados bancários,
+  chave Pix (mascarada), condição de pagamento, ativo/inativo, anexos.
+  Um deles já tem lançamentos (não pode excluir, só inativar).
+- Clientes (4): Cliente Alfa Varejo, Cliente Beta Saúde, Cliente Gama Telecom,
+  Cliente Delta Bebidas.
+
+## Projetos (vêm do Connect: o financeiro NÃO cadastra projeto à mão)
+Mostrar selo "Vem do P+ Connect" e bloquear a criação manual.
+1. PRJ-1804 "Satisfação no Varejo" (Cliente Alfa; Consumo SP; em campo;
+   incentivo caixa próprio; valor por entrevista R$ 20,00; prazo de pagamento
+   definido pelo supervisor = 15 dias após o fim do projeto). Orçamento total
+   R$ 60.000,00 em itens (item, valor, data estimada de pagamento, todos
+   obrigatórios):
+   - Entrevistas de campo R$ 20.000 em 03/11/2026
+   - Horas/diárias R$ 8.000 em 05/11/2026
+   - Supervisão R$ 6.000 em 05/11/2026
+   - Incentivo ao respondente R$ 6.000 em 30/10/2026
+   - Fornecedores R$ 20.000 em 30/10/2026   (teto do cenário de estouro)
+   Receita vendida R$ 90.000 (3 parcelas a receber).
+2. PRJ-1811 "Estudo com Cardiologistas" (Cliente Beta; Health; em campo;
+   incentivo por especialidade: cardiologista R$ 150, clínico R$ 90;
+   incentivo "link do cliente" em parte da amostra = só informativo, não paga).
+   Orçamento R$ 45.000.
+3. PRJ-1822 "NPS Telecom CATI" (Cliente Gama; Curitiba; em campo; pagamento por
+   hora; prazo 10 dias após o fim). Orçamento R$ 30.000.
+4. PRJ-1790 "Tracking de Bebidas" (Cliente Delta; ENCERRADO; fechamento
+   financeiro com resultado NEGATIVO que exige causa). Receita R$ 50.000,
+   custos R$ 56.500. Causas: duração maior que a prevista, lista improdutiva,
+   cotas rígidas, custo de delivery/online, verificação, telefonia, aumento de
+   incentivo, aumento de equipe/diárias, outro.
+5. PRJ-1830 "Proposta Higiene Pessoal" (Cliente Alfa; status proposta).
+6. PRJ-1777 "Pesquisa Antiga" (FECHADO; imutável; serve para os erros
+   "Projeto fechado — peça a reabertura a um administrador" e
+   "Só um administrador pode reabrir um projeto fechado").
+Cada projeto tem: código do job, nome, referência do cliente, cliente,
+empresa, unidade, centro de custo, ID no Connect, área, metodologia, gestora
+responsável, supervisores, amostra, duração, mês de venda e mês de execução
+(vendido em dez/2025 e executado em mar/2026 deve existir), fonte do incentivo
+(caixa próprio | link do cliente), origem da lista (própria | cliente | mista),
+modelo de pagamento do campo (por entrevista | hora | diária | misto), valor
+vendido, reserva de contingência.
+
+## Pessoas de campo (vêm do Connect; nome e chave MASCARADA; sem CPF)
+Crie 16 pessoas fictícias (entrevistadores, recrutador, supervisores) com
+modelo fiscal: 6 recebem por NF (CNPJ/MEI), 4 por RPA (autônomo, desconto de
+11% de INSS), o restante só incentivo ("sem documento"). Algumas SEM chave Pix
+válida (ficam fora do lote com aviso). Uma pessoa com chave recém-alterada
+("Chave Pix alterada depois da planilha — gere de novo antes de pagar"). Uma
+pessoa cadastrada mas NÃO aprovada no PRJ-1804 (cenário "fora do projeto").
+
+## Itens a pagar de entrevistas (espelho do Connect, PRJ-1804)
+- Fernanda A.: 2 entrevistas de R$ 20,00 a pagar (lançadas 15/10 e 16/10).
+- Marcos B.: 5 entrevistas de R$ 20,00 (R$ 100,00).
+- Juliana P.: 3 entrevistas de R$ 20,00 (R$ 60,00), recebe por NF e NÃO enviou
+  a NF: aparece em "Aguardando NF" e NÃO entra na planilha.
+- Ricardo T.: 4 entrevistas de R$ 20,00, recebe por RPA.
+- Mais 8 pessoas com 1 a 10 entrevistas cada. Totais por projeto: lançado,
+  pago, a pagar, orçamento, saldo.
+- Previsão de pagamento (dueOn) = lançamento + prazo do projeto; mudar o prazo
+  de 30 para 15 dias muda a previsão na tela (botão de demonstração).
+
+## Comprovantes Pix (PDF simulado do Itaú/Sispag, lote de 4 Pix para o caso 1)
+Botão "Usar PDF de exemplo" (não precisa de PDF real; simule a leitura e a
+barra de progresso por partes de 25 páginas, com "reenviar só a parte que
+falhou"). Conteúdo do lote exemplo 1 (duas entrevistas de R$ 20 da mesma
+pessoa; Pix de 30, 20, 20, 20, em ordem de data do Pix):
+ - Pix 1 R$ 30,00 -> status "Não fecha" (nenhuma soma dá o valor)
+ - Pix 2 R$ 20,00 -> "Bate" (1ª entrevista)
+ - Pix 3 R$ 20,00 -> "Bate" (2ª entrevista)
+ - Pix 4 R$ 20,00 -> "Pago a mais" (já não há nada a pagar; "lance a produção
+   antes de dar baixa")
+Mais comprovantes no mesmo lote: um de pessoa "fora do projeto" (nunca baixa;
+gera alerta), um de "chave não cadastrada" (único caso em que o nome lido
+aparece), um com erro de leitura (falta chave/valor/ID), e um "duplicado"
+(ID da transação já pago em outro lote). Abas da tela: Batem | Divergentes |
+Fora do projeto | Chave não cadastrada | Erros | Descartados. Descartar e
+restaurar comprovante antes de confirmar. Exemplo 2 (ordem por data do Pix,
+não por página; dois "Bate").
+
+## Contas a pagar (~35 títulos, situações variadas)
+Situação DERIVADA (nunca digitada): pago, parcial, vencido, hoje, a vencer,
+devolvido, cancelado, pendente_autorizacao, mais o tipo "provisão".
+Exemplos obrigatórios:
+ - Título de R$ 1.000,00 com baixa de R$ 400,00 -> "parcial", pendente
+   R$ 600,00; 2ª baixa de R$ 600 -> "pago"; estornar a de R$ 600 -> volta o
+   pendente, as duas linhas ficam visíveis.
+ - Título de fornecedores no PRJ-1804 que leva o total da categoria a
+   R$ 20.001,00 (teto R$ 20.000) -> fica "pendente_autorizacao"; não pode ser
+   programado nem baixado: "Esse lançamento está acima do orçamento e ainda não
+   foi autorizado". Só Administrador autoriza (log: quem, quando, valor,
+   motivo); outros papéis veem "Só um administrador pode autorizar gasto acima
+   do orçamento".
+ - Rateio: pessoa que recebe por projeto com 6 projetos numa fatura; usuário
+   COLA a lista "código; valor" (só números); o sistema distribui; mostra a
+   linha que não fecha ANTES de salvar. Erros exatos: "As partes do rateio
+   somam R$ X, mas o lançamento é de R$ Y"; "Projeto {código} não encontrado
+   (linha N)"; "Linha N: use só números no valor". Cada parte conta na
+   carteira do seu projeto.
+ - Lançamento AGRUPADO com itens: importar planilha de 14 incentivos (botão
+   "Importar planilha de exemplo") cria 1 lançamento com 14 itens (pessoa,
+   valor, documento fiscal, status) e a planilha anexada; total bate. Erro:
+   "Os itens somam R$ X, mas o lançamento é de R$ Y". Item com NF exige número
+   e data de emissão. Mostrar por item: 5 NF, 2 RPA, 2 incentivos, 1 "falta NF"
+   no lançamento de 10 pessoas.
+ - Ações em LOTE (seleção múltipla): dar baixa nas 8 parcelas de uma pessoa
+   (mesma data/conta/forma); reclassificar (projeto/categoria/centro de custo)
+   3 títulos (grava 3 linhas de auditoria); copiar; excluir (só sem baixa,
+   erro "N títulos têm baixa — estorne antes de excluir"). Sempre mostrar antes
+   "N títulos, total R$ X" e pedir confirmação.
+ - Provisões vindas do orçamento (ex.: Fornecedores R$ 18.000 em 30/10;
+   Entrevistadores R$ 6.000 em 03/11): botão "Substituir por real": nota real
+   de R$ 17.500 vinculada à provisão -> previsto vira R$ 17.500 real e a sobra
+   de R$ 500 aparece. Provisão NUNCA é paga ("Provisão não é paga — substitua
+   pelo lançamento real"). Provisão vencida sem real gera aviso.
+ - "Documentação atrasada": folha/nota que chega com menos de 3 dias da data
+   de pagamento (um exemplo recebido 1 dia antes).
+ - Título em projeto fechado: erro "Projeto fechado — peça a reabertura a um
+   administrador".
+Painel: visão por dia/semana/mês/ano/período, navegação, "hoje"; indicadores
+clicáveis (Total, Pagos, Pendentes, Vencidos, Hoje, A vencer, Provisões) com
+quantidade e valor; filtros combináveis (fornecedor, projeto, categoria, linha
+do DRE, palavra-chave, empresa, unidade, centro de custo, forma de pagamento,
+situação, tipo real/provisão, intervalo por vencimento OU competência OU
+BAIXA). Colunas escolhíveis. Lançamento em duas páginas: 1ª obrigatória (data,
+fornecedor, projeto ou rateio, categoria, centro de custo, forma de pagamento,
+valor, vencimento, descrição); 2ª opcional (observações, contrato, documento,
+competência). Seletores com lista E busca. Abas: Baixas, Documentos, Repetir,
+Histórico (auditoria antes -> depois).
+
+## Baixas, devolução (volta), recorrência e anexos
+- Nova baixa: data, valor, conta, forma (Pix, TED, boleto, débito, dinheiro),
+  ID bancário, documento, juros/multa/desconto/tarifa, observação. Baixa não é
+  editada nem apagada: correção = estorno + nova baixa (erro "Baixas não são
+  alteradas — faça um estorno"). Baixa acima do saldo: "O valor passa do saldo
+  pendente (R$ X)". Baixa retroativa exige observação. Barra "% pago".
+- VOLTA (Pix devolvido): cenário pronto: Pix devolvido em 15/10, pago de novo
+  em 16/10; título "devolvido" volta a pendente; as duas baixas e a devolução
+  ficam na aba ("Pix devolvido"); pessoa sinalizada para o supervisor corrigir
+  a chave no Connect; relatório por data de baixa mostra a saída em 16/10.
+- REPETIR/PARCELAR: mensal (dia do mês), semanal, parcelado (N parcelas; a
+  diferença de arredondamento vai na última). "Simular" gera tabela editável.
+  Teste: 6 meses a partir de 31/01 -> 31/01, 28/02, 31/03, 30/04, 31/05, 30/06
+  (ajuste para dia útil, regra "a validar"). Ao editar uma ocorrência: "só
+  esta", "esta e as seguintes", "todas em aberto" (paga nunca muda: "Ocorrências
+  pagas não são alteradas pela série"). Recorrência ESTIMADA: conta de luz
+  R$ 150,00 x 12 meses; a de outubro é substituída pelo valor real R$ 163,40 e
+  as de novembro em diante continuam R$ 150,00.
+- DOCUMENTOS: enviar, renomear, baixar, excluir (lógico, com motivo); tipos:
+  nota, boleto, contrato, comprovante, recibo, outro. Simular recusa de ".exe
+  renomeado para .pdf" ("Envie PDF, imagem, planilha, documento ou XML de até
+  20 MB") e antivírus ("Arquivo bloqueado por segurança"). Cada operação vai
+  para a trilha. Comprovante Pix de entrevistador NÃO vira anexo (o PDF não é
+  guardado; registra só "comprovante enviado ao supervisor em dd/mm").
+
+## Contas a receber
+- 3 títulos parcelados (30% aprovação, 70% entrega), recebimento parcial,
+  inadimplência: Cliente com 2 títulos vencidos mostrando dias de atraso e total.
+- Projeto obrigatório ("Informe o projeto da receita"); parcelas devem somar
+  o título ("As parcelas somam R$ X, mas o título é de R$ Y"); receber mais que
+  o pendente ("O valor recebido passa do saldo pendente (R$ X)").
+- Receita da ficha do projeto = soma dos títulos; diferença gera aviso.
+
+## Documentos fiscais (NF, RPA, notas recebidas)
+- Modelo fiscal por pessoa (mora no Connect): NF (PJ) ou RPA (autônomo; o
+  cadastro avisa "há desconto de 11% de INSS"). Só esses dois modelos.
+- "Aguardando NF": pessoa NF sem nota fica fora da planilha/lote; erro "{N}
+  pessoas recebem por NF e ainda não enviaram a nota".
+- Lista de RPA do período para a contabilidade (pessoa, valor bruto, projeto);
+  pago pelo LÍQUIDO: R$ 1.000,00 bruto -> R$ 890,00 (INSS 11% calculado, nunca
+  digitado; alíquota em configuração com vigência).
+- Incentivo ao respondente: "incentivo — sem documento". Todo item pago tem
+  documento OU "sem documento" com motivo (incentivo, adiantamento, reembolso
+  sem cupom, outro).
+- Notas de fornecedores (~300/mês; mostre 30): NFS-e, NF-e/DANFE com XML,
+  NFC-e (cupom). Campos: número, data de EMISSÃO (separada da data de
+  pagamento), emitente, valor, data de pagamento, status (válida/cancelada).
+  Nome padrão do arquivo: "{data de pagamento} {número da NF} {fornecedor}
+  {valor} {data de emissão}". Erro "Informe o número e a data de emissão da
+  nota".
+- Tela "Conferência de notas recebidas": cruza notas emitidas contra o CNPJ da
+  empresa (importadas de arquivo exportado dos portais; a captura automática
+  é pesquisa futura N2) com as notas anexadas aos títulos; mostra "faltam" e
+  "canceladas". Nota cancelada na origem gera ALERTA no título já pago com ela.
+- Guarda de 5 anos: apagar antes do prazo bloqueia ("Essa nota precisa ser
+  guardada até dd/mm/aaaa"). A NF do ENTREVISTADOR fica 6 meses no Connect
+  (por projeto) e 5 anos na rede da empresa; o Financeiro só recebe o status
+  "recebida/pendente". Mostre isso num aviso explicativo (a validar Q17).
+- Exportação para a contabilidade (planilha do mês): data, valor, tipo de
+  documento, número da NF, data de emissão, emitente.
+
+## Orçamento, provisão e saúde do projeto (módulo 4)
+- Orçamento VEM do Connect (somente leitura aqui; tentar editar mostra
+  "O orçamento é alterado no P+ Connect"). Itens com valor e data estimada.
+- Cada item vira provisão no fluxo de caixa. Carteira (wallet) por categoria:
+  orçado, provisionado, comprometido, realizado, saldo, % consumido; semáforo
+  por categoria e geral com a razão em texto ("Fornecedores em 92% com 60% do
+  campo feito").
+- Alertas: 80% e 100% por categoria e total (sem repetir na faixa);
+  real muito diferente do provisionado ("tinha 18 mil, chegou 35 mil");
+  projeção de estouro (realizado / % campo concluído > orçado x 1,05).
+  O alerta explica a causa e nunca altera o orçamento.
+- Consumo por categoria que o Financeiro "fornece" ao Connect (só valores, sem
+  dado pessoal): mostrar como uma tabela "o que o Connect vê".
+- Fim do projeto: marca a data que conta para a folha final (prazo definido
+  pelo supervisor vale para todas as equipes) e transforma em data certa a
+  provisão da folha final.
+- Ciclo de vida (proposta -> aprovado -> em campo -> campo encerrado -> em
+  fechamento -> fechado; cancelado). Marque este bloco com "Regra a validar
+  (Q16): talvez fique no Connect". Checklist de abertura por área
+  (processamento, verificação, delivery/online, financeiro) com responsável,
+  prazo e aceite (inclui "checagem de consistência"). Encerrar campo avisa o
+  processamento na hora. Fechamento financeiro: planejado x realizado por
+  rubrica, resultado, margem, classificação positivo/negativo/neutro; negativo
+  ou rubrica estourada exige CAUSA (lista + texto). Bloqueios com mensagens:
+  "Aprove o orçamento antes de iniciar o campo", "Ainda há pagamentos
+  pendentes neste projeto: N folhas / M lotes", "Informe a causa do resultado
+  negativo", "Já existe um projeto com esse código". Reabrir só admin com
+  motivo. Lista de projetos em cartões com totais, filtros (status, área,
+  cliente, gestora, resultado, mês de venda/execução) e cores positivo/negativo.
+
+## Folha de campo e regras de pagamento (módulo 5)
+- Regras (tabela por projeto): tipo (entrevista, hora, diária, supervisão,
+  recrutamento, incentivo_respondente, bônus, reembolso), valor, aplica-se a
+  (todos | função | perfil | pessoa), vigência de/até, motivo, autor,
+  aprovação. Linha do tempo de versões ("R$ 45 até 10/03 -> R$ 50 até 20/03 ->
+  R$ 100"). Versões não se sobrepõem ("Já existe um valor de {tipo} vigente
+  nesse período para {alvo}"). Vigência retroativa só com administrador
+  ("Mudança retroativa de valor precisa de autorização de um administrador").
+  Precedência: pessoa > perfil > função > todos. Sem regra vigente: linha
+  "sem_regra" e não entra na folha ("Não há valor de {tipo} vigente em {data}
+  para esta pessoa"). Valor da entrevista NÃO é editável aqui ("O valor por
+  entrevista é definido no P+ Connect"). Incentivo com fonte "link do cliente"
+  aparece no relatório mas não entra no lote.
+- SIMULADOR: pessoa + período + quantidades -> valor e a versão da regra usada.
+  Caso de teste: 38 entrevistas de 01-10/03 a R$ 45 + 12 de 11-15/03 a R$ 50
+  = 38 x 45 + 12 x 50 = R$ 2.310,00.
+- Folha por projeto x data de pagamento (aberta automaticamente). Data de
+  pagamento: o supervisor define o prazo do projeto (valor para todas as
+  equipes); mostre a tabela de ORIENTAÇÃO por área (consumo SP: 15 dias corridos
+  após o fim; Health: 2x por mês; CATI: 10 dias após o fim) e o selo "Formato do
+  prazo a validar". Exemplo: projeto de consumo encerrado em 21/10 -> folha
+  final com pagamento em 05/11.
+- Folha proporcional (antecipada no meio do campo + final), já como provisão.
+- Linhas: automáticas (entrevistas validadas do Connect, só conferência) e
+  lançadas (horas, diárias, supervisão, recrutamento, incentivo, bônus,
+  reembolso: quantidade, data, evidência opcional); valor sempre CALCULADO pela
+  regra vigente, nunca digitado; documento fiscal por pessoa (NF enviada, RPA,
+  aguardando NF).
+- Conferência (tela da gestora): por pessoa, quantidade, valor, regra usada,
+  diferença para o ciclo anterior; CHECAGENS automáticas que viram EXCEÇÕES
+  (aceitar com justificativa ou devolver ao supervisor): entrevistas declaradas
+  x validadas (caso: 12 declaradas, 9 validadas); online x verificação; pessoa
+  sem candidatura aprovada no projeto ("Essa pessoa não está aprovada neste
+  projeto"); diária em dia sem produção; mesma pessoa em dois projetos no mesmo
+  dia por diária; valor fora do padrão; linha sem regra. Comentário por linha;
+  "devolver" ao supervisor, que corrige e reenvia.
+- Estados: aberta -> em_conferencia -> aprovada -> em_lote -> paga/paga_parcial.
+  Aprovar com exceções pendentes: "Há N exceções sem decisão nesta folha".
+  Supervisor tenta aprovar: "Só a gestora do projeto aprova a folha". Editar
+  folha aprovada: "Folha aprovada — lance um ajuste no próximo ciclo". Mesma
+  entrevista em duas folhas: "Essa entrevista já está na folha de {ciclo}".
+  Folha recebida com menos de 3 dias: "documentação atrasada".
+  Contestação do entrevistador ("fiz mais e não entrou") registrada como
+  exceção do ciclo (selo "a validar").
+- Visão CONSOLIDADA do ciclo para o financeiro: 25 folhas aprovadas numa tela,
+  por pessoa e por projeto, total batendo com a soma.
+
+## Lote de pagamento e pagamento de entrevistadores (módulos 1 e 5)
+- Resumo do projeto: orçamento, lançado, pago, a pagar, saldo; quebra por
+  pessoa (nome + chave mascarada).
+- PLANILHA de pagamentos (.xlsx ou CSV gerado de verdade): uma linha por pessoa
+  com item a pagar; colunas: Nome, Tipo de chave Pix, Chave Pix (COMPLETA,
+  fictícia), Entrevistas a pagar, Valor a pagar (R$), Primeira e Última
+  entrevista, Previsão de pagamento, Projeto ("PRJ-1804 Satisfação no
+  Varejo"); linha Total; SEM coluna de CPF; células como texto (um nome
+  "=1+1" deve sair como texto). Só Financeiro, depois de pedir o MFA. Cada
+  download grava linha na trilha (export + acesso à chave). Projeto sem nada a
+  pagar baixa só o cabeçalho. Erros: "Só o Financeiro pode baixar a planilha de
+  pagamentos"; "O P+ Connect não respondeu — tente de novo em alguns minutos";
+  "Limite diário de consultas de chave Pix atingido — fale com o
+  administrador". Aviso "Chave Pix alterada depois da planilha".
+- Gerar LOTE a partir de 3 folhas aprovadas de projetos diferentes: 1 linha por
+  pessoa com detalhe por projeto/tipo. Pessoa sem chave válida ou NF sem nota
+  fica de fora com aviso. Pix de natureza mista (entrevistas + diárias): cada
+  natureza tem Pix próprio; um Pix que só fecha somando as duas vira
+  "Não fecha" (pergunta F2, selo "a validar"). Cancelar lote com baixas: "Esse
+  lote já tem pagamentos baixados — retire linha por linha".
+- CONFIRMAR BAIXA (modal com MFA): refaz a conciliação, grava alocações e cria
+  pedidos de baixa ao Connect: estados pendente_envio -> enviada -> aplicada
+  (item vira "pago"; o Connect mostra "Pago em dd/mm") ou recusada
+  (already_paid, duplicate_e2e, amount_mismatch) que vai para DIVERGÊNCIAS para
+  decisão humana (nunca corrigido sozinho). Mostrar "aguardando o Connect".
+  Timeout: reenvio com a mesma chave de idempotência, sem pagar duas vezes.
+  Confirmar o mesmo lote de novo: "Esse envio já foi confirmado e não pode mais
+  ser alterado". Confirmar com partes faltando: "Ainda faltam partes do PDF
+  para terminar de enviar".
+- Devolvido pelo banco: linha "devolvida", pessoa sinalizada ("conferir chave
+  Pix"), valor volta para o próximo lote.
+- ETAPA 2 (pesquisa N1, marcar "Em estudo — simulação"): "Enviar ao Itaú":
+  lote de 100, retorno por pagamento: "98 de 100 pagos no job 1804; falharam
+  Maria e João: chave inválida"; reenvio só para os 2; MFA antes do envio;
+  idempotência por pagamento.
+- Avisos: payment_pending ("R$ X lançados a pagar em {projeto}"), payment_due
+  ("Pagamento vencendo em {projeto} (dd/mm)" / "Pagamento atrasado em
+  {projeto} (dd/mm)", um por projeto por dia), "N comprovantes de pessoas fora
+  do projeto {projeto}". Central de avisos com sino.
+
+## Integração com o Connect (tela "Integração")
+Painel somente-leitura mostrando o que o Financeiro recebe e envia: projetos,
+orçamento, itens a pagar, pessoas (mascarado), chave completa (só na
+planilha), pedidos de baixa e seus estados, eventos recebidos (entrevistas
+lançadas, chave Pix alterada, projeto alterado, entrevista removida ->
+"cancelado" e sai da planilha), divergências abertas, última sincronização,
+status "Conectado / Fora do ar" com botão de simular queda (mostra as mensagens
+de erro 503). Regra de ouro explicada em uma frase: o Financeiro nunca lê o
+banco do Connect; só pela API.
+
+## Bancos e conciliação (módulo 6)
+- Contas bancárias (cadastro). Importar extrato OFX/CSV com pré-visualização
+  ("Usar extrato de exemplo"); reimportar o mesmo extrato não duplica.
+  Arquivo inválido: "Não foi possível ler o extrato — envie OFX ou CSV do banco".
+- Extrato de exemplo de outubro/2026 com ~45 linhas: 5 Pix de R$ 200,00 de um
+  lançamento agrupado de R$ 1.000 (5 incentivos); pagamento de fornecedor com
+  NF; Pix de entrevistadores já conciliados pelos comprovantes; um Pix
+  devolvido (volta) de agosto pago em setembro; tarifa bancária; rendimento;
+  transferência; linhas sem classificação.
+- Tela de duas colunas: extrato x lançamentos/itens. Sugestão automática por
+  valor + data (±3 dias) + favorecido + ID. Por linha: conciliar com baixa
+  existente, baixar título em aberto, criar lançamento (tarifa/rendimento) ou
+  marcar exceção com motivo. Casar cada linha com um ITEM do lançamento
+  agrupado, não com o total. A soma conciliada não passa do lançamento
+  ("As linhas somam R$ X, mas o lançamento é de R$ Y"); o que falta = "itens
+  não pagos".
+- CLASSIFICAÇÃO obrigatória por linha: incentivo, adiantamento, pagamento com
+  NF, RPA, sem NF, reembolso, tarifa, transferência, outro; com NF: número e
+  data de emissão (vêm do documento quando já existe; a pessoa nunca deduz o
+  tipo só pelo valor).
+- Desfazer conciliação só com motivo e auditoria.
+- Diferença extrato x despesas por dia e por mês, explicada (voltas,
+  pendências, não conciliado). Saldo mensal por conta e consolidado.
+- FECHAMENTO DO MÊS por empresa: exige zero linha sem conciliar/classificar
+  ("Há N linhas não conciliadas ou sem classificação em {conta}"); exporta a
+  planilha de conciliação para a contabilidade (uma linha por transação com
+  classificação, NF, data de emissão e lançamento). Período fechado bloqueia
+  baixa, estorno e lançamento ("O período de {mês} está fechado"). Reabrir só
+  admin ("Só um administrador pode reabrir um período fechado"). Cenário:
+  março fechado.
+
+## Relatórios e fluxo de caixa (módulo 7)
+Todos com filtros combináveis, colunas, ordenação, agrupamento, totais e
+subtotais, favorito salvo, indicadores clicáveis, exportação XLSX/CSV/PDF
+(CSV real; os demais podem ser simulados), impressão com cabeçalho dos filtros
++ data/hora + usuário. Totais = soma exata das linhas exibidas.
+Relatórios: Lançamentos a pagar; Lançamentos a receber; Resultado por projeto
+(receita, custo por rubrica planejado x realizado, margem, resultado, causa);
+Causas de resultado negativo; Folha e pagamentos de campo; Wallet consolidada
+(todos os projetos em campo, semáforo, % consumido, projeção: painel da
+direção); FLUXO DE CAIXA (diário/semanal/mensal, previsto = provisões + títulos
+em aberto por vencimento x realizado = baixas por DATA DE BAIXA, saldo
+projetado por conta e consolidado; ex.: R$ 18.000 previstos em 30/10);
+Extrato x despesas; DRE (competência, por empresa/unidade/projeto/centro de
+custo); Fluxo mensal por plano de contas; Recebimentos de projetos x ano;
+Previsto x realizado com desvio em R$ e %. Regra explicada na tela: contas
+pagas e fluxo de caixa usam a data de baixa (bate com o extrato); DRE e
+resultado usam competência. Nenhum relatório exporta chave Pix completa nem
+CPF. Relatório pesado (> 50 mil linhas): "Relatório grande — avisaremos quando
+o arquivo estiver pronto". Erro de datas: "A data inicial deve ser anterior à
+final". Supervisor abre relatório geral: "Seu perfil não permite essa ação".
+
+## Cadastros e migração (módulo 2)
+CRUD simples de: empresas, unidades, centros de custo, plano de contas
+(hierárquico, analítica/sintética, natureza receita/despesa, linha do DRE),
+linhas do DRE, fornecedores, clientes, contratos (opcional no lançamento: "a
+validar"). Regras: CNPJ/CPF válido e único entre ativos ("Já existe um
+fornecedor ativo com esse documento"); em uso não se exclui, só inativa
+("Esse cadastro tem lançamentos — inative em vez de excluir"); inativo sai do
+seletor mas continua nos relatórios; telefone E.164; e-mail válido. IMPORTAÇÃO
+em massa por planilha: "Importar 100 fornecedores de exemplo" com 3 linhas
+erradas mostradas com o motivo; só grava depois de confirmar. Tela
+"Migração do sistema antigo" mostrando as 5 etapas (estrutura -> clientes/
+fornecedores/contratos -> projetos -> títulos em aberto -> histórico somente
+leitura) com relatório de conferência e o critério "saldo em aberto por
+empresa e fornecedor/cliente bate 100% com o sistema antigo na data de corte"
+(11 bases de dados e ~1.000 fornecedores: use esses números no texto).
+
+## Administração e auditoria
+- Usuários e papéis (criar, desativar; desativar derruba a sessão; o último
+  administrador não pode ser rebaixado: "Não é possível remover o último
+  administrador"); permissões finas (confirmar baixa, baixar planilha,
+  gerenciar contas de serviço); escopo por empresa/unidade/projeto (usuário da
+  "Empresa A" não vê a "Empresa B", nem por link: "não encontrado").
+- Contas de serviço da integração (criar/girar com MFA; segredo mostrado uma
+  única vez).
+- Tela AUDITORIA (admin e auditor): linha do tempo append-only com filtros por
+  usuário, lote, projeto, tipo e período: lote criado/confirmado/cancelado,
+  baixa pedida ao Connect e resposta, download de planilha, acesso a chave
+  completa, mudança de papel, alteração de valor/vencimento/classificação
+  (antes -> depois), autorização de estouro, ação em lote (uma linha por
+  título), anexo incluído/baixado/excluído. Ninguém edita nem apaga.
+
+## Tela "Validação" (o coração do protótipo)
+1. "Roteiro de validação": checklist de ~40 cenários guiados, cada um com
+   botão "Ir para a tela" que abre a tela já no estado do cenário, o resultado
+   esperado em uma frase e as opções Sim / Não / Comentar. Cenários mínimos:
+   a) Pix 30/20/20/20 -> não fecha / bate / bate / pago a mais.
+   b) Pessoa NF sem nota fica em "Aguardando NF" e fora da planilha.
+   c) RPA R$ 1.000 bruto -> R$ 890 líquido.
+   d) Rateio por colagem de 6 projetos e erro de soma.
+   e) 14 incentivos importados viram 1 lançamento com 14 itens.
+   f) Baixa em lote de 8 parcelas de uma pessoa.
+   g) Reclassificar 3 títulos grava 3 linhas de auditoria.
+   h) Título de R$ 20.001 numa categoria de R$ 20.000 -> pendente de
+      autorização; só admin libera.
+   i) Provisão R$ 6.000 substituída por folha real de R$ 5.800.
+   j) Conta de luz estimada: outubro real R$ 163,40, demais R$ 150.
+   k) Recorrência a partir de 31/01 (28/02, 30/04...).
+   l) Pix devolvido em 15/10, pago em 16/10, relatório por data de baixa.
+   m) 5 Pix de R$ 200 conciliados com 5 itens de incentivo.
+   n) Fechar março e tentar baixa com data de março.
+   o) Folha: 12 declaradas x 9 validadas gera exceção; aprovar bloqueia.
+   p) Quem aprova a folha tenta pagar o lote.
+   q) Regra de valor 45 -> 50 no simulador (R$ 2.310,00).
+   r) Fechar projeto negativo exige causa.
+   s) Nota cancelada na prefeitura gera alerta no título pago.
+   t) Lote de 100 no Itaú: 98 pagos e 2 falhas nomeadas.
+   u) Supervisor não vê chave Pix nem relatório geral.
+   v) Projeto fechado não aceita lançamento; reabrir só admin.
+   w) Fluxo de caixa de outubro com R$ 18.000 previstos em 30/10.
+   x) Importar fornecedores com 3 linhas erradas.
+   y) Mudar o prazo do projeto de 30 para 15 dias muda a previsão.
+   z) Planilha de pagamentos sem CPF e com texto "=1+1" como texto.
+   (e os demais critérios de aceite descritos acima).
+2. "Perguntas abertas" (lista de decisões que o financeiro precisa tomar,
+   cada uma com Sim/Não/Comentar e campo de resposta):
+   - Q1 Supervisor acessa o Financeiro? (hoje: não; lança no Connect)
+   - Q4 Cancelar baixa passa a existir? Com dupla aprovação?
+   - Q8 Segregação: quem envia o lote não confirma a baixa acima de qual valor?
+   - Q9 Resumo de pagamentos: diário ou semanal?
+   - Q10 Login por e-mail ou CPF? (hoje: e-mail)
+   - Q12 Baixar em outro projeto um comprovante "fora do projeto"?
+   - Q13 Comprovantes de outros bancos ou em imagem (OCR)?
+   - Q17 O prazo de 6 meses vale também para notas de fornecedores?
+   - N1 Como pagar direto pelo Itaú (API Pix em lote ou arquivo de remessa)?
+   - N2 Como capturar NF automaticamente (prefeitura/Emissor Nacional)?
+   - N3 Teto do INSS, retenções, regime tributário do PJ, campos da ficha de
+     fornecedor.
+   - N5 Itens por pessoa do lançamento agrupado: um título por pessoa ou itens
+     de um lançamento? (hoje: itens)
+   - F2 Pix misto (entrevistas + diárias): um Pix por natureza?
+   - F3 Lista oficial de categorias do plano de contas (~10?).
+   - F4 Formato do prazo de pagamento do projeto: dias após o lançamento ou
+     após o fim do projeto?
+   - F6 Guardar comprovantes de incentivo e de folha?
+   - F8 Quais empresas/CNPJs e unidades; segregação de acesso?
+   - F9 Obrigações fiscais além da exportação para a contabilidade?
+   - F11 Novos papéis no Financeiro (direção, gestora, supervisor, comercial,
+     auditor)?
+   - Regras "a validar" soltas: contrato obrigatório no lançamento?;
+     vencimento em fim de semana vai para o próximo dia útil ou anterior?;
+     limite de 20 MB e 50 anexos por título?; aumento de valor acima de X%
+     exige aprovação; aviso ao comercial no vencimento + N dias; receita sem
+     projeto existe?; retenções sobre a nota fiscal de venda?.
+3. "Resumo das respostas": tabela com tudo que foi marcado Sim/Não/Comentar,
+   filtro por tela e por pergunta, botão "Exportar CSV" e "Copiar resumo" (texto
+   pronto para colar num e-mail). Contadores no topo: "N cenários validados,
+   N pedem mudança, N sem resposta".
+
+# Fora do escopo (NÃO construir; apenas citar numa tela "Em breve")
+Telefonia e consumo digital, atribuição de produção, calculadora de orçamento,
+evidências/OCR, app mobile, emissão de NF pela empresa, SPED/impostos. O
+cadastro do modelo fiscal e o ENVIO da NF pelo entrevistador acontecem no
+P+ Connect (outro sistema): mostrar só o status aqui.
+
+# Regras de produto que o protótipo precisa deixar visíveis (um quadro "Regras
+do sistema" acessível pelo menu ajuda)
+1. O comprovante dá baixa, não cria entrevista.
+2. Valor exato: Pix = soma dos itens pagos; não existe resto; o que não fecha
+   vai para revisão humana.
+3. Orçamento é teto, e quem controla é o Connect.
+4. Nada é pago sem confirmação humana.
+5. O PDF do comprovante Pix do entrevistador não é guardado.
+6. Quem recebeu sem estar no projeto gera alerta e nunca é pago sozinho.
+7. Chave Pix mascarada em toda tela; completa só na planilha e no lote.
+8. CPF nunca aparece.
+9. Dinheiro exato; datas no fuso de São Paulo.
+10. Todo pagamento tem documento fiscal ou "sem documento" com motivo.
+11. Data de baixa = data em que o dinheiro saiu.
+12. Nada é digitado duas vezes: projeto, orçamento e entrevistas vêm do
+    Connect; folha e incentivo são importados.
+
+# Entrega esperada
+1. O protótipo publicado com link acessível.
+2. Um README curto dentro do app (menu Ajuda) com: como trocar de papel, como
+   restaurar os dados, onde está o roteiro de validação.
+3. Ao final, um resumo curto do que foi coberto e do que ficou simplificado.
+Não peça confirmações no meio do caminho: onde faltar detalhe, escolha o mais
+simples e marque a tela com "Regra a validar".
+
+=== FIM DO PROMPT ===

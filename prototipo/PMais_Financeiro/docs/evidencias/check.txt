@@ -1,0 +1,7 @@
+
+> pmaisfin@1.0.0 check <raiz-do-repositorio>
+> tsc --noEmit
+
+
+__ELAPSED_SECONDS__=6
+__EXIT_STATUS__=0

@@ -1,0 +1,20 @@
+{
+  "routes": [
+    { "path": "/login", "title": "Acesso à demonstração" },
+    { "path": "/", "title": "Dashboard DEMO" },
+    { "path": "/demo/pagamentos", "title": "M1 — Pagamentos DEMO" },
+    { "path": "/demo/cadastros", "title": "M2 — Cadastros DEMO" },
+    { "path": "/demo/contas", "title": "M3 — Contas DEMO" },
+    { "path": "/demo/orcamento", "title": "M4 — Projetos e orçamento DEMO" },
+    { "path": "/demo/folha", "title": "M5 — Folha e lotes DEMO" },
+    { "path": "/demo/conciliacao", "title": "M6 — Conciliação DEMO" },
+    { "path": "/demo/relatorios", "title": "M7 — Relatórios DEMO" },
+    { "path": "/fundacao", "title": "Fundação técnica" },
+    { "path": "/modulos", "title": "Catálogo de módulos" },
+    { "path": "/modulos/:id", "title": "Guia do módulo" },
+    { "path": "/implantacao", "title": "Implantação" },
+    { "path": "/seguranca", "title": "Segurança" },
+    { "path": "/acesso", "title": "Acesso adiado" },
+    { "path": "/documentacao", "title": "Documentação" }
+  ]
+}

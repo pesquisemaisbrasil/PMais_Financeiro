@@ -1,0 +1,286 @@
+{
+  "formatVersion": 1,
+  "observedAt": "2026-10-26T21:24:12.669Z",
+  "source": "MySQL information_schema via mysql2/promise",
+  "scope": "schema selecionado por DATABASE_URL; identificador do schema omitido",
+  "access": {
+    "mode": "read-only metadata",
+    "applicationRowsRead": false,
+    "queries": [
+      "information_schema.TABLES",
+      "information_schema.COLUMNS",
+      "information_schema.STATISTICS",
+      "information_schema.TABLE_CONSTRAINTS",
+      "information_schema.KEY_COLUMN_USAGE",
+      "information_schema.REFERENTIAL_CONSTRAINTS"
+    ]
+  },
+  "connection": {
+    "driver": "mysql2/promise",
+    "resource": "pool",
+    "connectionLimit": 1,
+    "dsnValueRecorded": false,
+    "poolClosed": true
+  },
+  "status": "CONFIRMADO NO METADADO",
+  "tables": [
+    {
+      "name": "__drizzle_migrations",
+      "type": "BASE TABLE",
+      "engine": "InnoDB"
+    },
+    {
+      "name": "users",
+      "type": "BASE TABLE",
+      "engine": "InnoDB"
+    }
+  ],
+  "columns": [
+    {
+      "table": "__drizzle_migrations",
+      "name": "id",
+      "ordinalPosition": 1,
+      "defaultSQL": null,
+      "nullable": false,
+      "dataType": "bigint",
+      "characterMaximumLength": null,
+      "numericPrecision": 20,
+      "numericScale": 0,
+      "columnType": "bigint unsigned",
+      "extra": "auto_increment",
+      "columnKey": "PRI"
+    },
+    {
+      "table": "__drizzle_migrations",
+      "name": "hash",
+      "ordinalPosition": 2,
+      "defaultSQL": null,
+      "nullable": false,
+      "dataType": "text",
+      "characterMaximumLength": 65535,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "text",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "__drizzle_migrations",
+      "name": "created_at",
+      "ordinalPosition": 3,
+      "defaultSQL": null,
+      "nullable": true,
+      "dataType": "bigint",
+      "characterMaximumLength": null,
+      "numericPrecision": 20,
+      "numericScale": 0,
+      "columnType": "bigint",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "id",
+      "ordinalPosition": 1,
+      "defaultSQL": null,
+      "nullable": false,
+      "dataType": "int",
+      "characterMaximumLength": null,
+      "numericPrecision": 11,
+      "numericScale": 0,
+      "columnType": "int",
+      "extra": "auto_increment",
+      "columnKey": "PRI"
+    },
+    {
+      "table": "users",
+      "name": "openId",
+      "ordinalPosition": 2,
+      "defaultSQL": null,
+      "nullable": false,
+      "dataType": "varchar",
+      "characterMaximumLength": 64,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "varchar(64)",
+      "extra": null,
+      "columnKey": "UNI"
+    },
+    {
+      "table": "users",
+      "name": "name",
+      "ordinalPosition": 3,
+      "defaultSQL": null,
+      "nullable": true,
+      "dataType": "text",
+      "characterMaximumLength": 65535,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "text",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "email",
+      "ordinalPosition": 4,
+      "defaultSQL": null,
+      "nullable": true,
+      "dataType": "varchar",
+      "characterMaximumLength": 320,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "varchar(320)",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "loginMethod",
+      "ordinalPosition": 5,
+      "defaultSQL": null,
+      "nullable": true,
+      "dataType": "varchar",
+      "characterMaximumLength": 64,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "varchar(64)",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "role",
+      "ordinalPosition": 6,
+      "defaultSQL": "user",
+      "nullable": false,
+      "dataType": "enum",
+      "characterMaximumLength": 5,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "enum('user','admin')",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "createdAt",
+      "ordinalPosition": 7,
+      "defaultSQL": "CURRENT_TIMESTAMP",
+      "nullable": false,
+      "dataType": "timestamp",
+      "characterMaximumLength": null,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "timestamp",
+      "extra": null,
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "updatedAt",
+      "ordinalPosition": 8,
+      "defaultSQL": "CURRENT_TIMESTAMP",
+      "nullable": false,
+      "dataType": "timestamp",
+      "characterMaximumLength": null,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "timestamp",
+      "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+      "columnKey": null
+    },
+    {
+      "table": "users",
+      "name": "lastSignedIn",
+      "ordinalPosition": 9,
+      "defaultSQL": "CURRENT_TIMESTAMP",
+      "nullable": false,
+      "dataType": "timestamp",
+      "characterMaximumLength": null,
+      "numericPrecision": null,
+      "numericScale": null,
+      "columnType": "timestamp",
+      "extra": null,
+      "columnKey": null
+    }
+  ],
+  "indexes": [
+    {
+      "table": "__drizzle_migrations",
+      "name": "PRIMARY",
+      "nonUnique": false,
+      "sequence": 1,
+      "column": "id",
+      "collation": "A",
+      "subPart": null,
+      "nullable": false,
+      "type": "BTREE"
+    },
+    {
+      "table": "__drizzle_migrations",
+      "name": "id",
+      "nonUnique": false,
+      "sequence": 1,
+      "column": "id",
+      "collation": "A",
+      "subPart": null,
+      "nullable": false,
+      "type": "BTREE"
+    },
+    {
+      "table": "users",
+      "name": "PRIMARY",
+      "nonUnique": false,
+      "sequence": 1,
+      "column": "id",
+      "collation": "A",
+      "subPart": null,
+      "nullable": false,
+      "type": "BTREE"
+    },
+    {
+      "table": "users",
+      "name": "users_openId_unique",
+      "nonUnique": false,
+      "sequence": 1,
+      "column": "openId",
+      "collation": "A",
+      "subPart": null,
+      "nullable": false,
+      "type": "BTREE"
+    }
+  ],
+  "constraints": [
+    {
+      "table": "__drizzle_migrations",
+      "name": "PRIMARY",
+      "type": "PRIMARY KEY"
+    },
+    {
+      "table": "__drizzle_migrations",
+      "name": "id",
+      "type": "UNIQUE"
+    },
+    {
+      "table": "users",
+      "name": "PRIMARY",
+      "type": "PRIMARY KEY"
+    },
+    {
+      "table": "users",
+      "name": "users_openId_unique",
+      "type": "UNIQUE"
+    }
+  ],
+  "foreignKeys": [],
+  "referentialActions": [],
+  "technicalMigrationTables": [
+    {
+      "name": "__drizzle_migrations",
+      "type": "BASE TABLE",
+      "detectedBy": "TABLES metadata name match"
+    }
+  ],
+  "error": null
+}

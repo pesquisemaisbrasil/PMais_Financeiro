@@ -1,0 +1,2922 @@
+{
+  "command": "pnpm audit --prod --json",
+  "cwd": ".",
+  "exitCode": 1,
+  "status": "completed_nonzero",
+  "parseStatus": "json_parse_ok",
+  "report": {
+    "actions": [
+      {
+        "action": "update",
+        "module": "@smithy/config-resolver",
+        "target": "4.7.2",
+        "depth": 3,
+        "paths": [
+          ".>@aws-sdk/client-s3>@smithy/config-resolver"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "mdast-util-to-hast",
+        "target": "13.2.1",
+        "depth": 4,
+        "paths": [
+          ".>streamdown>react-markdown>mdast-util-to-hast"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "lodash-es",
+        "target": "4.18.1",
+        "depth": 4,
+        "paths": [
+          ".>streamdown>mermaid>lodash-es"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "follow-redirects",
+        "target": "1.16.2",
+        "depth": 3,
+        "paths": [
+          ".>axios>follow-redirects"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "uuid",
+        "target": "11.1.1",
+        "depth": 4,
+        "paths": [
+          ".>streamdown>mermaid>uuid"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "mermaid",
+        "target": "11.17.2",
+        "depth": 3,
+        "paths": [
+          ".>streamdown>mermaid"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "form-data",
+        "target": "4.0.6",
+        "depth": 3,
+        "paths": [
+          ".>axios>form-data"
+        ]
+      },
+      {
+        "action": "update",
+        "module": "proxy-addr",
+        "target": "2.0.8",
+        "depth": 3,
+        "paths": [
+          ".>express>proxy-addr"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "@trpc/server",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>@trpc/server"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "fast-xml-parser",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "qs",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>express>qs"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "path-to-regexp",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>express>path-to-regexp"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "dompurify",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>streamdown>mermaid>dompurify"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "lodash",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>recharts>lodash"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "drizzle-orm",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>drizzle-orm"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "axios",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>axios"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "body-parser",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>express>body-parser"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "nanoid",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>nanoid"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "mysql2",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>mysql2"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "katex",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>streamdown>katex"
+        ]
+      },
+      {
+        "action": "review",
+        "module": "zod",
+        "target": null,
+        "depth": null,
+        "paths": [
+          ".>zod"
+        ]
+      }
+    ],
+    "advisories": {
+      "1111524": {
+        "module_name": "@trpc/server",
+        "title": "tRPC has possible prototype pollution in `experimental_nextAppDirCaller`",
+        "severity": "high",
+        "cves": [
+          "CVE-2025-68130"
+        ],
+        "github_advisory_id": "GHSA-43p4-m455-4f4j",
+        "vulnerable_versions": ">=11.0.0 <11.8.0",
+        "patched_versions": ">=11.8.0",
+        "recommendation": "Upgrade to version 11.8.0 or later",
+        "url": "https://github.com/advisories/GHSA-43p4-m455-4f4j",
+        "referenceUrls": [
+          "https://github.com/trpc/trpc/security/advisories/GHSA-43p4-m455-4f4j",
+          "https://nvd.nist.gov/vuln/detail/CVE-2025-68130",
+          "https://github.com/trpc/trpc/commit/78629d524968ef8db5a7adf68d8b95a44369d77e",
+          "https://github.com/advisories/GHSA-43p4-m455-4f4j"
+        ],
+        "findings": [
+          {
+            "version": "11.6.0",
+            "paths": [
+              ".>@trpc/server"
+            ]
+          }
+        ]
+      },
+      "1111987": {
+        "module_name": "@smithy/config-resolver",
+        "title": "AWS SDK for JavaScript v3 adopted defense in depth enhancement for region parameter value",
+        "severity": "low",
+        "cves": [],
+        "github_advisory_id": "GHSA-6475-r3vj-m8vf",
+        "vulnerable_versions": "<4.4.0",
+        "patched_versions": ">=4.4.0",
+        "recommendation": "Upgrade to version 4.4.0 or later",
+        "url": "https://github.com/advisories/GHSA-6475-r3vj-m8vf",
+        "referenceUrls": [
+          "https://github.com/aws/aws-sdk-js-v3/security/advisories/GHSA-6475-r3vj-m8vf",
+          "https://github.com/aws/aws-sdk-js/security/advisories/GHSA-j965-2qgj-vjmq",
+          "https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/security.html",
+          "https://github.com/advisories/GHSA-6475-r3vj-m8vf"
+        ],
+        "findings": [
+          {
+            "version": "4.3.0",
+            "paths": [
+              ".>@aws-sdk/client-s3>@smithy/config-resolver"
+            ]
+          }
+        ]
+      },
+      "1113048": {
+        "module_name": "mdast-util-to-hast",
+        "title": "mdast-util-to-hast has unsanitized class attribute",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2025-66400"
+        ],
+        "github_advisory_id": "GHSA-4fh9-h7wg-q85m",
+        "vulnerable_versions": ">=13.0.0 <13.2.1",
+        "patched_versions": ">=13.2.1",
+        "recommendation": "Upgrade to version 13.2.1 or later",
+        "url": "https://github.com/advisories/GHSA-4fh9-h7wg-q85m",
+        "referenceUrls": [
+          "https://github.com/syntax-tree/mdast-util-to-hast/security/advisories/GHSA-4fh9-h7wg-q85m",
+          "https://nvd.nist.gov/vuln/detail/CVE-2025-66400",
+          "https://github.com/syntax-tree/mdast-util-to-hast/commit/6fc783ae6abdeb798fd5a68e7f3f21411dde7403",
+          "https://github.com/syntax-tree/mdast-util-to-hast/commit/ab3a79570a1afbfa7efef5d4a0cd9b5caafbc5d7",
+          "https://github.com/advisories/GHSA-4fh9-h7wg-q85m"
+        ],
+        "findings": [
+          {
+            "version": "13.2.0",
+            "paths": [
+              ".>streamdown>react-markdown>mdast-util-to-hast"
+            ]
+          }
+        ]
+      },
+      "1113153": {
+        "module_name": "fast-xml-parser",
+        "title": "fast-xml-parser has RangeError DoS Numeric Entities Bug",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-25128"
+        ],
+        "github_advisory_id": "GHSA-37qj-frw5-hhjh",
+        "vulnerable_versions": ">=5.0.9 <=5.3.3",
+        "patched_versions": ">=5.3.4",
+        "recommendation": "Upgrade to version 5.3.4 or later",
+        "url": "https://github.com/advisories/GHSA-37qj-frw5-hhjh",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-37qj-frw5-hhjh",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-25128",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/4e387f61c4a5cef792f6a2f42467013290bf95dc",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v5.3.4",
+          "https://github.com/advisories/GHSA-37qj-frw5-hhjh"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1113161": {
+        "module_name": "qs",
+        "title": "qs's arrayLimit bypass in comma parsing allows denial of service",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-2391"
+        ],
+        "github_advisory_id": "GHSA-w7fw-mjwx-w883",
+        "vulnerable_versions": ">=6.7.0 <=6.14.1",
+        "patched_versions": ">=6.14.2",
+        "recommendation": "Upgrade to version 6.14.2 or later",
+        "url": "https://github.com/advisories/GHSA-w7fw-mjwx-w883",
+        "referenceUrls": [
+          "https://github.com/ljharb/qs/security/advisories/GHSA-w7fw-mjwx-w883",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-2391",
+          "https://github.com/ljharb/qs/commit/f6a7abff1f13d644db9b05fe4f2c98ada6bf8482",
+          "https://github.com/advisories/GHSA-w7fw-mjwx-w883"
+        ],
+        "findings": [
+          {
+            "version": "6.13.0",
+            "paths": [
+              ".>express>qs"
+            ]
+          }
+        ]
+      },
+      "1113568": {
+        "module_name": "fast-xml-parser",
+        "title": "fast-xml-parser has an entity encoding bypass via regex injection in DOCTYPE entity names",
+        "severity": "critical",
+        "cves": [
+          "CVE-2026-25896"
+        ],
+        "github_advisory_id": "GHSA-m7jm-9gc2-mpf2",
+        "vulnerable_versions": ">=5.0.0 <5.3.5",
+        "patched_versions": ">=5.3.5",
+        "recommendation": "Upgrade to version 5.3.5 or later",
+        "url": "https://github.com/advisories/GHSA-m7jm-9gc2-mpf2",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-m7jm-9gc2-mpf2",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/943ef0eb1b2d3284e72dd74f44a042ee9f07026e",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/ddcd0acf26ddd682cb0dc15a2bd6aa3b96bb1e69",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v5.3.5",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-25896",
+          "https://github.com/advisories/GHSA-m7jm-9gc2-mpf2"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1113569": {
+        "module_name": "fast-xml-parser",
+        "title": "fast-xml-parser affected by DoS through entity expansion in DOCTYPE (no expansion limit)",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-26278"
+        ],
+        "github_advisory_id": "GHSA-jmr7-xgp7-cmfj",
+        "vulnerable_versions": ">=5.0.0 <5.3.6",
+        "patched_versions": ">=5.3.6",
+        "recommendation": "Upgrade to version 5.3.6 or later",
+        "url": "https://github.com/advisories/GHSA-jmr7-xgp7-cmfj",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-jmr7-xgp7-cmfj",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/910dae5be2de2955e968558fadf6e8f74f117a77",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v5.3.6",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-26278",
+          "https://github.com/advisories/GHSA-jmr7-xgp7-cmfj"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1113719": {
+        "module_name": "qs",
+        "title": "qs's arrayLimit bypass in its bracket notation allows DoS via memory exhaustion",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2025-15284"
+        ],
+        "github_advisory_id": "GHSA-6rw7-vpxm-498p",
+        "vulnerable_versions": "<6.14.1",
+        "patched_versions": ">=6.14.1",
+        "recommendation": "Upgrade to version 6.14.1 or later",
+        "url": "https://github.com/advisories/GHSA-6rw7-vpxm-498p",
+        "referenceUrls": [
+          "https://github.com/ljharb/qs/security/advisories/GHSA-6rw7-vpxm-498p",
+          "https://nvd.nist.gov/vuln/detail/CVE-2025-15284",
+          "https://github.com/ljharb/qs/commit/3086902ecf7f088d0d1803887643ac6c03d415b9",
+          "https://github.com/advisories/GHSA-6rw7-vpxm-498p"
+        ],
+        "findings": [
+          {
+            "version": "6.13.0",
+            "paths": [
+              ".>express>qs"
+            ]
+          }
+        ]
+      },
+      "1114153": {
+        "module_name": "fast-xml-parser",
+        "title": "fast-xml-parser has stack overflow in XMLBuilder with preserveOrder",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-27942"
+        ],
+        "github_advisory_id": "GHSA-fj3w-jwp8-x2g3",
+        "vulnerable_versions": ">=5.0.0 <5.3.8",
+        "patched_versions": ">=5.3.8",
+        "recommendation": "Upgrade to version 5.3.8 or later",
+        "url": "https://github.com/advisories/GHSA-fj3w-jwp8-x2g3",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-fj3w-jwp8-x2g3",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-27942",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/pull/791",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/c13a961910f14986295dd28484eee830fa1a0e8a",
+          "https://github.com/advisories/GHSA-fj3w-jwp8-x2g3"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1115339": {
+        "module_name": "fast-xml-parser",
+        "title": "fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-26278)",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-33036"
+        ],
+        "github_advisory_id": "GHSA-8gc5-j5rx-235r",
+        "vulnerable_versions": ">=5.0.0 <5.5.6",
+        "patched_versions": ">=5.5.6",
+        "recommendation": "Upgrade to version 5.5.6 or later",
+        "url": "https://github.com/advisories/GHSA-8gc5-j5rx-235r",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-8gc5-j5rx-235r",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/bd26122c838e6a55e7d7ac49b4ccc01a49999a01",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v5.5.6",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-33036",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v4.5.5",
+          "https://github.com/advisories/GHSA-8gc5-j5rx-235r"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1115527": {
+        "module_name": "path-to-regexp",
+        "title": "path-to-regexp vulnerable to Regular Expression Denial of Service via multiple route parameters",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-4867"
+        ],
+        "github_advisory_id": "GHSA-37ch-88jc-xwx2",
+        "vulnerable_versions": "<0.1.13",
+        "patched_versions": ">=0.1.13",
+        "recommendation": "Upgrade to version 0.1.13 or later",
+        "url": "https://github.com/advisories/GHSA-37ch-88jc-xwx2",
+        "referenceUrls": [
+          "https://github.com/pillarjs/path-to-regexp/security/advisories/GHSA-37ch-88jc-xwx2",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-4867",
+          "https://blakeembrey.com/posts/2024-09-web-redos",
+          "https://cna.openjsf.org/security-advisories.html",
+          "https://github.com/advisories/GHSA-9wv6-86v2-598j",
+          "https://github.com/pillarjs/path-to-regexp/releases/tag/v.0.1.13",
+          "https://github.com/advisories/GHSA-37ch-88jc-xwx2"
+        ],
+        "findings": [
+          {
+            "version": "0.1.12",
+            "paths": [
+              ".>express>path-to-regexp"
+            ]
+          }
+        ]
+      },
+      "1115668": {
+        "module_name": "dompurify",
+        "title": "DOMPurify contains a Cross-site Scripting vulnerability",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-0540"
+        ],
+        "github_advisory_id": "GHSA-v2wj-7wpq-c8vv",
+        "vulnerable_versions": ">=3.1.3 <=3.3.1",
+        "patched_versions": ">=3.3.2",
+        "recommendation": "Upgrade to version 3.3.2 or later",
+        "url": "https://github.com/advisories/GHSA-v2wj-7wpq-c8vv",
+        "referenceUrls": [
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-0540",
+          "https://github.com/cure53/DOMPurify/commit/fca0a938b4261ddc9c0293a289935a9029c049f5",
+          "https://github.com/cure53/DOMPurify",
+          "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safe-for-xml",
+          "https://github.com/cure53/DOMPurify/commit/302b51de22535cc90235472c52e3401bedd46f80",
+          "https://fluidattacks.com/advisories/daft",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+          "https://github.com/advisories/GHSA-v2wj-7wpq-c8vv"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1115805": {
+        "module_name": "lodash-es",
+        "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-4800"
+        ],
+        "github_advisory_id": "GHSA-r5fr-rjxr-66jc",
+        "vulnerable_versions": ">=4.0.0 <=4.17.23",
+        "patched_versions": ">=4.18.0",
+        "recommendation": "Upgrade to version 4.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc",
+        "referenceUrls": [
+          "https://github.com/lodash/lodash/security/advisories/GHSA-r5fr-rjxr-66jc",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-4800",
+          "https://github.com/lodash/lodash/commit/3469357cff396a26c363f8c1b5a91dde28ba4b1c",
+          "https://cna.openjsf.org/security-advisories.html",
+          "https://github.com/advisories/GHSA-35jh-r3h4-6jhm",
+          "https://github.com/advisories/GHSA-r5fr-rjxr-66jc"
+        ],
+        "findings": [
+          {
+            "version": "4.17.21",
+            "paths": [
+              ".>streamdown>mermaid>lodash-es"
+            ]
+          }
+        ]
+      },
+      "1115806": {
+        "module_name": "lodash",
+        "title": "lodash vulnerable to Code Injection via `_.template` imports key names",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-4800"
+        ],
+        "github_advisory_id": "GHSA-r5fr-rjxr-66jc",
+        "vulnerable_versions": ">=4.0.0 <=4.17.23",
+        "patched_versions": ">=4.18.0",
+        "recommendation": "Upgrade to version 4.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-r5fr-rjxr-66jc",
+        "referenceUrls": [
+          "https://github.com/lodash/lodash/security/advisories/GHSA-r5fr-rjxr-66jc",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-4800",
+          "https://github.com/lodash/lodash/commit/3469357cff396a26c363f8c1b5a91dde28ba4b1c",
+          "https://cna.openjsf.org/security-advisories.html",
+          "https://github.com/advisories/GHSA-35jh-r3h4-6jhm",
+          "https://github.com/advisories/GHSA-r5fr-rjxr-66jc"
+        ],
+        "findings": [
+          {
+            "version": "4.17.21",
+            "paths": [
+              ".>recharts>lodash"
+            ]
+          }
+        ]
+      },
+      "1115809": {
+        "module_name": "lodash-es",
+        "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-2950"
+        ],
+        "github_advisory_id": "GHSA-f23m-r3pf-42rh",
+        "vulnerable_versions": "<=4.17.23",
+        "patched_versions": ">=4.18.0",
+        "recommendation": "Upgrade to version 4.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-f23m-r3pf-42rh",
+        "referenceUrls": [
+          "https://github.com/lodash/lodash/security/advisories/GHSA-f23m-r3pf-42rh",
+          "https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-2950",
+          "https://github.com/advisories/GHSA-f23m-r3pf-42rh"
+        ],
+        "findings": [
+          {
+            "version": "4.17.21",
+            "paths": [
+              ".>streamdown>mermaid>lodash-es"
+            ]
+          }
+        ]
+      },
+      "1115810": {
+        "module_name": "lodash",
+        "title": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-2950"
+        ],
+        "github_advisory_id": "GHSA-f23m-r3pf-42rh",
+        "vulnerable_versions": "<=4.17.23",
+        "patched_versions": ">=4.18.0",
+        "recommendation": "Upgrade to version 4.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-f23m-r3pf-42rh",
+        "referenceUrls": [
+          "https://github.com/lodash/lodash/security/advisories/GHSA-f23m-r3pf-42rh",
+          "https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-2950",
+          "https://github.com/advisories/GHSA-f23m-r3pf-42rh"
+        ],
+        "findings": [
+          {
+            "version": "4.17.21",
+            "paths": [
+              ".>recharts>lodash"
+            ]
+          }
+        ]
+      },
+      "1116251": {
+        "module_name": "drizzle-orm",
+        "title": "Drizzle ORM has SQL injection via improperly escaped SQL identifiers",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-39356"
+        ],
+        "github_advisory_id": "GHSA-gpj5-g38j-94v9",
+        "vulnerable_versions": "<0.45.2",
+        "patched_versions": ">=0.45.2",
+        "recommendation": "Upgrade to version 0.45.2 or later",
+        "url": "https://github.com/advisories/GHSA-gpj5-g38j-94v9",
+        "referenceUrls": [
+          "https://github.com/drizzle-team/drizzle-orm/security/advisories/GHSA-gpj5-g38j-94v9",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-39356",
+          "https://github.com/advisories/GHSA-gpj5-g38j-94v9"
+        ],
+        "findings": [
+          {
+            "version": "0.44.6",
+            "paths": [
+              ".>drizzle-orm"
+            ]
+          }
+        ]
+      },
+      "1116307": {
+        "module_name": "fast-xml-parser",
+        "title": "Entity Expansion Limits Bypassed When Set to Zero Due to JavaScript Falsy Evaluation in fast-xml-parser",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-33349"
+        ],
+        "github_advisory_id": "GHSA-jp2q-39xq-3w4g",
+        "vulnerable_versions": ">=5.0.0 <5.5.7",
+        "patched_versions": ">=5.5.7",
+        "recommendation": "Upgrade to version 5.5.7 or later",
+        "url": "https://github.com/advisories/GHSA-jp2q-39xq-3w4g",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-jp2q-39xq-3w4g",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-33349",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/239b64aa1fc5c5455ddebbbb54a187eb68c9fdb7",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/commit/88d0936a23dabe51bfbf42255e2ce912dfee2221",
+          "https://github.com/advisories/GHSA-jp2q-39xq-3w4g"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1116560": {
+        "module_name": "follow-redirects",
+        "title": "follow-redirects leaks Custom Authentication Headers to Cross-Domain Redirect Targets",
+        "severity": "moderate",
+        "cves": [],
+        "github_advisory_id": "GHSA-r4q5-vmmm-2653",
+        "vulnerable_versions": "<=1.15.11",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-r4q5-vmmm-2653",
+        "referenceUrls": [
+          "https://github.com/follow-redirects/follow-redirects/security/advisories/GHSA-r4q5-vmmm-2653",
+          "https://github.com/follow-redirects/follow-redirects/commit/844c4d302ac963d29bdb5dc1754ec7df3d70d7f9",
+          "https://github.com/advisories/GHSA-r4q5-vmmm-2653"
+        ],
+        "findings": [
+          {
+            "version": "1.15.11",
+            "paths": [
+              ".>axios>follow-redirects"
+            ]
+          }
+        ]
+      },
+      "1116673": {
+        "module_name": "axios",
+        "title": "Axios has a NO_PROXY Hostname Normalization Bypass that Leads to SSRF",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2025-62718"
+        ],
+        "github_advisory_id": "GHSA-3p68-rc4w-qgx5",
+        "vulnerable_versions": ">=1.0.0 <1.15.0",
+        "patched_versions": ">=1.15.0",
+        "recommendation": "Upgrade to version 1.15.0 or later",
+        "url": "https://github.com/advisories/GHSA-3p68-rc4w-qgx5",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-3p68-rc4w-qgx5",
+          "https://nvd.nist.gov/vuln/detail/CVE-2025-62718",
+          "https://github.com/axios/axios/pull/10661",
+          "https://github.com/axios/axios/commit/fb3befb6daac6cad26b2e54094d0f2d9e47f24df",
+          "https://datatracker.ietf.org/doc/html/rfc1034#section-3.1",
+          "https://datatracker.ietf.org/doc/html/rfc3986#section-3.2.2",
+          "https://github.com/axios/axios/releases/tag/v1.15.0",
+          "https://github.com/axios/axios/pull/10688",
+          "https://github.com/axios/axios/commit/03cdfc99e8db32a390e12128208b6778492cee9c",
+          "https://github.com/axios/axios/releases/tag/v0.31.0",
+          "https://github.com/advisories/GHSA-3p68-rc4w-qgx5"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117138": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: FORBID_TAGS bypassed by function-based ADD_TAGS predicate (asymmetry with FORBID_ATTR fix)",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41240"
+        ],
+        "github_advisory_id": "GHSA-h7mw-gpvr-xq4m",
+        "vulnerable_versions": "<3.4.0",
+        "patched_versions": ">=3.4.0",
+        "recommendation": "Upgrade to version 3.4.0 or later",
+        "url": "https://github.com/advisories/GHSA-h7mw-gpvr-xq4m",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h7mw-gpvr-xq4m",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41240",
+          "https://github.com/cure53/DOMPurify/commit/c361baa18dbdcb3344a41110f4c48ad85bf48f80",
+          "https://github.com/advisories/GHSA-h7mw-gpvr-xq4m"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1117139": {
+        "module_name": "dompurify",
+        "title": "DOMPurify has a SAFE_FOR_TEMPLATES bypass in RETURN_DOM mode",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41239"
+        ],
+        "github_advisory_id": "GHSA-crv5-9vww-q3g8",
+        "vulnerable_versions": ">=1.0.10 <3.4.0",
+        "patched_versions": ">=3.4.0",
+        "recommendation": "Upgrade to version 3.4.0 or later",
+        "url": "https://github.com/advisories/GHSA-crv5-9vww-q3g8",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-crv5-9vww-q3g8",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41239",
+          "https://github.com/advisories/GHSA-crv5-9vww-q3g8"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1117140": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: Prototype Pollution to XSS Bypass via CUSTOM_ELEMENT_HANDLING Fallback",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41238"
+        ],
+        "github_advisory_id": "GHSA-v9jr-rg53-9pgp",
+        "vulnerable_versions": ">=3.0.1 <3.4.0",
+        "patched_versions": ">=3.4.0",
+        "recommendation": "Upgrade to version 3.4.0 or later",
+        "url": "https://github.com/advisories/GHSA-v9jr-rg53-9pgp",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-v9jr-rg53-9pgp",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41238",
+          "https://github.com/advisories/GHSA-v9jr-rg53-9pgp"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1117574": {
+        "module_name": "axios",
+        "title": "Axios: Authentication Bypass via Prototype Pollution Gadget in `validateStatus` Merge Strategy",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42041"
+        ],
+        "github_advisory_id": "GHSA-w9j2-pvgh-6h63",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-w9j2-pvgh-6h63",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-w9j2-pvgh-6h63",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42041",
+          "https://github.com/advisories/GHSA-w9j2-pvgh-6h63"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117576": {
+        "module_name": "axios",
+        "title": "Axios: Incomplete Fix for CVE-2025-62718 — NO_PROXY Protection Bypassed via RFC 1122 Loopback Subnet (127.0.0.0/8) in Axios 1.15.0",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-42043"
+        ],
+        "github_advisory_id": "GHSA-pmwg-cvhr-8vh7",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-pmwg-cvhr-8vh7",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-pmwg-cvhr-8vh7",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42043",
+          "https://github.com/advisories/GHSA-pmwg-cvhr-8vh7"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117577": {
+        "module_name": "axios",
+        "title": "Axios: Invisible JSON Response Tampering via Prototype Pollution Gadget in `parseReviver`",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42044"
+        ],
+        "github_advisory_id": "GHSA-3w6x-2g7m-8v23",
+        "vulnerable_versions": ">=1.0.0 <1.15.2",
+        "patched_versions": ">=1.15.2",
+        "recommendation": "Upgrade to version 1.15.2 or later",
+        "url": "https://github.com/advisories/GHSA-3w6x-2g7m-8v23",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-3w6x-2g7m-8v23",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42044",
+          "https://github.com/advisories/GHSA-3w6x-2g7m-8v23"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117580": {
+        "module_name": "axios",
+        "title": "Axios: Null Byte Injection via Reverse-Encoding in AxiosURLSearchParams",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-42040"
+        ],
+        "github_advisory_id": "GHSA-xhjh-pmcv-23jw",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-xhjh-pmcv-23jw",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-xhjh-pmcv-23jw",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42040",
+          "https://github.com/advisories/GHSA-xhjh-pmcv-23jw"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117581": {
+        "module_name": "axios",
+        "title": "Axios: CRLF Injection in multipart/form-data body via unsanitized blob.type in formDataToStream",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42037"
+        ],
+        "github_advisory_id": "GHSA-445q-vr5w-6q77",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-445q-vr5w-6q77",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-445q-vr5w-6q77",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42037",
+          "https://github.com/advisories/GHSA-445q-vr5w-6q77"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117583": {
+        "module_name": "axios",
+        "title": "Axios: no_proxy bypass via IP alias allows SSRF",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42038"
+        ],
+        "github_advisory_id": "GHSA-m7pr-hjqh-92cm",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-m7pr-hjqh-92cm",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-m7pr-hjqh-92cm",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42038",
+          "https://github.com/advisories/GHSA-m7pr-hjqh-92cm"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117587": {
+        "module_name": "axios",
+        "title": "Axios' HTTP adapter-streamed uploads bypass maxBodyLength when maxRedirects: 0",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42034"
+        ],
+        "github_advisory_id": "GHSA-5c9x-8gcm-mpgx",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-5c9x-8gcm-mpgx",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-5c9x-8gcm-mpgx",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42034",
+          "https://github.com/advisories/GHSA-5c9x-8gcm-mpgx"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117589": {
+        "module_name": "axios",
+        "title": "Axios: HTTP adapter streamed responses bypass maxContentLength",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42036"
+        ],
+        "github_advisory_id": "GHSA-vf2m-468p-8v99",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-vf2m-468p-8v99",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-vf2m-468p-8v99",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42036",
+          "https://github.com/advisories/GHSA-vf2m-468p-8v99"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117591": {
+        "module_name": "axios",
+        "title": "Axios: Prototype Pollution Gadgets - Response Tampering, Data Exfiltration, and Request Hijacking",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-42033"
+        ],
+        "github_advisory_id": "GHSA-pf86-5x62-jrwf",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-pf86-5x62-jrwf",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-pf86-5x62-jrwf",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42033",
+          "https://github.com/advisories/GHSA-pf86-5x62-jrwf"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117593": {
+        "module_name": "axios",
+        "title": "Axios: Header Injection via Prototype Pollution",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-42035"
+        ],
+        "github_advisory_id": "GHSA-6chq-wfr3-2hj9",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-6chq-wfr3-2hj9",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-6chq-wfr3-2hj9",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42035",
+          "https://github.com/advisories/GHSA-6chq-wfr3-2hj9"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117595": {
+        "module_name": "axios",
+        "title": "Axios: XSRF Token Cross-Origin Leakage via Prototype Pollution Gadget in `withXSRFToken` Boolean Coercion",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42042"
+        ],
+        "github_advisory_id": "GHSA-xx6v-rp6x-q39c",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-xx6v-rp6x-q39c",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-xx6v-rp6x-q39c",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42042",
+          "https://github.com/advisories/GHSA-xx6v-rp6x-q39c"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117858": {
+        "module_name": "axios",
+        "title": "Axios is Vulnerable to Denial of Service via __proto__ Key in mergeConfig",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-25639"
+        ],
+        "github_advisory_id": "GHSA-43fc-jf86-j433",
+        "vulnerable_versions": ">=1.0.0 <=1.13.4",
+        "patched_versions": ">=1.13.5",
+        "recommendation": "Upgrade to version 1.13.5 or later",
+        "url": "https://github.com/advisories/GHSA-43fc-jf86-j433",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-43fc-jf86-j433",
+          "https://github.com/axios/axios/pull/7369",
+          "https://github.com/axios/axios/commit/28c721588c7a77e7503d0a434e016f852c597b57",
+          "https://github.com/axios/axios/releases/tag/v1.13.5",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-25639",
+          "https://github.com/axios/axios/pull/7388",
+          "https://github.com/axios/axios/commit/d7ff1409c68168d3057fc3891f911b2b92616f9e",
+          "https://github.com/axios/axios/releases/tag/v0.30.3",
+          "https://github.com/advisories/GHSA-43fc-jf86-j433"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1117911": {
+        "module_name": "fast-xml-parser",
+        "title": "fast-xml-parser XMLBuilder: XML Comment and CDATA Injection via Unescaped Delimiters",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41650"
+        ],
+        "github_advisory_id": "GHSA-gh4j-gqv2-49f6",
+        "vulnerable_versions": "<5.7.0",
+        "patched_versions": ">=5.7.0",
+        "recommendation": "Upgrade to version 5.7.0 or later",
+        "url": "https://github.com/advisories/GHSA-gh4j-gqv2-49f6",
+        "referenceUrls": [
+          "https://github.com/NaturalIntelligence/fast-xml-parser/security/advisories/GHSA-gh4j-gqv2-49f6",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41650",
+          "https://github.com/NaturalIntelligence/fast-xml-parser/releases/tag/v5.6.0",
+          "https://github.com/advisories/GHSA-gh4j-gqv2-49f6"
+        ],
+        "findings": [
+          {
+            "version": "5.2.5",
+            "paths": [
+              ".>@aws-sdk/client-s3>@aws-sdk/xml-builder>fast-xml-parser"
+            ]
+          }
+        ]
+      },
+      "1118607": {
+        "module_name": "axios",
+        "title": "Axios has prototype pollution read-side gadgets in HTTP adapter that allow credential injection and request hijacking",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-42264"
+        ],
+        "github_advisory_id": "GHSA-q8qp-cvcw-x6jj",
+        "vulnerable_versions": ">=1.0.0 <1.15.2",
+        "patched_versions": ">=1.15.2",
+        "recommendation": "Upgrade to version 1.15.2 or later",
+        "url": "https://github.com/advisories/GHSA-q8qp-cvcw-x6jj",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-q8qp-cvcw-x6jj",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42264",
+          "https://github.com/axios/axios/pull/10779",
+          "https://github.com/axios/axios/commit/47915144662f2733e6c051bdcb895a8c8f0586aa",
+          "https://github.com/axios/axios/releases/tag/v1.15.2",
+          "https://github.com/advisories/GHSA-q8qp-cvcw-x6jj"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1119404": {
+        "module_name": "axios",
+        "title": "Axios has Unrestricted Cloud Metadata Exfiltration via Header Injection Chain",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-40175"
+        ],
+        "github_advisory_id": "GHSA-fvcv-3m26-pcqx",
+        "vulnerable_versions": ">=1.0.0 <1.15.0",
+        "patched_versions": ">=1.15.0",
+        "recommendation": "Upgrade to version 1.15.0 or later",
+        "url": "https://github.com/advisories/GHSA-fvcv-3m26-pcqx",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-fvcv-3m26-pcqx",
+          "https://github.com/axios/axios/commit/363185461b90b1b78845dc8a99a1f103d9b122a1",
+          "https://github.com/axios/axios/releases/tag/v1.15.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-40175",
+          "https://github.com/axios/axios/pull/10660",
+          "https://github.com/axios/axios/pull/10660#issuecomment-4224168081",
+          "https://github.com/axios/axios/pull/10688",
+          "https://github.com/axios/axios/commit/03cdfc99e8db32a390e12128208b6778492cee9c",
+          "https://github.com/axios/axios/releases/tag/v0.31.0",
+          "https://cert-portal.siemens.com/productcert/html/ssa-876049.html",
+          "https://github.com/advisories/GHSA-fvcv-3m26-pcqx"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1119441": {
+        "module_name": "uuid",
+        "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41907"
+        ],
+        "github_advisory_id": "GHSA-w5hq-g745-h8pq",
+        "vulnerable_versions": "<11.1.1",
+        "patched_versions": ">=11.1.1",
+        "recommendation": "Upgrade to version 11.1.1 or later",
+        "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+        "referenceUrls": [
+          "https://github.com/uuidjs/uuid/security/advisories/GHSA-w5hq-g745-h8pq",
+          "https://github.com/uuidjs/uuid/commit/3d2c5b0342f0fcb52a5ac681c3d47c13e7444b34",
+          "https://github.com/uuidjs/uuid/releases/tag/v14.0.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41907",
+          "https://github.com/uuidjs/uuid/commit/32389c887c9e75f90442ee4cc95bbab0c4e8346e",
+          "https://github.com/uuidjs/uuid/commit/3d61d6ac1f782cf6b1dd8661c60f11722cd49a0d",
+          "https://github.com/uuidjs/uuid/commit/9d27ddf7046ce496ef39569ff84d948eeff9cb2a",
+          "https://github.com/uuidjs/uuid/releases/tag/v11.1.1",
+          "https://github.com/uuidjs/uuid/releases/tag/v12.0.1",
+          "https://github.com/uuidjs/uuid/releases/tag/v13.0.1",
+          "https://github.com/advisories/GHSA-w5hq-g745-h8pq"
+        ],
+        "findings": [
+          {
+            "version": "11.1.0",
+            "paths": [
+              ".>streamdown>mermaid>uuid"
+            ]
+          }
+        ]
+      },
+      "1119502": {
+        "module_name": "qs",
+        "title": "qs has a remotely triggerable DoS: qs.stringify crashes with TypeError on null/undefined entries in comma-format arrays when encodeValuesOnly is set",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-8723"
+        ],
+        "github_advisory_id": "GHSA-q8mj-m7cp-5q26",
+        "vulnerable_versions": ">=6.11.1 <=6.15.1",
+        "patched_versions": ">=6.15.2",
+        "recommendation": "Upgrade to version 6.15.2 or later",
+        "url": "https://github.com/advisories/GHSA-q8mj-m7cp-5q26",
+        "referenceUrls": [
+          "https://github.com/ljharb/qs/security/advisories/GHSA-q8mj-m7cp-5q26",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-8723",
+          "https://github.com/ljharb/qs/commit/21f80b33e5c8b3f7eba1034fff0da4a4a37a1d41",
+          "https://github.com/advisories/GHSA-q8mj-m7cp-5q26"
+        ],
+        "findings": [
+          {
+            "version": "6.13.0",
+            "paths": [
+              ".>express>qs"
+            ]
+          }
+        ]
+      },
+      "1120125": {
+        "module_name": "axios",
+        "title": "Axios: unbounded recursion in toFormData causes DoS via deeply nested request data",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-42039"
+        ],
+        "github_advisory_id": "GHSA-62hf-57xw-28j9",
+        "vulnerable_versions": ">=1.0.0 <1.15.1",
+        "patched_versions": ">=1.15.1",
+        "recommendation": "Upgrade to version 1.15.1 or later",
+        "url": "https://github.com/advisories/GHSA-62hf-57xw-28j9",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-62hf-57xw-28j9",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-42039",
+          "https://github.com/axios/axios/commit/85132ffba1a77609ea5d101c8a413dea7174932f",
+          "https://github.com/axios/axios/releases/tag/v1.15.1",
+          "https://github.com/advisories/GHSA-62hf-57xw-28j9"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120138": {
+        "module_name": "mermaid",
+        "title": "Mermaid: Improper sanitization of `classDef` in state diagrams leads to HTML injection",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41149"
+        ],
+        "github_advisory_id": "GHSA-ghcm-xqfw-q4vr",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <=11.14.0",
+        "patched_versions": ">=11.15.0",
+        "recommendation": "Upgrade to version 11.15.0 or later",
+        "url": "https://github.com/advisories/GHSA-ghcm-xqfw-q4vr",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-ghcm-xqfw-q4vr",
+          "https://github.com/mermaid-js/mermaid/commit/37ff937f1da2e19f882fd1db01235db4d01f4056",
+          "https://github.com/mermaid-js/mermaid/commit/4e2d512bf5bf6f9de1a8f0a48da78dc4d09ac4f3",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.15.0",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.6",
+          "https://mermaid.js.org/config/schema-docs/config.html#securitylevel",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41149",
+          "https://github.com/advisories/GHSA-ghcm-xqfw-q4vr"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1120140": {
+        "module_name": "mermaid",
+        "title": "Mermaid: Improper sanitization of `classDefs` in diagrams leads to CSS injection",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41148"
+        ],
+        "github_advisory_id": "GHSA-xcj9-5m2h-648r",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <=11.14.0",
+        "patched_versions": ">=11.15.0",
+        "recommendation": "Upgrade to version 11.15.0 or later",
+        "url": "https://github.com/advisories/GHSA-xcj9-5m2h-648r",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-xcj9-5m2h-648r",
+          "https://github.com/mermaid-js/mermaid/commit/8fead23c59166b7bab6a39eac81acebee2859102",
+          "https://github.com/mermaid-js/mermaid/commit/e9b0f34d8d82a6260077764ee45e1d7d90957a0f",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.15.0",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.6",
+          "https://mermaid.js.org/config/schema-docs/config.html#securitylevel",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41148",
+          "https://github.com/advisories/GHSA-xcj9-5m2h-648r"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1120326": {
+        "module_name": "mermaid",
+        "title": "Mermaid Gantt Charts are vulnerable to an Infinite Loop DoS",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41150"
+        ],
+        "github_advisory_id": "GHSA-6m6c-36f7-fhxh",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <=11.14.0",
+        "patched_versions": ">=11.15.0",
+        "recommendation": "Upgrade to version 11.15.0 or later",
+        "url": "https://github.com/advisories/GHSA-6m6c-36f7-fhxh",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-6m6c-36f7-fhxh",
+          "https://github.com/mermaid-js/mermaid/commit/a59ea56174712ee5430dfd5bc877cb5151f501a6",
+          "https://github.com/mermaid-js/mermaid/commit/faafb5d49106dd32c367f3882505f2dd625aa30e",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.15.0",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.6",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41150",
+          "https://github.com/advisories/GHSA-6m6c-36f7-fhxh"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1120368": {
+        "module_name": "lodash-es",
+        "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2025-13465"
+        ],
+        "github_advisory_id": "GHSA-xxjr-mmjv-4gpg",
+        "vulnerable_versions": ">=4.0.0 <=4.17.22",
+        "patched_versions": ">=4.17.23",
+        "recommendation": "Upgrade to version 4.17.23 or later",
+        "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg",
+        "referenceUrls": [
+          "https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg",
+          "https://nvd.nist.gov/vuln/detail/CVE-2025-13465",
+          "https://github.com/lodash/lodash/commit/edadd452146f7e4bad4ea684e955708931d84d81",
+          "https://cert-portal.siemens.com/productcert/html/ssa-253495.html",
+          "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg"
+        ],
+        "findings": [
+          {
+            "version": "4.17.21",
+            "paths": [
+              ".>streamdown>mermaid>lodash-es"
+            ]
+          }
+        ]
+      },
+      "1120370": {
+        "module_name": "lodash",
+        "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2025-13465"
+        ],
+        "github_advisory_id": "GHSA-xxjr-mmjv-4gpg",
+        "vulnerable_versions": ">=4.0.0 <=4.17.22",
+        "patched_versions": ">=4.17.23",
+        "recommendation": "Upgrade to version 4.17.23 or later",
+        "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg",
+        "referenceUrls": [
+          "https://github.com/lodash/lodash/security/advisories/GHSA-xxjr-mmjv-4gpg",
+          "https://nvd.nist.gov/vuln/detail/CVE-2025-13465",
+          "https://github.com/lodash/lodash/commit/edadd452146f7e4bad4ea684e955708931d84d81",
+          "https://cert-portal.siemens.com/productcert/html/ssa-253495.html",
+          "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg"
+        ],
+        "findings": [
+          {
+            "version": "4.17.21",
+            "paths": [
+              ".>recharts>lodash"
+            ]
+          }
+        ]
+      },
+      "1120547": {
+        "module_name": "axios",
+        "title": "Axios: Regular Expression Denial of Service (ReDoS) via Cookie Name Injection",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-44496"
+        ],
+        "github_advisory_id": "GHSA-hfxv-24rg-xrqf",
+        "vulnerable_versions": ">=1.0.0 <1.16.0",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-hfxv-24rg-xrqf",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-hfxv-24rg-xrqf",
+          "https://github.com/axios/axios/releases/tag/v0.32.0",
+          "https://github.com/axios/axios/releases/tag/v1.16.0",
+          "https://github.com/advisories/GHSA-hfxv-24rg-xrqf"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120643": {
+        "module_name": "axios",
+        "title": "Allocation of Resources Without Limits or Throttling in Axios",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-44488"
+        ],
+        "github_advisory_id": "GHSA-777c-7fjr-54vf",
+        "vulnerable_versions": ">=1.7.0 <1.16.0",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-777c-7fjr-54vf",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-777c-7fjr-54vf",
+          "https://github.com/axios/axios/pull/10795",
+          "https://github.com/axios/axios/pull/10796",
+          "https://github.com/axios/axios/releases/tag/v1.16.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-44488",
+          "https://github.com/advisories/GHSA-777c-7fjr-54vf"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120645": {
+        "module_name": "axios",
+        "title": "Axios: Proxy-Authorization Credential Leak to Origin Server Across HTTP-to-HTTPS Redirect in Axios Node.js HTTP Adapter",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-44487"
+        ],
+        "github_advisory_id": "GHSA-p92q-9vqr-4j8v",
+        "vulnerable_versions": ">=1.0.0 <1.16.0",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-p92q-9vqr-4j8v",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-p92q-9vqr-4j8v",
+          "https://github.com/axios/axios/releases/tag/v0.32.0",
+          "https://github.com/axios/axios/releases/tag/v1.16.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-44487",
+          "https://github.com/advisories/GHSA-p92q-9vqr-4j8v"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120647": {
+        "module_name": "axios",
+        "title": "Axios: Proxy-Authorization header leaks to redirect target when proxy is re-evaluated to direct connection",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-44486"
+        ],
+        "github_advisory_id": "GHSA-j5f8-grm9-p9fc",
+        "vulnerable_versions": ">=1.0.0 <1.16.0",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-j5f8-grm9-p9fc",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-j5f8-grm9-p9fc",
+          "https://github.com/axios/axios/pull/10794",
+          "https://github.com/axios/axios/commit/afca61a070728e717203c2bc21e7b589b59b858b",
+          "https://github.com/axios/axios/releases/tag/v0.32.0",
+          "https://github.com/axios/axios/releases/tag/v1.16.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-44486",
+          "https://github.com/advisories/GHSA-j5f8-grm9-p9fc"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120649": {
+        "module_name": "axios",
+        "title": "axios Vulnerable to Credential Theft and Response Hijacking via Prototype Pollution Gadget in Config Merge",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-44495"
+        ],
+        "github_advisory_id": "GHSA-3g43-6gmg-66jw",
+        "vulnerable_versions": ">=1.0.0 <1.15.2",
+        "patched_versions": ">=1.15.2",
+        "recommendation": "Upgrade to version 1.15.2 or later",
+        "url": "https://github.com/advisories/GHSA-3g43-6gmg-66jw",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-3g43-6gmg-66jw",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-44495",
+          "https://github.com/advisories/GHSA-3g43-6gmg-66jw"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120650": {
+        "module_name": "axios",
+        "title": "axios Vulnerable to Full Man-in-the-Middle via Prototype Pollution Gadget in `config.proxy`",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-44494"
+        ],
+        "github_advisory_id": "GHSA-35jp-ww65-95wh",
+        "vulnerable_versions": ">=1.0.0 <1.16.0",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-35jp-ww65-95wh",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-35jp-ww65-95wh",
+          "https://github.com/advisories/GHSA-fvcv-3m26-pcqx",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-44494",
+          "https://github.com/advisories/GHSA-35jp-ww65-95wh"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120652": {
+        "module_name": "axios",
+        "title": "axios has DoS & Header Injection via Prototype Pollution Read-Side Gadgets in axios merge functions",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-44490"
+        ],
+        "github_advisory_id": "GHSA-898c-q2cr-xwhg",
+        "vulnerable_versions": ">=1.0.0 <1.16.0",
+        "patched_versions": ">=1.16.0",
+        "recommendation": "Upgrade to version 1.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-898c-q2cr-xwhg",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-898c-q2cr-xwhg",
+          "https://nvd.nist.gov/vuln/detail/CVE-2018-16487",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-44490",
+          "https://github.com/advisories/GHSA-898c-q2cr-xwhg"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1120743": {
+        "module_name": "form-data",
+        "title": "form-data: CRLF injection in form-data via unescaped multipart field names and filenames",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-12143"
+        ],
+        "github_advisory_id": "GHSA-hmw2-7cc7-3qxx",
+        "vulnerable_versions": ">=4.0.0 <4.0.6",
+        "patched_versions": ">=4.0.6",
+        "recommendation": "Upgrade to version 4.0.6 or later",
+        "url": "https://github.com/advisories/GHSA-hmw2-7cc7-3qxx",
+        "referenceUrls": [
+          "https://github.com/form-data/form-data/security/advisories/GHSA-hmw2-7cc7-3qxx",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-12143",
+          "https://github.com/form-data/form-data/commit/64190db548c0179e37206858e39f27cf513e9435",
+          "https://github.com/form-data/form-data/commit/be3f3cf553978bac15a5182f1f3c3d2d38ccf229",
+          "https://github.com/form-data/form-data/commit/c7133499c2ee1b80c678e411244f4442bf902045",
+          "https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart-form-data",
+          "https://www.npmjs.com/package/form-data",
+          "https://github.com/advisories/GHSA-hmw2-7cc7-3qxx"
+        ],
+        "findings": [
+          {
+            "version": "4.0.4",
+            "paths": [
+              ".>axios>form-data"
+            ]
+          }
+        ]
+      },
+      "1120802": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: Cross-realm IN_PLACE sanitization leaves executable markup intact via realm-bound `instanceof` checks",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-49458"
+        ],
+        "github_advisory_id": "GHSA-hpcv-96wg-7vj8",
+        "vulnerable_versions": "<=3.4.5",
+        "patched_versions": ">=3.4.6",
+        "recommendation": "Upgrade to version 3.4.6 or later",
+        "url": "https://github.com/advisories/GHSA-hpcv-96wg-7vj8",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-hpcv-96wg-7vj8",
+          "https://github.com/advisories/GHSA-hpcv-96wg-7vj8"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1120803": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: IN_PLACE mode preserves attributes of a clobbered root element, allowing XSS via attacker-controlled root DOM",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-49459"
+        ],
+        "github_advisory_id": "GHSA-r47g-fvhr-h676",
+        "vulnerable_versions": "<=3.4.5",
+        "patched_versions": ">=3.4.6",
+        "recommendation": "Upgrade to version 3.4.6 or later",
+        "url": "https://github.com/advisories/GHSA-r47g-fvhr-h676",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-r47g-fvhr-h676",
+          "https://github.com/advisories/GHSA-r47g-fvhr-h676"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1120813": {
+        "module_name": "dompurify",
+        "title": "DOMPurify IN_PLACE Sanitization Bypass via Attached Shadow Root Inside <template>.content",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-49978"
+        ],
+        "github_advisory_id": "GHSA-rp9w-3fw7-7cwq",
+        "vulnerable_versions": "<=3.4.6",
+        "patched_versions": ">=3.4.7",
+        "recommendation": "Upgrade to version 3.4.7 or later",
+        "url": "https://github.com/advisories/GHSA-rp9w-3fw7-7cwq",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-rp9w-3fw7-7cwq",
+          "https://github.com/advisories/GHSA-rp9w-3fw7-7cwq"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1122162": {
+        "module_name": "mermaid",
+        "title": "Mermaid: Improper sanitization of configuration leads to CSS injection",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-41159"
+        ],
+        "github_advisory_id": "GHSA-87f9-hvmw-gh4p",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <=11.14.0",
+        "patched_versions": ">=11.15.0",
+        "recommendation": "Upgrade to version 11.15.0 or later",
+        "url": "https://github.com/advisories/GHSA-87f9-hvmw-gh4p",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-87f9-hvmw-gh4p",
+          "https://github.com/mermaid-js/mermaid/commit/64769738d5b59211e1decb471ffbaca8afec51aa",
+          "https://github.com/mermaid-js/mermaid/commit/a9d9f0d8eb790349121508688cd338253fd80d76",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.15.0",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.6",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-41159",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid@11.15.0",
+          "https://github.com/advisories/GHSA-87f9-hvmw-gh4p"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1123977": {
+        "module_name": "body-parser",
+        "title": "body-parser vulnerable to denial of service when invalid limit value silently disables size enforcement",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-12590"
+        ],
+        "github_advisory_id": "GHSA-v422-hmwv-36x6",
+        "vulnerable_versions": "<1.20.6",
+        "patched_versions": ">=1.20.6",
+        "recommendation": "Upgrade to version 1.20.6 or later",
+        "url": "https://github.com/advisories/GHSA-v422-hmwv-36x6",
+        "referenceUrls": [
+          "https://github.com/expressjs/body-parser/security/advisories/GHSA-v422-hmwv-36x6",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-12590",
+          "https://github.com/expressjs/body-parser/pull/698",
+          "https://github.com/expressjs/body-parser/pull/741",
+          "https://github.com/expressjs/body-parser/commit/2322e111cc321413ec2b7b76d01be533d3de9d7d",
+          "https://github.com/expressjs/body-parser/commit/3492672eee593d5c158f239b6e9115498a5dbeac",
+          "https://cna.openjsf.org/security-advisories.html",
+          "https://github.com/expressjs/body-parser/releases/tag/1.20.6",
+          "https://github.com/expressjs/body-parser/releases/tag/v2.3.0",
+          "https://github.com/advisories/GHSA-v422-hmwv-36x6"
+        ],
+        "findings": [
+          {
+            "version": "1.20.3",
+            "paths": [
+              ".>express>body-parser"
+            ]
+          }
+        ]
+      },
+      "1124233": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: Permanent `ALLOWED_ATTR` pollution via `setConfig()` bypassing the hook clone-guard (incomplete fix of the 3.4.7 hook-pollution patch)",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-65898"
+        ],
+        "github_advisory_id": "GHSA-cmwh-pvxp-8882",
+        "vulnerable_versions": "<=3.4.10",
+        "patched_versions": ">=3.4.11",
+        "recommendation": "Upgrade to version 3.4.11 or later",
+        "url": "https://github.com/advisories/GHSA-cmwh-pvxp-8882",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cmwh-pvxp-8882",
+          "https://github.com/cure53/DOMPurify/pull/1482",
+          "https://github.com/cure53/DOMPurify/commit/011bc3b2fcc4be17aa76f9030e8668207717acb9",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.11",
+          "https://github.com/advisories/GHSA-cmwh-pvxp-8882"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124234": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: Trusted Types policy survives `clearConfig()` and can poison later `RETURN_TRUSTED_TYPE` output",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-65899"
+        ],
+        "github_advisory_id": "GHSA-vxr8-fq34-vvx9",
+        "vulnerable_versions": "<3.4.9",
+        "patched_versions": ">=3.4.9",
+        "recommendation": "Upgrade to version 3.4.9 or later",
+        "url": "https://github.com/advisories/GHSA-vxr8-fq34-vvx9",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-vxr8-fq34-vvx9",
+          "https://github.com/advisories/GHSA-vxr8-fq34-vvx9"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124235": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: SAFE_FOR_TEMPLATES bypass - template expressions survive sanitization inside <template> content when using DOM output modes",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-65900"
+        ],
+        "github_advisory_id": "GHSA-gvmj-g25r-r7wr",
+        "vulnerable_versions": ">=3.0.0 <=3.4.7",
+        "patched_versions": ">=3.4.8",
+        "recommendation": "Upgrade to version 3.4.8 or later",
+        "url": "https://github.com/advisories/GHSA-gvmj-g25r-r7wr",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-gvmj-g25r-r7wr",
+          "https://github.com/advisories/GHSA-gvmj-g25r-r7wr"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124236": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: `IN_PLACE` mode trusts attacker-controlled `nodeName` on live non-form nodes, allowing script retention and XSS via attacker-supplied DOM objects",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-65901"
+        ],
+        "github_advisory_id": "GHSA-x4vx-rjvf-j5p4",
+        "vulnerable_versions": "<=3.4.6",
+        "patched_versions": "<0.0.0",
+        "recommendation": "None",
+        "url": "https://github.com/advisories/GHSA-x4vx-rjvf-j5p4",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-x4vx-rjvf-j5p4",
+          "https://github.com/advisories/GHSA-x4vx-rjvf-j5p4"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124237": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: Hook mutation of `data.allowedTags` / `data.allowedAttributes` permanently pollutes `DEFAULT_ALLOWED_TAGS` / `DEFAULT_ALLOWED_ATTR`",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-65902"
+        ],
+        "github_advisory_id": "GHSA-76mc-f452-cxcm",
+        "vulnerable_versions": "<3.4.7",
+        "patched_versions": ">=3.4.7",
+        "recommendation": "Upgrade to version 3.4.7 or later",
+        "url": "https://github.com/advisories/GHSA-76mc-f452-cxcm",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-76mc-f452-cxcm",
+          "https://github.com/advisories/GHSA-76mc-f452-cxcm"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124238": {
+        "module_name": "dompurify",
+        "title": "DOMPurify's ADD_TAGS function form bypasses FORBID_TAGS due to short-circuit evaluation",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-65903"
+        ],
+        "github_advisory_id": "GHSA-39q2-94rc-95cp",
+        "vulnerable_versions": "<=3.3.3",
+        "patched_versions": ">=3.4.0",
+        "recommendation": "Upgrade to version 3.4.0 or later",
+        "url": "https://github.com/advisories/GHSA-39q2-94rc-95cp",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-39q2-94rc-95cp",
+          "https://github.com/advisories/GHSA-39q2-94rc-95cp"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124239": {
+        "module_name": "dompurify",
+        "title": "DOMPurify ADD_ATTR predicate skips URI validation",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-65912"
+        ],
+        "github_advisory_id": "GHSA-cjmm-f4jc-qw8r",
+        "vulnerable_versions": "<=3.3.1",
+        "patched_versions": ">=3.3.2",
+        "recommendation": "Upgrade to version 3.3.2 or later",
+        "url": "https://github.com/advisories/GHSA-cjmm-f4jc-qw8r",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cjmm-f4jc-qw8r",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+          "https://github.com/advisories/GHSA-cjmm-f4jc-qw8r"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124240": {
+        "module_name": "dompurify",
+        "title": "DOMPurify USE_PROFILES prototype pollution allows event handlers",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-65913"
+        ],
+        "github_advisory_id": "GHSA-cj63-jhhr-wcxv",
+        "vulnerable_versions": "<=3.3.1",
+        "patched_versions": ">=3.3.2",
+        "recommendation": "Upgrade to version 3.3.2 or later",
+        "url": "https://github.com/advisories/GHSA-cj63-jhhr-wcxv",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cj63-jhhr-wcxv",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+          "https://github.com/advisories/GHSA-cj63-jhhr-wcxv"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1124241": {
+        "module_name": "dompurify",
+        "title": "DOMPurify is vulnerable to mutation-XSS via Re-Contextualization ",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-65914"
+        ],
+        "github_advisory_id": "GHSA-h8r8-wccr-v5f2",
+        "vulnerable_versions": "<3.3.2",
+        "patched_versions": ">=3.3.2",
+        "recommendation": "Upgrade to version 3.3.2 or later",
+        "url": "https://github.com/advisories/GHSA-h8r8-wccr-v5f2",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h8r8-wccr-v5f2",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+          "https://github.com/advisories/GHSA-h8r8-wccr-v5f2"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1138097": {
+        "module_name": "mermaid",
+        "title": "Mermaid configuration APIs allow prototype pollution",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-71438"
+        ],
+        "github_advisory_id": "GHSA-c4c3-pg64-4m4v",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <11.16.1",
+        "patched_versions": ">=11.16.1",
+        "recommendation": "Upgrade to version 11.16.1 or later",
+        "url": "https://github.com/advisories/GHSA-c4c3-pg64-4m4v",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-c4c3-pg64-4m4v",
+          "https://github.com/mermaid-js/mermaid/pull/8022",
+          "https://github.com/mermaid-js/mermaid/commit/2cd6dcf735533b323507e3e889ffdea870540b43",
+          "https://github.com/mermaid-js/mermaid/commit/c34b07a0815842327e70794d69b0c8c5a1e2a956",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.16.1",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.8",
+          "https://github.com/advisories/GHSA-c4c3-pg64-4m4v"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1138099": {
+        "module_name": "mermaid",
+        "title": "Mermaid allows CSS injection applying to sibling elements of the diagram",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-50159"
+        ],
+        "github_advisory_id": "GHSA-6x64-9x62-f2gx",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <11.16.1",
+        "patched_versions": ">=11.16.1",
+        "recommendation": "Upgrade to version 11.16.1 or later",
+        "url": "https://github.com/advisories/GHSA-6x64-9x62-f2gx",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-6x64-9x62-f2gx",
+          "https://github.com/mermaid-js/mermaid/pull/8022",
+          "https://github.com/mermaid-js/mermaid/commit/12d472c9ed43f94814b110da8d7a9ae6dd5266ed",
+          "https://github.com/mermaid-js/mermaid/commit/7e83f1533318b307764d961906a73377266f4c5e",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid@11.16.1",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.8",
+          "https://github.com/advisories/GHSA-6x64-9x62-f2gx"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1138100": {
+        "module_name": "mermaid",
+        "title": "Mermaid Architecture diagrams are vulnerable to prototype pollution",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-71437"
+        ],
+        "github_advisory_id": "GHSA-3rrr-jr9j-h3q3",
+        "vulnerable_versions": ">=11.5.0 <11.16.1",
+        "patched_versions": ">=11.16.1",
+        "recommendation": "Upgrade to version 11.16.1 or later",
+        "url": "https://github.com/advisories/GHSA-3rrr-jr9j-h3q3",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-3rrr-jr9j-h3q3",
+          "https://github.com/mermaid-js/mermaid/pull/8022",
+          "https://github.com/mermaid-js/mermaid/commit/99af3fc35ef0a9a9c8c6314521344d67523ddccf",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid@11.16.1",
+          "https://github.com/advisories/GHSA-3rrr-jr9j-h3q3"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1138101": {
+        "module_name": "mermaid",
+        "title": "Mermaid XY Charts are vulnerable to an infinite loop DoS",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-71436"
+        ],
+        "github_advisory_id": "GHSA-2v8p-3f2j-5mp7",
+        "vulnerable_versions": ">=11.0.0-alpha.1 <11.16.1",
+        "patched_versions": ">=11.16.1",
+        "recommendation": "Upgrade to version 11.16.1 or later",
+        "url": "https://github.com/advisories/GHSA-2v8p-3f2j-5mp7",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-2v8p-3f2j-5mp7",
+          "https://github.com/mermaid-js/mermaid/pull/8022",
+          "https://github.com/mermaid-js/mermaid/commit/630aa7e5dd417e1f56bff2a1ce8df2c5ad08d289",
+          "https://github.com/mermaid-js/mermaid/commit/ef60adc837d9d5107af21285f01e83dea309bd0a",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid@11.16.1",
+          "https://github.com/mermaid-js/mermaid/releases/tag/v10.9.8",
+          "https://github.com/advisories/GHSA-2v8p-3f2j-5mp7"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1138113": {
+        "module_name": "mermaid",
+        "title": "Mermaid radar diagrams are vulnerable to DoS",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-71439"
+        ],
+        "github_advisory_id": "GHSA-rhh3-jpg6-66xh",
+        "vulnerable_versions": ">=11.6.0 <11.16.1",
+        "patched_versions": ">=11.16.1",
+        "recommendation": "Upgrade to version 11.16.1 or later",
+        "url": "https://github.com/advisories/GHSA-rhh3-jpg6-66xh",
+        "referenceUrls": [
+          "https://github.com/mermaid-js/mermaid/security/advisories/GHSA-rhh3-jpg6-66xh",
+          "https://github.com/mermaid-js/mermaid/pull/8022",
+          "https://github.com/mermaid-js/mermaid/commit/59b22fad2b3bb04f87a476c84a8a2b24679e607e",
+          "https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.16.1",
+          "https://github.com/advisories/GHSA-rhh3-jpg6-66xh"
+        ],
+        "findings": [
+          {
+            "version": "11.12.0",
+            "paths": [
+              ".>streamdown>mermaid"
+            ]
+          }
+        ]
+      },
+      "1138538": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: IN_PLACE hook removal leaves a detached subtree executable, causing XSS",
+        "severity": "moderate",
+        "cves": [],
+        "github_advisory_id": "GHSA-55q2-fjhq-7xh7",
+        "vulnerable_versions": "<=3.4.12",
+        "patched_versions": ">=3.4.13",
+        "recommendation": "Upgrade to version 3.4.13 or later",
+        "url": "https://github.com/advisories/GHSA-55q2-fjhq-7xh7",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-55q2-fjhq-7xh7",
+          "https://github.com/cure53/DOMPurify/pull/1557",
+          "https://github.com/cure53/DOMPurify/commit/3067f7746769",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.13",
+          "https://github.com/advisories/GHSA-55q2-fjhq-7xh7"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1138810": {
+        "module_name": "nanoid",
+        "title": "nanoid: non-secure generators can loop indefinitely with negative size",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-67214"
+        ],
+        "github_advisory_id": "GHSA-28wg-ghj8-5hjv",
+        "vulnerable_versions": ">=4.0.0 <5.1.16",
+        "patched_versions": ">=5.1.16",
+        "recommendation": "Upgrade to version 5.1.16 or later",
+        "url": "https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+        "referenceUrls": [
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-67214",
+          "https://github.com/ai/nanoid/commit/6ccc67bbaba71d3d77a21d9b636f4171a268ce49",
+          "https://github.com/ai/nanoid/releases/tag/5.1.16",
+          "https://www.vulncheck.com/advisories/nanoid-before-infinite-loop-via-negative-size-in-non-secure-module",
+          "https://github.com/ai/nanoid/pull/600",
+          "https://github.com/ai/nanoid/pull/601",
+          "https://github.com/ai/nanoid/commit/e835c9b71eab832bc6106944bdd26ea96cf2c66d",
+          "https://github.com/advisories/GHSA-28wg-ghj8-5hjv"
+        ],
+        "findings": [
+          {
+            "version": "5.1.6",
+            "paths": [
+              ".>nanoid"
+            ]
+          }
+        ]
+      },
+      "1147949": {
+        "module_name": "axios",
+        "title": "Axios: Prototype pollution gadgets can alter axios request construction",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-67316"
+        ],
+        "github_advisory_id": "GHSA-mmx7-hfxf-jppx",
+        "vulnerable_versions": ">=1.0.0 <1.18.0",
+        "patched_versions": ">=1.18.0",
+        "recommendation": "Upgrade to version 1.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-mmx7-hfxf-jppx",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-mmx7-hfxf-jppx",
+          "https://github.com/axios/axios/pull/11000",
+          "https://github.com/axios/axios/pull/11001",
+          "https://github.com/axios/axios/commit/1417285c69344bbcc6420a021f67dee0c6fedb2d",
+          "https://github.com/axios/axios/commit/32fc489632377d214db55bfa4e2c48486a7d7ce2",
+          "https://github.com/axios/axios/releases/tag/v0.33.0",
+          "https://github.com/axios/axios/releases/tag/v1.18.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-67316",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-68944",
+          "https://www.vulncheck.com/advisories/axios-before-prototype-pollution-via-bodyless-methods",
+          "https://github.com/advisories/GHSA-mmx7-hfxf-jppx"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1147950": {
+        "module_name": "axios",
+        "title": "Axios: Deep formToJSON Key Recursion Can Cause Denial of Service",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-67312"
+        ],
+        "github_advisory_id": "GHSA-pmv8-rq9r-6j72",
+        "vulnerable_versions": ">=1.0.0 <1.18.0",
+        "patched_versions": ">=1.18.0",
+        "recommendation": "Upgrade to version 1.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-pmv8-rq9r-6j72",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-pmv8-rq9r-6j72",
+          "https://github.com/axios/axios/pull/11000",
+          "https://github.com/axios/axios/pull/11001",
+          "https://github.com/axios/axios/commit/1417285c69344bbcc6420a021f67dee0c6fedb2d",
+          "https://github.com/axios/axios/commit/32fc489632377d214db55bfa4e2c48486a7d7ce2",
+          "https://github.com/axios/axios/releases/tag/v0.33.0",
+          "https://github.com/axios/axios/releases/tag/v1.18.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-67312",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-68941",
+          "https://www.vulncheck.com/advisories/axios-before-denial-of-service-via-formtojson",
+          "https://github.com/advisories/GHSA-pmv8-rq9r-6j72"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1153173": {
+        "module_name": "mysql2",
+        "title": "MySQL2: Auth Plugin Downgrade to mysql_clear_password Leaks Plaintext Credentials",
+        "severity": "high",
+        "cves": [],
+        "github_advisory_id": "GHSA-3f6p-5ww8-9rcr",
+        "vulnerable_versions": "<3.22.0",
+        "patched_versions": ">=3.22.0",
+        "recommendation": "Upgrade to version 3.22.0 or later",
+        "url": "https://github.com/advisories/GHSA-3f6p-5ww8-9rcr",
+        "referenceUrls": [
+          "https://github.com/sidorares/node-mysql2/security/advisories/GHSA-3f6p-5ww8-9rcr",
+          "https://github.com/sidorares/node-mysql2/issues/1617",
+          "https://github.com/sidorares/node-mysql2/pull/4236",
+          "https://github.com/sidorares/node-mysql2/commit/884bec56288d827939d0dd3f1f4ae476fbc8dbeb",
+          "https://github.com/sidorares/node-mysql2/releases/tag/v3.22.0",
+          "https://github.com/advisories/GHSA-3f6p-5ww8-9rcr"
+        ],
+        "findings": [
+          {
+            "version": "3.15.1",
+            "paths": [
+              ".>mysql2"
+            ]
+          }
+        ]
+      },
+      "1153180": {
+        "module_name": "axios",
+        "title": "Axios: Nested axios option objects can consume polluted prototype values",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-67319"
+        ],
+        "github_advisory_id": "GHSA-7q8q-rj6j-mhjq",
+        "vulnerable_versions": ">=1.0.0 <1.18.0",
+        "patched_versions": ">=1.18.0",
+        "recommendation": "Upgrade to version 1.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-7q8q-rj6j-mhjq",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-7q8q-rj6j-mhjq",
+          "https://github.com/axios/axios/pull/11000",
+          "https://github.com/axios/axios/pull/11001",
+          "https://github.com/axios/axios/commit/1417285c69344bbcc6420a021f67dee0c6fedb2d",
+          "https://github.com/axios/axios/commit/32fc489632377d214db55bfa4e2c48486a7d7ce2",
+          "https://github.com/axios/axios/releases/tag/v0.33.0",
+          "https://github.com/axios/axios/releases/tag/v1.18.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-67319",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-69123",
+          "https://www.vulncheck.com/advisories/axios-before-prototype-pollution-via-nested-option-objects",
+          "https://github.com/advisories/GHSA-7q8q-rj6j-mhjq"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1153182": {
+        "module_name": "axios",
+        "title": "Axios: Fetch adapter `ReadableStream` uploads bypass `maxBodyLength`",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-67317"
+        ],
+        "github_advisory_id": "GHSA-jqh4-m9w3-8hp9",
+        "vulnerable_versions": ">=1.7.0 <1.18.0",
+        "patched_versions": ">=1.18.0",
+        "recommendation": "Upgrade to version 1.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-jqh4-m9w3-8hp9",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-jqh4-m9w3-8hp9",
+          "https://github.com/axios/axios/pull/11000",
+          "https://github.com/axios/axios/commit/32fc489632377d214db55bfa4e2c48486a7d7ce2",
+          "https://github.com/axios/axios/releases/tag/v1.18.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-67317",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-68947",
+          "https://www.vulncheck.com/advisories/axios-before-maxbodylength-bypass-via-readablestream",
+          "https://github.com/advisories/GHSA-jqh4-m9w3-8hp9"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1153185": {
+        "module_name": "axios",
+        "title": "Axios: Excessive recursion in formDataToJSON can cause denial of service",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-67313"
+        ],
+        "github_advisory_id": "GHSA-42h9-826w-cgv3",
+        "vulnerable_versions": ">=1.0.0 <1.18.0",
+        "patched_versions": ">=1.18.0",
+        "recommendation": "Upgrade to version 1.18.0 or later",
+        "url": "https://github.com/advisories/GHSA-42h9-826w-cgv3",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-42h9-826w-cgv3",
+          "https://github.com/axios/axios/pull/11000",
+          "https://github.com/axios/axios/pull/11001",
+          "https://github.com/axios/axios/commit/1417285c69344bbcc6420a021f67dee0c6fedb2d",
+          "https://github.com/axios/axios/commit/32fc489632377d214db55bfa4e2c48486a7d7ce2",
+          "https://github.com/axios/axios/releases/tag/v0.33.0",
+          "https://github.com/axios/axios/releases/tag/v1.18.0",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-67313",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-68942",
+          "https://www.vulncheck.com/advisories/axios-before-denial-of-service-via-formdatatojson",
+          "https://github.com/advisories/GHSA-42h9-826w-cgv3"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1153188": {
+        "module_name": "nanoid",
+        "title": "nanoid: Integer Overflow or Wraparound",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-73086"
+        ],
+        "github_advisory_id": "GHSA-xwg4-73v4-xw9w",
+        "vulnerable_versions": ">=4.0.0 <5.1.11",
+        "patched_versions": ">=5.1.11",
+        "recommendation": "Upgrade to version 5.1.11 or later",
+        "url": "https://github.com/advisories/GHSA-xwg4-73v4-xw9w",
+        "referenceUrls": [
+          "https://github.com/ai/nanoid/security/advisories/GHSA-xwg4-73v4-xw9w",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-73086",
+          "https://github.com/ai/nanoid/commit/7087969281cab8ba8ae3babf1894e819068b3bb4",
+          "https://github.com/ai/nanoid/commit/821dfed7b5db7f88e92f56c60eef32c8135077c3",
+          "https://github.com/ai/nanoid/commit/b0036ed60dc9facd7f1191a50dfb3076500202ac",
+          "https://github.com/ai/nanoid/releases/tag/3.3.12",
+          "https://github.com/ai/nanoid/releases/tag/5.1.11",
+          "https://github.com/advisories/GHSA-xwg4-73v4-xw9w"
+        ],
+        "findings": [
+          {
+            "version": "5.1.6",
+            "paths": [
+              ".>nanoid"
+            ]
+          }
+        ]
+      },
+      "1158507": {
+        "module_name": "qs",
+        "title": "qs: Denial of Service via Attacker Controlled isBuffer",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-82417"
+        ],
+        "github_advisory_id": "GHSA-4mjr-xmp4-gh2g",
+        "vulnerable_versions": ">=2.2.5 <6.16.0",
+        "patched_versions": ">=6.16.0",
+        "recommendation": "Upgrade to version 6.16.0 or later",
+        "url": "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g",
+        "referenceUrls": [
+          "https://github.com/ljharb/qs/security/advisories/GHSA-4mjr-xmp4-gh2g",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-82417",
+          "https://github.com/ljharb/qs/commit/e83d321ffafb38cf210683ac31714fce6ce1c6c6",
+          "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g"
+        ],
+        "findings": [
+          {
+            "version": "6.13.0",
+            "paths": [
+              ".>express>qs"
+            ]
+          }
+        ]
+      },
+      "1158532": {
+        "module_name": "mysql2",
+        "title": "MySQL2: Unbounded zlib inflate in compressed MySQL protocol handler allows decompression-bomb DoS",
+        "severity": "moderate",
+        "cves": [],
+        "github_advisory_id": "GHSA-rgwj-5xj2-c3m3",
+        "vulnerable_versions": "<=3.23.0",
+        "patched_versions": ">=3.23.1",
+        "recommendation": "Upgrade to version 3.23.1 or later",
+        "url": "https://github.com/advisories/GHSA-rgwj-5xj2-c3m3",
+        "referenceUrls": [
+          "https://github.com/sidorares/node-mysql2/security/advisories/GHSA-rgwj-5xj2-c3m3",
+          "https://github.com/sidorares/node-mysql2/commit/7c48343c95ecc80d30d6ebfa67875947b7d848d2",
+          "https://github.com/sidorares/node-mysql2/releases/tag/v3.23.1",
+          "https://github.com/advisories/GHSA-rgwj-5xj2-c3m3"
+        ],
+        "findings": [
+          {
+            "version": "3.15.1",
+            "paths": [
+              ".>mysql2"
+            ]
+          }
+        ]
+      },
+      "1240600": {
+        "module_name": "axios",
+        "title": "Axios: Prototype pollution gadget in fetch adapter can alter outbound requests",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-101908"
+        ],
+        "github_advisory_id": "GHSA-vh66-26gq-q6x8",
+        "vulnerable_versions": ">=1.7.0 <1.20.0",
+        "patched_versions": ">=1.20.0",
+        "recommendation": "Upgrade to version 1.20.0 or later",
+        "url": "https://github.com/advisories/GHSA-vh66-26gq-q6x8",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-vh66-26gq-q6x8",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-101908",
+          "https://github.com/axios/axios/pull/11141",
+          "https://github.com/axios/axios/commit/d19040bda7a8be2f82c3c6e1a5bc03917daee39a",
+          "https://github.com/axios/axios/releases/tag/v1.20.0",
+          "https://github.com/advisories/GHSA-vh66-26gq-q6x8"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1240601": {
+        "module_name": "axios",
+        "title": "Axios: Prototype-Pollution Gadget in the Default Instance Allows Inherited Object.prototype.method to Override HTTP Method",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-101902"
+        ],
+        "github_advisory_id": "GHSA-9fr6-4gfg-395g",
+        "vulnerable_versions": ">=1.0.0 <1.20.0",
+        "patched_versions": ">=1.20.0",
+        "recommendation": "Upgrade to version 1.20.0 or later",
+        "url": "https://github.com/advisories/GHSA-9fr6-4gfg-395g",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-9fr6-4gfg-395g",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-101902",
+          "https://github.com/axios/axios/pull/11141",
+          "https://github.com/axios/axios/commit/d19040bda7a8be2f82c3c6e1a5bc03917daee39a",
+          "https://github.com/axios/axios/releases/tag/v0.34.0",
+          "https://github.com/axios/axios/releases/tag/v1.20.0",
+          "https://github.com/advisories/GHSA-9fr6-4gfg-395g"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1240626": {
+        "module_name": "axios",
+        "title": "Axios: Header Injection via Inherited headers After Minimal Interceptor",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-101904"
+        ],
+        "github_advisory_id": "GHSA-j8rh-479h-cp32",
+        "vulnerable_versions": ">=1.0.0 <1.20.0",
+        "patched_versions": ">=1.20.0",
+        "recommendation": "Upgrade to version 1.20.0 or later",
+        "url": "https://github.com/advisories/GHSA-j8rh-479h-cp32",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-j8rh-479h-cp32",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-101904",
+          "https://github.com/axios/axios/pull/11141",
+          "https://github.com/axios/axios/commit/d19040bda7a8be2f82c3c6e1a5bc03917daee39a",
+          "https://github.com/axios/axios/releases/tag/v1.20.0",
+          "https://github.com/advisories/GHSA-j8rh-479h-cp32"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1240627": {
+        "module_name": "axios",
+        "title": "Axios: Fetch Adapter Header Injection via Inherited FormData getHeaders",
+        "severity": "moderate",
+        "cves": [
+          "CVE-2026-101900"
+        ],
+        "github_advisory_id": "GHSA-4hqw-qxg8-jxx2",
+        "vulnerable_versions": ">=1.12.0 <1.20.0",
+        "patched_versions": ">=1.20.0",
+        "recommendation": "Upgrade to version 1.20.0 or later",
+        "url": "https://github.com/advisories/GHSA-4hqw-qxg8-jxx2",
+        "referenceUrls": [
+          "https://github.com/axios/axios/security/advisories/GHSA-4hqw-qxg8-jxx2",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-101900",
+          "https://github.com/axios/axios/pull/11141",
+          "https://github.com/axios/axios/commit/d19040bda7a8be2f82c3c6e1a5bc03917daee39a",
+          "https://github.com/axios/axios/releases/tag/v1.20.0",
+          "https://github.com/advisories/GHSA-4hqw-qxg8-jxx2"
+        ],
+        "findings": [
+          {
+            "version": "1.12.2",
+            "paths": [
+              ".>axios"
+            ]
+          }
+        ]
+      },
+      "1240978": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: `CUSTOM_ELEMENT_HANDLING` bypasses `afterSanitizeElements` for allowed custom elements.",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-66010"
+        ],
+        "github_advisory_id": "GHSA-c2j3-45gr-mqc4",
+        "vulnerable_versions": "<=3.4.11",
+        "patched_versions": ">=3.4.12",
+        "recommendation": "Upgrade to version 3.4.12 or later",
+        "url": "https://github.com/advisories/GHSA-c2j3-45gr-mqc4",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c2j3-45gr-mqc4",
+          "https://github.com/cure53/DOMPurify/pull/1537",
+          "https://github.com/cure53/DOMPurify/commit/a9ca1e537422319a557a9a2aa61f003b23b4a197",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.12",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-66010",
+          "https://www.vulncheck.com/advisories/dompurify-before-hook-bypass-via-custom-element-handling",
+          "https://github.com/advisories/GHSA-c2j3-45gr-mqc4"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1241204": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: IN_PLACE returns a force-removed rawtext root whose text carries attacker markup — pure HTML reparse executes",
+        "severity": "low",
+        "cves": [],
+        "github_advisory_id": "GHSA-6688-9rhm-gjv2",
+        "vulnerable_versions": "<=3.4.15",
+        "patched_versions": ">=3.4.16",
+        "recommendation": "Upgrade to version 3.4.16 or later",
+        "url": "https://github.com/advisories/GHSA-6688-9rhm-gjv2",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-6688-9rhm-gjv2",
+          "https://github.com/cure53/DOMPurify/pull/1636",
+          "https://github.com/cure53/DOMPurify/commit/b9b9d80f7e401771c2ccaef5f45def7eec8f27d7",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.16",
+          "https://github.com/advisories/GHSA-6688-9rhm-gjv2"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1241206": {
+        "module_name": "katex",
+        "title": "KaTeX: Existing prototype pollution can bypass trust restrictions",
+        "severity": "low",
+        "cves": [
+          "CVE-2026-103923"
+        ],
+        "github_advisory_id": "GHSA-238p-pmpm-9mq7",
+        "vulnerable_versions": ">=0.11.0 <0.18.2",
+        "patched_versions": ">=0.18.2",
+        "recommendation": "Upgrade to version 0.18.2 or later",
+        "url": "https://github.com/advisories/GHSA-238p-pmpm-9mq7",
+        "referenceUrls": [
+          "https://github.com/KaTeX/KaTeX/security/advisories/GHSA-238p-pmpm-9mq7",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-103923",
+          "https://github.com/KaTeX/KaTeX/pull/4260",
+          "https://github.com/KaTeX/KaTeX/commit/0adf7e77db6915d991803b29699f82b1ccf8d4f4",
+          "https://github.com/KaTeX/KaTeX/releases/tag/v0.18.2",
+          "https://github.com/advisories/GHSA-238p-pmpm-9mq7"
+        ],
+        "findings": [
+          {
+            "version": "0.16.25",
+            "paths": [
+              ".>streamdown>katex"
+            ]
+          }
+        ]
+      },
+      "1241210": {
+        "module_name": "proxy-addr",
+        "title": "proxy-addr vulnerable to IP spoofing via IPv4-mapped IPv6 trust subnet",
+        "severity": "critical",
+        "cves": [
+          "CVE-2026-90711"
+        ],
+        "github_advisory_id": "GHSA-jqcg-44mw-7w3h",
+        "vulnerable_versions": ">=1.1.0 <2.0.8",
+        "patched_versions": ">=2.0.8",
+        "recommendation": "Upgrade to version 2.0.8 or later",
+        "url": "https://github.com/advisories/GHSA-jqcg-44mw-7w3h",
+        "referenceUrls": [
+          "https://github.com/jshttp/proxy-addr/security/advisories/GHSA-jqcg-44mw-7w3h",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-90711",
+          "https://github.com/jshttp/proxy-addr/commit/780911d84d18e2c5fa008ed0c0d387631ec11965",
+          "https://cna.openjsf.org/security-advisories.html",
+          "https://github.com/jshttp/proxy-addr/releases/tag/v2.0.8",
+          "https://github.com/advisories/GHSA-jqcg-44mw-7w3h"
+        ],
+        "findings": [
+          {
+            "version": "2.0.7",
+            "paths": [
+              ".>express>proxy-addr"
+            ]
+          }
+        ]
+      },
+      "1242881": {
+        "module_name": "dompurify",
+        "title": "DOMPurify IN_PLACE: hook that removes a parent or sibling leaves the detached subtree's event handlers armed (incomplete fix for GHSA-p98j-92pf-mc4p)",
+        "severity": "high",
+        "cves": [],
+        "github_advisory_id": "GHSA-mrv2-3pqr-j5jr",
+        "vulnerable_versions": "<=3.4.16",
+        "patched_versions": ">=3.4.17",
+        "recommendation": "Upgrade to version 3.4.17 or later",
+        "url": "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-mrv2-3pqr-j5jr",
+          "https://github.com/cure53/DOMPurify/pull/1672",
+          "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.17",
+          "https://github.com/advisories/GHSA-mrv2-3pqr-j5jr"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1242882": {
+        "module_name": "dompurify",
+        "title": "DOMPurify: SMIL attributeName=href guard is skipped when PARSER_MEDIA_TYPE is application/xhtml+xml",
+        "severity": "low",
+        "cves": [],
+        "github_advisory_id": "GHSA-c6gr-qvv4-5v3f",
+        "vulnerable_versions": "<=3.4.16",
+        "patched_versions": ">=3.4.17",
+        "recommendation": "Upgrade to version 3.4.17 or later",
+        "url": "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f",
+        "referenceUrls": [
+          "https://github.com/cure53/DOMPurify/security/advisories/GHSA-c6gr-qvv4-5v3f",
+          "https://github.com/cure53/DOMPurify/pull/1672",
+          "https://github.com/cure53/DOMPurify/commit/a77a3e78b59f72fa4d1c83f22e121ad9cc7d3575",
+          "https://github.com/cure53/DOMPurify/releases/tag/3.4.17",
+          "https://github.com/advisories/GHSA-c6gr-qvv4-5v3f"
+        ],
+        "findings": [
+          {
+            "version": "3.3.0",
+            "paths": [
+              ".>streamdown>mermaid>dompurify"
+            ]
+          }
+        ]
+      },
+      "1243066": {
+        "module_name": "zod",
+        "title": "Zod can exhaust memory while validating oversized constrained collections",
+        "severity": "high",
+        "cves": [
+          "CVE-2023-54404"
+        ],
+        "github_advisory_id": "GHSA-mrhx-c7xc-m3w5",
+        "vulnerable_versions": "<4.6.6",
+        "patched_versions": ">=4.6.6",
+        "recommendation": "Upgrade to version 4.6.6 or later",
+        "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+        "referenceUrls": [
+          "https://nvd.nist.gov/vuln/detail/CVE-2023-54404",
+          "https://github.com/colinhacks/zod/issues/1872",
+          "https://github.com/colinhacks/zod/pull/6475",
+          "https://www.vulncheck.com/advisories/zod-uncontrolled-resource-consumption-via-array-validation",
+          "https://github.com/colinhacks/zod/pull/6652",
+          "https://github.com/colinhacks/zod/commit/a0ebf970f2d752e5f58527cd2942ff48be4f46bd",
+          "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"
+        ],
+        "findings": [
+          {
+            "version": "4.1.12",
+            "paths": [
+              ".>zod"
+            ]
+          }
+        ]
+      },
+      "1243073": {
+        "module_name": "body-parser",
+        "title": "body-parser vulnerable to Denial of Service via trailing bytes after a compressed request body",
+        "severity": "high",
+        "cves": [
+          "CVE-2026-111181"
+        ],
+        "github_advisory_id": "GHSA-27r3-jxmh-p828",
+        "vulnerable_versions": "<1.20.9",
+        "patched_versions": ">=1.20.9",
+        "recommendation": "Upgrade to version 1.20.9 or later",
+        "url": "https://github.com/advisories/GHSA-27r3-jxmh-p828",
+        "referenceUrls": [
+          "https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828",
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-111181",
+          "https://github.com/expressjs/body-parser/commit/1260c3845f54502a05a87594f09a334786bb34d7",
+          "https://github.com/expressjs/body-parser/commit/f7075eae3a84c3473ab4bf0a777da28db208e916",
+          "https://cna.openjsf.org/security-advisories.html",
+          "https://github.com/expressjs/body-parser/releases/tag/1.20.9",
+          "https://github.com/expressjs/body-parser/releases/tag/v2.4.0",
+          "https://github.com/advisories/GHSA-27r3-jxmh-p828"
+        ],
+        "findings": [
+          {
+            "version": "1.20.3",
+            "paths": [
+              ".>express>body-parser"
+            ]
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "vulnerabilities": {
+        "info": 0,
+        "low": 13,
+        "moderate": 55,
+        "high": 26,
+        "critical": 2
+      },
+      "dependencies": 598,
+      "devDependencies": 0,
+      "optionalDependencies": 0,
+      "totalDependencies": 598
+    }
+  }
+}

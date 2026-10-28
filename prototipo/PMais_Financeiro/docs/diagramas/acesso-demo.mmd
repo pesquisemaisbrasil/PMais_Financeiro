@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant U as Usuario
+    participant B as Browser
+    participant Q as Fila local
+    participant S as Express demo-access
+    participant M as Maps processo
+    U->>B: Abre login
+    B->>Q: GET session
+    Q->>S: session + cookie
+    S-->>B: csrf + anonymous
+    U->>B: Envia adm e senha
+    B->>Q: login serializado
+    Q->>S: POST login + header CSRF
+    S->>M: Cria sessao 30 min
+    S-->>B: ok + cookie opaco
+    B->>S: Le session novamente
+    S-->>B: authenticated scope demo_only
+    B-->>U: Monta shell e DemoStore
+    U->>B: Sair
+    B->>Q: logout serializado
+    Q->>S: POST logout + CSRF
+    S->>M: Revoga sessao
+    S-->>B: ok + cookies limpos

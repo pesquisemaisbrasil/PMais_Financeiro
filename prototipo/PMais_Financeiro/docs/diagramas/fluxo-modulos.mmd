@@ -1,0 +1,29 @@
+flowchart LR
+    M2[M2 Cadastros]
+    M1[M1 Pagamentos]
+    M3[M3 Contas]
+    M4[M4 Orcamento]
+    M5[M5 Folha]
+    ST[Settlements locais]
+    BT[M6 Movimentos simulados]
+    M6[M6 Conciliacao]
+    M7[M7 Relatorios]
+    D[Dashboard]
+    M2 --> M3
+    M2 --> M4
+    M2 --> M5
+    M1 --> M3
+    M5 --> M3
+    M3 --> ST
+    M1 --> ST
+    M5 --> ST
+    ST --> BT
+    BT --> M6
+    M3 --> M7
+    M4 --> M7
+    M5 --> M7
+    M6 --> M7
+    M3 --> D
+    M4 --> D
+    M5 --> D
+    M6 --> D

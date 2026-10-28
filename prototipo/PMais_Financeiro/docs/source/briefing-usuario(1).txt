@@ -1,0 +1,352 @@
+# PROMPT MESTRE — MANUS AI
+## Desenvolvimento e modernização do aplicativo P+ Financeiro | Pesquise+ / P+Solution Research
+
+### 1. PAPEL E MISSÃO
+
+Atue como uma equipe multidisciplinar de engenharia de software sênior, composta por arquiteto de sistemas, especialista em aplicações financeiras empresariais, desenvolvedor full-stack, product designer, UX/UI designer, especialista em segurança e engenheiro de qualidade.
+
+Sua missão é **analisar, reconstruir quando necessário, modernizar e entregar o aplicativo P+ Financeiro**, utilizando como fonte primária o código e os arquivos existentes no projeto fornecido.
+
+O resultado deve ser um software empresarial funcional, seguro, intuitivo, responsivo, visualmente sofisticado e alinhado à identidade oficial da Pesquise+.
+
+Não entregue apenas protótipos, telas estáticas ou demonstrações visuais. O objetivo é disponibilizar uma aplicação efetivamente operacional, com funcionalidades integradas, persistência de dados e fluxos completos.
+
+### 2. ARQUIVOS OBRIGATÓRIOS
+
+Utilize os três arquivos anexados:
+
+**Arquivo 1 — `PMais_Financeiro.zip`**
+
+Este é o projeto principal.
+
+Antes de implementar qualquer alteração:
+
+1. Extraia integralmente o conteúdo.
+2. Identifique a estrutura de diretórios.
+3. Analise a stack tecnológica, dependências e configurações.
+4. Examine os componentes, páginas, modelos, serviços, APIs e banco de dados.
+5. Identifique todas as funcionalidades já implementadas.
+6. Mapeie as regras de negócio financeiro encontradas.
+7. Identifique problemas técnicos, fluxos incompletos e oportunidades de melhoria.
+8. Preserve tudo que já funciona corretamente.
+9. Determine quais funcionalidades podem ser modernizadas sem comprometer a compatibilidade.
+10. Identifique eventuais dependências externas, credenciais necessárias e integrações existentes.
+
+**Regra fundamental:** não descarte o projeto original para criar outro aplicativo genérico. Priorize a evolução do software fornecido.
+
+**Arquivo 2 — `guia-de-marca-para-aplicativos-pesquise-plus(7).md`**
+
+Documento obrigatório para todas as decisões relacionadas a:
+
+- Identidade visual.
+- Paleta de cores.
+- Tipografia.
+- Componentes de interface.
+- Experiência do usuário.
+- Tom de voz.
+- Responsividade.
+- Acessibilidade.
+- Aplicação do logotipo.
+
+**Arquivo 3 — `Logo2025_branco(6).png`**
+
+Utilize esta imagem oficial da P+Solution Research em superfícies escuras apropriadas.
+
+Não recrie o logotipo com inteligência artificial. Não altere suas cores, formas ou proporções.
+
+Caso seja necessária uma versão para fundos claros, procure o arquivo oficial correspondente no material fornecido. Se não existir, solicite o arquivo correto ou use um cabeçalho escuro com a versão disponível.
+
+### 3. DIRETRIZ PRINCIPAL DO PRODUTO
+
+Nome do aplicativo: **P+ Financeiro**
+
+Marca: **Pesquise+ / P+Solution Research**
+
+Idioma: português do Brasil.
+
+Público: administradores, gestores financeiros, responsáveis por operações e usuários autorizados da organização.
+
+Objetivo: proporcionar uma experiência centralizada e eficiente de gestão financeira, respeitando o modelo operacional e as regras identificadas no projeto original.
+
+O aplicativo deve transmitir:
+
+- Controle e segurança.
+- Inteligência financeira.
+- Eficiência operacional.
+- Transparência.
+- Facilidade de utilização.
+- Confiabilidade dos dados.
+- Clareza para a tomada de decisões.
+
+A identidade deve representar um software corporativo premium, e não um painel administrativo genérico.
+
+### 4. AUDITORIA FUNCIONAL E ARQUITETURA
+
+Antes do desenvolvimento, apresente um diagnóstico técnico do ZIP.
+
+Crie uma matriz contendo:
+
+| Elemento | Análise esperada |
+|---|---|
+| Tecnologia | Frameworks, linguagens e dependências |
+| Front-end | Páginas, rotas, componentes e estados |
+| Back-end | Serviços, APIs e regras de negócio |
+| Banco de dados | Entidades, relações e persistência |
+| Autenticação | Login, sessões e perfis existentes |
+| Funcionalidades | Recursos operacionais identificados |
+| Integrações | Serviços externos e dependências |
+| Problemas | Erros, lacunas e riscos |
+| Melhorias | Soluções recomendadas |
+| Preservação | Recursos que devem permanecer intactos |
+
+Classifique as funcionalidades em quatro categorias: existentes e operacionais, existentes mas incompletas, ausentes e recomendadas, e dependentes de decisão ou integração externa.
+
+Não presuma que um módulo está implementado apenas porque existe um botão, uma rota ou uma tela.
+
+### 5. MÓDULOS FINANCEIROS A AVALIAR
+
+Verifique quais dos módulos abaixo existem no projeto e quais são compatíveis com seu objetivo.
+
+**Dashboard financeiro**
+
+Avalie a implementação de uma visão executiva com indicadores financeiros, gráficos e filtros por período, como saldos, receitas, despesas, resultados e obrigações, sempre com métricas derivadas de dados reais do sistema.
+
+**Contas a pagar e a receber**
+
+Verifique cadastro, edição, vencimentos, liquidação, status, filtros, histórico e vínculos entre lançamentos e entidades financeiras.
+
+**Movimentações financeiras**
+
+Avalie a necessidade de registros de entradas, saídas, transferências, ajustes e histórico de movimentações.
+
+**Categorias e centros de custo**
+
+Verifique classificação financeira, organização por projeto, departamento ou centro de custo e utilização dessas dimensões em relatórios.
+
+**Fluxo de caixa**
+
+Avalie entradas e saídas por período, previsões, saldos projetados e diferenciação entre valores realizados e previstos.
+
+**Relatórios e exportações**
+
+Verifique relatórios gerenciais, filtros, agrupamentos e exportação para formatos apropriados, como CSV, Excel e PDF.
+
+**Administração**
+
+Avalie perfis de acesso, configurações, usuários, auditoria e demais funções administrativas previstas na arquitetura existente.
+
+Estes módulos são hipóteses de evolução, não uma autorização para substituir ou ampliar indiscriminadamente o escopo do ZIP. Priorize as funcionalidades efetivamente presentes e apresente separadamente as propostas adicionais.
+
+### 6. IDENTIDADE VISUAL OFICIAL
+
+Utilize estritamente as diretrizes do guia de marca anexado.
+
+**Paleta institucional:**
+
+| Token | Cor | Aplicação |
+|---|---|---|
+| Azul Deep | #4063EE | Botões principais, navegação ativa |
+| Azul Claro | #009CEF | Links, foco e destaques |
+| Verde Vibrante | #00C977 | Resultados positivos e progresso |
+| Roxo | #6B36F7 | Inteligência e visualizações |
+| Azul Neutro | #6EC3E4 | Superfícies suaves e elementos secundários |
+| Cinza Escuro | #3C3C3C | Texto e superfícies escuras |
+| Cinza Claro | #E8E8E8 | Bordas e divisórias |
+| Branco | #FFFFFF | Fundos e superfícies |
+
+Distribuição visual recomendada:
+
+- 60–70% de superfícies neutras.
+- 20–30% de azuis institucionais e cinza escuro.
+- 5–10% de cores de destaque.
+
+Utilize cores funcionais acessíveis para alertas, despesas, erros e riscos financeiros, sem confundir a semântica desses estados com a paleta institucional.
+
+**Tipografia obrigatória: Open Sans.**
+
+Utilize Bold em títulos e valores importantes, SemiBold em rótulos e navegação, Regular em textos e tabelas.
+
+O resultado deve ser minimalista, tecnológico, elegante e corporativo.
+
+### 7. EXPERIÊNCIA VISUAL E NAVEGAÇÃO
+
+Crie uma interface com padrão de qualidade de software SaaS empresarial moderno.
+
+Priorize:
+
+- Navegação lateral organizada, quando apropriada.
+- Cabeçalho consistente.
+- Dashboard com hierarquia clara.
+- Cards de indicadores financeiros.
+- Gráficos interativos e legíveis.
+- Tabelas com filtros e ordenação.
+- Campos de busca.
+- Formulários objetivos.
+- Modais para ações contextuais.
+- Feedback visual de operações.
+- Estados de carregamento.
+- Telas vazias com orientação.
+- Mensagens de erro compreensíveis.
+- Confirmação para exclusões e operações sensíveis.
+- Responsividade para desktop, tablet e smartphone.
+
+Use cards com cantos de 12 a 16 px, bordas suaves e espaçamento baseado em múltiplos de 4 px.
+
+Evite excesso de gradientes, efeitos de vidro, animações desnecessárias, ícones decorativos ou elementos futuristas que dificultem o uso cotidiano.
+
+Uma ação principal deve ficar evidente em cada tela.
+
+### 8. REGRAS DE NEGÓCIO FINANCEIRO
+
+Trate o sistema como uma aplicação que manipula informações sensíveis e valores monetários.
+
+Implemente ou preserve, conforme aplicável:
+
+1. Valores monetários armazenados com precisão decimal apropriada, sem erros de arredondamento por ponto flutuante.
+2. Formatação brasileira em reais: R$ 1.234,56.
+3. Datas consistentes com o contexto operacional e o formato brasileiro.
+4. Validação de valores, datas, categorias e campos obrigatórios.
+5. Separação entre registros previstos, realizados, pagos, recebidos e vencidos, conforme o modelo existente.
+6. Prevenção de operações duplicadas.
+7. Regras claras de cancelamento, estorno e exclusão.
+8. Integridade referencial.
+9. Controle de acesso no servidor.
+10. Trilhas de auditoria para operações relevantes.
+11. Cálculo coerente de totais e indicadores.
+12. Atualização consistente de relatórios e dashboards após alterações.
+
+Não realize mudanças irreversíveis na estrutura financeira sem um plano seguro de migração.
+
+### 9. SEGURANÇA E QUALIDADE
+
+Avalie e implemente medidas adequadas de segurança:
+
+- Autenticação segura.
+- Autorização por perfil e permissão.
+- Validação de dados no cliente e no servidor.
+- Proteção de endpoints e operações sensíveis.
+- Proteção contra injeção de comandos e acessos não autorizados.
+- Gestão segura de sessões.
+- Tratamento de erros sem exposição de segredos.
+- Variáveis de ambiente para credenciais.
+- Registros de auditoria quando aplicáveis.
+- Backups e recuperação conforme a infraestrutura utilizada.
+
+Não utilize credenciais fictícias como solução definitiva e não exponha informações financeiras em logs, URLs ou dados de demonstração públicos.
+
+### 10. PERSISTÊNCIA E INTEGRAÇÃO
+
+Preserve preferencialmente a stack já utilizada no ZIP.
+
+Não substitua banco de dados, framework ou serviços sem justificar claramente a necessidade.
+
+Se o projeto estiver incompleto, proponha a arquitetura mais simples e sustentável que permita concluir o aplicativo.
+
+O aplicativo deve garantir persistência real de registros. Não use apenas dados mockados ou armazenamento temporário como solução final.
+
+Caso sejam necessárias integrações com serviços externos, identifique os requisitos e deixe interfaces preparadas sem simular uma integração real.
+
+### 11. TELAS, COMPONENTES E FLUXOS
+
+Para cada funcionalidade existente ou aprovada para implementação, desenvolva:
+
+- Tela principal.
+- Visualização de registros.
+- Criação e edição.
+- Detalhamento, quando necessário.
+- Filtros e buscas.
+- Validação de formulários.
+- Mensagens de sucesso e erro.
+- Estados de carregamento e ausência de dados.
+- Verificação de permissões.
+- Fluxo de navegação completo.
+
+Nenhum botão deve aparentar executar uma ação que não funciona.
+
+Não apresente registros fictícios como dados financeiros reais.
+
+### 12. RESPONSIVIDADE E ACESSIBILIDADE
+
+Projete a aplicação para funcionar em diferentes dispositivos, preservando a produtividade no desktop e a usabilidade no smartphone.
+
+Atenda às diretrizes WCAG 2.2 AA, incluindo:
+
+- Contraste adequado.
+- Navegação por teclado.
+- Foco visual.
+- Rótulos acessíveis.
+- Áreas de toque de pelo menos 44 × 44 px.
+- Compatibilidade com leitores de tela.
+- Feedback não dependente apenas de cor.
+- Respeito à preferência por movimento reduzido.
+
+### 13. PLANO DE EXECUÇÃO
+
+Execute o trabalho em fases.
+
+**Fase 1 — Descoberta**
+
+Extraia o ZIP, analise a estrutura, documente funcionalidades, dependências e regras de negócio.
+
+**Fase 2 — Planejamento**
+
+Apresente a arquitetura atual, arquitetura proposta, prioridades, alterações necessárias e riscos de migração.
+
+**Fase 3 — Design System**
+
+Implemente a identidade oficial da Pesquise+, utilizando o guia de marca, Open Sans e o logotipo original.
+
+**Fase 4 — Desenvolvimento**
+
+Modernize a interface, integre os módulos e conclua os fluxos funcionais priorizados.
+
+**Fase 5 — Validação**
+
+Teste regras financeiras, operações CRUD, permissões, filtros, cálculos, responsividade, acessibilidade e persistência.
+
+**Fase 6 — Entrega**
+
+Disponibilize o aplicativo, os arquivos-fonte atualizados e a documentação de instalação e execução.
+
+### 14. CRITÉRIOS DE ACEITE
+
+Considere a entrega concluída somente quando:
+
+- O projeto original tiver sido analisado e suas funcionalidades essenciais preservadas.
+- A interface respeitar a identidade da Pesquise+.
+- O logotipo oficial estiver corretamente aplicado.
+- As funcionalidades implementadas operarem de ponta a ponta.
+- Os dados persistirem corretamente.
+- Os cálculos financeiros forem consistentes.
+- As permissões forem respeitadas.
+- Não houver botões ou rotas simulando funcionalidades.
+- A aplicação funcionar nos principais tamanhos de tela.
+- Os testes essenciais tiverem sido executados.
+- As limitações e pendências estiverem documentadas.
+
+### 15. FORMATO DA ENTREGA FINAL
+
+Apresente:
+
+1. Relatório técnico do projeto original.
+2. Mapa dos módulos e funcionalidades.
+3. Principais problemas encontrados e corrigidos.
+4. Arquitetura final.
+5. Aplicativo funcional.
+6. Código-fonte organizado.
+7. Estrutura e instruções do banco de dados.
+8. Instruções de instalação, configuração e publicação.
+9. Resumo dos testes realizados e respectivos resultados.
+10. Relação de pendências, integrações e melhorias futuras.
+
+### INSTRUÇÃO FINAL
+
+**Não quero apenas uma interface bonita. Quero a evolução consistente do P+ Financeiro, aproveitando o máximo possível do projeto original e transformando-o em um aplicativo empresarial de alta qualidade, com segurança, precisão, excelente experiência de usuário e fidelidade à marca Pesquise+.**
+
+Comece examinando integralmente os anexos. Não invente funcionalidades do ZIP, não descarte código funcional e não substitua regras financeiras existentes sem justificativa técnica.
+
+Priorize um sistema realmente utilizável, seguro, bem estruturado e pronto para evolução contínua.
+
+A experiência final deve transmitir a essência da Pesquise+:
+
+**predict the future**

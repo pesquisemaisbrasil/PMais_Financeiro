@@ -1,0 +1,44 @@
+{
+  "coletado": "2026-10-26",
+  "comandos": {
+    "pnpm check": {
+      "status": 0,
+      "tempo_segundos_shell": 6,
+      "resultado": "aprovado"
+    },
+    "pnpm test": {
+      "status": 0,
+      "tempo_segundos_shell": 4,
+      "duracao_vitest_segundos": 2.24,
+      "suites_passaram": 8,
+      "suites_falharam": 0,
+      "testes_passaram": 81,
+      "testes_falharam": 0,
+      "resultado": "aprovado"
+    },
+    "pnpm build": {
+      "status": 0,
+      "tempo_segundos_shell": 8,
+      "resultado": "aprovado_com_avisos"
+    }
+  },
+  "dependencias": {
+    "package_manager_declarado": "pnpm@10.18.0",
+    "runtime_observado": "Node.js v22.13.0 (caminho do executável pnpm)",
+    "vitest_observado": "v2.1.9",
+    "typescript_declarado": "5.9.3",
+    "vite_observado": "v7.3.7",
+    "manifesto": "package.json",
+    "lockfile": "pnpm-lock.yaml",
+    "instalacao_executada": false
+  },
+  "avisos_observados": [
+    "Vite: script /api/platform/config.js no index.html não pode ser empacotado sem atributo type=module.",
+    "Vite: chunk index-BQCypIPq.js com 540,34 kB após minificação, acima do limiar padrão de 500 kB."
+  ],
+  "evidencias": [
+    "docs/evidencias/check.txt",
+    "docs/evidencias/testes.txt",
+    "docs/evidencias/build.txt"
+  ]
+}
