@@ -2,7 +2,7 @@ import logging
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Any
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -58,7 +58,7 @@ def check_credentials(
     return user, None, user.id
 
 
-def _create_token(user_id: int, token_type: str, lifetime: timedelta) -> str:
+def _create_token(user_id: int, token_type: str, lifetime: timedelta, via_sso: bool = False) -> str:
     now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
@@ -68,20 +68,24 @@ def _create_token(user_id: int, token_type: str, lifetime: timedelta) -> str:
         "iat": now,
         "exp": now + lifetime,
     }
+    if via_sso:
+        payload["sso"] = True
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def create_access_token(user_id: int) -> str:
-    return _create_token(user_id, ACCESS_TOKEN_TYPE, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+def create_access_token(user_id: int, via_sso: bool = False) -> str:
+    return _create_token(
+        user_id, ACCESS_TOKEN_TYPE, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES), via_sso
+    )
 
 
 def create_mfa_token(user_id: int) -> str:
     return _create_token(user_id, MFA_TOKEN_TYPE, timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES))
 
 
-def _decode_user_id(token: str, token_type: str) -> int | None:
-    """Id do usuário, se o token for válido e do tipo pedido: o token parcial do MFA nunca
-    serve como token de acesso, e vice-versa."""
+def _decode_token(token: str, token_type: str) -> dict[str, Any] | None:
+    """Conteúdo do token, se for válido e do tipo pedido: o token parcial do MFA nunca serve
+    como token de acesso, e vice-versa."""
     try:
         payload = jwt.decode(
             token,
@@ -91,12 +95,15 @@ def _decode_user_id(token: str, token_type: str) -> int | None:
             issuer=JWT_ISSUER,
             options={"require": ["exp", "sub", "iss", "aud"]},
         )
-        return int(payload["sub"]) if payload.get("type") == token_type else None
+        int(payload["sub"])
     except (PyJWTError, ValueError):
         return None
+    return payload if payload.get("type") == token_type else None
 
 
-def issue_tokens(db: Session, user_id: int, family_id: str | None = None) -> tuple[str, str]:
+def issue_tokens(
+    db: Session, user_id: int, family_id: str | None = None, via_sso: bool = False
+) -> tuple[str, str]:
     refresh_token = secrets.token_urlsafe(48)
     db.add(
         RefreshToken(
@@ -105,10 +112,11 @@ def issue_tokens(db: Session, user_id: int, family_id: str | None = None) -> tup
             tokenHash=hash_token(refresh_token),
             expiresAt=datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
             revoked=False,
+            viaSso=via_sso,
         )
     )
     db.commit()
-    return create_access_token(user_id), refresh_token
+    return create_access_token(user_id, via_sso), refresh_token
 
 
 def _find_refresh_token(db: Session, token: str) -> RefreshToken | None:
@@ -141,16 +149,19 @@ def rotate_refresh_token(db: Session, token: str) -> tuple[str, str] | None:
     if as_utc(db_token.expiresAt) < datetime.now(UTC):
         return None
 
-    # Conta desativada ou sem MFA não renova sessão (mesmo 401 genérico do login).
-    # shortcut: só existe login por senha, então toda sessão exige TOTP; a entrega de SSO
-    # precisa liberar quem entrou pelo provedor, aqui e em get_current_user.
+    # Conta desativada não renova sessão (mesmo 401 genérico do login). Sem MFA, só quem
+    # entrou pelo Google ou pela Microsoft, porque o segundo fator foi o deles.
     user = db.query(User).filter(User.id == db_token.user_id).first()
-    if user is None or user.status != "active" or user.mfaEnabledAt is None:
+    if (
+        user is None
+        or user.status != "active"
+        or (user.mfaEnabledAt is None and not db_token.viaSso)
+    ):
         _revoke_family(db, db_token.familyId)
         return None
 
     db_token.revoked = True
-    return issue_tokens(db, user.id, db_token.familyId)
+    return issue_tokens(db, user.id, db_token.familyId, db_token.viaSso)
 
 
 def revoke_session(db: Session, token: str) -> None:
@@ -168,12 +179,16 @@ def get_current_user(
         detail="Não foi possível validar as credenciais",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    user_id = _decode_user_id(token, ACCESS_TOKEN_TYPE)
-    if user_id is None:
+    payload = _decode_token(token, ACCESS_TOKEN_TYPE)
+    if payload is None:
         raise credentials_exception
     # papel, status e MFA vêm do banco a cada requisição: desativar ou resetar vale na hora
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None or user.status != "active" or user.mfaEnabledAt is None:
+    user = db.query(User).filter(User.id == int(payload["sub"])).first()
+    if (
+        user is None
+        or user.status != "active"
+        or (user.mfaEnabledAt is None and not payload.get("sso"))
+    ):
         raise credentials_exception
     return user
 
@@ -187,11 +202,11 @@ def get_mfa_pending_user(
         detail="Código de verificação inválido",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    user_id = _decode_user_id(token, MFA_TOKEN_TYPE)
-    if user_id is None:
+    payload = _decode_token(token, MFA_TOKEN_TYPE)
+    if payload is None:
         raise denied
     # FOR UPDATE: dois envios simultâneos do mesmo código não passam os dois
-    user = db.query(User).filter(User.id == user_id).with_for_update().first()
+    user = db.query(User).filter(User.id == int(payload["sub"])).with_for_update().first()
     if user is None or user.status != "active":
         raise denied
     return user

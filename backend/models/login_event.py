@@ -19,7 +19,8 @@ class LoginEvent(Base):
     emailHash = Column(String(64), nullable=True, index=True)
     success = Column(Boolean, nullable=False)
     # wrong_password | inactive_account | unknown_account | rate_limited | wrong_mfa_code |
-    # mfa_locked | mfa_reset; no sucesso, recovery_code quando entrou por código de recuperação
+    # mfa_locked | mfa_reset | sso_no_account | sso_<motivo da recusa>; no sucesso,
+    # recovery_code ou sso_google/sso_microsoft
     reason = Column(String(40), nullable=True)
     ipMasked = Column(String(45), nullable=True)
     userAgent = Column(String(255), nullable=True)

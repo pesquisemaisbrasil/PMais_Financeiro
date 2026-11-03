@@ -1,18 +1,18 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from core.config import REFRESH_COOKIE_SECURE, REFRESH_TOKEN_EXPIRE_DAYS
+from core.config import FRONTEND_URL, REFRESH_COOKIE_SECURE, REFRESH_TOKEN_EXPIRE_DAYS
 from core.limiter import limiter
 from core.security import hash_email
 from db.connection import get_db
 from models.user import User
 from schemas.token import MfaChallenge, MfaCode, MfaSetup, Token, TokenWithRecoveryCodes
 from schemas.user import UserPublic
-from services import mfa
+from services import mfa, sso
 from services.auth import (
     check_credentials,
     create_mfa_token,
@@ -30,6 +30,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 REFRESH_COOKIE = "refresh_token"
 RATE_LIMITED_DETAIL = "Muitas tentativas — aguarde alguns minutos"
 INVALID_CODE_DETAIL = "Código de verificação inválido"
+SSO_STATE_COOKIE = "sso_state"
+SSO_COOKIE_PATH = "/auth/sso"
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -212,6 +214,81 @@ def logout(
     if refresh_token:
         revoke_session(db, refresh_token)
     _clear_refresh_cookie(response)
+
+
+def _sso_provider(name: str) -> sso.Provider:
+    provider = sso.PROVIDERS.get(name)
+    if provider is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Não encontrado")
+    return provider
+
+
+def _back_to_login(error: str) -> RedirectResponse:
+    response = RedirectResponse(f"{FRONTEND_URL}/login?erro={error}", status_code=303)
+    response.delete_cookie(SSO_STATE_COOKIE, path=SSO_COOKIE_PATH)
+    return response
+
+
+@router.get("/sso/{provider_name}/start")
+@limiter.limit("20/minute")
+def start_sso(request: Request, provider_name: str) -> RedirectResponse:
+    provider = _sso_provider(provider_name)
+    if not provider.configured:
+        return _back_to_login("sso_indisponivel")
+    authorization_url, state_cookie = sso.build_authorization(provider)
+    response = RedirectResponse(authorization_url, status_code=303)
+    # Lax, não Strict: o cookie precisa voltar junto com o redirecionamento vindo do provedor.
+    response.set_cookie(
+        SSO_STATE_COOKIE,
+        state_cookie,
+        max_age=int(sso.STATE_LIFETIME.total_seconds()),
+        httponly=True,
+        secure=REFRESH_COOKIE_SECURE,
+        samesite="lax",
+        path=SSO_COOKIE_PATH,
+    )
+    return response
+
+
+@router.get("/sso/{provider_name}/callback")
+@limiter.limit("20/minute")
+def finish_sso(
+    request: Request,
+    provider_name: str,
+    code: str | None = None,
+    state: str | None = None,
+    sso_state: Annotated[str | None, Cookie()] = None,
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    provider = _sso_provider(provider_name)
+    try:
+        email = sso.complete_login(provider, code, state, sso_state)
+    except sso.SsoError as exc:
+        record_login_event(
+            db, user_id=None, success=False, reason=f"sso_{exc.reason}", **_client_info(request)
+        )
+        return _back_to_login("sso_falhou")
+
+    # Sem criação de conta: só entra quem já foi cadastrado no Financeiro.
+    user = db.query(User).filter(User.email == normalize_email(email)).first()
+    if user is None or user.status != "active":
+        record_login_event(
+            db,
+            user_id=user.id if user else None,
+            success=False,
+            reason="sso_no_account",
+            **_client_info(request),
+        )
+        return _back_to_login("sso_conta")
+
+    record_login_event(
+        db, user_id=user.id, success=True, reason=f"sso_{provider.name}", **_client_info(request)
+    )
+    _, refresh_token = issue_tokens(db, user.id, via_sso=True)
+    response = RedirectResponse(f"{FRONTEND_URL}/", status_code=303)
+    _set_refresh_cookie(response, refresh_token)
+    response.delete_cookie(SSO_STATE_COOKIE, path=SSO_COOKIE_PATH)
+    return response
 
 
 @router.get("/me", response_model=UserPublic)
