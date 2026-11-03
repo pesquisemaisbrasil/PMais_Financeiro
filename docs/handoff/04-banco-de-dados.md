@@ -196,7 +196,7 @@ Regras no Financeiro:
 - **Chave Pix lida do comprovante**: só `payeeKeyHash` + `payeeKeyMasked` (como hoje).
 - **Nome do recebedor do comprovante**: cifrado, mostrado só quando a chave não casa com ninguém.
 - **Nunca** texto bruto do PDF, CPF do recebedor ou dados da conta pagadora.
-- Trocar `CPF_SECRET_KEY`, `PIX_SECRET_KEY` ou `ENCRYPTION_KEY` depois de ter dado quebra hashes e cifras: as chaves são para sempre (ou exigem script de rotação).
+- Trocar `PIX_SECRET_KEY` ou `ENCRYPTION_KEY` depois de ter dado quebra hashes e cifras: as chaves são para sempre (ou exigem script de rotação).
 - Mudou o que se guarda: atualize o inventário de dados e o ROPA no mesmo PR.
 
 ### Arquivos (MinIO, duas camadas)
@@ -254,7 +254,7 @@ Mudança necessária **no Connect** na migração: `interviews.payment_receipt_i
 
 Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect_*_id` sem FK. Toda tabela tem `id` e `createdAt`.
 
-**`users`**, **`refresh_tokens`**, **`password_reset_tokens`**: copie os models do Connect (login por CPF com `cpfHash`, `passwordHash` bcrypt, `role`, `status`). Papéis: `financeiro`, `admin`. Sem chave Pix, sem endereço, sem `encryptedPayload`.
+**`users`**, **`refresh_tokens`**, **`password_reset_tokens`**: copie os models do Connect sem o `cpfHash` (login por e-mail, spec acesso-e-auditoria; `passwordHash` bcrypt, `role`, `status`). Papéis: `financeiro`, `admin`. Sem chave Pix, sem endereço, sem `encryptedPayload`.
 
 **`project_refs`**: espelho mínimo de projeto.
 

@@ -5,6 +5,8 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 ## Comportamento
 
 - **Login** por **e-mail + senha** (`POST /auth/token`). O usuário interno não precisa de CPF, e o Financeiro não guarda CPF de ninguém.
+- **SSO Google ou Microsoft** como alternativa à senha no primeiro fator. O MFA continua obrigatório depois, nos dois casos.
+- **Não há cadastro público:** a conta nasce com `backend/scripts/create_user.py` até existir a tela de usuários.
 - **MFA (TOTP) obrigatório** para todos os papéis (`admin` e `financeiro`):
   - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela;
   - `POST /auth/token` devolve um token parcial (`mfa_pending`, 5 min);
@@ -47,7 +49,8 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 
 8. Nenhum dado pessoal no log técnico: chave Pix, nome lido do comprovante e texto do PDF nunca entram.
 9. Rate limit (Redis):
-   - `/auth/token`: 5/min por IP e 10/h por e-mail;
+   - `/auth/token`: 5/min por IP e 10 falhas/h por e-mail, contadas em `login_events` para valerem depois de um restart e tratarem igual e-mail com e sem conta;
+   - `/auth/token/refresh`: 60/min por IP, porque o access token só vive em memória e cada recarga de página renova;
    - `/auth/token/mfa`: 5/min;
    - 10 erros seguidos de MFA bloqueiam temporariamente.
 10. Headers de segurança e `/docs` e `/openapi.json` desligados em produção, desde o primeiro commit.
@@ -59,6 +62,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 |---|---|---|
 | Sem token ou token expirado | 401 | (padrão do login) |
 | E-mail ou senha errados, ou conta desativada | 401 | E-mail ou senha incorretos |
+| Conta desativada com token de acesso ainda válido | 401 | (padrão do login) |
 | Código MFA errado ou token parcial vencido | 401 | Código de verificação inválido |
 | Excesso de tentativas | 429 | Muitas tentativas — aguarde alguns minutos |
 | Papel sem a permissão da ação | 403 | Seu perfil não permite essa ação |
@@ -87,4 +91,6 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 ## Ajustes
 
 - 2026-10-21: login por e-mail, como manda [handoff/06 §1](../handoff/06-seguranca-e-lgpd.md). O [handoff/04](../handoff/04-banco-de-dados.md) diz para copiar os models do Connect com login por CPF. Conflito registrado em [perguntas-abertas](../planning/perguntas-abertas.md) (Q10).
+- 2026-11-03: Q10 fechada (PF-4): login por e-mail + senha, com SSO Google ou Microsoft como alternativa no primeiro fator e TOTP depois nos dois casos. Sem CPF no Financeiro.
+- 2026-11-03: primeira entrega só com e-mail + senha, sessão e limites. Faltam MFA e reautenticação, SSO, troca e recuperação de senha, papéis e auditoria. **Nada vai para a `main` antes do MFA.** O limite por IP ainda é em memória: passa para Redis quando a API tiver mais de uma instância.
 - 2026-10-21: segregação de funções (quem envia o lote não confirma a baixa acima de um valor) fica como pergunta aberta Q8 até o PO definir o valor.

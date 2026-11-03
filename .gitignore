@@ -7,3 +7,21 @@
 .env
 .env.*
 !.env.example
+
+# Ambiente local e artefatos de build
+.venv/
+__pycache__/
+*.pyc
+.coverage
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+*.db
+*.stackdump
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.playwright-cli/
+.reviews/

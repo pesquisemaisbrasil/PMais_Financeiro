@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+
+  --background: #f7f8fa;
+  --foreground: #3c3c3c;
+  --card: #ffffff;
+  --card-foreground: #3c3c3c;
+  --popover: #ffffff;
+  --popover-foreground: #3c3c3c;
+  --primary: #4063ee;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #3c3c3c;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #ebf3fe;
+  --accent-foreground: #4063ee;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #009cef;
+
+  --brand-azul-claro: #009cef;
+  --brand-roxo: #6b36f7;
+  --brand-verde: #00c977;
+  --brand-azul-deep: #4063ee;
+  --brand-azul-neutro: #6ec3e4;
+  --brand-cinza-escuro: #3c3c3c;
+  --brand-cinza-claro: #e8e8e8;
+}
+
+@theme inline {
+  --font-sans: var(--font-open-sans), Arial, Helvetica, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-azul-claro: var(--brand-azul-claro);
+  --color-brand-roxo: var(--brand-roxo);
+  --color-brand-verde: var(--brand-verde);
+  --color-brand-azul-deep: var(--brand-azul-deep);
+  --color-brand-azul-neutro: var(--brand-azul-neutro);
+  --color-brand-cinza-escuro: var(--brand-cinza-escuro);
+  --color-brand-cinza-claro: var(--brand-cinza-claro);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href] {
+    @apply cursor-pointer;
+  }
+}

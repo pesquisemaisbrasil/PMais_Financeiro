@@ -10,7 +10,7 @@ Sistema financeiro da Pesquise+. É separado do **P+ Connect** e substitui o SGE
 6. conciliação bancária;
 7. relatórios e fluxo de caixa.
 
-**Estado:** documentação e especificação. O código começa na fase 0 do [plano](docs/handoff/11-plano-de-implementacao.md).
+**Estado:** o código começou: login por e-mail e senha em `backend/` e `frontend/`, ainda sem MFA. O restante segue a fase 0 do [plano](docs/handoff/11-plano-de-implementacao.md).
 
 ## Comece por aqui
 
@@ -18,6 +18,32 @@ Sistema financeiro da Pesquise+. É separado do **P+ Connect** e substitui o SGE
 - [docs/specs/visao-geral.md](docs/specs/visao-geral.md): o que o sistema faz, a fronteira com o Connect e as regras de produto.
 - [docs/planning/roadmap.md](docs/planning/roadmap.md): ordem dos módulos.
 - [docs/planning/perguntas-abertas.md](docs/planning/perguntas-abertas.md): o que ainda precisa de decisão.
+
+## Como rodar
+
+Pede Docker, Python 3.12 (o CI usará 3.11) e Node 22. Os comandos são para Git Bash no Windows.
+
+```bash
+docker compose up -d --wait db
+
+cd backend
+py -3.12 -m venv .venv    # ou: uv venv --python 3.12 .venv
+.venv/Scripts/python -m pip install -r requirements.txt -r requirements-dev.txt
+cp .env.example .env        # troque a SECRET_KEY: a API não sobe com a de exemplo
+.venv/Scripts/alembic upgrade head
+.venv/Scripts/python scripts/create_user.py --email voce@pesquisemais.com.br --name "Seu nome" --role admin
+.venv/Scripts/python -m uvicorn main:app --port 8010
+```
+
+Em outro terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Abra `http://localhost:3010`. O roteiro de teste está no [roadmap](docs/planning/roadmap.md#como-testar).
 
 ## Regras que valem para tudo
 
