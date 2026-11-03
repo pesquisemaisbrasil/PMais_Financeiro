@@ -6,7 +6,8 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 
 ## Comportamento
 
-- **Painel** com visão por dia, semana, mês, ano ou período, navegação entre períodos, "hoje", atualizar e "nova conta a pagar".
+- **Contas a pagar é o único lugar onde se paga** [Kickoff 03/11 8:26–10:53, 10:58–11:36]: lançamentos comuns, folhas de campo, entrevistadores do Connect, incentivos e provisões ficam todos aqui, com a **importação de planilha**. Não há outra tela para pagar. A tela de projeto e a de notas e RPA não pagam: o projeto é relatório e só reflete o que se lança aqui.
+- **Painel** com visão por dia, semana, mês, ano ou período, navegação entre períodos, "hoje", atualizar e "nova conta a pagar". **Abre na visão do dia (hoje)**: "eu vou abrir as contas do dia e sei que os anexos… vai estar tudo ali" [Kickoff 03/11 13:23]. Semana, mês e ano continuam a um clique.
 - **Indicadores** (quantidade e valor; clicar abre a lista filtrada): Total, Pagos, Pendentes, Vencidos, Hoje, A vencer e **Provisões**.
 - **Filtros combináveis:** fornecedor, projeto, categoria (plano de contas), linha do DRE, palavra-chave, empresa, unidade, centro de custo, forma de pagamento, situação, tipo (real/provisão) e intervalo de datas (vencimento, competência ou **baixa**).
 - **Lista:**
@@ -27,7 +28,8 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
   - **importar a planilha** cria os **itens** do lançamento, um por pessoa: pessoa, valor, documento fiscal (NF com número e data de emissão, RPA, sem NF, incentivo) e status;
   - os itens permitem conciliar pagamento por pagamento e saber quem tem nota [Reunião 21/10 20:36–22:55];
   - internos fixos (supervisor, gerente, coordenador) continuam como lançamento individual [Reunião 21/10 22:31];
-  - **o lançamento abre os itens ali mesmo**, na lista, sem ir para outra tela: com 14 entrevistados, clicar no lançamento mostra a planilha com os 14 itens [Kickoff 03/11 10:58–12:36];
+  - **o lançamento abre os itens ali mesmo**, na lista, sem ir para outra tela: com 14 entrevistados, clicar no lançamento mostra a planilha com os 14 itens [Kickoff 03/11 10:58–12:36]. O detalhe é opcional: a lista continua enxuta e só abre quando o usuário clica;
+  - a **importação da planilha** (folha de campo ou incentivos) é feita aqui, na lista de Contas a pagar, e não em outra tela;
   - **comprovantes, planilha e NF ficam no lançamento**: o PDF de comprovantes é enviado a partir dele e os anexos ficam todos ali [Kickoff 03/11 8:04–9:22, 13:06–13:23];
   - clicar no **código do projeto**, na coluna Projeto, abre o relatório do projeto ([relatorios-e-analises](relatorios-e-analises.md)) [Kickoff 03/11 12:11–12:36].
 - **Pagamento de entrevistadores chega sozinho** [Kickoff 03/11 8:26–10:53]:
@@ -37,7 +39,8 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 - **Incentivo a respondentes por planilha** [Kickoff 03/11 13:23–17:50]:
   - hoje a planilha chega por e-mail (tirada do banco de respondentes, que o Connect ainda não tem); o financeiro a **importa** aqui, com 5 ou mais de 200 nomes;
   - o **prazo depende do tipo de projeto**, em **dias úteis a partir da data da resposta** (Health: cerca de 10; outros tipos: 3 a 4; tabela a confirmar, F22). Os feriados entram na conta de dias úteis;
-  - o sistema lê a coluna **"data da pesquisa"** e gera **um lançamento por data de pagamento**, cada um com os seus itens e a planilha anexada. Importar não cria um lançamento único com data única;
+  - a planilha **pode já trazer a data de pagamento** ("200 incentivos, valor unitário, total, para pagar tal dia"): então vale a data informada [Kickoff 03/11 15:40–16:15];
+  - sem data de pagamento na planilha, o sistema lê a coluna **"data da pesquisa"** e gera **um lançamento por data de pagamento**, cada um com os seus itens e a planilha anexada. Importar não cria um lançamento único com data única;
   - a prévia mostra o **cronograma** ("N incentivos → pagar dd/mm · R$ X"), que o financeiro pode devolver ao projeto;
   - projeto sem incentivo não recebe planilha de incentivos; tipo de projeto, "tem incentivo" e prazo ficam no projeto (onde configurar: F23); colunas da planilha: F24.
 - **Ações em lote** sobre os títulos selecionados:
@@ -45,7 +48,10 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
   - **reclassificar** (projeto, categoria, centro de custo);
   - **copiar/duplicar**;
   - **excluir** [Reunião 21/10 8:15–9:18].
-- **Provisão:** título `provisao` vindo do orçamento do projeto ([orcamento-e-saude-financeira](orcamento-e-saude-financeira.md)) ou criado à mão. "Substituir por real" vincula o título real e encerra a provisão.
+- **Provisão:** título `provisao` vindo do orçamento do projeto ([orcamento-e-saude-financeira](orcamento-e-saude-financeira.md)) ou criado à mão. **Fica na lista de Contas a pagar** (indicador e filtro "Provisões"), junto dos títulos reais [Kickoff 03/11, K10]:
+  - "Substituir por real" vincula o título real e encerra a provisão;
+  - "Atualizar do orçamento do Connect" refaz as provisões a partir do orçamento;
+  - a provisão nunca é paga.
 - **Prazo de documentação:** folha, nota ou planilha que chega com menos de 3 dias da data de pagamento fica marcada como "documentação atrasada", e o projeto entra num relatório de atrasos [Reunião 21/10 27:41–28:07].
 - Título com projeto alimenta a carteira do projeto: comprometido quando lançado, realizado quando baixado.
 
@@ -71,7 +77,10 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
    - a **NF pendente é só aviso** e não bloqueia o pagamento do item (decisão do PO em 28/10/2026, ver [documentos-fiscais](documentos-fiscais.md));
    - item com documento "NF" recebida exige número e data de emissão antes de ser conciliado (ver [documentos-fiscais](documentos-fiscais.md));
    - a importação de incentivos **divide por data de pagamento**: cada data é um lançamento, e a soma dos lançamentos é igual ao total da planilha.
-5. **Prazo do incentivo** = data da pesquisa + N dias úteis do tipo do projeto, pulando fins de semana e feriados. Vencimento nunca cai em dia não útil. Projeto sem prazo de incentivo definido não importa planilha (ver Casos negados).
+5. **Data de pagamento do incentivo:**
+   - se a planilha **traz a data de pagamento**, vale ela (cada data distinta vira um lançamento);
+   - se não traz, é a data da pesquisa + N dias úteis do tipo do projeto, pulando fins de semana e feriados. Vencimento calculado nunca cai em dia não útil;
+   - projeto sem prazo de incentivo definido não importa planilha sem data de pagamento (ver Casos negados).
 6. Ação em lote:
    - mostra antes quantos títulos e qual o total afetado;
    - pede confirmação;
@@ -81,6 +90,7 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 9. Filtros combinados retornam só a interseção das condições.
 10. Título acima do orçado da categoria fica `pendente_autorizacao` ([orcamento-e-saude-financeira](orcamento-e-saude-financeira.md) regra 2).
 11. Título de projeto `fechado` não é criado nem muda de valor.
+12. **Só se paga em Contas a pagar** (K10): baixa, envio de comprovantes e importação de planilha acontecem aqui. A tela de projeto e a de notas e RPA não dão baixa. Provisão não se paga, só se substitui por real.
 
 ## Casos negados
 
@@ -94,7 +104,8 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 | Excluir título com baixa (sozinho ou em lote) | 409 | N títulos têm baixa — estorne antes de excluir |
 | Programar ou pagar título `pendente_autorizacao` | 409 | Esse lançamento está acima do orçamento e ainda não foi autorizado |
 | Lançar em projeto fechado | 409 | Projeto fechado — peça a reabertura a um administrador |
-| Importar incentivos em projeto sem prazo de incentivo definido | 409 | Defina o prazo do incentivo no projeto antes de importar a planilha |
+| Importar incentivos sem data de pagamento em projeto sem prazo de incentivo definido | 409 | Defina o prazo do incentivo no projeto antes de importar a planilha |
+| Pagar ou dar baixa numa provisão | 409 | Provisão não é paga — substitua pelo lançamento real |
 | Planilha de incentivos sem a coluna de data da pesquisa | 422 | A planilha precisa da coluna "data da pesquisa" |
 
 ## Critérios de aceite
@@ -105,6 +116,11 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 - [ ] Uma planilha de 15 incentivos de 4 datas de resposta num projeto Health (10 dias úteis) gera 4 lançamentos, cada um com vencimento 10 dias úteis depois da sua data, pulando feriados, e a soma bate com o total da planilha.
 - [ ] Num projeto de tipo com prazo de 3 dias úteis, a mesma planilha gera os vencimentos 3 dias úteis depois de cada data.
 - [ ] A prévia da importação mostra o cronograma "N incentivos → pagar dd/mm · R$ X" por data.
+- [ ] Uma planilha de 200 incentivos que já traz a data de pagamento (valor unitário e total) gera um lançamento nessa data, sem recalcular pelo prazo do projeto, e o total bate.
+- [ ] Ao abrir Contas a pagar, a lista mostra o período "dia" em hoje, com os lançamentos do dia e os anexos acessíveis; trocar para semana, mês ou ano continua possível.
+- [ ] A importação de planilha (folha e incentivos) é feita pela própria tela de Contas a pagar, e nenhuma outra tela dá baixa.
+- [ ] As provisões aparecem na lista e no filtro "Provisões" de Contas a pagar; tentar pagar uma provisão é negado, e "Substituir por real" a troca pelo título real.
+- [ ] Com um lançamento de 14 entrevistados, a lista fica enxuta até o clique; clicar abre os 14 itens e os anexos sem trocar de tela.
 - [ ] Uma entrevista validada no Connect aparece em Contas a pagar como lançamento "Do Connect" do projeto, sem o financeiro abrir tela de projeto; clicar nele abre os itens na própria lista.
 - [ ] Enviar o PDF de comprovantes a partir do lançamento dá baixa nos itens, anexa a planilha e os comprovantes ao lançamento e o entrevistador recebe "pagamento realizado".
 - [ ] Clicar no código do projeto na lista abre o relatório do projeto.
@@ -133,3 +149,4 @@ Origem do requisito:
 - 2026-10-23: **transferência entre empresas** do Grupo (hoje não usada, mas pode acontecer) é marcada no lançamento, para o consolidado não contar duas vezes (F15).
 - 2026-10-28: item com NF pendente não bloqueia o pagamento (decisão do PO em 28/10/2026, ver [documentos-fiscais](documentos-fiscais.md)).
 - 2026-11-03: o pagamento de entrevistadores chega **sozinho como lançamento agrupado** (um por projeto × data de pagamento); planilha, comprovantes e NF ficam no lançamento, que abre os itens na lista; o código do projeto abre o relatório do projeto; a planilha de incentivos é importada e **dividida por data de pagamento**, com prazo em dias úteis por tipo de projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1 a K3, K5 a K7). Perguntas F22 a F25.
+- 2026-11-03 (falas da Bruna e da Camila, K10 a K12): **Contas a pagar é o único lugar onde se paga**; a importação de planilha e as **provisões** ficam aqui; a tela abre **nas contas do dia**; e a planilha de incentivo que já traz a **data de pagamento** usa essa data, sem recalcular pelo prazo. O CP alimenta o projeto, e não o contrário ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), B4, B5, B7, C1, B8).

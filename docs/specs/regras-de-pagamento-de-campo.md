@@ -17,6 +17,7 @@ Contrato da tabela de valores que define quanto cada pessoa de campo recebe e da
 - **Entrevistas do Connect:** o valor já vem congelado do Connect (`earnedValue`). O valor por entrevista é do Connect ([handoff/01](../handoff/01-visao-escopo-e-decisoes.md)); aqui não existe regra de entrevista editável.
 - **Incentivo ao respondente:** valor por perfil (por exemplo, por especialidade) e fonte (`caixa_proprio` → vira pagamento; `link_cliente` → só informativo, não paga).
   - **Prazo de pagamento** do incentivo: depende do **tipo de projeto**, em **dias úteis a partir da data da resposta**. Referências ditas no kickoff: Health ≈ 10; "CLT" (a confirmar se é CATI) 3 a 4. A tabela oficial é a pergunta F22 [Kickoff 03/11 15:07–16:15].
+  - **Planilha com data de pagamento:** às vezes ela já vem dizendo "200 incentivos, valor unitário tanto, total tanto, para pagar tal dia" (caso "CLT"); então a importação usa essa data em vez de calcular pela data da pesquisa [Kickoff 03/11 15:40–16:15, Bruna].
   - **Tem incentivo:** nem todo projeto tem; o tipo do projeto, "tem incentivo" e o prazo ficam no projeto (onde configurar: F23) [Kickoff 03/11 16:31–17:10].
 
 ## Regras
@@ -27,7 +28,7 @@ Contrato da tabela de valores que define quanto cada pessoa de campo recebe e da
 4. Precedência quando mais de uma regra serve: pessoa específica > perfil > função > todos.
 5. Aumento de valor acima de X% (a validar) sobre a regra anterior exige aprovação conforme a alçada e avisa o financeiro.
 6. Sem regra vigente para um lançamento, não há cálculo: o lançamento fica `sem_regra` e não entra na folha aprovada [SWOT §7: "sem regra ativa, não calcular/pagar"].
-7. O prazo do incentivo é calculado em **dias úteis** (fins de semana e feriados fora) a partir da data da resposta; nunca digitado por lançamento.
+7. O prazo do incentivo é calculado em **dias úteis** (fins de semana e feriados fora) a partir da data da resposta; nunca digitado por lançamento. **Exceção (K12):** quando a planilha já traz a data de pagamento, vale a data informada e o prazo do tipo de projeto não é aplicado.
 8. Valor > 0, 2 casas. `bonus` e `reembolso` exigem justificativa por lançamento.
 
 ## Casos negados
@@ -47,6 +48,7 @@ Contrato da tabela de valores que define quanto cada pessoa de campo recebe e da
 - [ ] Regra específica para uma pessoa vence a regra geral, e o simulador mostra qual foi usada.
 - [ ] Produção de um dia sem regra fica `sem_regra` e bloqueia a aprovação daquela linha.
 - [ ] Respostas de 29/10 num projeto Health (10 dias úteis) vencem 10 dias úteis depois, pulando fins de semana e feriados; num projeto de 3 dias úteis, 3 dias úteis depois.
+- [ ] Uma planilha com a coluna de data de pagamento preenchida usa essa data, mesmo que o prazo do projeto desse outra; sem a coluna, vale data da pesquisa + prazo.
 - [ ] Incentivo com fonte "link do cliente" aparece no relatório, mas não entra no lote.
 
 ## Onde está no código
@@ -65,3 +67,4 @@ Origem do requisito:
 ## Ajustes
 
 - 2026-11-03: o prazo do incentivo depende do tipo de projeto, em dias úteis a partir da data da resposta; nem todo projeto tem incentivo ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K6, K7). Tabela de prazos e onde configurar: F22 e F23.
+- 2026-11-03: a planilha de incentivo pode **já trazer a data de pagamento**, e então vale a data informada (K12, fala da Bruna em 15:40–16:15).

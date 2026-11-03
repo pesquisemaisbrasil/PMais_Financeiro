@@ -61,7 +61,7 @@ Perguntas e consequências: [registro](../transcricoes/2026-11-03-kickoff-com-o-
 | # | Pergunta | Quem decide | Hoje |
 |---|---|---|---|
 | F22 | **Tabela de prazos do incentivo por tipo de projeto** (Health 10 dias úteis? "CLT"/CATI 3 ou 4? consumo?). Conta a partir da data da resposta? | Financeiro (Camila) | Prazo em dias úteis no projeto, contado da data da resposta |
-| F23 | Onde se marca **tipo de projeto, "tem incentivo" e prazo**: no Connect (coordenador) ou no Financeiro? | PO | Connect, lido pelo Financeiro; no protótipo, campo no cadastro de projeto |
+| F23 | Onde se marca **tipo de projeto, "tem incentivo" e prazo**: no Connect (coordenador) ou no Financeiro? | PO | Connect, lido pelo Financeiro; no protótipo, campo no cadastro de projeto (o futuro está no [spec](../specs/futuro/respondentes-e-incentivos-no-connect.md)) |
 | F24 | **Colunas padrão da planilha de incentivos** (nome, CPF?, chave Pix, valor, data da resposta, projeto) | Financeiro | Modelo fixo para importar |
 | F25 | Entrevistadores: **um lançamento por projeto × data de pagamento** ou um por ciclo com vários projetos? | PO + financeiro | Um por projeto × data de pagamento |
 
@@ -71,7 +71,7 @@ Perguntas e consequências: [registro](../transcricoes/2026-11-03-kickoff-com-o-
 |---|---|---|---|
 | F1 | Entram telefonia/consumo digital, atribuição de produção, calculadora de orçamento e evidências/OCR? Quando? | PO + direção | Fora do escopo ([specs/futuro](../specs/futuro/README.md)) |
 | F7 | Regra corporativa de atribuição (online × recrutador × entrevistador) | Operação + financeiro + direção | Só se F1 trouxer a atribuição |
-| F26 | **Respondentes (entrevistados) no Connect:** base de respondentes e incentivo saindo de lá, no ecossistema coordenador → supervisor → entrevistador → entrevistado ([registro de 03/11](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5) | PO | Fora do escopo; o incentivo entra por planilha importada |
+| F26 | **Respondentes (entrevistados) no Connect:** base de respondentes e incentivo saindo de lá, no ecossistema coordenador → supervisor → entrevistador → entrevistado, com data de pagamento por resposta ([spec](../specs/futuro/respondentes-e-incentivos-no-connect.md); [registro de 03/11](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5) | PO | Fora do escopo; o incentivo entra por planilha importada |
 | F12 | **Planejamento orçamentário do Grupo:** orçamento de todas as áreas, comparado com o realizado. Como o Fabiano planeja hoje, quem preenche, se há versões ([spec](../specs/futuro/planejamento-orcamentario-do-grupo.md)) | PO + Fabiano | Fora do escopo; fase seguinte |
 
 ## Decididas (histórico)

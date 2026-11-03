@@ -10,6 +10,7 @@ Contrato dos títulos a receber de clientes, simétrico ao [contas-a-pagar](cont
   - fornecedor → **cliente**;
   - Pagos → **Recebidos**;
   - Vencidos = **inadimplência**.
+- **Filtros combináveis**, no mesmo padrão do contas a pagar [Kickoff 03/11, K13]: período (vencimento, competência ou recebimento), situação, cliente, projeto, empresa e palavra-chave. Os indicadores (Total, Recebidos, Pendentes, Vencidos, Hoje, A vencer) abrem a lista já filtrada, e a exportação leva os filtros no cabeçalho.
 - **Lançamento:**
   - **classificação:** cliente*, contrato, empresa*, unidade*, projeto*, centro de custo*, plano de contas*;
   - **descrição e documento:** descrição*, documento (nota/fatura);
@@ -42,6 +43,9 @@ Contrato dos títulos a receber de clientes, simétrico ao [contas-a-pagar](cont
 - [ ] Um recebimento parcial mantém o saldo pendente e aparece como parcial nos indicadores e nos relatórios.
 - [ ] A lista de inadimplência mostra o cliente com 2 títulos vencidos, os dias de atraso e o total.
 - [ ] A receita da ficha do projeto bate com a soma dos títulos; diferença mostra aviso.
+- [ ] Filtrar por cliente, projeto e situação "vencido" ao mesmo tempo traz só os títulos que cumprem as três condições.
+- [ ] Filtrar por empresa, período e palavra-chave traz a interseção exata, e limpar os filtros volta à lista completa.
+- [ ] Clicar no indicador "Vencidos" abre a lista já filtrada por situação, com a mesma contagem e o mesmo total do indicador.
 
 ## Onde está no código
 
@@ -56,3 +60,4 @@ Origem do requisito:
 
 - 2026-10-23: o título a receber guarda **valor bruto, abatimentos (retenções) e valor líquido**; a retenção é lançada junto da NF emitida, como o financeiro faz hoje ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A5). Os impostos apurados pela contabilidade não são calculados aqui.
 - 2026-10-23: a **emissão da NF fica fora** (o financeiro emite no site da prefeitura). O título guarda **número e data da NF** e aceita o **PDF anexado**, inclusive o da invoice internacional (moeda: pergunta F14). A cobrança e a comunicação com o cliente seguem por e-mail, fora do sistema (F19).
+- 2026-11-03: o contas a receber ganha **filtros** (período, situação, cliente, projeto, empresa e busca), no mesmo padrão do contas a pagar. Pedido do PO depois do kickoff com o financeiro; a Bruna e a Camila disseram que o dia a dia delas é "contas a pagar e receber" ([registro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), B5, K13).

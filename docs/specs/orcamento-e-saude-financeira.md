@@ -12,6 +12,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
   - O nível é a categoria, não cada fornecedor: "18 mil com fornecedor" basta [Reunião 21/10 32:28].
 - **Chegada:** o orçamento chega ao Financeiro **sozinho**, pela integração. Ninguém digita de novo; hoje o financeiro recebe por e-mail e lança à mão [Reunião 21/10 33:26].
 - **Provisão:** cada categoria × data prevista vira um título `provisao` em contas a pagar. Isso alimenta o fluxo de caixa ("vamos precisar de R$ X na data Y") para a direção [Reunião 21/10 29:38–30:44].
+- **Onde aparece:** a provisão fica **na lista de [contas-a-pagar](contas-a-pagar.md)**, junto dos títulos reais, e é lá que é trocada pelo valor real ("Substituir por real") ou refeita a partir do orçamento do Connect [Kickoff 03/11, K10]. Não há outra tela de pagamento ou provisão.
 - **Provisão vira real:** quando chegam a folha, a nota ou o título de verdade, o lançamento real **substitui** a provisão:
   - o título real é vinculado à provisão;
   - a provisão é baixada pelo valor que o real consumiu;
@@ -68,6 +69,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
 ## Critérios de aceite
 
 - [ ] Um projeto aberto no Connect com orçamento "Fornecedores R$ 18.000 em 30/10; Entrevistadores R$ 6.000 em 03/11" aparece no Financeiro com as duas provisões, sem digitação.
+- [ ] As duas provisões do projeto aparecem na lista de Contas a pagar com a marca "Provisão" e não têm ação de pagar; "Substituir por real" abre o lançamento real vinculado.
 - [ ] O fluxo de caixa de outubro mostra R$ 18.000 previstos em 30/10.
 - [ ] Ao lançar a nota real de R$ 17.500 vinculada à provisão, o previsto de 30/10 vira R$ 17.500 real, e a sobra de R$ 500 aparece.
 - [ ] Lançar títulos de fornecedores somando R$ 20.001 numa categoria de R$ 20.000 deixa o último `pendente_autorizacao`; ele não aparece para baixa até um admin autorizar.
@@ -90,3 +92,4 @@ Origem do requisito:
 
 - 2026-10-21: o orçamento por rubrica editado no Financeiro (versão de 20/10) virou orçamento por categoria **montado no Connect** e só aplicado aqui, como o PO descreveu na reunião. O remanejamento entre rubricas saiu: passa a ser uma alteração de orçamento no Connect, com autorização.
 - 2026-10-23: o **consumo** dos itens que não são entrevista é **lançado no Connect pelo coordenador** e o Financeiro o **lê** (`items[].spent`); não lança consumo próprio sem decisão do PO (F21). Quem altera o orçamento: administrador e coordenador do projeto; o `financeiro` mantém a permissão no Connect por enquanto ([decisões do PO](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), E3 e E4). A autorização de estouro (D3) segue em aberto (F20).
+- 2026-11-03: as **provisões aparecem em Contas a pagar** e são trocadas pelo valor real lá mesmo; o financeiro opera tudo no CP e o projeto só reflete ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K10, B5).
