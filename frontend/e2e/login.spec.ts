@@ -19,6 +19,24 @@ test("sem sessão, a tela inicial manda para o login", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Entrar na sua conta" })).toBeVisible();
 });
 
+test("a tela oferece e-mail e senha, Google e Microsoft", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.getByLabel("E-mail")).toBeVisible();
+  await expect(page.getByLabel("Senha", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Entrar com Google" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Entrar com Microsoft" })).toBeVisible();
+});
+
+test("sem as chaves do provedor, o botão avisa e volta para o login", async ({ page }) => {
+  for (const name of ["Google", "Microsoft"]) {
+    await page.goto("/login");
+    await page.getByRole("link", { name: `Entrar com ${name}` }).click();
+    await expect(page).toHaveURL(/\/login\?erro=sso_indisponivel$/);
+    await expect(page.getByText("Esse login ainda não está disponível")).toBeVisible();
+  }
+  expect(await refreshCookie(page)).toBeUndefined();
+});
+
 test("senha errada e e-mail sem conta recebem a mesma mensagem", async ({ page }) => {
   for (const [email, password] of [
     ["ana@e2e.invalid", "SenhaErrada1!"],

@@ -176,6 +176,11 @@ export async function confirmMfaSetup(mfaToken: string, code: string): Promise<s
   return token.recovery_codes;
 }
 
+/** Endereço que começa o login por Google ou Microsoft: o navegador vai até lá, não é fetch. */
+export function ssoLoginUrl(provider: string): string {
+  return `${API_URL}/auth/sso/${provider}/start`;
+}
+
 export async function logout(): Promise<void> {
   try {
     await safeFetch(`${API_URL}/auth/logout`, { method: "POST", credentials: "include" });
