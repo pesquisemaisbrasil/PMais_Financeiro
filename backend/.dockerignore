@@ -1,0 +1,20 @@
+.env
+.env.*
+__pycache__/
+**/__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+tests/
+
+# nada de banco local, ambiente virtual, log nem dado de teste na imagem
+*.db
+.venv/
+venv/
+logs/
+*.log
+.coverage
+coverage.xml
+htmlcov/
+scripts/seed_*.py

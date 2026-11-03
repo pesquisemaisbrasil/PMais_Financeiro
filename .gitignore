@@ -22,6 +22,7 @@ client_secret*.json
 *.dump
 *.sql
 !prototipo/PMais_Financeiro/drizzle/*.sql
+!docker/postgres/*.sql
 *.log
 
 # Ambiente local e artefatos de build
