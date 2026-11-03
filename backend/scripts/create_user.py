@@ -18,6 +18,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from core.security import hash_password  # noqa: E402
 from db.connection import SessionLocal  # noqa: E402
 from models.login_event import LoginEvent  # noqa: E402,F401
+from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402,F401
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
 from schemas.user import validate_password_strength  # noqa: E402

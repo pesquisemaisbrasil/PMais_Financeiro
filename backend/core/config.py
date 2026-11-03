@@ -1,3 +1,4 @@
+import base64
 import os
 
 from dotenv import load_dotenv
@@ -14,6 +15,12 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
 # Validados em todo token de usuário (handoff/06 §1).
 JWT_ISSUER = "pmais-financeiro"
 JWT_AUDIENCE = "pmais-financeiro-web"
+
+# AES-256-GCM (core/crypto.py). Gerar com:
+#   python -c "import base64, os; print(base64.b64encode(os.urandom(32)).decode())"
+ENCRYPTION_KEY = os.environ["ENCRYPTION_KEY"]
+if len(base64.b64decode(ENCRYPTION_KEY)) != 32:
+    raise ValueError("ENCRYPTION_KEY precisa decodificar para 32 bytes (AES-256)")
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 # Role dona das tabelas, usada só pelo alembic/env.py.

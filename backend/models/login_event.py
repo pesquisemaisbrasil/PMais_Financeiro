@@ -18,7 +18,8 @@ class LoginEvent(Base):
     # HMAC do e-mail: conta as falhas por e-mail, exista a conta ou não
     emailHash = Column(String(64), nullable=True, index=True)
     success = Column(Boolean, nullable=False)
-    # wrong_password | inactive_account | unknown_account | rate_limited
+    # wrong_password | inactive_account | unknown_account | rate_limited | wrong_mfa_code |
+    # mfa_locked | mfa_reset; no sucesso, recovery_code quando entrou por código de recuperação
     reason = Column(String(40), nullable=True)
     ipMasked = Column(String(45), nullable=True)
     userAgent = Column(String(255), nullable=True)

@@ -10,11 +10,14 @@ from core.limiter import limiter
 from core.security import hash_email
 from db.connection import get_db
 from models.user import User
-from schemas.token import Token
+from schemas.token import MfaChallenge, MfaCode, MfaSetup, Token, TokenWithRecoveryCodes
 from schemas.user import UserPublic
+from services import mfa
 from services.auth import (
     check_credentials,
+    create_mfa_token,
     get_current_user,
+    get_mfa_pending_user,
     issue_tokens,
     normalize_email,
     revoke_session,
@@ -26,6 +29,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 REFRESH_COOKIE = "refresh_token"
 RATE_LIMITED_DETAIL = "Muitas tentativas — aguarde alguns minutos"
+INVALID_CODE_DETAIL = "Código de verificação inválido"
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -50,22 +54,48 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
-@router.post("/token", response_model=Token)
+def _client_info(request: Request) -> dict[str, str | None]:
+    return {
+        "ip": request.client.host if request.client else None,
+        "user_agent": request.headers.get("user-agent"),
+    }
+
+
+def _start_session(
+    db: Session, request: Request, response: Response, user: User, method: str | None = None
+) -> str:
+    """Só aqui o login termina: é o único caminho que grava o sucesso e entrega a sessão."""
+    record_login_event(db, user_id=user.id, success=True, reason=method, **_client_info(request))
+    access_token, refresh_token = issue_tokens(db, user.id)
+    _set_refresh_cookie(response, refresh_token)
+    return access_token
+
+
+def _deny_mfa(db: Session, request: Request, user: User, reason: str, status_code: int) -> None:
+    record_login_event(db, user_id=user.id, success=False, reason=reason, **_client_info(request))
+    detail = RATE_LIMITED_DETAIL if status_code == 429 else INVALID_CODE_DETAIL
+    raise HTTPException(status_code=status_code, detail=detail)
+
+
+@router.post("/token", response_model=MfaChallenge)
 @limiter.limit("5/minute")
-def login_for_access_token(
+def login_for_mfa_token(
     request: Request,
-    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db),
-) -> Token:
+) -> MfaChallenge:
     email = normalize_email(form_data.username)
     email_hash = hash_email(email)
-    client_ip = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent")
 
     if too_many_failures(db, email_hash):
         # sem o hash: uma tentativa barrada não pode esticar o bloqueio
-        record_login_event(db, user_id=None, success=False, reason="rate_limited", ip=client_ip)
+        record_login_event(
+            db,
+            user_id=None,
+            success=False,
+            reason="rate_limited",
+            ip=_client_info(request)["ip"],
+        )
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, detail=RATE_LIMITED_DETAIL)
 
     user, reason, account_id = check_credentials(db, email, form_data.password)
@@ -76,25 +106,76 @@ def login_for_access_token(
             email_hash=email_hash,
             success=False,
             reason=reason,
-            ip=client_ip,
-            user_agent=user_agent,
+            **_client_info(request),
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="E-mail ou senha incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    record_login_event(
-        db,
-        user_id=user.id,
-        email_hash=email_hash,
-        success=True,
-        ip=client_ip,
-        user_agent=user_agent,
+    return MfaChallenge(
+        mfa_token=create_mfa_token(user.id),
+        token_type="bearer",
+        setup_required=user.mfaEnabledAt is None,
     )
-    access_token, refresh_token = issue_tokens(db, user.id)
-    _set_refresh_cookie(response, refresh_token)
+
+
+@router.post("/token/mfa", response_model=Token)
+@limiter.limit("5/minute")
+def verify_mfa(
+    request: Request,
+    response: Response,
+    body: MfaCode,
+    user: Annotated[User, Depends(get_mfa_pending_user)],
+    db: Session = Depends(get_db),
+) -> Token:
+    method: str | None = None
+    try:
+        method = mfa.verify_code(db, user, body.code)
+    except mfa.MfaLocked:
+        _deny_mfa(db, request, user, "mfa_locked", status.HTTP_429_TOO_MANY_REQUESTS)
+    except mfa.InvalidMfaCode:
+        _deny_mfa(db, request, user, "wrong_mfa_code", status.HTTP_401_UNAUTHORIZED)
+    access_token = _start_session(db, request, response, user, method)
     return Token(access_token=access_token, token_type="bearer")
+
+
+@router.post("/mfa/setup", response_model=MfaSetup)
+@limiter.limit("20/minute")
+def start_mfa_setup(
+    request: Request,
+    user: Annotated[User, Depends(get_mfa_pending_user)],
+    db: Session = Depends(get_db),
+) -> MfaSetup:
+    try:
+        secret, otpauth_uri = mfa.start_setup(db, user)
+    except mfa.MfaAlreadyEnabled as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="O MFA já está cadastrado") from exc
+    return MfaSetup(secret=secret, otpauth_uri=otpauth_uri)
+
+
+@router.post("/mfa/setup/confirm", response_model=TokenWithRecoveryCodes)
+@limiter.limit("5/minute")
+def confirm_mfa_setup(
+    request: Request,
+    response: Response,
+    body: MfaCode,
+    user: Annotated[User, Depends(get_mfa_pending_user)],
+    db: Session = Depends(get_db),
+) -> TokenWithRecoveryCodes:
+    codes: list[str] = []
+    try:
+        codes = mfa.confirm_setup(db, user, body.code)
+    except mfa.MfaAlreadyEnabled as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="O MFA já está cadastrado") from exc
+    except mfa.MfaLocked:
+        _deny_mfa(db, request, user, "mfa_locked", status.HTTP_429_TOO_MANY_REQUESTS)
+    except mfa.InvalidMfaCode:
+        _deny_mfa(db, request, user, "wrong_mfa_code", status.HTTP_401_UNAUTHORIZED)
+    access_token = _start_session(db, request, response, user)
+    return TokenWithRecoveryCodes(
+        access_token=access_token, token_type="bearer", recovery_codes=codes
+    )
 
 
 # Folgado de propósito: o access token só vive em memória, então cada recarga de página

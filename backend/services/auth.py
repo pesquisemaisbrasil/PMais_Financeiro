@@ -27,9 +27,18 @@ logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
+ACCESS_TOKEN_TYPE = "access"
+MFA_TOKEN_TYPE = "mfa_pending"
+MFA_TOKEN_EXPIRE_MINUTES = 5
+
 
 def normalize_email(email: str) -> str:
     return email.strip().lower()
+
+
+def as_utc(value: datetime) -> datetime:
+    """O SQLite devolve data sem fuso; o Postgres, com."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 def check_credentials(
@@ -49,16 +58,42 @@ def check_credentials(
     return user, None, user.id
 
 
-def create_access_token(user_id: int) -> str:
+def _create_token(user_id: int, token_type: str, lifetime: timedelta) -> str:
     now = datetime.now(UTC)
     payload = {
         "sub": str(user_id),
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,
+        "type": token_type,
         "iat": now,
-        "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": now + lifetime,
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def create_access_token(user_id: int) -> str:
+    return _create_token(user_id, ACCESS_TOKEN_TYPE, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+
+def create_mfa_token(user_id: int) -> str:
+    return _create_token(user_id, MFA_TOKEN_TYPE, timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES))
+
+
+def _decode_user_id(token: str, token_type: str) -> int | None:
+    """Id do usuário, se o token for válido e do tipo pedido: o token parcial do MFA nunca
+    serve como token de acesso, e vice-versa."""
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            audience=JWT_AUDIENCE,
+            issuer=JWT_ISSUER,
+            options={"require": ["exp", "sub", "iss", "aud"]},
+        )
+        return int(payload["sub"]) if payload.get("type") == token_type else None
+    except (PyJWTError, ValueError):
+        return None
 
 
 def issue_tokens(db: Session, user_id: int, family_id: str | None = None) -> tuple[str, str]:
@@ -93,13 +128,6 @@ def _revoke_family(db: Session, family_id: str) -> None:
     db.commit()
 
 
-def _is_expired(db_token: RefreshToken) -> bool:
-    expires_at = db_token.expiresAt
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=UTC)
-    return expires_at < datetime.now(UTC)
-
-
 def rotate_refresh_token(db: Session, token: str) -> tuple[str, str] | None:
     db_token = _find_refresh_token(db, token)
     if db_token is None:
@@ -110,12 +138,12 @@ def rotate_refresh_token(db: Session, token: str) -> tuple[str, str] | None:
         logger.warning("Reuso de refresh token: família revogada")
         _revoke_family(db, db_token.familyId)
         return None
-    if _is_expired(db_token):
+    if as_utc(db_token.expiresAt) < datetime.now(UTC):
         return None
 
-    # conta desativada depois do login não renova sessão (mesmo 401 genérico do login)
+    # Conta desativada ou sem MFA não renova sessão (mesmo 401 genérico do login)
     user = db.query(User).filter(User.id == db_token.user_id).first()
-    if user is None or user.status != "active":
+    if user is None or user.status != "active" or user.mfaEnabledAt is None:
         _revoke_family(db, db_token.familyId)
         return None
 
@@ -138,20 +166,30 @@ def get_current_user(
         detail="Não foi possível validar as credenciais",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM],
-            audience=JWT_AUDIENCE,
-            issuer=JWT_ISSUER,
-            options={"require": ["exp", "sub", "iss", "aud"]},
-        )
-        user_id = int(payload["sub"])
-    except (PyJWTError, ValueError):
-        raise credentials_exception from None
-    # papel e status vêm do banco a cada requisição: desativar vale na hora
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None or user.status != "active":
+    user_id = _decode_user_id(token, ACCESS_TOKEN_TYPE)
+    if user_id is None:
         raise credentials_exception
+    # papel, status e MFA vêm do banco a cada requisição: desativar ou resetar vale na hora
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or user.status != "active" or user.mfaEnabledAt is None:
+        raise credentials_exception
+    return user
+
+
+def get_mfa_pending_user(
+    token: Annotated[str, Depends(oauth2_scheme)],
+    db: Session = Depends(get_db),
+) -> User:
+    denied = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Código de verificação inválido",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    user_id = _decode_user_id(token, MFA_TOKEN_TYPE)
+    if user_id is None:
+        raise denied
+    # FOR UPDATE: dois envios simultâneos do mesmo código não passam os dois
+    user = db.query(User).filter(User.id == user_id).with_for_update().first()
+    if user is None or user.status != "active":
+        raise denied
     return user
