@@ -39,6 +39,20 @@ function textoRateio(rateio) {
   if (rateio.length === 1) return codigoProjeto(rateio[0].projeto);
   return `<span title="${rateio.map((r) => `${codigoProjeto(r.projeto)}: ${brl(r.valor)}`).join(", ")}">${rateio.length} projetos</span>`;
 }
+// Etiqueta de onde o lançamento agrupado veio.
+function badgeOrigem(c) {
+  if (c.origem === "connect") return badge("Do Connect", "azul", "link");
+  if (c.origem === "incentivo") return badge("Incentivos", "roxo");
+  return "";
+}
+// Só lançamento que não é do Connect se baixa de uma vez; o do Connect se paga item a item, pelo PDF de comprovantes.
+const baixaDireta = (c) => emAberto(c) && c.tipo === "real" && c.origem !== "connect";
+// Código do projeto vira link para o relatório do projeto.
+function celulaProjeto(c) {
+  if (!c.rateio.length) return '<td><span class="muted">—</span></td>';
+  if (c.rateio.length > 3) return `<td><span title="${c.rateio.map((r) => `${codigoProjeto(r.projeto)}: ${brl(r.valor)}`).join(", ")}">${c.rateio.length} projetos</span></td>`;
+  return `<td>${c.rateio.map((r) => `<a class="link-projeto" href="#/projetos/${r.projeto}" title="Abrir o relatório do projeto (${brl(r.valor)} nesta conta)">${codigoProjeto(r.projeto)}</a>`).join(", ")}</td>`;
+}
 function textoDocumento(doc) {
   if (doc.tipo === "NF") return `NF ${esc(doc.numero)}`;
   return esc(doc.tipo);
@@ -114,9 +128,14 @@ function valorColuna(c, col) {
 function celula(c, col) {
   switch (col) {
     case "vencimento": return `<td>${fmtDia(c.vencimento)}</td>`;
-    case "fornecedor": return `<td><span class="nome">${esc(quemRecebe(c))}</span><span class="sub">${esc(c.descricao)}${c.serie ? ` · ${c.serie.n}/${c.serie.total}` : ""}${c.transferencia ? " · transferência entre empresas" : ""}${documentacaoAtrasada(c) ? ' · <span class="ambar forte">documentação atrasada</span>' : ""}</span></td>`;
+    case "fornecedor": {
+      const miolo = `<span class="nome">${esc(quemRecebe(c))}</span> ${badgeOrigem(c)}<span class="sub">${esc(c.descricao)}${c.serie ? ` · ${c.serie.n}/${c.serie.total}` : ""}${c.transferencia ? " · transferência entre empresas" : ""}${c.itens ? ` · ${c.itens.filter((i) => i.pago).length} de ${c.itens.length} pagos` : ""}${documentacaoAtrasada(c) ? ' · <span class="ambar forte">documentação atrasada</span>' : ""}</span>`;
+      if (!c.itens) return `<td>${miolo}</td>`;
+      const aberto = UI.pagar.abertos.has(c.id);
+      return `<td><div class="flex" style="align-items:flex-start;gap:4px">${botaoIcone(aberto ? "chevron-down" : "chevron-right", aberto ? "Esconder os itens" : "Mostrar os itens", "cp-alternar", { id: c.id }, `aria-expanded="${aberto}"`)}<div>${miolo}</div></div></td>`;
+    }
     case "documento": return `<td>${textoDocumento(c.documento)}</td>`;
-    case "projeto": return `<td>${textoRateio(c.rateio)}</td>`;
+    case "projeto": return celulaProjeto(c);
     case "categoria": return `<td>${esc(nomeCategoria(c.categoria))}</td>`;
     case "centro": return `<td>${esc(nomeCentro(c.centroCusto))}</td>`;
     case "forma": return `<td>${esc(nomeForma(c.forma))}</td>`;
@@ -166,8 +185,8 @@ ACOES["pagar-selecionar"] = (d, el) => {
 function selecionadas() { return [...UI.pagar.sel].map((id) => achar("contasPagar", id)).filter(Boolean); }
 
 ACOES["lote-baixa"] = () => {
-  const contas = selecionadas().filter((c) => emAberto(c) && c.tipo === "real");
-  if (!contas.length) return toast("Nenhuma conta em aberto na seleção.", true);
+  const contas = selecionadas().filter(baixaDireta);
+  if (!contas.length) return toast(selecionadas().some((c) => c.origem === "connect") ? "Lançamento do Connect se paga pelo PDF de comprovantes: abra os itens e envie o PDF." : "Nenhuma conta em aberto na seleção.", true);
   abrirDialogo({
     titulo: "Baixa em lote",
     descricao: `${plural(contas.length, "conta", "contas")} · total pendente ${brl(soma(contas, saldoPagar))}. Cada uma é baixada pelo seu pendente.`,
@@ -183,7 +202,7 @@ ACOES["lote-baixa"] = () => {
   });
 };
 FORMS["lote-baixa"] = (f) => {
-  const contas = selecionadas().filter((c) => emAberto(c) && c.tipo === "real");
+  const contas = selecionadas().filter(baixaDireta);
   const bloqueadas = contas.filter((c) => c.autorizacao === "pendente");
   if (bloqueadas.length) return toast(`${plural(bloqueadas.length, "conta está", "contas estão")} acima do orçamento e ainda não ${bloqueadas.length === 1 ? "foi autorizada" : "foram autorizadas"}.`, true);
   for (const c of contas) { const e = erroPeriodo(c.empresa, f.data); if (e) return toast(e, true); }
@@ -433,6 +452,7 @@ ACOES["pagar-baixa"] = (d) => {
   const c = achar("contasPagar", d.id);
   if (c.autorizacao === "pendente") return toast("Esse lançamento está acima do orçamento e ainda não foi autorizado.", true);
   if (c.tipo === "provisao") return toast("Provisão não se paga: substitua pelo valor real.", true);
+  if (c.origem === "connect") return toast("Lançamento do Connect se paga pelo PDF de comprovantes: abra os itens e envie o PDF.", true);
   abrirDialogo({
     titulo: "Dar baixa",
     descricao: `${esc(quemRecebe(c))} · ${esc(c.descricao)}`,
@@ -487,7 +507,7 @@ ACOES["pagar-estornar"] = (d) => {
     botao: "Estornar", perigo: true,
     acao: (motivo) => {
       c.baixas.push({ ...b, id: proximoId(c.baixas), tipo: "estorno", ref: b.id, data: HOJE, motivo, origem: "Estorno", acrescimo: 0 });
-      if (b.item) c.itens.find((i) => i.id === b.item).pago = null;
+      if (b.item) { const it = c.itens.find((i) => i.id === b.item); it.pago = null; ajustarEntrevistasPagas(c, it, -1); }
       auditar(`pagar:${c.id}`, `Estorno da baixa de ${fmtDia(b.data)} (${brl(b.valor)}): ${motivo}`);
       salvar();
       toast(`Baixa estornada. Pendente agora: ${brl(saldoPagar(c))}.`);
@@ -760,7 +780,7 @@ function abrirDetalhe(id, aba = "resumo") {
       ${!c.cancelado ? `<button type="button" class="btn btn-outline" data-acao="pagar-editar" data-id="${c.id}">${icone("pencil")}Editar</button>` : ""}
       ${c.autorizacao === "pendente" ? `<button type="button" class="btn" data-acao="pagar-autorizar" data-id="${c.id}">${icone("shield-check")}Autorizar (administrador)</button>` : ""}
       ${c.tipo === "provisao" && !c.substituidaPor ? `<button type="button" class="btn" data-acao="provisao-real" data-id="${c.id}">${icone("replace")}Substituir por real</button>` : ""}
-      ${emAberto(c) && c.tipo === "real" && c.autorizacao !== "pendente" ? `<button type="button" class="btn btn-verde" data-acao="pagar-baixa" data-id="${c.id}">${icone("check")}Dar baixa</button>` : ""}
+      ${baixaDireta(c) && c.autorizacao !== "pendente" ? `<button type="button" class="btn btn-verde" data-acao="pagar-baixa" data-id="${c.id}">${icone("check")}Dar baixa</button>` : ""}
       <button type="button" class="btn btn-outline" data-acao="fechar-dialogo">Fechar</button>`,
   });
 }
@@ -777,16 +797,31 @@ registrarTela({
   icone: "arrow-up-right",
   grupo: "Dia a dia",
   contador: () => S.contasPagar.filter((c) => ["Vencida", "Vence hoje", "Devolvida", "Pendente de autorização"].includes(situacaoPagar(c))).length,
-  render() {
+  render(param) {
     const ui = (UI.pagar ??= {});
-    ui.modo ??= "mes"; ui.ref ??= HOJE; ui.indicador ??= "total"; ui.filtros ??= {}; ui.sel ??= new Set();
+    ui.modo ??= "mes"; ui.ref ??= HOJE; ui.indicador ??= "total"; ui.filtros ??= {}; ui.sel ??= new Set(); ui.abertos ??= new Set();
     ui.colunas ??= [...COLUNAS_PADRAO]; ui.ordem ??= { col: "vencimento", dir: 1 };
+    // Links de outras telas: #/pagar/<número> abre aquele lançamento; #/pagar/p<código> filtra pelo projeto.
+    if (!param) ui.paramAplicado = null;
+    else if (ui.paramAplicado !== param) {
+      ui.paramAplicado = param;
+      const doProjeto = /^p(\d+)$/.exec(param);
+      const limpo = { indicador: "total", busca: "", pagina: 1, sel: new Set() };
+      if (doProjeto) Object.assign(ui, limpo, { modo: "tudo", filtros: { projeto: doProjeto[1] } });
+      else if (achar("contasPagar", param)) { const c = achar("contasPagar", param); ui.abertos.add(c.id); Object.assign(ui, limpo, { modo: "mes", ref: c.vencimento, filtros: {}, foco: c.id }); }
+    }
     const [ini, fim] = intervalo(ui.modo, ui.ref);
     const doPeriodo = S.contasPagar.filter((c) => c.vencimento >= ini && c.vencimento <= fim);
     const lista = filtrarPagar(ui).sort((a, b) => {
       const va = valorColuna(a, ui.ordem.col), vb = valorColuna(b, ui.ordem.col);
       return (typeof va === "number" ? va - vb : String(va).localeCompare(String(vb))) * ui.ordem.dir;
     });
+    if (ui.foco) { // veio de um link: vai para a página do lançamento e rola até ele
+      const pos = lista.findIndex((c) => c.id === ui.foco);
+      if (pos >= 0) ui.pagina = Math.floor(pos / 12) + 1;
+      const rolar = ui.foco; ui.foco = null;
+      setTimeout(() => document.getElementById(`cp-${rolar}`)?.scrollIntoView({ block: "center" }), 0);
+    }
     const { itens, controles } = paginar("pagar", lista, 12);
     const idsPagina = itens.map((c) => c.id);
     const nSel = ui.sel.size;
@@ -809,6 +844,8 @@ registrarTela({
         </div>
         ${campoBusca("pagar", ui.busca || "", "Buscar conta, fornecedor ou NF…")}
       </div>
+
+      <p class="pequeno muted" style="margin:-4px 0 12px">Lançamento agrupado (entrevistadores do Connect e incentivos) abre os itens aqui mesmo: clique na seta ao lado do nome. ${regra("regra-cp-abrir-itens")} ${regra("regra-cp-do-connect")}</p>
 
       <div class="indicadores">${Object.entries(INDICADORES_PAGAR).map(([k, x]) => {
         const l = doPeriodo.filter(x.f);
@@ -844,15 +881,15 @@ registrarTela({
             ${cols.map((c) => `<th class="ordenavel ${c.num ? "num" : ""}" data-acao="pagar-ordenar" data-col="${c.id}" aria-sort="${ui.ordem.col === c.id ? (ui.ordem.dir > 0 ? "ascending" : "descending") : "none"}">${c.rotulo}${ui.ordem.col === c.id ? (ui.ordem.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}
             <th></th>
           </tr></thead>
-          <tbody>${itens.map((c) => `<tr class="${ui.sel.has(c.id) ? "selecionada" : ""}">
+          <tbody>${itens.map((c) => `<tr id="cp-${c.id}" class="${ui.sel.has(c.id) ? "selecionada" : ""}">
             <td><input type="checkbox" class="check" aria-label="Selecionar ${esc(c.descricao)}" data-mudar="pagar-selecionar" data-id="${c.id}" ${ui.sel.has(c.id) ? "checked" : ""}></td>
             ${cols.map((col) => celula(c, col.id)).join("")}
             <td class="num" style="white-space:nowrap">
               ${botaoIcone("eye", "Ver detalhes", "pagar-ver", { id: c.id })}
-              ${emAberto(c) && c.tipo === "real" ? botaoIcone("check", c.autorizacao === "pendente" ? "Aguardando autorização" : "Dar baixa", "pagar-baixa", { id: c.id }) : ""}
+              ${baixaDireta(c) ? botaoIcone("check", c.autorizacao === "pendente" ? "Aguardando autorização" : "Dar baixa", "pagar-baixa", { id: c.id }) : ""}
               ${c.codigoBarras && emAberto(c) ? botaoIcone("barcode", "Copiar código de barras", "copiar", { texto: c.codigoBarras }) : ""}
             </td>
-          </tr>`).join("")}</tbody>
+          </tr>${c.itens && ui.abertos.has(c.id) ? painelLancamento(c, cols.length + 2) : ""}`).join("")}</tbody>
           <tfoot><tr class="total-linha"><td colspan="${cols.length + 2}">Total filtrado: ${plural(lista.length, "conta", "contas")} · valor ${brl(soma(lista, (c) => c.valor))} · pago ${brl(soma(lista, pagoConta))} · pendente ${brl(soma(lista, saldoPagar))}</td></tr></tfoot>
         </table></div>${controles}` : `<p class="vazio">${nFiltros ? "Nenhuma conta com esses filtros." : `Nenhuma conta em ${rotuloPeriodo(ui.modo, ui.ref)}.`}</p>`}
       </div>`;

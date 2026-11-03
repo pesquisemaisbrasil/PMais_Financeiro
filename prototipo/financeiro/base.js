@@ -3,7 +3,7 @@
 
 // ---- Estado (salvo no navegador) ----
 
-const CHAVE_DADOS = "pmais-fin-proto:dados:v2";
+const CHAVE_DADOS = "pmais-fin-proto:dados:v3";
 const CHAVE_RESPOSTAS = "pmais-fin-proto:respostas:v1";
 const CHAVE_NOME = "pmais-fin-proto:nome";
 

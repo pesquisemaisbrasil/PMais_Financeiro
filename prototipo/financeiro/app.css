@@ -329,6 +329,15 @@ details.mais[open] summary { margin-bottom: 12px; }
 .entre { justify-content: space-between; }
 .barra-fluxo { height: 8px; border-radius: 999px; display: inline-block; vertical-align: middle; }
 
+/* ---------- Lançamento agrupado aberto na lista de Contas a pagar ---------- */
+tbody tr.linha-expandida:hover { background: transparent; }
+.linha-expandida > td { background: var(--muted); padding: 14px 16px 16px 52px; border-top: 0; }
+.painel-itens .painel-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.painel-itens .painel-anexos { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.painel-itens .card { background: #fff; }
+.link-projeto { font-weight: 600; text-decoration: none; }
+.link-projeto:hover { text-decoration: underline; }
+
 @media (max-width: 900px) {
   .layout { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; }

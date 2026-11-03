@@ -6,15 +6,28 @@ ponto("regra-lancamento-agrupado", "Folha, incentivos e notas", "Importar a plan
 ponto("regra-nf-nao-bloqueia", "Folha, incentivos e notas", "Mudança de 28/10: a NF do prestador chega pelo Connect, mas NÃO é mais obrigatória para pagar. \"NF pendente\" é só aviso; a pessoa entra no pagamento.");
 ponto("regra-rpa", "Folha, incentivos e notas", "RPA: o INSS (11%, em configuração) é calculado, nunca digitado. Paga-se o líquido. A lista de RPA vai para a contabilidade emitir os recibos.");
 ponto("regra-incentivo", "Folha, incentivos e notas", "Incentivo ao respondente não tem nota fiscal: o item fica \"incentivo · sem documento\".");
+ponto("regra-incentivo-planilha", "Folha, incentivos e notas", "Mudança de 03/11: o incentivo ao respondente chega por e-mail, em planilha tirada do banco de respondentes. O Connect ainda não tem os respondentes, então por enquanto o Financeiro importa a planilha (pode ter 5 nomes ou mais de 200).");
+ponto("regra-incentivo-prazo", "Folha, incentivos e notas", "O prazo do incentivo depende do tipo de projeto e conta em dias úteis a partir da data da resposta (Health ≈ 10 dias úteis; o tipo que a reunião chamou de \"CLT\", 3 a 4; sábado, domingo e feriado não contam). O prazo fica no cadastro do projeto.");
+ponto("regra-incentivo-por-data", "Folha, incentivos e notas", "Uma planilha traz respostas de várias datas. O sistema lê a coluna \"data da pesquisa\" e cria um lançamento para cada data de pagamento, e mostra o cronograma para devolver ao projeto (hoje isso é calculado à mão).");
 ponto("regra-conferencia-notas", "Folha, incentivos e notas", "Conferência de notas: o arquivo exportado do portal (prefeitura / Emissor Nacional) é cruzado com as notas lançadas. Mostra as que faltam e as canceladas.");
 ponto("regra-nota-cancelada", "Folha, incentivos e notas", "Nota cancelada na prefeitura gera alerta na conta já paga com ela.");
 ponto("regra-provisao", "Folha, incentivos e notas", "A provisão nasce do orçamento por itens do Connect, com a data estimada. Quando o valor real chega, ele substitui a provisão, sem contar duas vezes.");
 
 // Planilhas de exemplo que a pessoa pode "importar" (nada sai do computador).
+// Incentivos: colunas nome, chave Pix, valor, data da pesquisa (modelo proposto, pergunta F24). Folha de campo: nome, documento, valor, nº da NF, emissão.
+const datasPesquisa = (...pares) => pares.flatMap(([data, qtd]) => Array(qtd).fill(data));
 const PLANILHAS_EXEMPLO = [
   {
-    nome: "incentivos-PRJ-1790-novembro.xlsx", tipo: "Incentivos", projeto: 1790, categoria: 2, descricao: "Incentivos aos entrevistados · PRJ-1790 · novembro",
-    linhas: Array.from({ length: 14 }, (_, i) => [`Entrevistado ${String(i + 1).padStart(2, "0")}`, "Incentivo", "200,00", "", ""]),
+    nome: "incentivos-PRJ-1811-health-outubro.xlsx", tipo: "Incentivos", projeto: 1811, categoria: 2,
+    linhas: datasPesquisa(["2026-10-22", 5], ["2026-10-23", 4], ["2026-10-26", 3], ["2026-10-27", 3])
+      .map((data, i) => [`Respondente H${String(i + 1).padStart(2, "0")}`, chaveFicticia(100 + i).chaveCompleta, "120,00", data]),
+  },
+  {
+    nome: "incentivos-PRJ-1804-cati-outubro.xlsx", tipo: "Incentivos", projeto: 1804, categoria: 2,
+    linhas: [
+      ...datasPesquisa(["2026-10-26", 3], ["2026-10-27", 3], ["2026-10-28", 2]).map((data, i) => [`Respondente C${String(i + 1).padStart(2, "0")}`, chaveFicticia(200 + i).chaveCompleta, "200,00", data]),
+      ["Respondente C09", chaveFicticia(209).chaveCompleta, "200,00", ""],
+    ],
   },
   {
     nome: "folha-campo-PRJ-1804-novembro.xlsx", tipo: "Folha de campo", projeto: 1804, categoria: 1, descricao: "Equipe de campo · PRJ-1804 · novembro",
@@ -39,7 +52,8 @@ const NOTAS_PORTAL = [
   { numero: "312", emitente: "Transportes JK", emissao: "2026-10-19", valor: 54000, situacao: "Válida" },
 ];
 
-function lancamentosAgrupados() { return S.contasPagar.filter((c) => c.itens && !c.cancelado); }
+// Folha de campo e incentivos. Os lançamentos que chegam do Connect (entrevistadores) ficam só em Contas a pagar.
+function lancamentosAgrupados() { return S.contasPagar.filter((c) => c.itens && !c.cancelado && c.origem !== "connect"); }
 function composicao(c) {
   const n = (f) => c.itens.filter(f).length;
   return [
@@ -108,6 +122,7 @@ ACOES["folha-ver"] = (d) => abrirDetalhe(Number(d.id), "itens");
 // ---- Importar planilha (exemplo) ----
 
 function lerPlanilha(p) {
+  if (p.tipo === "Incentivos") return lerPlanilhaIncentivos(p);
   return p.linhas.map(([nome, doc, valorTxt, nfNum, nfEm], i) => {
     const erros = [];
     if (!nome.trim()) erros.push("Nome vazio");
@@ -119,9 +134,52 @@ function lerPlanilha(p) {
   });
 }
 
+function lerPlanilhaIncentivos(p) {
+  return p.linhas.map(([nome, chaveCompleta, valorTxt, data], i) => {
+    const erros = [];
+    if (!nome.trim()) erros.push("Nome vazio");
+    if (/r\$|[a-z]/i.test(valorTxt)) erros.push("Use só números no valor");
+    const valor = paraCentavos(valorTxt);
+    if (!valor && !erros.length) erros.push("Valor inválido");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data || "")) erros.push("Data da pesquisa vazia ou inválida");
+    return { linha: i + 2, nome, chaveCompleta, chave: mascararChave(chaveCompleta), valor, data, erros };
+  });
+}
+
+// Cronograma: o prazo vem do cadastro do projeto, em dias úteis a partir da data da pesquisa; sai uma data de pagamento por grupo.
+function cronogramaIncentivos(p, boas) {
+  const projeto = achar("projetos", p.projeto);
+  const prazo = projeto.temIncentivo ? projeto.prazoIncentivo : null;
+  if (!prazo) return { projeto, prazo: null, grupos: [] };
+  const porPagamento = {};
+  for (const l of boas) {
+    const pagar = somarDiasUteis(l.data, prazo);
+    (porPagamento[pagar] ??= { pagar, itens: [], datas: new Set() }).itens.push(l);
+    porPagamento[pagar].datas.add(l.data);
+  }
+  const grupos = Object.values(porPagamento).sort((a, b) => a.pagar.localeCompare(b.pagar))
+    .map((g) => ({ ...g, datas: [...g.datas].sort(), total: soma(g.itens, (l) => l.valor) }));
+  return { projeto, prazo, grupos };
+}
+const textoDatasPesquisa = (datas) => datas.map((d) => fmtDia(d).slice(0, 5)).join(" e ");
+
 ACOES["folha-importar"] = () => { UI.planilha = null; abrirImportarPlanilha(); };
 ACOES["folha-planilha-ler"] = (d) => { UI.planilha = d.nome; abrirImportarPlanilha(); };
 ACOES["folha-planilha-voltar"] = () => { UI.planilha = null; abrirImportarPlanilha(); };
+
+ACOES["folha-copiar-cronograma"] = () => {
+  const p = PLANILHAS_EXEMPLO.find((x) => x.nome === UI.planilha);
+  const { projeto, prazo, grupos } = cronogramaIncentivos(p, lerPlanilha(p).filter((l) => !l.erros.length));
+  const linhas = [
+    `Cronograma de pagamento dos incentivos · ${codigoProjeto(projeto.id)} ${projeto.titulo}`,
+    `Prazo: ${plural(prazo, "dia útil", "dias úteis")} depois da data da pesquisa (${projeto.tipoProjeto}).`,
+    "",
+    ...grupos.map((g) => `- Pesquisas de ${textoDatasPesquisa(g.datas)}: ${plural(g.itens.length, "incentivo", "incentivos")} → pagar ${fmtDia(g.pagar).slice(0, 5)} · ${brl(g.total)}`),
+    "",
+    `Total: ${plural(soma(grupos, (g) => g.itens.length), "incentivo", "incentivos")} · ${brl(soma(grupos, (g) => g.total))}`,
+  ];
+  navigator.clipboard?.writeText(linhas.join("\n")).then(() => toast("Cronograma copiado. Cole no e-mail ou no grupo do projeto."), () => toast("Não deu para copiar.", true));
+};
 
 function abrirImportarPlanilha() {
   const p = PLANILHAS_EXEMPLO.find((x) => x.nome === UI.planilha);
@@ -132,35 +190,60 @@ function abrirImportarPlanilha() {
       largo: true,
       corpo: PLANILHAS_EXEMPLO.map((x) => `
         <div class="candidato">
-          <div><strong>${x.nome}</strong><span>${x.tipo} · ${codigoProjeto(x.projeto)} · ${plural(x.linhas.length, "linha", "linhas")}</span></div>
+          <div><strong>${x.nome}</strong><span>${x.tipo} · ${codigoProjeto(x.projeto)} · ${achar("projetos", x.projeto).tipoProjeto} · ${plural(x.linhas.length, "linha", "linhas")}</span></div>
           <button type="button" class="btn btn-outline btn-sm" data-acao="folha-planilha-ler" data-nome="${x.nome}">Ler planilha</button>
-        </div>`).join("") + `<p class="pequeno muted" style="margin:0">Colunas: nome, documento (NF, RPA, Incentivo, Sem NF), valor, número da NF, emissão. ${regra("regra-lancamento-agrupado")}</p>`,
+        </div>`).join("") + `<p class="pequeno muted" style="margin:0">Folha de campo: nome, documento (NF, RPA, Incentivo, Sem NF), valor, número da NF, emissão. ${regra("regra-lancamento-agrupado")}</p>
+        <p class="pequeno muted" style="margin:6px 0 0">Incentivos: nome, chave Pix, valor, data da pesquisa. ${regra("regra-incentivo-planilha")}</p>`,
     });
   }
   const linhas = lerPlanilha(p);
   const boas = linhas.filter((l) => !l.erros.length);
+  const incentivos = p.tipo === "Incentivos";
+  const cron = incentivos ? cronogramaIncentivos(p, boas) : null;
+  const semPrazo = incentivos && !cron.prazo;
+  const jaImportada = S.contasPagar.some((c) => c.anexos.some((a) => a.nome === p.nome && !a.excluido));
+  const nLanc = incentivos ? cron.grupos.length : 1;
   abrirDialogo({
     titulo: "Conferir antes de importar",
     descricao: `${p.nome} · ${p.tipo} · ${codigoProjeto(p.projeto)}`,
     largo: true,
     corpo: `
+      ${jaImportada ? `<div class="aviso aviso-ambar">${icone("triangle-alert")}<div><strong>Esta planilha já foi importada</strong>Já existe lançamento com este arquivo anexado. Importar de novo cria lançamentos repetidos.</div></div>` : ""}
       <div class="kpis" style="margin-bottom:14px">
         ${kpi({ rotulo: "Linhas lidas", valor: String(linhas.length), ic: "file-spreadsheet" })}
         ${kpi({ rotulo: "Entram", valor: String(boas.length), detalhe: brl(soma(boas, (l) => l.valor)), ic: "circle-check", cor: "cor-verde" })}
         ${kpi({ rotulo: "Com erro", valor: String(linhas.length - boas.length), detalhe: "ficam de fora", ic: "circle-x", cor: linhas.length - boas.length ? "cor-vermelho" : "cor-verde" })}
+        ${incentivos ? kpi({ rotulo: "Lançamentos", valor: String(nLanc), detalhe: "um por data de pagamento", ic: "calendar-range", cor: "cor-roxo" }) : ""}
       </div>
+      ${incentivos ? (semPrazo
+        ? `<div class="aviso aviso-vermelho">${icone("ban")}<div><strong>Este projeto não tem incentivo ou prazo marcado</strong>Marque o tipo, o incentivo e o prazo em Cadastros &gt; Projetos antes de importar. ${regra("regra-projeto-incentivo")}</div></div>`
+        : `<div class="aviso aviso-azul">${icone("calendar-range")}<div><strong>Cronograma de pagamento: ${esc(cron.projeto.tipoProjeto)}, ${plural(cron.prazo, "dia útil", "dias úteis")} depois da data da pesquisa</strong>
+            O prazo vem do cadastro do projeto. Sábado, domingo e feriado não contam. ${regra("regra-incentivo-prazo")} ${regra("regra-incentivo-por-data")}</div></div>
+          <div class="card mb"><div class="tabela-wrap"><table>
+            <thead><tr><th>Pagar em</th><th>Pesquisas de</th><th class="num">Incentivos</th><th class="num">Valor</th></tr></thead>
+            <tbody>${cron.grupos.map((g) => `<tr><td class="nome">${fmtDia(g.pagar)}</td><td>${textoDatasPesquisa(g.datas)}</td><td class="num">${g.itens.length}</td><td class="num forte">${brl(g.total)}</td></tr>`).join("")}</tbody>
+            <tfoot><tr class="total-linha"><td colspan="2">${plural(nLanc, "lançamento", "lançamentos")}</td><td class="num">${boas.length}</td><td class="num">${brl(soma(boas, (l) => l.valor))}</td></tr></tfoot>
+          </table></div></div>`) : ""}
       <div class="card"><div class="tabela-wrap" style="max-height:300px;overflow:auto"><table>
-        <thead><tr><th>Linha</th><th>Pessoa</th><th>Documento</th><th class="num">Bruto</th><th class="num">A pagar</th><th></th></tr></thead>
+        ${incentivos ? `<thead><tr><th>Linha</th><th>Pessoa</th><th>Chave Pix</th><th>Data da pesquisa</th><th class="num">A pagar</th><th></th></tr></thead>
+        <tbody>${linhas.map((l) => `<tr>
+          <td>${l.linha}</td><td class="nome">${esc(l.nome) || "—"}</td><td class="mono">${esc(l.chave) || "—"}</td>
+          <td>${l.data ? fmtDia(l.data) : "—"}${l.data && !l.erros.length && cron.prazo ? `<span class="sub">paga em ${fmtDia(somarDiasUteis(l.data, cron.prazo))}</span>` : ""}</td>
+          <td class="num">${l.valor ? brl(l.valor) : "—"}</td>
+          <td>${l.erros.length ? `<span class="vermelho pequeno">${esc(l.erros.join("; "))}</span>` : badge("Ok", "verde")}</td>
+        </tr>`).join("")}</tbody>`
+        : `<thead><tr><th>Linha</th><th>Pessoa</th><th>Documento</th><th class="num">Bruto</th><th class="num">A pagar</th><th></th></tr></thead>
         <tbody>${linhas.map((l) => `<tr>
           <td>${l.linha}</td><td class="nome">${esc(l.nome) || "—"}</td>
           <td>${esc(l.doc)}${l.doc === "NF" ? `<span class="sub">${l.nf ? `nº ${esc(l.nf.numero)}` : "NF pendente (não bloqueia)"}</span>` : ""}</td>
           <td class="num">${l.bruto ? brl(l.bruto) : "—"}</td>
           <td class="num">${l.valor ? brl(l.valor) : "—"}${l.doc === "RPA" && l.bruto ? `<span class="sub">−${ALIQUOTA_INSS}% INSS</span>` : ""}</td>
           <td>${l.erros.length ? `<span class="vermelho pequeno">${esc(l.erros.join("; "))}</span>` : badge("Ok", "verde")}</td>
-        </tr>`).join("")}</tbody>
+        </tr>`).join("")}</tbody>`}
       </table></div></div>`,
     rodape: `<button type="button" class="btn btn-outline" data-acao="folha-planilha-voltar">Voltar</button>
-      <button type="button" class="btn" data-acao="folha-planilha-confirmar" ${boas.length ? "" : "disabled"}>${icone("file-up")}Criar 1 lançamento com ${plural(boas.length, "item", "itens")}</button>`,
+      ${incentivos && !semPrazo ? `<button type="button" class="btn btn-outline" data-acao="folha-copiar-cronograma">${icone("copy")}Copiar cronograma para o projeto</button>` : ""}
+      <button type="button" class="btn" data-acao="folha-planilha-confirmar" ${boas.length && !semPrazo ? "" : "disabled"}>${icone("file-up")}Criar ${plural(nLanc, "lançamento", "lançamentos")} com ${plural(boas.length, "item", "itens")}</button>`,
   });
 }
 
@@ -168,10 +251,11 @@ ACOES["folha-planilha-confirmar"] = () => {
   const p = PLANILHAS_EXEMPLO.find((x) => x.nome === UI.planilha);
   if (projetoFechado(p.projeto)) return toast("Projeto fechado — peça a reabertura a um administrador.", true);
   const boas = lerPlanilha(p).filter((l) => !l.erros.length);
+  if (p.tipo === "Incentivos") return importarIncentivos(p, boas);
   const itens = boas.map((l, i) => item(i + 1, l.nome, l.doc, l.valor, { bruto: l.bruto, nf: l.nf, nfStatus: l.doc === "NF" ? (l.nf ? "Recebida" : "Pendente") : null }));
   const total = soma(itens, (i) => i.valor);
   const c = tituloPagar({
-    id: proximoId(S.contasPagar), unidade: achar("projetos", p.projeto).unidade, centroCusto: 1, favorecido: `${p.tipo} (${plural(itens.length, "pessoa", "pessoas")})`,
+    id: proximoId(S.contasPagar), origem: "folha", unidade: achar("projetos", p.projeto).unidade, centroCusto: 1, favorecido: `${p.tipo} (${plural(itens.length, "pessoa", "pessoas")})`,
     categoria: p.categoria, forma: 1, data: HOJE, descricao: p.descricao, vencimento: somarDias(HOJE, 10), valor: total, rateio: [{ projeto: p.projeto, valor: total }],
     documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Ver itens" }, docsRecebidosEm: HOJE,
     anexos: [{ id: 1, nome: p.nome, tipo: "Planilha", excluido: false }], itens,
@@ -182,6 +266,27 @@ ACOES["folha-planilha-confirmar"] = () => {
   salvar();
   toast(`${plural(itens.length, "item importado", "itens importados")} em 1 lançamento (${brl(total)}). A planilha ficou anexada.`);
 };
+
+// Incentivos: um lançamento por data de pagamento, cada um com os itens daquela data e a planilha anexada.
+function importarIncentivos(p, boas) {
+  const { projeto, grupos } = cronogramaIncentivos(p, boas);
+  if (!grupos.length) return toast("Este projeto não tem incentivo ou prazo marcado.", true);
+  const criados = grupos.map((g) => {
+    const itens = g.itens.map((l, i) => item(i + 1, l.nome, "Incentivo", l.valor, { chave: l.chave, chaveCompleta: l.chaveCompleta, dataPesquisa: l.data }));
+    const c = tituloPagar({
+      id: proximoId(S.contasPagar), origem: "incentivo", unidade: projeto.unidade, centroCusto: 1, favorecido: `Incentivos (${plural(itens.length, "pessoa", "pessoas")})`,
+      categoria: p.categoria, forma: 1, data: HOJE, competencia: g.datas[0].slice(0, 7), descricao: `Incentivos · ${codigoProjeto(p.projeto)} · pagar ${fmtDia(g.pagar).slice(0, 5)}`,
+      vencimento: g.pagar, valor: g.total, rateio: [{ projeto: p.projeto, valor: g.total }],
+      documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Incentivo" }, anexos: [{ id: 1, nome: p.nome, tipo: "Planilha", excluido: false }], itens,
+    });
+    S.contasPagar.push(c);
+    auditar(`pagar:${c.id}`, `Criado pela planilha ${p.nome}: ${plural(itens.length, "incentivo", "incentivos")} das pesquisas de ${textoDatasPesquisa(g.datas)}, ${brl(g.total)}, vence ${fmtDia(g.pagar)} (${projeto.prazoIncentivo} dias úteis)`);
+    return c;
+  });
+  fecharDialogo();
+  salvar();
+  toast(`${plural(criados.length, "lançamento criado", "lançamentos criados")}, um por data de pagamento (${plural(boas.length, "incentivo", "incentivos")}, ${brl(soma(criados, (c) => c.valor))}). A planilha ficou anexada em cada um.`);
+}
 
 // ---- Lista de RPA e notas ----
 
@@ -353,7 +458,7 @@ registrarTela({
 
     return `
       ${cabecalho({ titulo: "Folha, incentivos e notas", icone: "layers", tela: "tela-folha",
-        subtitulo: "Folha de campo e incentivos entram de uma vez, com um item por pessoa. Notas, RPA e provisões ficam aqui também.",
+        subtitulo: "Folha de campo e incentivos entram de uma vez, com um item por pessoa; incentivo vira um lançamento por data de pagamento. Notas, RPA e provisões ficam aqui também.",
         acoes: `${ui.aba === "provisoes" ? `<button class="btn btn-outline" data-acao="provisao-gerar">${icone("refresh-cw")}Atualizar do orçamento do Connect</button>` : ""}<button class="btn" data-acao="folha-importar">${icone("file-up")}Importar planilha</button>` })}
       <div class="kpis">
         ${kpi({ rotulo: "Lançamentos agrupados", valor: String(agrupados.length), detalhe: `${plural(itens.length, "item", "itens")} · ${brl(soma(agrupados, saldoPagar))} em aberto`, ic: "layers" })}

@@ -38,10 +38,12 @@ function itensAtencao() {
   if (autorizar.length) itens.push({ ic: "shield-alert", cor: "cor-roxo", titulo: `${plural(autorizar.length, "conta acima do orçamento", "contas acima do orçamento")}`, texto: "Aguardando um administrador autorizar", link: "#/pagar", acao: "Ver" });
   const inad = S.contasReceber.filter((r) => situacaoReceber(r) === "Vencida");
   if (inad.length) itens.push({ ic: "hand-coins", cor: "cor-vermelho", titulo: `${plural(inad.length, "título a receber vencido", "títulos a receber vencidos")}`, texto: `${brl(soma(inad, saldoReceber))} de ${plural(new Set(inad.map((r) => r.cliente)).size, "cliente", "clientes")}`, link: "#/receber", acao: "Ver" });
-  const conferir = S.envios.filter((e) => e.situacao === "Pronto para conferir").length;
-  if (conferir) itens.push({ ic: "file-check", cor: "cor-azul", titulo: `${plural(conferir, "envio de comprovantes para conferir", "envios de comprovantes para conferir")}`, texto: "Pagamento de entrevistadores", link: "#/entrevistadores", acao: "Conferir" });
+  const conferir = S.envios.filter((e) => e.situacao === "Pronto para conferir");
+  if (conferir.length) itens.push({ ic: "file-check", cor: "cor-azul", titulo: `${plural(conferir.length, "envio de comprovantes para conferir", "envios de comprovantes para conferir")}`, texto: "Conferência no lançamento, em Contas a pagar", link: `#/pagar/${conferir[0].lancamento}`, acao: "Conferir" });
+  const doConnect = S.contasPagar.filter((c) => c.origem === "connect" && emAberto(c));
+  if (doConnect.length) itens.push({ ic: "link", cor: "cor-azul", titulo: `${plural(doConnect.length, "lançamento de entrevistadores do Connect para pagar", "lançamentos de entrevistadores do Connect para pagar")}`, texto: `${brl(soma(doConnect, saldoPagar))} · chegaram sozinhos em Contas a pagar`, link: `#/pagar/${doConnect[0].id}`, acao: "Abrir" });
   for (const p of S.projetos.filter((p) => p.orcamento && lancadoProjeto(p.id) > p.orcamento)) {
-    itens.push({ ic: "gauge", cor: "cor-vermelho", titulo: `Orçamento estourado no ${codigoProjeto(p.id)}`, texto: `${brl(lancadoProjeto(p.id))} lançados de ${brl(p.orcamento)}`, link: `#/entrevistadores/${p.id}`, acao: "Ver projeto" });
+    itens.push({ ic: "gauge", cor: "cor-vermelho", titulo: `Orçamento estourado no ${codigoProjeto(p.id)}`, texto: `${brl(lancadoProjeto(p.id))} lançados de ${brl(p.orcamento)}`, link: `#/projetos/${p.id}`, acao: "Ver relatório" });
   }
   const pendBanco = S.extrato.filter(linhaPendente).length;
   const semExtrato = S.contasBancarias.filter((b) => !S.extrato.some((e) => e.conta === b.id && e.data.startsWith("2026-10")));
