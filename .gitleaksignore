@@ -1,0 +1,8 @@
+# Falsos positivos revisados. Formato: commit:arquivo:regra:linha.
+# Segredo de verdade não entra aqui: é rotacionado.
+# Exemplo de resposta no handoff/07: só o cabeçalho de um JWT, cortado com reticências.
+77755b8b5baa513e1a496a9ec31930e6cadfa876:prototipo/PMais_Financeiro/docs/source/original/handoff/07-integracao-com-o-connect(1).md:generic-api-key:79
+77755b8b5baa513e1a496a9ec31930e6cadfa876:prototipo/PMais_Financeiro/docs/source/original/handoff/07-integracao-com-o-connect.md:generic-api-key:79
+bd0fccb670cb22d4a41c28d1b8ca1b5e36d4616d:docs/handoff/07-integracao-com-o-connect.md:generic-api-key:79
+# Chave fictícia, só de teste, no conftest.
+dfbdb9f6549a730f71aa9d56863d8963b42eea6f:backend/tests/conftest.py:generic-api-key:4

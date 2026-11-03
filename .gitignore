@@ -25,3 +25,6 @@ out/
 next-env.d.ts
 .playwright-cli/
 .reviews/
+coverage.xml
+frontend/test-results/
+frontend/playwright-report/

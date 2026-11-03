@@ -1,0 +1,90 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, homolog]
+  pull_request:
+    branches: [main, homolog]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
+          ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          DATABASE_URL: "sqlite:///:memory:"
+        run: pytest -q --cov=. --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+
+  migrations:
+    # Os testes rodam em SQLite com o schema criado pelos models; este job garante que as
+    # migrations aplicam no Postgres real, que não há drift entre models e migrations, que
+    # o downgrade da última revisão funciona e que só existe uma head.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: financeiro
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
+      ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/financeiro
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Only one head
+        run: test "$(alembic heads | wc -l)" -eq 1
+
+      - name: Upgrade head
+        run: alembic upgrade head
+
+      - name: Check models x migrations (drift)
+        run: alembic check
+
+      - name: Downgrade last revision
+        run: alembic downgrade -1
+
+      - name: Upgrade head again
+        run: alembic upgrade head
