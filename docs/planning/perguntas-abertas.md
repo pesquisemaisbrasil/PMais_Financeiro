@@ -15,7 +15,6 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q7 | ROPA/RIPD das novas operações (conciliação por comprovante, NF/RPA de prestadores) | DPO | Pendente | handoff/08, reunião 21/10 |
 | Q8 | Segregação de funções: quem envia o lote não confirma a baixa dele acima de qual valor? | PO | Sem segregação | handoff/06 §2 |
 | Q9 | Resumo de pagamentos para o Financeiro: diário ou semanal? | Financeiro | Diário | handoff/08 |
-| Q10 | Login por e-mail ou por CPF? (o handoff/06 diz e-mail; o handoff/04 diz copiar o login por CPF do Connect) | PO + técnico | E-mail | alinhamento 21/10 |
 | Q12 | Baixar em outro projeto um comprovante que caiu "fora do projeto" | PO | Não existe; fica como alerta | handoff/08 |
 | Q13 | Comprovante de outros bancos ou em imagem (OCR) | PO | Só Itaú/Sispag, PDF com texto | handoff/01, 08 |
 | Q14 | Login único entre Connect e Financeiro | PO | Contas separadas; desenhar pensando em OIDC | handoff/01 |

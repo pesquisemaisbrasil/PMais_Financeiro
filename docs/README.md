@@ -21,7 +21,7 @@ Sistema financeiro da Pesquise+, separado do P+ Connect, que substitui o SGE4B, 
 | [transcricoes/](transcricoes/2026-10-21-processo-de-reconciliacao-e-lancamento.md) | Registro das reuniões que viraram requisito (resumo com minuto, sem dado pessoal) |
 
 Pastas que o [handoff/10 §3](handoff/10-processo-docs-e-skills.md) pede e que serão criadas na fase 0:
-- `architecture/` (modelo de dados, ADRs, segurança/LGPD);
+- `architecture/` (modelo de dados, segurança/LGPD; os [ADRs](architecture/adr/0001-stack-do-sistema-real.md) já começaram);
 - `development/`;
 - `operations/`;
 - `functional-map/`.
