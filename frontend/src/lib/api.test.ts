@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, NETWORK_ERROR_MESSAGE, clearAccessToken, getMe, login, logout, refreshSession } from "./api";
+import {
+  ApiError,
+  NETWORK_ERROR_MESSAGE,
+  clearAccessToken,
+  confirmMfaSetup,
+  getMe,
+  login,
+  logout,
+  refreshSession,
+  startMfaSetup,
+  verifyMfa,
+} from "./api";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -23,18 +34,57 @@ describe("sessão", () => {
     vi.unstubAllGlobals();
   });
 
-  it("login manda o e-mail como username, com cookie, e o token vai só para a memória", async () => {
-    fetchMock.mockResolvedValueOnce(json(200, { access_token: "acesso-1", token_type: "bearer" }));
-    fetchMock.mockResolvedValueOnce(json(200, ME));
+  it("login manda o e-mail como username e devolve só o token parcial, que não vira sessão", async () => {
+    const challenge = { mfa_token: "parcial", token_type: "bearer", setup_required: false };
+    fetchMock.mockResolvedValueOnce(json(200, challenge));
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "sem token" }));
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "sem cookie" }));
 
-    await login("ana@pesquisemais.com.br", "Str0ng!Pass");
-    await getMe();
+    await expect(login("ana@pesquisemais.com.br", "Str0ng!Pass")).resolves.toEqual(challenge);
+    await getMe().catch(() => undefined);
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.credentials).toBe("include");
     expect((init.body as URLSearchParams).get("username")).toBe("ana@pesquisemais.com.br");
-    const [, meInit] = fetchMock.mock.calls[1];
-    expect(new Headers(meInit.headers).get("Authorization")).toBe("Bearer acesso-1");
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).has("Authorization")).toBe(false);
+  });
+
+  it("o código certo abre a sessão, com o token parcial no cabeçalho e o token novo só em memória", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { access_token: "acesso-1", token_type: "bearer" }));
+    fetchMock.mockResolvedValueOnce(json(200, ME));
+
+    await verifyMfa("parcial", "123456");
+    await getMe();
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(new URL(url as string).pathname).toBe("/auth/token/mfa");
+    expect(init.credentials).toBe("include");
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer parcial");
+    expect(JSON.parse(init.body as string)).toEqual({ code: "123456" });
+    expect(new Headers(fetchMock.mock.calls[1][1].headers).get("Authorization")).toBe("Bearer acesso-1");
+  });
+
+  it("código errado mostra a mensagem do backend e não tenta renovar a sessão", async () => {
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "Código de verificação inválido" }));
+
+    await expect(verifyMfa("parcial", "000000")).rejects.toThrow("Código de verificação inválido");
+    expect(urlsCalled(fetchMock)).toEqual(["/auth/token/mfa"]);
+  });
+
+  it("o cadastro devolve a chave e, na confirmação, os códigos de recuperação e a sessão", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { secret: "ABC", otpauth_uri: "otpauth://x" }));
+    fetchMock.mockResolvedValueOnce(
+      json(200, { access_token: "acesso-2", token_type: "bearer", recovery_codes: ["AAAA-BBBB"] })
+    );
+    fetchMock.mockResolvedValueOnce(json(200, ME));
+
+    await expect(startMfaSetup("parcial")).resolves.toEqual({ secret: "ABC", otpauth_uri: "otpauth://x" });
+    await expect(confirmMfaSetup("parcial", "123456")).resolves.toEqual(["AAAA-BBBB"]);
+    await getMe();
+
+    expect(urlsCalled(fetchMock)).toEqual(["/auth/mfa/setup", "/auth/mfa/setup/confirm", "/auth/me"]);
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+    expect(new Headers(fetchMock.mock.calls[2][1].headers).get("Authorization")).toBe("Bearer acesso-2");
   });
 
   it("login recusado mostra a mensagem do backend e não tenta renovar", async () => {
@@ -88,7 +138,7 @@ describe("sessão", () => {
 
   it("logout limpa o token mesmo se o servidor estiver fora", async () => {
     fetchMock.mockResolvedValueOnce(json(200, { access_token: "acesso-5", token_type: "bearer" }));
-    await login("ana@pesquisemais.com.br", "Str0ng!Pass");
+    await verifyMfa("parcial", "123456");
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
     await expect(logout()).rejects.toThrow(NETWORK_ERROR_MESSAGE);

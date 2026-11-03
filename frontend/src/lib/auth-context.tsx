@@ -4,7 +4,6 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import {
   clearAccessToken,
   getMe,
-  login as apiLogin,
   logout as apiLogout,
   refreshSession,
   type UserPublic,
@@ -13,7 +12,8 @@ import {
 interface AuthContextValue {
   user: UserPublic | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Chamado no fim do login, depois do segundo fator: é o que libera as telas. */
+  loadUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -37,8 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    await apiLogin(email, password);
+  const loadUser = useCallback(async () => {
     setUser(await getMe());
   }, []);
 
@@ -53,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, loadUser, logout }}>{children}</AuthContext.Provider>
   );
 }
 
