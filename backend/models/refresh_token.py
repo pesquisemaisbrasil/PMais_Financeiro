@@ -16,7 +16,5 @@ class RefreshToken(Base):
     expiresAt = Column(DateTime(timezone=True), nullable=False)
     # Entrou por Google ou Microsoft: o segundo fator foi o do provedor, não o TOTP.
     viaSso = Column(Boolean, nullable=False, default=False, server_default="false")
-    # Entrou por Google ou Microsoft: o segundo fator foi o do provedor, não o TOTP.
-    viaSso = Column(Boolean, nullable=False, default=False, server_default="false")
     revoked = Column(Boolean, nullable=False, default=False, server_default="false")
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

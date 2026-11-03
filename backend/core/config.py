@@ -47,16 +47,6 @@ MICROSOFT_TENANT_ID = os.getenv("MICROSOFT_TENANT_ID", "")
 API_PUBLIC_URL = os.getenv("API_PUBLIC_URL", "http://localhost:8010")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3010")
 
-# Login por Google e Microsoft. Vazio = botão avisa que ainda não está disponível.
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-MICROSOFT_CLIENT_ID = os.getenv("MICROSOFT_CLIENT_ID", "")
-MICROSOFT_CLIENT_SECRET = os.getenv("MICROSOFT_CLIENT_SECRET", "")
-MICROSOFT_TENANT_ID = os.getenv("MICROSOFT_TENANT_ID", "")
-# Endereços que o navegador alcança: a volta do provedor e o destino depois do login.
-API_PUBLIC_URL = os.getenv("API_PUBLIC_URL", "http://localhost:8010")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3010")
-
 CORS_ORIGINS = [
     origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 ]
