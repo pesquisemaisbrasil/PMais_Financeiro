@@ -46,6 +46,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | openpyxl | 3.1.5 | planilha `.xlsx` de pagamentos |
 | tzdata | 2025.2 | fuso `America/Sao_Paulo` em imagem slim/Windows |
 | pypdf | 6.19.0 | leitura do PDF de comprovantes |
+| pyotp | 2.10.0 | MFA (TOTP). **Novo, não existe no Connect** |
 
 ### Backend (dev/CI)
 
@@ -76,6 +77,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | sonner (toast) | ^2.0.8 |
 | lucide-react | ^1.49.0 |
 | pdf-lib | ^1.17.1 (corta o PDF em partes no navegador) |
+| qrcode.react | ^4.2.0 (QR code do cadastro do MFA, gerado no navegador. **Novo, não existe no Connect**) |
 | typescript | ^5 |
 | vitest | ^3.2.4 |
 | @playwright/test | ^1.64.1 |
@@ -191,7 +193,10 @@ Segredo novo entra em `core/config.py` e no `.env.example` (com valor `change-me
 | `CORS_ORIGINS` | não | `http://localhost:3000` | só o domínio do front do Financeiro |
 | `ENVIRONMENT` | não | `development` | `production` em produção |
 | `RATE_LIMIT_ENABLED` | não | `true` | só os testes de tela desligam |
-| `FRONTEND_URL` | não | `http://localhost:3000` | links em e-mail |
+| `FRONTEND_URL` | não | `http://localhost:3010` | destino depois do login por SSO e links em e-mail |
+| `API_PUBLIC_URL` | não | `http://localhost:8010` | **novo**: endereço da API que o navegador alcança, usado na URL de retorno do SSO |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | não | — | **novo**: login com Google. Vazio = o botão avisa que não está disponível |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | não | — | **novo**: login com Microsoft, limitado à empresa pelo tenant |
 | `SMTP_*` (`HOST`, `PORT`, `USER`, `PASSWORD`, `FROM`, `STARTTLS`) | não | — | e-mail transacional (reset de senha) |
 | `MINIO_ENDPOINT` | sim | — | endpoint interno (ex.: `http://minio:9000`) |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | sim | — | usuário **próprio** do Financeiro no MinIO, com policy só no bucket dele |

@@ -1,7 +1,9 @@
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import jwt
+import pyotp
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -16,13 +18,20 @@ from models.refresh_token import RefreshToken
 from models.user import User
 from schemas.user import validate_password_strength
 from services.login_events import MAX_FAILURES_PER_EMAIL
-from tests.conftest import PASSWORD
+from tests.conftest import PASSWORD, TOTP_SECRET
 
 EMAIL = "ana@pesquisemais.com.br"
 
 
 def login(client: TestClient, email: str = EMAIL, password: str = PASSWORD):  # type: ignore[no-untyped-def]
     return client.post("/auth/token", data={"username": email, "password": password})
+
+
+def sign_in(client: TestClient, offset: int = 0):  # type: ignore[no-untyped-def]
+    """Login completo. `offset` escolhe a janela do código: o mesmo código não vale duas vezes."""
+    token = login(client).json()["mfa_token"]
+    code = pyotp.TOTP(TOTP_SECRET).at(int(time.time()), offset)
+    return client.post("/auth/token/mfa", json={"code": code}, headers=bearer(token))
 
 
 def bearer(token: str) -> dict[str, str]:
@@ -34,6 +43,7 @@ def make_token(user_id: int, **overrides: object) -> str:
         "sub": str(user_id),
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,
+        "type": "access",
         "exp": datetime.now(UTC) + timedelta(minutes=5),
     }
     claims.update(overrides)
@@ -45,7 +55,7 @@ def make_token(user_id: int, **overrides: object) -> str:
 
 def test_login_success(client: TestClient, make_user: Callable[..., User]) -> None:
     make_user()
-    response = login(client)
+    response = sign_in(client)
 
     assert response.status_code == 200
     body = response.json()
@@ -62,7 +72,7 @@ def test_login_ignores_email_case_and_spaces(
 
 def test_refresh_cookie_attributes(client: TestClient, make_user: Callable[..., User]) -> None:
     make_user()
-    cookie = login(client).headers["set-cookie"].lower()
+    cookie = sign_in(client).headers["set-cookie"].lower()
 
     assert "httponly" in cookie
     assert "samesite=strict" in cookie
@@ -75,7 +85,7 @@ def test_refresh_cookie_is_secure_when_configured(
 ) -> None:
     make_user()
     monkeypatch.setattr(auth_api, "REFRESH_COOKIE_SECURE", True)
-    assert "secure" in login(client).headers["set-cookie"].lower()
+    assert "secure" in sign_in(client).headers["set-cookie"].lower()
 
 
 @pytest.mark.parametrize(
@@ -103,12 +113,12 @@ def test_login_event_has_no_personal_data_in_clear(
 ) -> None:
     user = make_user()
     login(client, password="WrongPass1!")
-    login(client)
+    sign_in(client)
 
     failure, success = db_session.query(LoginEvent).order_by(LoginEvent.id).all()
     assert (failure.success, failure.reason, failure.user_id) == (False, "wrong_password", user.id)
     assert success.success is True
-    assert EMAIL not in (success.emailHash or "")
+    assert failure.emailHash and EMAIL not in failure.emailHash
     assert success.userAgent
     db_session.refresh(user)
     assert user.lastSignedInAt is not None
@@ -197,8 +207,10 @@ def test_me_without_token(client: TestClient) -> None:
         {"aud": "outro-sistema"},
         {"iss": "pconnect"},
         {"sub": "nao-e-numero"},
+        {"type": "mfa_pending"},
+        {"type": None},
     ],
-    ids=["expirado", "aud errado", "iss errado", "sub inválido"],
+    ids=["expirado", "aud errado", "iss errado", "sub inválido", "token parcial", "sem tipo"],
 )
 def test_me_rejects_bad_claims(
     client: TestClient, make_user: Callable[..., User], overrides: dict[str, object]
@@ -208,11 +220,22 @@ def test_me_rejects_bad_claims(
     assert client.get("/auth/me", headers=bearer(token)).status_code == 401
 
 
+def test_me_accepts_valid_access_token(client: TestClient, make_user: Callable[..., User]) -> None:
+    user = make_user()
+    assert client.get("/auth/me", headers=bearer(make_token(user.id))).status_code == 200
+
+
 def test_me_rejects_token_signed_with_other_key(
     client: TestClient, make_user: Callable[..., User]
 ) -> None:
     user = make_user()
-    claims = {"sub": str(user.id), "iss": JWT_ISSUER, "aud": JWT_AUDIENCE, "exp": 9999999999}
+    claims = {
+        "sub": str(user.id),
+        "iss": JWT_ISSUER,
+        "aud": JWT_AUDIENCE,
+        "type": "access",
+        "exp": 9999999999,
+    }
     token = jwt.encode(claims, "outra-chave-com-pelo-menos-32-caracteres!", algorithm=ALGORITHM)
     assert client.get("/auth/me", headers=bearer(token)).status_code == 401
 
@@ -221,7 +244,7 @@ def test_me_rejects_inactive_account_right_away(
     client: TestClient, db_session: Session, make_user: Callable[..., User]
 ) -> None:
     user = make_user()
-    token = login(client).json()["access_token"]
+    token = sign_in(client).json()["access_token"]
 
     user.status = "inactive"
     db_session.commit()
@@ -232,7 +255,7 @@ def test_refresh_cookie_value_is_not_an_access_token(
     client: TestClient, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client)
     refresh = client.cookies["refresh_token"]
     assert client.get("/auth/me", headers=bearer(refresh)).status_code == 401
 
@@ -244,7 +267,7 @@ def test_refresh_rotates_and_keeps_session(
     client: TestClient, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client)
     before = client.cookies["refresh_token"]
 
     response = client.post("/auth/token/refresh")
@@ -264,7 +287,7 @@ def test_refresh_reuse_revokes_whole_family(
     client: TestClient, db_session: Session, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client)
     stolen = client.cookies["refresh_token"]
     client.post("/auth/token/refresh")
     current = client.cookies["refresh_token"]
@@ -283,10 +306,10 @@ def test_reuse_does_not_touch_other_sessions(
     client: TestClient, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client, offset=-1)
     other_session = client.cookies["refresh_token"]
     client.cookies.clear()
-    login(client)
+    sign_in(client)
     stolen = client.cookies["refresh_token"]
     client.post("/auth/token/refresh")
 
@@ -310,7 +333,7 @@ def test_expired_refresh_is_refused(
     client: TestClient, db_session: Session, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client)
     db_session.query(RefreshToken).update(
         {RefreshToken.expiresAt: datetime.now(UTC) - timedelta(minutes=1)}
     )
@@ -322,7 +345,7 @@ def test_deactivated_account_loses_session_on_next_refresh(
     client: TestClient, db_session: Session, make_user: Callable[..., User]
 ) -> None:
     user = make_user()
-    login(client)
+    sign_in(client)
     user.status = "inactive"
     db_session.commit()
 
@@ -334,7 +357,7 @@ def test_refresh_limit_survives_a_team_reloading_pages(
     client: TestClient, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client)
     for _ in range(30):
         assert client.post("/auth/token/refresh").status_code == 200
 
@@ -346,7 +369,7 @@ def test_logout_revokes_session(
     client: TestClient, db_session: Session, make_user: Callable[..., User]
 ) -> None:
     make_user()
-    login(client)
+    sign_in(client)
     token = client.cookies["refresh_token"]
 
     assert client.post("/auth/logout").status_code == 204

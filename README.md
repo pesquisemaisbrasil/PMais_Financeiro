@@ -10,7 +10,7 @@ Sistema financeiro da Pesquise+. É separado do **P+ Connect** e substitui o SGE
 6. conciliação bancária;
 7. relatórios e fluxo de caixa.
 
-**Estado:** o código começou: login por e-mail e senha em `backend/` e `frontend/`, ainda sem MFA. O restante segue a fase 0 do [plano](docs/handoff/11-plano-de-implementacao.md).
+**Estado:** o código começou: login por e-mail e senha com MFA em `backend/` e `frontend/`. O restante segue a fase 0 do [plano](docs/handoff/11-plano-de-implementacao.md).
 
 ## Comece por aqui
 
@@ -29,7 +29,7 @@ docker compose up -d --wait db
 cd backend
 py -3.12 -m venv .venv    # ou: uv venv --python 3.12 .venv
 .venv/Scripts/python -m pip install -r requirements.txt -r requirements-dev.txt
-cp .env.example .env        # troque a SECRET_KEY: a API não sobe com a de exemplo
+cp .env.example .env        # gere SECRET_KEY e ENCRYPTION_KEY: a API não sobe com as de exemplo
 .venv/Scripts/alembic upgrade head
 .venv/Scripts/python scripts/create_user.py --email voce@pesquisemais.com.br --name "Seu nome" --role admin
 .venv/Scripts/python -m uvicorn main:app --port 8010
@@ -43,7 +43,32 @@ npm install
 npm run dev
 ```
 
-Abra `http://localhost:3010`. O roteiro de teste está no [roadmap](docs/planning/roadmap.md#como-testar).
+Abra `http://localhost:3010`. No primeiro login, o sistema pede para cadastrar um app autenticador. O roteiro de teste está no [roadmap](docs/planning/roadmap.md#como-testar).
+
+Quem perdeu o celular e os códigos de recuperação: `.venv/Scripts/python scripts/reset_mfa.py --email voce@pesquisemais.com.br`.
+
+## Login com Google e Microsoft
+
+Os botões já aparecem na tela. Para funcionarem de verdade, registre o app em cada provedor e coloque as chaves no `backend/.env`:
+
+| Provedor | Onde registrar | Variáveis |
+|---|---|---|
+| Google | Google Cloud Console → APIs e serviços → Credenciais → ID do cliente OAuth, tipo Aplicativo da Web | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| Microsoft | Microsoft Entra → Registros de aplicativo, com contas somente desta organização | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` |
+
+A URL de retorno é `<API_PUBLIC_URL>/auth/sso/google/callback` e `<API_PUBLIC_URL>/auth/sso/microsoft/callback`. Só entra quem já tem conta no Financeiro com o mesmo e-mail, e reinicie a API depois de mudar o `.env`.
+
+Quem administra as contas da empresa precisa exigir a verificação em duas etapas nelas, porque o Financeiro não pede código nesse caminho.
+
+## Antes de abrir um PR
+
+```bash
+bash scripts/verify-delivery.sh          # a mesma barra do CI
+bash scripts/verify-delivery.sh --e2e    # mais os testes de tela, se mudou tela ou fluxo
+bash scripts/verify-delivery.sh --fast   # sem cobertura, para iterar
+```
+
+O `--e2e` pede `npx playwright install chromium` uma vez, e o `npm run dev` da porta 3010 parado, porque o `next dev` não sobe duas vezes na mesma pasta.
 
 ## Regras que valem para tudo
 

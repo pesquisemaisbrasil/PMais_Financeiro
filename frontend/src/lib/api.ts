@@ -117,17 +117,68 @@ export interface UserPublic {
   role: string;
 }
 
-export async function login(email: string, password: string): Promise<void> {
-  const response = await safeFetch(`${API_URL}/auth/token`, {
+export interface MfaChallenge {
+  mfa_token: string;
+  token_type: string;
+  setup_required: boolean;
+}
+
+export interface MfaSetup {
+  secret: string;
+  otpauth_uri: string;
+}
+
+/** Sem a renovação de `fetchWithAuth`: aqui 401 é senha ou código errado, não sessão vencida. */
+async function postAuth<T>(path: string, init: RequestInit): Promise<T> {
+  const response = await safeFetch(`${API_URL}${path}`, {
+    ...init,
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ username: email, password }),
   });
   if (!response.ok) {
     throw new ApiError(response.status, await extractErrorMessage(response));
   }
-  accessToken = ((await response.json()) as Token).access_token;
+  return (await response.json()) as T;
+}
+
+function postWithMfaToken<T>(path: string, mfaToken: string, body?: unknown): Promise<T> {
+  return postAuth<T>(path, {
+    headers: { Authorization: `Bearer ${mfaToken}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+/** Senha certa ainda não é login: devolve o token parcial para o segundo fator. */
+export function login(email: string, password: string): Promise<MfaChallenge> {
+  return postAuth<MfaChallenge>("/auth/token", {
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ username: email, password }),
+  });
+}
+
+export async function verifyMfa(mfaToken: string, code: string): Promise<void> {
+  const token = await postWithMfaToken<Token>("/auth/token/mfa", mfaToken, { code });
+  accessToken = token.access_token;
+}
+
+export function startMfaSetup(mfaToken: string): Promise<MfaSetup> {
+  return postWithMfaToken<MfaSetup>("/auth/mfa/setup", mfaToken);
+}
+
+/** Termina o cadastro e abre a sessão. Devolve os códigos de recuperação, que só aparecem aqui. */
+export async function confirmMfaSetup(mfaToken: string, code: string): Promise<string[]> {
+  const token = await postWithMfaToken<Token & { recovery_codes: string[] }>(
+    "/auth/mfa/setup/confirm",
+    mfaToken,
+    { code }
+  );
+  accessToken = token.access_token;
+  return token.recovery_codes;
+}
+
+/** Endereço que começa o login por Google ou Microsoft: o navegador vai até lá, não é fetch. */
+export function ssoLoginUrl(provider: string): string {
+  return `${API_URL}/auth/sso/${provider}/start`;
 }
 
 export async function logout(): Promise<void> {
