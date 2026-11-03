@@ -20,6 +20,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q14 | Login único entre Connect e Financeiro | PO | Contas separadas; desenhar pensando em OIDC | handoff/01 |
 | Q15 | **CPF inteiro e PIS/NIT para o RPA** (D7): o Connect hoje só guarda o hash do CPF (ADR 0003). Guardar inteiro cifrado, ou a contabilidade coletar fora do sistema? | DPO | O Connect não coleta nenhum dos dois | decisões pós-reunião |
 | Q17 | O prazo de **6 meses** vale também para as **notas de fornecedores** (hoje 5 anos no cofre do Financeiro)? | DPO + Bruna | 5 anos no cofre, com `retainUntil` | decisões pós-reunião |
+| Q18 | O que substitui o **MinIO** no armazenamento de arquivos? O projeto foi arquivado no GitHub, e as imagens e os binários oficiais saíram do ar | João | Não há upload ainda, e o compose sobe sem armazenamento | PF-13, 03/11/2026 |
 
 ## Módulos 2 a 7
 

@@ -19,11 +19,9 @@ Sistema financeiro da Pesquise+, separado do P+ Connect, que substitui o SGE4B, 
 | [specs/](specs/README.md) | Contrato de comportamento por área, organizado por módulo; o que ainda não entrou fica em `futuro/` |
 | [planning/](planning/roadmap.md) | Roadmap dos módulos, perguntas abertas e histórico das decisões de documentação |
 | [transcricoes/](transcricoes/2026-10-21-processo-de-reconciliacao-e-lancamento.md) | Registro das reuniões que viraram requisito (resumo com minuto, sem dado pessoal) |
-
-Pastas que o [handoff/10 §3](handoff/10-processo-docs-e-skills.md) pede e que serão criadas na fase 0:
-- `architecture/` (modelo de dados, segurança/LGPD; os [ADRs](architecture/adr/0001-stack-do-sistema-real.md) já começaram);
-- `development/`;
-- `operations/`;
-- `functional-map/`.
+| [architecture/](architecture/README.md) | [ADRs](architecture/adr/README.md) e, conforme forem escritos, modelo de dados, segurança e LGPD |
+| [development/](development/README.md) | Padrões de código, testes e entrega; por enquanto aponta para o handoff |
+| [operations/](operations/README.md) | Runbooks; por enquanto aponta para o README da raiz |
+| [functional-map/](functional-map/README.md) | Jornadas e fluxos; por enquanto aponta para os specs |
 
 **Fora do repositório:** as entrevistas com a gestão operacional, o levantamento do SGE4B e a transcrição bruta das reuniões têm nomes, valores e comentários internos. Ficam com o PO e são citados nos specs como `[S1]`, `[S2]`, `[SGE4B]`, `[SWOT]` e `[Reunião dd/mm]`.
