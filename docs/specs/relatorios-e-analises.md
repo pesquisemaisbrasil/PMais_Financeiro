@@ -10,6 +10,7 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 |---|---|---|
 | Lançamentos a pagar | 1 | Filtros por programação, empresa, fornecedor, projeto e centro de custo, com intervalo de datas. Colunas: programação, pagamento, fornecedor, plano de contas, valor líquido, pago, pendente, projeto, unidade, centro de custo, empresa, conta, situação e descrição [SGE4B §5.6] |
 | Lançamentos a receber | 1 | O mesmo, com cliente |
+| Relatório do projeto | 1 | Por projeto, para fechar relatório: orçamento, lançado, pago, a pagar, saldo e **anexos de todos os lançamentos** de Contas a pagar (planilhas, comprovantes, notas), com link para cada lançamento. Abre pelo código do projeto na lista de Contas a pagar. Não é onde se paga [Kickoff 03/11 12:41–13:23] |
 | Resultado por projeto | 1 | Por projeto: receita, custo por rubrica (planejado × realizado), margem, resultado, causa; filtros por área, gestora, cliente, mês de venda/execução, status e resultado |
 | Causas de resultado negativo | 1 | Contagem e valor por causa, por período e por área (base para aprender o orçamento) |
 | Folha e pagamentos de campo | 1 | Por ciclo, projeto e pessoa: quantidades, valores, exceções, pago e devolvido |
@@ -46,6 +47,7 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 
 - [ ] O filtro por empresa + unidade + projeto + centro de custo + linha do DRE traz exatamente a interseção, e os totais batem com a soma das linhas.
 - [ ] Na exportação, aparecem os filtros usados, os totais e os IDs dos títulos (serve para auditoria e migração).
+- [ ] O relatório do projeto 1804 mostra orçamento, lançado, pago, a pagar, saldo e os anexos de todos os seus lançamentos; clicar no código do projeto em Contas a pagar abre esse relatório.
 - [ ] O resultado por projeto de um projeto fechado bate com o fechamento financeiro dele.
 - [ ] O DRE do mês bate com a soma das contas analíticas vinculadas a cada linha.
 - [ ] O fluxo de caixa previsto da próxima semana lista os títulos em aberto por vencimento, e o realizado as baixas.
@@ -58,7 +60,12 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 Origem do requisito:
 
 - [Reunião 21/10 17:01–20:36, 47:49–48:25]: data de baixa, extrato × despesas, fluxo de caixa.
+- [Kickoff 03/11 12:41–13:23]: relatório do projeto.
 
 
 - [SGE4B §5.6, §6.3, §10 CT-07, CT-10].
 - [S1 09:37–11:20; S2 01:15]: positivo/negativo e causas; [SWOT §8.1] métricas.
+
+## Ajustes
+
+- 2026-11-03: entra o **relatório do projeto** (orçamento, lançado, pago, a pagar, saldo e anexos de todos os lançamentos), que substitui a tela de pagamento por projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K4).

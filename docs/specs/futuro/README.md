@@ -13,6 +13,8 @@
 | [adiantamentos-e-prestacao-de-contas](adiantamentos-e-prestacao-de-contas.md) | Ajuda de custo de viagem com saldo a comprovar e prestação de contas |
 | [evidencias-e-catalogo](evidencias-e-catalogo.md) | Cofre de evidências com OCR/renomeação e catálogo Big Base |
 
+**Respondentes no Connect** (ainda sem spec): o Connect hoje não tem entrevistados. O incentivo chega por planilha de e-mail, importada no Financeiro. A evolução é ter o ecossistema completo (coordenador → supervisor → entrevistador → entrevistado), com a base de respondentes no Connect e o incentivo saindo dela ([kickoff de 03/11](../../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5; pergunta [F26](../../planning/perguntas-abertas.md#escopo-futuro)).
+
 Vêm das entrevistas com a gestão operacional e do relatório SWOT:
 - o custo de telefonia não entra no planejamento;
 - não dá para provar quem gerou cada entrevista;

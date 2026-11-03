@@ -8,6 +8,7 @@ Hoje o financeiro lança **um** pagamento no sistema por planilha e faz **um Pix
 
 ## Comportamento
 
+- **Incentivo por planilha:** a planilha importada vira **um lançamento por data de pagamento** ([contas-a-pagar](contas-a-pagar.md)), e o lote usa esses lançamentos, não uma data única [Kickoff 03/11 15:07–17:50].
 - O financeiro gera o **lote** a partir das folhas `aprovadas` e das planilhas de incentivo, de um ou mais projetos (identificados pelo código do job). O lote agrupa **por pessoa** (`connect_interviewer_id`), com o detalhe por projeto e por tipo.
 - **Planilha do lote:** mesmo formato e mesmas regras da planilha do escopo atual ([../pagamentos-a-pagar](pagamentos-a-pagar.md)):
   - nome e chave completa vêm do Connect na hora;
@@ -33,7 +34,7 @@ Hoje o financeiro lança **um** pagamento no sistema por planilha e faz **um Pix
 2. **Valor exato:** Pix = soma dos itens alocados. Não existe resto.
 3. Nada é pago sem "Confirmar baixa".
 4. Quem gera ou baixa o lote não pode ser quem aprovou a folha.
-5. Pessoa sem chave Pix válida no Connect fica fora do lote, com aviso. Pessoa que recebe por NF sem nota enviada também ([documentos-fiscais](documentos-fiscais.md)).
+5. Pessoa sem chave Pix válida no Connect fica fora do lote, com aviso. **NF pendente não tira ninguém do lote**: é só aviso ([documentos-fiscais](documentos-fiscais.md); decisão do PO em 28/10/2026).
 6. Item de folha pago vira, em contas a pagar, um item baixado do lançamento agrupado em nome da pessoa, para o fluxo de caixa e o DRE ficarem completos.
 7. Duplicidade (mesmo `e2eId`) é bloqueada pelo mesmo índice do Módulo 1.
 8. Envio ao banco (etapa 2): cada pagamento leva uma chave de idempotência; reenviar o lote nunca paga duas vezes quem já foi pago; a confirmação humana continua obrigatória **antes do envio**, com MFA.
@@ -49,6 +50,7 @@ Hoje o financeiro lança **um** pagamento no sistema por planilha e faz **um Pix
 
 ## Critérios de aceite
 
+- [ ] Uma planilha de incentivos com respostas de 4 datas entra no lote como 4 grupos, cada um na sua data de pagamento.
 - [ ] Três folhas aprovadas de projetos diferentes viram um lote com uma linha por pessoa.
 - [ ] O PDF de comprovantes do lote é lido pela mesma tela e concilia por soma exata.
 - [ ] Depois de confirmar, a folha passa a `paga`, o ledger do projeto mostra o realizado e nenhuma chamada vai ao Connect (itens de folha).
@@ -62,7 +64,13 @@ Hoje o financeiro lança **um** pagamento no sistema por planilha e faz **um Pix
 
 Origem do requisito:
 
+- [Kickoff 03/11 15:07–17:50]: incentivo dividido por data de pagamento.
 - [Reunião 21/10 6:39–13:23]: um lançamento por planilha, Pix um por um, integração com o banco e retorno de erros por pessoa.
 - [S1 30:09–32:13, 50:35–51:09]: envio ao financeiro, consolidado devolvido, pagamento periódico.
 - [Connect: financeiro] regras 2, 4, 6, 7; [SWOT S05, RF07].
 - [handoff/07 §4.6] (baixa no Connect exige `amount` = soma das entrevistas). Pendências F2, F4, N1. Pagar direto pelo banco estava fora do escopo em [handoff/01](../handoff/01-visao-escopo-e-decisoes.md); a reunião de 21/10 pôs como etapa 2, a pesquisar.
+
+## Ajustes
+
+- 2026-10-28: pessoa com NF pendente **entra** no lote; a NF não é mais obrigatória para pagar. Decisão do PO em 28/10/2026 ([documentos-fiscais](documentos-fiscais.md)).
+- 2026-11-03: o incentivo importado por planilha é dividido em **um lançamento por data de pagamento** (prazo em dias úteis por tipo de projeto), e o lote respeita essas datas ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5, K6).

@@ -54,12 +54,24 @@ Respostas e consequências: [registro](../transcricoes/2026-10-23-respostas-do-f
 | F20 | **Autorização para passar do orçamento** (D3): como fica agora que o gasto é lançado no Connect pelo coordenador (E3). O mesmo pedido existe no Connect (Q4 de lá) | PO | O Connect bloqueia gasto acima do item; sem autorização por enquanto |
 | F21 | O Financeiro pode lançar o gasto de um item do orçamento, ou só **ler** o que o coordenador lançou no Connect (Q5 do Connect)? | PO | Só lê |
 
+## Kickoff de 03/11 (novas)
+
+Perguntas e consequências: [registro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md).
+
+| # | Pergunta | Quem decide | Hoje |
+|---|---|---|---|
+| F22 | **Tabela de prazos do incentivo por tipo de projeto** (Health 10 dias úteis? "CLT"/CATI 3 ou 4? consumo?). Conta a partir da data da resposta? | Financeiro (Camila) | Prazo em dias úteis no projeto, contado da data da resposta |
+| F23 | Onde se marca **tipo de projeto, "tem incentivo" e prazo**: no Connect (coordenador) ou no Financeiro? | PO | Connect, lido pelo Financeiro; no protótipo, campo no cadastro de projeto |
+| F24 | **Colunas padrão da planilha de incentivos** (nome, CPF?, chave Pix, valor, data da resposta, projeto) | Financeiro | Modelo fixo para importar |
+| F25 | Entrevistadores: **um lançamento por projeto × data de pagamento** ou um por ciclo com vários projetos? | PO + financeiro | Um por projeto × data de pagamento |
+
 ## Escopo futuro
 
 | # | Pergunta | Quem decide | Hoje |
 |---|---|---|---|
 | F1 | Entram telefonia/consumo digital, atribuição de produção, calculadora de orçamento e evidências/OCR? Quando? | PO + direção | Fora do escopo ([specs/futuro](../specs/futuro/README.md)) |
 | F7 | Regra corporativa de atribuição (online × recrutador × entrevistador) | Operação + financeiro + direção | Só se F1 trouxer a atribuição |
+| F26 | **Respondentes (entrevistados) no Connect:** base de respondentes e incentivo saindo de lá, no ecossistema coordenador → supervisor → entrevistador → entrevistado ([registro de 03/11](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5) | PO | Fora do escopo; o incentivo entra por planilha importada |
 | F12 | **Planejamento orçamentário do Grupo:** orçamento de todas as áreas, comparado com o realizado. Como o Fabiano planeja hoje, quem preenche, se há versões ([spec](../specs/futuro/planejamento-orcamentario-do-grupo.md)) | PO + Fabiano | Fora do escopo; fase seguinte |
 
 ## Decididas (histórico)
@@ -69,6 +81,7 @@ Decisões do PO depois da reunião de 21/10: [registro](../transcricoes/2026-10-
 - **F4**, datas de pagamento por área: o **supervisor define o prazo do projeto e vale para todas as equipes** (D9). As regras por área viram orientação. Falta só o formato do prazo (depois do lançamento ou do fim do projeto).
 - **F5**, quem autoriza gasto acima do orçamento: **algum administrador**, com **log** da autorização (D3).
 - **Orçamento em itens** (D1, D2) e **projeto fica no Connect** (D4); pedido de aumento de limite registrado: fora por enquanto.
+- **NF do entrevistador não bloqueia o pagamento** (28/10/2026): continua subindo no Connect, mas "NF pendente" é só aviso e quem está pendente entra na planilha e no pagamento. Revê a última frase da D8 ([nota](../transcricoes/2026-10-21-decisoes-pos-reuniao.md#nota-de-28102026-nf-não-bloqueia-o-pagamento)).
 - **Q16**, ciclo de vida do projeto: **fica no Connect**, com o papel de **coordenador** (cria o projeto, atribui o supervisor, monta o orçamento por itens e lança o gasto). O Financeiro só tem a visão financeira do projeto. Registro de 23/10 (E1 a E5).
 - **Consumo do orçamento** (muda a D5): lançado no Connect pelo coordenador; o Financeiro **lê** o gasto por item. Registro de 23/10 (E3).
 - **NF ou RPA:** a pessoa escolhe no cadastro do Connect (D6). **Pagar pelo Itaú:** segue como pesquisa N1 (D11).

@@ -53,6 +53,15 @@ Decidido em 22 e 23/10 ([registro](../transcricoes/2026-10-23-respostas-do-finan
 
 **Dependência no Connect (mudanças em outro repositório):** papel de **coordenador**, escopo do supervisor por projeto, histórico de alterações do projeto, gasto por item do orçamento e convite de cadastro de entrevistadores. O Financeiro lê `items[].spent` e a provisão a partir de `/integrations/v1/projects/{id}/budget`.
 
+## Kickoff com o financeiro (03/11/2026)
+
+[Registro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md). O protótipo foi mostrado a Bruna e Camila, mas a chamada caiu e o resto **não foi visto: a reunião será remarcada**. O que mudou no plano:
+
+- o pagamento de entrevistadores chega como **lançamento agrupado em Contas a pagar**, e a tela por projeto vira relatório (K1 a K4); isso afeta as entregas 2 e 3;
+- o **incentivo** entra por planilha importada, dividido por data de pagamento, com prazo em dias úteis por tipo de projeto (K5 a K7); entra na entrega 4;
+- o protótipo é **revisto** com isso; as próximas demonstrações usam **dados reais** do SGE4B (K9);
+- perguntas novas F22 a F25 em [perguntas-abertas](perguntas-abertas.md).
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).

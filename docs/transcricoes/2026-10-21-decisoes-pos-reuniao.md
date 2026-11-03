@@ -27,3 +27,7 @@
 - O prazo de **6 meses** vale também para as notas de **fornecedores**? Hoje o spec diz 5 anos no cofre (Q17).
 - O **formato do prazo** de pagamento: dias depois do lançamento (como é no Connect) ou depois do fim do projeto (F4, resolvida só em quem decide).
 - O **ciclo de vida do projeto** (`proposta` a `fechado`) e a aprovação do orçamento descritos em [projetos-financeiros](../specs/projetos-financeiros.md) precisam ser revistos à luz de D4 (Q16).
+
+## Nota de 28/10/2026: NF não bloqueia o pagamento
+
+A última frase da D8 ("Sem NF, não recebe") **foi revista pelo PO em 28/10/2026**: a NF do entrevistador/prestador continua subindo no Connect, mas **não é mais obrigatória para pagar**. "NF pendente" é só aviso, e quem está com NF pendente entra na planilha e no pagamento. O resto da D8 (guarda de 6 meses no Connect, 5 anos na rede da empresa, Financeiro só recebe o status) segue valendo. Specs ajustados: [documentos-fiscais](../specs/documentos-fiscais.md), [folha-de-campo](../specs/folha-de-campo.md), [lotes-de-pagamento-de-campo](../specs/lotes-de-pagamento-de-campo.md), [visao-geral](../specs/visao-geral.md).

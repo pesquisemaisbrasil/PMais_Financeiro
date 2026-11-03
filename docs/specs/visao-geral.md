@@ -24,7 +24,7 @@ Antes de cada módulo, um **protótipo rápido** valida as telas e as regras com
 
 | Papel | No Financeiro |
 |---|---|
-| `financeiro` | Contas a pagar (lançamentos, folhas, incentivos, baixas), contas a receber, conciliação, fechamento, planilha e comprovantes |
+| `financeiro` | Contas a pagar (lançamentos, folhas, incentivos, baixas), contas a receber, conciliação, fechamento, planilha e comprovantes. O pagamento de entrevistadores **chega sozinho como lançamento de Contas a pagar**, onde ficam planilha, comprovantes e NF [Kickoff 03/11 8:26–13:23] |
 | `admin` | Tudo, mais usuários, contas de serviço, auditoria e **autorização de gasto acima do orçamento** |
 | Supervisor | **Não entra** (Q1). Lança entrevistas no Connect e sobe NF lá |
 | Entrevistador | **Não entra.** No Connect: escolhe NF ou RPA, sobe a NF e vê "Pago em dd/mm" |
@@ -58,7 +58,7 @@ As de 1 a 10 são decisões do [handoff/01](../handoff/01-visao-escopo-e-decisoe
 8. **CPF nunca aparece:** só existe como hash, no Connect.
 9. **Dinheiro é `Decimal`** e trafega como string `"40.00"`; datas de negócio no fuso de São Paulo.
 10. **Casamento da chave Pix é feito pelo Connect** (`pix-key-matches`).
-11. **Todo pagamento tem documento fiscal ou "sem documento" com motivo.** Quem recebe por NF só é pago com a NF enviada.
+11. **Todo pagamento tem documento fiscal ou "sem documento" com motivo.** A NF do entrevistador sobe no Connect, mas **não bloqueia o pagamento**: "NF pendente" é só aviso (decisão do PO em 28/10/2026).
 12. **Data de baixa é a data em que o dinheiro saiu.** Relatório de pagos e fluxo de caixa usam a data de baixa, para bater com o extrato.
 13. **Nada é digitado duas vezes:** projeto, orçamento e entrevistas vêm do Connect; planilha de folha ou incentivo é importada, não redigitada.
 
@@ -73,3 +73,5 @@ As de 1 a 10 são decisões do [handoff/01](../handoff/01-visao-escopo-e-decisoe
 - 2026-10-20: primeira versão dos specs, a partir do levantamento do SGE4B, do relatório SWOT e das entrevistas com a gestão operacional.
 - 2026-10-21: alinhado ao handoff; escopo amplo movido para `futuro/` ([histórico](../planning/historico/2026-10-21-alinhamento-specs-com-handoff.md)).
 - 2026-10-21: reunião com o financeiro. O escopo amplo volta, organizado em módulos, e entram NF/RPA, provisionamento, rateio, ações em lote, voltas e integração com o Itaú (etapa 2) ([histórico](../planning/historico/2026-10-21-reuniao-financeiro-escopo-em-modulos.md)).
+- 2026-10-28: a NF do entrevistador deixa de ser obrigatória para pagar; "NF pendente" é só aviso (regra de produto 11). Decisão do PO em 28/10/2026 ([documentos-fiscais](documentos-fiscais.md)).
+- 2026-11-03: kickoff com o financeiro. **Onde se paga entrevistador:** no lançamento agrupado em Contas a pagar (um por projeto × data), que chega do Connect; a tela por projeto vira relatório. Incentivo entra por planilha importada, dividido por data de pagamento ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1 a K9).

@@ -19,6 +19,8 @@ Contrato da ficha financeira do projeto, do seu ciclo de vida e dos eventos de a
   1. **Encerrar campo**, pelo supervisor ou pela gestora: avisa na hora o processamento e as demais áreas [S2 16:27].
   2. **Fechamento financeiro**, pela gestora: só depois da última folha paga e sem divergência aberta. Mostra planejado × realizado por rubrica, resultado (receita − custos) e margem, e exige a **classificação do resultado**.
 - **Resultado:** `positivo` | `negativo` | `neutro`. Se negativo, ou se alguma rubrica estourou, exige **causa** (lista + texto livre). Causas iniciais: duração maior que a prevista, lista improdutiva, cotas rígidas, custo de delivery/online, verificação, telefonia, aumento de incentivo, aumento de equipe/diárias e outro [S1 09:37–11:20; S2 01:15–02:25].
+- **Relatório do projeto** [Kickoff 03/11 12:41–13:23]: a tela por projeto mostra orçamento, lançado, pago, a pagar, saldo e **os anexos de todos os lançamentos** de Contas a pagar do projeto (planilhas, comprovantes, notas), com link para cada lançamento. Responde "quanto foi gasto no projeto X" e serve para fechar relatório. **Não é onde se paga**: o pagamento é feito nos lançamentos de [contas-a-pagar](contas-a-pagar.md).
+- **Tipo do projeto** (Health, CATI, consumo...), **tem incentivo** e **prazo do incentivo em dias úteis** ficam na ficha; onde são configurados (Connect ou Financeiro) é a pergunta F23 [Kickoff 03/11 16:31–17:10].
 - A lista de projetos mostra cartões com totais, filtros por status, área, cliente, gestora, resultado e mês de venda/execução, e as cores positivo/negativo da planilha atual [S1 09:37].
 
 ## Regras
@@ -46,6 +48,7 @@ Contrato da ficha financeira do projeto, do seu ciclo de vida e dos eventos de a
 ## Critérios de aceite
 
 - [ ] A gestora cria a ficha, aprova o orçamento e inicia o campo; as tarefas de abertura aparecem para processamento, verificação e financeiro, com prazo.
+- [ ] O relatório do projeto lista orçamento, lançado, pago, a pagar, saldo e os anexos de todos os seus lançamentos de Contas a pagar, e cada lançamento abre ao ser clicado.
 - [ ] Um projeto vendido em dez/2025 e executado em mar/2026 aparece nos dois filtros (venda e execução).
 - [ ] Incentivo marcado como "link do cliente" não gera título a pagar, mas aparece como informativo no planejado × realizado.
 - [ ] Ao encerrar o campo, o processamento recebe a tarefa na hora, sem depender de e-mail.
@@ -59,6 +62,7 @@ Contrato da ficha financeira do projeto, do seu ciclo de vida e dos eventos de a
 
 Origem do requisito:
 
+- [Kickoff 03/11 12:41–13:23, 16:31–17:10]: relatório do projeto; tipo, incentivo e prazo.
 - [Reunião 21/10 3:00–3:15, 25:52–33:26]: projeto cadastrado à mão hoje, fim do projeto e datas de pagamento, orçamento na abertura.
 
 
@@ -71,3 +75,4 @@ Origem do requisito:
 
 - 2026-10-21: o projeto **fica no Connect** e o supervisor administra tudo lá ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D4). O ciclo de vida e a aprovação do orçamento descritos aqui precisam ser revistos (pergunta Q16, resolvida em 23/10: ver o ajuste abaixo).
 - 2026-10-23: **resolvida a Q16.** O ciclo de vida do projeto, o orçamento por itens e o gasto ficam no **Connect**, com o papel de **coordenador** (cria o projeto, atribui o supervisor, muda orçamento e preço com histórico e lança o gasto dos itens que não são entrevista); o supervisor só lança entrevistas nos projetos atribuídos ([decisões do PO](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), E1 a E5). Este spec deve ser reduzido à **visão financeira** do projeto (receita, custo, provisão, margem), sem ciclo de vida próprio.
+- 2026-11-03: a tela por projeto vira **relatório do projeto** (orçamento, lançado, pago, a pagar, saldo e anexos), e o pagamento fica em Contas a pagar; o tipo do projeto, "tem incentivo" e o prazo do incentivo entram na ficha ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K4, K7).
