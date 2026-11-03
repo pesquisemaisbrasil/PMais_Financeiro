@@ -141,7 +141,9 @@ def rotate_refresh_token(db: Session, token: str) -> tuple[str, str] | None:
     if as_utc(db_token.expiresAt) < datetime.now(UTC):
         return None
 
-    # Conta desativada ou sem MFA não renova sessão (mesmo 401 genérico do login)
+    # Conta desativada ou sem MFA não renova sessão (mesmo 401 genérico do login).
+    # shortcut: só existe login por senha, então toda sessão exige TOTP; a entrega de SSO
+    # precisa liberar quem entrou pelo provedor, aqui e em get_current_user.
     user = db.query(User).filter(User.id == db_token.user_id).first()
     if user is None or user.status != "active" or user.mfaEnabledAt is None:
         _revoke_family(db, db_token.familyId)

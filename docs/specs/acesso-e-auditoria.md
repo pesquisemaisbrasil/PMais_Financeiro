@@ -5,9 +5,9 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 ## Comportamento
 
 - **Login** por **e-mail + senha** (`POST /auth/token`). O usuário interno não precisa de CPF, e o Financeiro não guarda CPF de ninguém.
-- **SSO Google ou Microsoft** como alternativa à senha no primeiro fator. O MFA continua obrigatório depois, nos dois casos.
+- **SSO Google ou Microsoft** como alternativa à senha. Quem entra assim confirma no próprio provedor e não passa pela etapa de código do Financeiro. Por isso, a verificação em duas etapas precisa estar exigida nas contas da empresa, pelo administrador do Google e da Microsoft.
 - **Não há cadastro público:** a conta nasce com `backend/scripts/create_user.py` até existir a tela de usuários.
-- **MFA (TOTP) obrigatório** para todos os papéis (`admin` e `financeiro`):
+- **MFA (TOTP) obrigatório** para quem entra por e-mail e senha, em todos os papéis (`admin` e `financeiro`):
   - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela: `POST /auth/mfa/setup` devolve a chave e o QR code, e `POST /auth/mfa/setup/confirm` prova o cadastro com o primeiro código e abre a sessão;
   - `POST /auth/token` devolve um token parcial (`mfa_pending`, 5 min);
   - `POST /auth/token/mfa` com o código de 6 dígitos emite o par de tokens;
@@ -97,4 +97,5 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - 2026-11-03: Q10 fechada (PF-4): login por e-mail + senha, com SSO Google ou Microsoft como alternativa no primeiro fator e TOTP depois nos dois casos. Sem CPF no Financeiro.
 - 2026-11-03: primeira entrega só com e-mail + senha, sessão e limites. Faltam MFA e reautenticação, SSO, troca e recuperação de senha, papéis e auditoria. **Nada vai para a `main` antes do MFA.** O limite por IP ainda é em memória: passa para Redis quando a API tiver mais de uma instância.
 - 2026-11-03: MFA TOTP entregue. O reset ainda é por script (`backend/scripts/reset_mfa.py`), sem aviso ao dono: a tela de administração vem com a entrega de usuários. A reautenticação com MFA nasce junto com as ações críticas, que ainda não existem. Faltam também SSO, troca e recuperação de senha, papéis e auditoria.
+- 2026-11-03: corrige o registro da Q10 acima (Bruno): o TOTP do Financeiro vale só para e-mail e senha. No SSO, o segundo fator é o do Google ou da Microsoft, sem etapa extra aqui. A entrega de SSO precisa definir como essa pessoa se reautentica nas ações críticas e liberar a sessão de quem não tem TOTP.
 - 2026-10-21: segregação de funções (quem envia o lote não confirma a baixa acima de um valor) fica como pergunta aberta Q8 até o PO definir o valor.
