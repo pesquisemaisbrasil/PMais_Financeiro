@@ -173,14 +173,31 @@ def test_encrypted_secret_does_not_open_on_another_account() -> None:
         decrypt_payload(envelope, "users:totpSecretEncrypted:2")
 
 
-def test_repeating_setup_keeps_the_same_secret(
+def test_secret_copied_before_the_owner_enrolls_stops_working(
     client: TestClient, make_user: Callable[..., User]
 ) -> None:
     make_user(mfa=False)
+    # senha vazada: alguém pede o cadastro, guarda a chave e não confirma
+    copied = client.post("/auth/mfa/setup", headers=bearer(mfa_token(client))).json()["secret"]
+
     token = mfa_token(client)
-    first = client.post("/auth/mfa/setup", headers=bearer(token)).json()
-    second = client.post("/auth/mfa/setup", headers=bearer(token)).json()
-    assert first == second
+    secret = client.post("/auth/mfa/setup", headers=bearer(token)).json()["secret"]
+    assert secret != copied
+
+    too_late = client.post(
+        "/auth/mfa/setup/confirm", json={"code": current_code(copied)}, headers=bearer(token)
+    )
+    assert too_late.status_code == 401
+    confirmed = client.post(
+        "/auth/mfa/setup/confirm", json={"code": current_code(secret)}, headers=bearer(token)
+    )
+    assert confirmed.status_code == 200
+
+    # depois do cadastro, a cópia continua sem abrir a conta
+    client.cookies.clear()
+    response = verify(client, mfa_token(client), current_code(copied, offset=1))
+    assert response.status_code == 401
+    assert "refresh_token" not in client.cookies
 
 
 def test_wrong_code_does_not_enable_mfa(

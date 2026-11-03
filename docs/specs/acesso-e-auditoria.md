@@ -8,7 +8,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - **SSO Google ou Microsoft** como alternativa à senha. Quem entra assim confirma no próprio provedor e não passa pela etapa de código do Financeiro. Por isso, a verificação em duas etapas precisa estar exigida nas contas da empresa, pelo administrador do Google e da Microsoft.
 - **Não há cadastro público:** a conta nasce com `backend/scripts/create_user.py` até existir a tela de usuários.
 - **MFA (TOTP) obrigatório** para quem entra por e-mail e senha, em todos os papéis (`admin` e `financeiro`):
-  - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela: `POST /auth/mfa/setup` devolve a chave e o QR code, e `POST /auth/mfa/setup/confirm` prova o cadastro com o primeiro código e abre a sessão;
+  - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela: `POST /auth/mfa/setup` devolve uma chave nova a cada pedido e o QR code, e `POST /auth/mfa/setup/confirm` prova o cadastro com o primeiro código e abre a sessão;
   - `POST /auth/token` devolve um token parcial (`mfa_pending`, 5 min);
   - `POST /auth/token/mfa` com o código de 6 dígitos emite o par de tokens;
   - um código já aceito não vale de novo;

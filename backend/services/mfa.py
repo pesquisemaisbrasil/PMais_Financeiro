@@ -102,16 +102,13 @@ def _new_recovery_codes(db: Session, user: User) -> list[str]:
 
 
 def start_setup(db: Session, user: User) -> tuple[str, str]:
-    """Devolve (segredo, URI do QR code). Repetir devolve o mesmo segredo: quem recarrega a
-    tela depois de ler o QR code não pode ficar com um app que não bate mais."""
+    """Devolve (segredo, URI do QR code). Cada pedido gera um segredo novo: quem guardou uma
+    cópia antes de a dona confirmar, como alguém com a senha vazada, fica sem nada que valha."""
     if user.mfaEnabledAt is not None:
         raise MfaAlreadyEnabled
-    if user.totpSecretEncrypted:
-        secret = decrypt_payload(user.totpSecretEncrypted, _aad(user))
-    else:
-        secret = pyotp.random_base32()
-        user.totpSecretEncrypted = encrypt_payload(secret, _aad(user))
-        db.commit()
+    secret = pyotp.random_base32()
+    user.totpSecretEncrypted = encrypt_payload(secret, _aad(user))
+    db.commit()
     uri = pyotp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=ISSUER)
     return secret, uri
 
