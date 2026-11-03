@@ -1,0 +1,13 @@
+fastapi==0.118.3
+starlette==0.48.0
+uvicorn==0.34.2
+SQLAlchemy==1.4.39
+psycopg2-binary==2.9.10
+pydantic==2.11.5
+PyJWT==2.15.1
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.31
+python-dotenv==1.2.2
+alembic==1.16.5
+slowapi==0.1.10
