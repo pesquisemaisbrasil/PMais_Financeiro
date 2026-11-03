@@ -8,6 +8,22 @@
 .env.*
 !.env.example
 
+# Chaves e credenciais, inclusive as que os provedores oferecem para baixar
+client_secret*.json
+*service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Cópias de banco e logs podem ter dado pessoal
+*.sqlite
+*.sqlite3
+*.dump
+*.sql
+!prototipo/PMais_Financeiro/drizzle/*.sql
+*.log
+
 # Ambiente local e artefatos de build
 .venv/
 __pycache__/
@@ -26,5 +42,8 @@ next-env.d.ts
 .playwright-cli/
 .reviews/
 coverage.xml
+htmlcov/
+coverage/
+blob-report/
 frontend/test-results/
 frontend/playwright-report/
