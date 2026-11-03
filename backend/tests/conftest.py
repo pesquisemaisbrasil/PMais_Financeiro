@@ -8,6 +8,15 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("ENCRYPTION_KEY", base64.b64encode(b"0" * 32).decode())
 # o TestClient fala http: com Secure, o cookie não voltaria (tem teste próprio do atributo)
 os.environ.setdefault("REFRESH_COOKIE_SECURE", "false")
+# Google e Microsoft sempre simulados, mesmo que o backend/.env da máquina tenha as chaves.
+for _key in (
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "MICROSOFT_CLIENT_ID",
+    "MICROSOFT_CLIENT_SECRET",
+    "MICROSOFT_TENANT_ID",
+):
+    os.environ[_key] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
