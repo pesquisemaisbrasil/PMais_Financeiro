@@ -14,7 +14,7 @@ export default function Access() {
       <PageHeader
         eyebrow="Governança / Acesso"
         title="Acesso"
-        description="O identificador adm abre somente esta demonstração. Contas individuais, permissões financeiras e MFA de produção continuam pendentes."
+        description="O e-mail adm@pmais.demo abre somente esta demonstração. Contas individuais, permissões financeiras e MFA de produção continuam pendentes."
       />
 
       <section className="access-boundary-card">

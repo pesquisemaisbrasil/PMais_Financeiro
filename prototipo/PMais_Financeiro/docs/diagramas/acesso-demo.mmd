@@ -8,7 +8,7 @@ sequenceDiagram
     B->>Q: GET session
     Q->>S: session + cookie
     S-->>B: csrf + anonymous
-    U->>B: Envia adm e senha
+    U->>B: Envia adm@pmais.demo e senha
     B->>Q: login serializado
     Q->>S: POST login + header CSRF
     S->>M: Cria sessao 30 min

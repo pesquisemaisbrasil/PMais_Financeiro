@@ -51,7 +51,7 @@ O schema Drizzle está em [`drizzle/schema.ts`](../drizzle/schema.ts#L1-L28), mi
 
 ## 6. Como funciona autenticação?
 
-Leia [05](05-autenticacao-autorizacao.md). O fluxo é `GET session` → login `adm` + senha server-side → cookie opaco/CSRF → `scope:demo_only`; logout revoga Map. Não há OAuth ativo, JWT/refresh, MFA, cadastro ou recuperação.
+Leia [05](05-autenticacao-autorizacao.md). O fluxo é `GET session` → login `adm@pmais.demo` + senha server-side → cookie opaco/CSRF → `scope:demo_only`; logout revoga Map. Não há OAuth ativo, JWT/refresh, MFA, cadastro ou recuperação.
 
 ## 7. Onde estão as regras de negócio?
 
