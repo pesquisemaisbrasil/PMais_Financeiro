@@ -37,6 +37,18 @@ test("sem as chaves do provedor, o botão avisa e volta para o login", async ({ 
   expect(await refreshCookie(page)).toBeUndefined();
 });
 
+test("a CSP está ativa e não bloqueia nada da tela de login", async ({ page }) => {
+  const blocked: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) blocked.push(message.text());
+  });
+  const response = await page.goto("/login");
+  expect(response?.headers()["content-security-policy"]).toContain("nonce-");
+  await submitPassword(page, "ninguem@e2e.invalid", "SenhaErrada1!");
+  await expect(page.getByText("E-mail ou senha incorretos")).toBeVisible();
+  expect(blocked).toEqual([]);
+});
+
 test("senha errada e e-mail sem conta recebem a mesma mensagem", async ({ page }) => {
   for (const [email, password] of [
     ["ana@e2e.invalid", "SenhaErrada1!"],
