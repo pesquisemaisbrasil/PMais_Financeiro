@@ -47,6 +47,19 @@ Abra `http://localhost:3010`. No primeiro login, o sistema pede para cadastrar u
 
 Quem perdeu o celular e os códigos de recuperação: `.venv/Scripts/python scripts/reset_mfa.py --email voce@pesquisemais.com.br`.
 
+## Login com Google e Microsoft
+
+Os botões já aparecem na tela. Para funcionarem de verdade, registre o app em cada provedor e coloque as chaves no `backend/.env`:
+
+| Provedor | Onde registrar | Variáveis |
+|---|---|---|
+| Google | Google Cloud Console → APIs e serviços → Credenciais → ID do cliente OAuth, tipo Aplicativo da Web | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| Microsoft | Microsoft Entra → Registros de aplicativo, com contas somente desta organização | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT_ID` |
+
+A URL de retorno é `<API_PUBLIC_URL>/auth/sso/google/callback` e `<API_PUBLIC_URL>/auth/sso/microsoft/callback`. Só entra quem já tem conta no Financeiro com o mesmo e-mail, e reinicie a API depois de mudar o `.env`.
+
+Quem administra as contas da empresa precisa exigir a verificação em duas etapas nelas, porque o Financeiro não pede código nesse caminho.
+
 ## Antes de abrir um PR
 
 ```bash

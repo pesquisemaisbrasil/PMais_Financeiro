@@ -193,7 +193,10 @@ Segredo novo entra em `core/config.py` e no `.env.example` (com valor `change-me
 | `CORS_ORIGINS` | não | `http://localhost:3000` | só o domínio do front do Financeiro |
 | `ENVIRONMENT` | não | `development` | `production` em produção |
 | `RATE_LIMIT_ENABLED` | não | `true` | só os testes de tela desligam |
-| `FRONTEND_URL` | não | `http://localhost:3000` | links em e-mail |
+| `FRONTEND_URL` | não | `http://localhost:3010` | destino depois do login por SSO e links em e-mail |
+| `API_PUBLIC_URL` | não | `http://localhost:8010` | **novo**: endereço da API que o navegador alcança, usado na URL de retorno do SSO |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | não | — | **novo**: login com Google. Vazio = o botão avisa que não está disponível |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | não | — | **novo**: login com Microsoft, limitado à empresa pelo tenant |
 | `SMTP_*` (`HOST`, `PORT`, `USER`, `PASSWORD`, `FROM`, `STARTTLS`) | não | — | e-mail transacional (reset de senha) |
 | `MINIO_ENDPOINT` | sim | — | endpoint interno (ex.: `http://minio:9000`) |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | sim | — | usuário **próprio** do Financeiro no MinIO, com policy só no bucket dele |

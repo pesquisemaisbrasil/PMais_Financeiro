@@ -57,7 +57,7 @@ Decidido em 22 e 23/10 ([registro](../transcricoes/2026-10-23-respostas-do-finan
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
 
-### Login com MFA
+### Login com MFA, Google e Microsoft
 
 Com o sistema rodando ([README](../../README.md#como-rodar)):
 
@@ -70,3 +70,5 @@ Com o sistema rodando ([README](../../README.md#como-rodar)):
 7. Entre de novo: agora pede só o código do app. Repetir o mesmo código não entra.
 8. Saia e entre com **Usar um código de recuperação**: entra, e o mesmo código não vale uma segunda vez.
 9. Erre a senha 6 vezes em um minuto: "Muitas tentativas — aguarde alguns minutos".
+10. Sem as chaves do provedor, **Entrar com Google** e **Entrar com Microsoft** voltam para o login avisando que ainda não está disponível.
+11. Com as chaves no `backend/.env` e a conta criada com o mesmo e-mail: o botão leva ao provedor e volta para a tela inicial, sem código no Financeiro. E-mail sem conta volta para o login com o aviso de falta de acesso.
