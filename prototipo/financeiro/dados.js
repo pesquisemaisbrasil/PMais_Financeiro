@@ -145,10 +145,10 @@ const DADOS_INICIAIS = {
   // Entrevistas lançadas no Connect, por projeto e pessoa. "nf": situação da nota no Connect (não bloqueia o pagamento).
   // "vence": data de pagamento do que falta pagar. Cada projeto × data vira um lançamento agrupado em Contas a pagar (veja o fim deste arquivo).
   entrevistas: [
-    { projeto: 1804, pessoa: 1, lancadas: 6, pagas: 2, valor: 2000, nf: "Recebida", vence: "2026-10-29" },
-    { projeto: 1804, pessoa: 2, lancadas: 5, pagas: 0, valor: 2000, nf: "Pendente", vence: "2026-10-29" },
-    { projeto: 1804, pessoa: 3, lancadas: 4, pagas: 0, valor: 2000, nf: null, vence: "2026-10-29" },
-    { projeto: 1804, pessoa: 5, lancadas: 3, pagas: 0, valor: 2000, nf: "Pendente", vence: "2026-10-29" },
+    { projeto: 1804, pessoa: 1, lancadas: 6, pagas: 2, valor: 2000, nf: "Recebida", vence: HOJE },
+    { projeto: 1804, pessoa: 2, lancadas: 5, pagas: 0, valor: 2000, nf: "Pendente", vence: HOJE },
+    { projeto: 1804, pessoa: 3, lancadas: 4, pagas: 0, valor: 2000, nf: null, vence: HOJE },
+    { projeto: 1804, pessoa: 5, lancadas: 3, pagas: 0, valor: 2000, nf: "Pendente", vence: HOJE },
     { projeto: 1804, pessoa: 6, lancadas: 10, pagas: 10, valor: 2000, nf: null },
     { projeto: 1790, pessoa: 4, lancadas: 40, pagas: 25, valor: 4500, nf: "Recebida", vence: "2026-10-30" },
     { projeto: 1790, pessoa: 7, lancadas: 22, pagas: 22, valor: 4500, nf: null },
@@ -183,12 +183,12 @@ const DADOS_INICIAIS = {
     tituloPagar({ id: 4, unidade: 2, centroCusto: 1, fornecedor: 4, categoria: 8, forma: 2, descricao: "Impressão de questionários", vencimento: "2026-10-28", valor: 125000, rateio: [{ projeto: 1804, valor: 125000 }], codigoBarras: "23793.38128 60000.000003 00000.000400 1 96200000125000", documento: { tipo: "NF", numero: "4521", emissao: "2026-10-20", motivo: "" }, docsRecebidosEm: "2026-10-27", itemOrcamento: { projeto: 1804, item: "Gráfica" } }),
     tituloPagar({ id: 5, fornecedor: 5, categoria: 6, forma: 1, descricao: "Honorários contábeis · outubro", vencimento: "2026-10-30", valor: 280000, documento: { tipo: "NF", numero: "1203", emissao: "2026-10-26", motivo: "" }, serie: { id: 4, n: 10, total: 12, tipo: "Mensal" } }),
     tituloPagar({ id: 6, unidade: 2, centroCusto: 1, fornecedor: 6, categoria: 3, forma: 5, descricao: "Hospedagem da equipe de campo", vencimento: "2026-11-03", valor: 198000, rateio: [{ projeto: 1804, valor: 118800 }, { projeto: 1790, valor: 79200 }], documento: { tipo: "NF", numero: "889", emissao: "2026-10-18", motivo: "" } }),
-    tituloPagar({ id: 7, centroCusto: 1, fornecedor: 7, categoria: 3, forma: 1, descricao: "Passagens de ônibus · campo", vencimento: "2026-11-05", valor: 64000, rateio: [{ projeto: 1790, valor: 64000 }], documento: { tipo: "Recibo", numero: "", emissao: "", motivo: "" }, baixas: [baixa(3, "2026-10-22", 32000)] }),
+    tituloPagar({ id: 7, centroCusto: 1, fornecedor: 7, categoria: 3, forma: 1, descricao: "Passagens de ônibus · campo", vencimento: HOJE, valor: 64000, rateio: [{ projeto: 1790, valor: 64000 }], documento: { tipo: "Recibo", numero: "", emissao: "", motivo: "" }, baixas: [baixa(3, "2026-10-22", 32000)] }),
     tituloPagar({ id: 8, centroCusto: 4, fornecedor: 8, categoria: 7, forma: 5, descricao: "Licenças de software", vencimento: "2026-11-10", valor: 89900, serie: { id: 5, n: 10, total: 12, tipo: "Mensal" } }),
     tituloPagar({ id: 9, empresa: "mc", unidade: 4, fornecedor: 4, categoria: 8, forma: 2, descricao: "Banners para evento", vencimento: "2026-10-15", valor: 48000, documento: { tipo: "NF", numero: "4470", emissao: "2026-10-08", motivo: "" }, baixas: [baixa(4, "2026-10-15", 48000, 2, 2)] }),
     tituloPagar({ id: 10, empresa: "mc", unidade: 4, fornecedor: 1, categoria: 4, forma: 2, descricao: "Aluguel da sala de grupo · novembro", vencimento: "2026-11-12", valor: 210000, competencia: "2026-11", serie: { id: 6, n: 11, total: 12, tipo: "Mensal" } }),
     tituloPagar({ id: 11, unidade: 1, centroCusto: 1, fornecedor: 10, categoria: 1, forma: 1, descricao: "Diária de supervisão · 13/10", vencimento: "2026-10-14", valor: 15000, rateio: [{ projeto: 1790, valor: 15000 }], documento: { tipo: "NF", numero: "230", emissao: "2026-10-13", motivo: "" }, baixas: [baixa(5, "2026-10-14", 15000)] }),
-    tituloPagar({ id: 12, unidade: 2, centroCusto: 1, favorecido: "14 entrevistados", categoria: 2, forma: 1, descricao: "Incentivos aos entrevistados · outubro", vencimento: "2026-10-31", valor: 280000, rateio: [{ projeto: 1804, valor: 280000 }],
+    tituloPagar({ id: 12, unidade: 2, centroCusto: 1, favorecido: "14 entrevistados", categoria: 2, forma: 1, descricao: "Incentivos aos entrevistados · outubro", vencimento: HOJE, valor: 280000, rateio: [{ projeto: 1804, valor: 280000 }],
       origem: "incentivo", documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Incentivo" }, anexos: [{ id: 1, nome: "incentivos-outubro-PRJ-1804.xlsx", tipo: "Planilha", excluido: false }],
       itens: Array.from({ length: 14 }, (_, i) => item(i + 1, `Entrevistado ${String(i + 1).padStart(2, "0")}`, "Incentivo", 20000, chaveFicticia(i + 1))) }),
     tituloPagar({ id: 13, unidade: 1, centroCusto: 1, favorecido: "Equipe de campo (10 pessoas)", categoria: 1, forma: 1, descricao: "Equipe de campo · PRJ-1790 · outubro", vencimento: "2026-11-05", valor: 580000, rateio: [{ projeto: 1790, valor: 580000 }],
@@ -211,6 +211,7 @@ const DADOS_INICIAIS = {
     tituloPagar({ id: 20, tipo: "provisao", unidade: 1, centroCusto: 1, favorecido: "Provisão", categoria: 1, forma: 1, descricao: "Supervisão de campo · PRJ-1790", vencimento: "2026-11-05", valor: 600000, rateio: [{ projeto: 1790, valor: 600000 }], itemOrcamento: { projeto: 1790, item: "Supervisão de campo" } }),
     tituloPagar({ id: 21, tipo: "provisao", unidade: 2, centroCusto: 1, favorecido: "Provisão", categoria: 3, forma: 1, descricao: "Deslocamento · PRJ-1804", vencimento: "2026-11-10", valor: 180000, rateio: [{ projeto: 1804, valor: 180000 }], itemOrcamento: { projeto: 1804, item: "Deslocamento" } }),
     tituloPagar({ id: 22, tipo: "provisao", unidade: 3, centroCusto: 1, favorecido: "Provisão", categoria: 2, forma: 1, descricao: "Incentivos · PRJ-1811", vencimento: "2026-11-20", valor: 240000, rateio: [{ projeto: 1811, valor: 240000 }], itemOrcamento: { projeto: 1811, item: "Incentivos" } }),
+    tituloPagar({ id: 23, tipo: "provisao", unidade: 2, centroCusto: 1, favorecido: "Provisão", categoria: 8, forma: 1, descricao: "Gráfica · PRJ-1804", vencimento: HOJE, valor: 130000, rateio: [{ projeto: 1804, valor: 130000 }], itemOrcamento: { projeto: 1804, item: "Gráfica" } }),
   ],
 
   contasReceber: [

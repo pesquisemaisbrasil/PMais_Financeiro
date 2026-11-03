@@ -192,6 +192,38 @@ function abrirDetalheReceber(id, aba = "resumo") {
   });
 }
 
+// ---- Filtros (mesmo padrão de Contas a pagar: período, situação, cliente, projeto, empresa e busca) ----
+// As funções de período, os controles e os indicadores vêm de pagar.js; aqui só mudam as regras do título a receber.
+
+ponto("regra-filtros-receber", "Contas a receber", "Mudança de 03/11: Contas a receber tem os mesmos filtros de Contas a pagar (período dia/semana/mês/ano/tudo, situação, cliente, projeto, empresa e busca) e os indicadores mostram só o que está no filtro. Abre no mês de hoje.");
+
+const INDICADORES_RECEBER = {
+  total: { rotulo: "Total (líquido)", f: (r) => !r.cancelado, valor: liquido },
+  recebidos: { rotulo: "Recebidas", f: (r) => situacaoReceber(r) === "Recebida", valor: recebido },
+  pendentes: { rotulo: "A receber", f: (r) => saldoReceber(r) > 0, valor: saldoReceber },
+  vencidos: { rotulo: "Vencidas", f: (r) => situacaoReceber(r) === "Vencida", valor: saldoReceber },
+  hoje: { rotulo: "Vence hoje", f: (r) => situacaoReceber(r) === "Vence hoje", valor: saldoReceber },
+  avencer: { rotulo: "A vencer", f: (r) => ["A vencer", "Parcial"].includes(situacaoReceber(r)), valor: saldoReceber },
+};
+const SITUACOES_RECEBER = ["A vencer", "Vence hoje", "Parcial", "Vencida", "Recebida", "Cancelada"].map((s) => ({ id: s, nome: s }));
+
+// "ignorar" tira da conta um controle ("indicador", "periodo" ou "situacao"), para mostrar quanto daria se a pessoa o escolhesse.
+function filtrarReceber(ui, ignorar = []) {
+  const [ini, fim] = intervalo(ui.modo, ui.ref);
+  const termo = (ui.busca || "").trim().toLowerCase();
+  const f = ui.filtros;
+  return S.contasReceber.filter((r) =>
+    (ignorar.includes("periodo") || (r.vencimento >= ini && r.vencimento <= fim)) &&
+    (ignorar.includes("indicador") || INDICADORES_RECEBER[ui.indicador].f(r)) &&
+    (ignorar.includes("situacao") || !f.situacao || situacaoReceber(r) === f.situacao) &&
+    (!f.cliente || String(r.cliente) === f.cliente) &&
+    (!f.projeto || String(r.projeto) === f.projeto) &&
+    (!f.empresa || r.empresa === f.empresa) &&
+    (!termo || `${nomeCliente(r.cliente)} ${r.nf} ${r.projeto ? codigoProjeto(r.projeto) : ""} ${r.descricao}`.toLowerCase().includes(termo)));
+}
+
+ACOES["receber-limpar"] = () => { Object.assign(UI.receber, { filtros: {}, busca: "", indicador: "total", pagina: 1 }); render(); };
+
 registrarTela({
   rota: "receber",
   titulo: "Contas a receber",
@@ -199,21 +231,18 @@ registrarTela({
   grupo: "Dia a dia",
   contador: () => S.contasReceber.filter((r) => situacaoReceber(r) === "Vencida").length,
   render() {
-    const ui = (UI.receber ??= { aba: "abertas", busca: "" });
-    const termo = (ui.busca || "").trim().toLowerCase();
-    const filtros = {
-      abertas: (r) => saldoReceber(r) > 0 && situacaoReceber(r) !== "Vencida",
-      vencidas: (r) => situacaoReceber(r) === "Vencida",
-      recebidas: (r) => situacaoReceber(r) === "Recebida",
-      todas: () => true,
-    };
-    const contar = (f) => S.contasReceber.filter(filtros[f]).length;
-    const vencidas = S.contasReceber.filter(filtros.vencidas);
+    const ui = (UI.receber ??= {});
+    ui.modo ??= "mes"; ui.ref ??= HOJE; ui.indicador ??= "total"; ui.aba ??= "titulos"; ui.filtros ??= {}; ui.busca ??= "";
+    const filtro = (campo, rotulo, lista, rot) => campoFiltro("receber", ui, campo, rotulo, lista, rot);
+    const nFiltros = Object.values(ui.filtros).filter(Boolean).length + (ui.busca ? 1 : 0) + (ui.indicador !== "total" ? 1 : 0);
+    const baseIndicadores = filtrarReceber(ui, ["indicador"]);
+    const lista = filtrarReceber(ui).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+    const inadimplentes = filtrarReceber(ui, ["periodo", "indicador", "situacao"]).filter((r) => situacaoReceber(r) === "Vencida");
 
     let corpo;
     if (ui.aba === "inadimplencia") {
-      const porCliente = [...new Set(vencidas.map((r) => r.cliente))].map((cli) => {
-        const ts = vencidas.filter((r) => r.cliente === cli);
+      const porCliente = [...new Set(inadimplentes.map((r) => r.cliente))].map((cli) => {
+        const ts = inadimplentes.filter((r) => r.cliente === cli);
         return { cli, ts, total: soma(ts, saldoReceber), atraso: Math.max(...ts.map((r) => diasEntre(r.vencimento, HOJE))) };
       }).sort((a, b) => b.total - a.total);
       corpo = porCliente.length ? `<div class="tabela-wrap"><table>
@@ -225,20 +254,16 @@ registrarTela({
           <td class="num forte">${brl(x.total)}</td>
           <td class="num"><button class="btn btn-outline btn-sm" data-acao="receber-avisar" data-nome="${esc(nomeCliente(x.cli))}">${icone("bell")}Avisar comercial</button></td>
         </tr>`).join("")}</tbody>
-      </table></div><p class="pequeno muted" style="padding:12px 16px;margin:0;border-top:1px solid var(--border)">${regra("regra-inadimplencia")}</p>`
-        : `<p class="vazio">Nenhum cliente com título vencido.</p>`;
+      </table></div><p class="pequeno muted" style="padding:12px 16px;margin:0;border-top:1px solid var(--border)">Considera todo o período; só valem cliente, projeto, empresa e busca. ${regra("regra-inadimplencia")}</p>`
+        : `<p class="vazio">Nenhum cliente com título vencido${nFiltros ? " com esses filtros" : ""}.</p>`;
     } else {
-      const lista = S.contasReceber
-        .filter(filtros[ui.aba])
-        .filter((r) => !termo || `${nomeCliente(r.cliente)} ${r.nf} ${r.projeto ? codigoProjeto(r.projeto) : ""} ${r.descricao}`.toLowerCase().includes(termo))
-        .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
       const { itens, controles } = paginar("receber", lista, 12);
       corpo = itens.length ? `<div class="tabela-wrap"><table>
         <thead><tr><th>Vencimento</th><th>Cliente</th><th>Projeto</th><th class="num">Bruto</th><th class="num">Retenções</th><th class="num">Líquido</th><th>Situação</th><th class="num">Pendente</th><th></th></tr></thead>
         <tbody>${itens.map((r) => `<tr>
           <td>${fmtDia(r.vencimento)}</td>
           <td><span class="nome">${esc(nomeCliente(r.cliente))}</span><span class="sub">${esc(r.descricao)} · ${r.nf ? `NF ${esc(r.nf)}` : '<span class="ambar">sem NF</span>'} · ${nomeEmpresa(r.empresa)}</span></td>
-          <td>${r.projeto ? codigoProjeto(r.projeto) : '<span class="muted">—</span>'}</td>
+          <td>${r.projeto ? `<a class="link-projeto" href="#/projetos/${r.projeto}" title="Abrir o relatório do projeto">${codigoProjeto(r.projeto)}</a>` : '<span class="muted">—</span>'}</td>
           <td class="num">${brl(r.bruto)}</td>
           <td class="num muted">${r.abatimentos ? `− ${brl(r.abatimentos)}` : "—"}</td>
           <td class="num">${brl(liquido(r))}</td>
@@ -246,29 +271,39 @@ registrarTela({
           <td class="num forte">${saldoReceber(r) ? brl(saldoReceber(r)) : "—"}</td>
           <td class="num" style="white-space:nowrap">${botaoIcone("eye", "Ver detalhes", "receber-ver", { id: r.id })}${saldoReceber(r) ? botaoIcone("check", "Registrar recebimento", "receber-baixa", { id: r.id }) : ""}</td>
         </tr>`).join("")}</tbody>
-      </table></div>${controles}` : `<p class="vazio">${termo ? "Nenhum título encontrado com essa busca." : { abertas: "Nada a receber agora.", vencidas: "Nenhum título vencido.", recebidas: "Nada recebido ainda.", todas: "Nenhuma conta a receber lançada ainda." }[ui.aba]}</p>`;
+        <tfoot><tr class="total-linha"><td colspan="9">Total filtrado: ${plural(lista.length, "título", "títulos")} · bruto ${brl(soma(lista, (r) => r.bruto))} · retenções ${brl(soma(lista, (r) => r.abatimentos))} · líquido ${brl(soma(lista, liquido))} · pendente ${brl(soma(lista, saldoReceber))}</td></tr></tfoot>
+      </table></div>${controles}` : `<p class="vazio">${nFiltros ? "Nenhum título com esses filtros." : `Nenhum título a receber em ${rotuloPeriodo(ui.modo, ui.ref)}.`}</p>`;
     }
 
     return `
       ${cabecalho({ titulo: "Contas a receber", icone: "arrow-down-left", tela: "tela-receber",
         subtitulo: "Lance a nota emitida com o valor bruto e as retenções. O que se espera receber é o líquido.",
         acoes: `<button class="btn" data-acao="receber-nova">${icone("plus")}Nova conta a receber</button>` })}
-      <div class="kpis">
-        ${kpi({ rotulo: "Inadimplência", valor: brl(soma(vencidas, saldoReceber)), detalhe: `${plural(vencidas.length, "título", "títulos")} de ${plural(new Set(vencidas.map((r) => r.cliente)).size, "cliente", "clientes")}`, ic: "triangle-alert", cor: "cor-vermelho" })}
-        ${kpi({ rotulo: "A receber", valor: brl(soma(S.contasReceber.filter(filtros.abertas), saldoReceber)), detalhe: plural(contar("abertas"), "título", "títulos"), ic: "calendar-days", cor: "cor-azul" })}
-        ${kpi({ rotulo: "Recebido em outubro", valor: brl(soma(S.contasReceber.flatMap((r) => r.recebimentos).filter((x) => x.data.startsWith("2026-10")), (x) => (x.tipo === "estorno" ? -x.valor : x.valor))), ic: "circle-check", cor: "cor-verde" })}
-        ${kpi({ rotulo: "Retenções em outubro", valor: brl(soma(S.contasReceber.filter((r) => (r.dataNf || "").startsWith("2026-10")), (r) => r.abatimentos)), detalhe: "notas emitidas no mês", ic: "receipt", cor: "cor-roxo" })}
+
+      <div class="flex entre mb" style="flex-wrap:wrap">
+        ${controlePeriodo("receber", ui)}
+        ${campoBusca("receber", ui.busca || "", "Buscar cliente, NF ou projeto…")}
       </div>
+
+      ${blocoIndicadores("receber", ui, Object.entries(INDICADORES_RECEBER).map(([k, x]) => {
+        const l = baseIndicadores.filter(x.f);
+        return { id: k, rotulo: x.rotulo, n: l.length, alerta: k === "vencidos" && l.length, valor: soma(l, x.valor) };
+      }), ["título", "títulos"])}
+
       <div class="card">
+        <div class="filtros">
+          ${filtro("situacao", "Situação", SITUACOES_RECEBER)}
+          ${filtro("cliente", "Cliente", S.clientes, (x) => x.apelido)}
+          ${filtro("projeto", "Projeto", S.projetos, (p) => codigoProjeto(p.id))}
+          ${filtro("empresa", "Empresa", S.empresas)}
+        </div>
         <div class="barra">
-          ${abas("receber", [
-            { id: "abertas", rotulo: "A receber", n: contar("abertas") },
-            { id: "vencidas", rotulo: "Vencidas", n: contar("vencidas") },
-            { id: "recebidas", rotulo: "Recebidas", n: contar("recebidas") },
-            { id: "todas", rotulo: "Todas", n: contar("todas") },
-            { id: "inadimplencia", rotulo: "Inadimplência por cliente" },
-          ], ui.aba)}
-          ${ui.aba === "inadimplencia" ? "" : campoBusca("receber", ui.busca || "", "Buscar cliente, NF ou projeto…")}
+          ${abas("receber", [{ id: "titulos", rotulo: "Títulos", n: lista.length }, { id: "inadimplencia", rotulo: "Inadimplência por cliente", n: new Set(inadimplentes.map((r) => r.cliente)).size }], ui.aba)}
+          <div class="flex pequeno" style="flex-wrap:wrap">
+            <span class="muted">${plural(lista.length, "título", "títulos")} · pendente ${brl(soma(lista, saldoReceber))}</span>
+            ${nFiltros ? `<button class="btn-link" data-acao="receber-limpar">Limpar filtros (${nFiltros})</button>` : ""}
+            ${regra("regra-filtros-receber")}
+          </div>
         </div>
         ${corpo}
       </div>`;

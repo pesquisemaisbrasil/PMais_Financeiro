@@ -15,6 +15,12 @@ function contasDoProjeto(id) {
     .filter((c) => c.tipo === "real" && !c.cancelado && !c.substituidaPor && c.rateio.some((r) => r.projeto === id))
     .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
 }
+// Provisões do projeto (vêm de Contas a pagar, do orçamento por itens do Connect): abertas e já substituídas pelo valor real.
+function provisoesDoProjeto(id) {
+  return S.contasPagar
+    .filter((c) => c.tipo === "provisao" && !c.cancelado && c.rateio.some((r) => r.projeto === id))
+    .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+}
 const parteDoProjeto = (c, id) => soma(c.rateio.filter((r) => r.projeto === id), (r) => r.valor);
 function pagoDaParte(c, id) { return c.valor ? Math.round((Math.max(0, pagoConta(c)) * parteDoProjeto(c, id)) / c.valor) : 0; }
 
@@ -89,6 +95,8 @@ function renderProjeto(id) {
   const contas = contasDoProjeto(p.id);
   const anexos = contas.flatMap((c) => c.anexos.filter((a) => !a.excluido).map((a) => ({ a, c })));
   const historico = S.envios.filter((e) => e.projeto === p.id && e.situacao === "Confirmado").reverse();
+  const provisoes = provisoesDoProjeto(p.id);
+  const provisoesAbertas = provisoes.filter((c) => !c.substituidaPor);
   const totalContas = soma(contas, (c) => parteDoProjeto(c, p.id));
   const pagoContas = soma(contas, (c) => pagoDaParte(c, p.id));
 
@@ -107,6 +115,7 @@ function renderProjeto(id) {
       ${kpi({ rotulo: "A pagar", valor: brl(lancado - pago), detalhe: "entrevistas", ic: "clock", cor: "cor-ambar" })}
       ${kpi({ rotulo: "Saldo do orçamento", valor: p.orcamento ? brl(p.orcamento - lancado) : "—", ic: "piggy-bank", cor: p.orcamento && lancado > p.orcamento ? "cor-vermelho" : "cor-azul" })}
       ${kpi({ rotulo: "Gasto total do projeto", valor: brl(totalContas), detalhe: `${brl(pagoContas)} já pago · todas as contas`, ic: "wallet", cor: "cor-roxo" })}
+      ${kpi({ rotulo: "Provisionado a pagar", valor: brl(soma(provisoesAbertas, (c) => parteDoProjeto(c, p.id))), detalhe: `${plural(provisoesAbertas.length, "provisão em aberto", "provisões em aberto")} · ainda não é gasto`, ic: "piggy-bank", cor: "cor-ambar" })}
     </div>
 
     <div class="card projeto secao">${usoOrcamento(p)}</div>
@@ -130,6 +139,27 @@ function renderProjeto(id) {
         }).join("")}</tbody>
         <tfoot><tr class="total-linha"><td colspan="3">${plural(contas.length, "lançamento", "lançamentos")}</td><td class="num">${brl(totalContas)}</td><td class="num">${brl(pagoContas)}</td><td class="num">${brl(totalContas - pagoContas)}</td><td colspan="2"></td></tr></tfoot>
       </table></div>` : `<p class="vazio">Nenhum lançamento de Contas a pagar neste projeto ainda.</p>`}
+    </div>
+
+    <div class="card secao">
+      <div class="card-titulo"><div><h2>Provisões do projeto</h2><p>Previsto no orçamento por itens do Connect; vem de Contas a pagar. Quando o real chega, ele substitui a provisão.</p></div>${regra("regra-provisao")}</div>
+      ${provisoes.length ? `<div class="tabela-wrap"><table>
+        <thead><tr><th>Data estimada</th><th>Item</th><th class="num">Provisionado</th><th>Situação</th><th class="num">Real</th><th class="num">Diferença</th></tr></thead>
+        <tbody>${provisoes.map((c) => {
+          const real = c.substituidaPor ? achar("contasPagar", c.substituidaPor) : null;
+          const parte = parteDoProjeto(c, p.id);
+          const dif = real ? real.valor - c.valor : null;
+          return `<tr>
+            <td>${fmtDia(c.vencimento)}</td>
+            <td><a class="link-projeto" href="#/pagar/${real ? real.id : c.id}" title="Abrir em Contas a pagar">${esc(c.descricao)}</a></td>
+            <td class="num">${brl(parte)}</td>
+            <td>${real ? badge("Substituída pelo real", "verde", "circle-check") : badge("Provisionada", "roxo", "piggy-bank")}</td>
+            <td class="num">${real ? brl(real.valor) : "—"}</td>
+            <td class="num ${dif > 0 ? "vermelho" : dif < 0 ? "verde" : ""}">${dif == null ? "—" : dif === 0 ? "igual" : `${dif > 0 ? "+" : "−"}${brl(Math.abs(dif))}`}</td>
+          </tr>`;
+        }).join("")}</tbody>
+        <tfoot><tr class="total-linha"><td colspan="2">${plural(provisoes.length, "provisão", "provisões")}</td><td class="num">${brl(soma(provisoes, (c) => parteDoProjeto(c, p.id)))}</td><td colspan="3"></td></tr></tfoot>
+      </table></div>` : `<p class="vazio">Nenhuma provisão para este projeto. Elas nascem do orçamento por itens do Connect, em Contas a pagar.</p>`}
     </div>
 
     <div class="card secao">
