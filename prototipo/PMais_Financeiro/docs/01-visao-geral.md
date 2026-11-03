@@ -21,7 +21,7 @@ Ela demonstra, com fixtures sintéticas, como cadastros alimentam títulos, como
 | Perfil/ator | O que efetivamente existe |
 |---|---|
 | Visitante não autenticado | Pode acessar `/login`; páginas protegidas redirecionam para login. Não há cadastro público. |
-| Usuário compartilhado do demo | Identificador literal `adm`, condicionado a senha server-side; recebe apenas sessão `demo_only` e acesso às telas sintéticas. Não é usuário financeiro individual. |
+| Usuário compartilhado do demo | E-mail literal `adm@pmais.demo`, condicionado a senha server-side; recebe apenas sessão `demo_only` e acesso às telas sintéticas. Não é usuário financeiro individual. |
 | Desenvolvedor/avaliador | Usa as telas, reset da demonstração, filtros, confirmações, impressão e CSV local para validar o mockup. |
 | Sistema/servidor | Responde health/status/configuração, mantém sessão demo por processo e recusa escritas protegidas. |
 | Admin, financeiro, contador ou supervisor reais | **Não identificado no código como perfil operacional ativo.** O schema tem enum genérico `user|admin`, mas o contexto tRPC é `user:null` e os routers de auth/admin/finance retornam indisponibilidade. |

@@ -2,7 +2,7 @@
 
 **MOCKUP • DADOS SINTÉTICOS • NENHUMA OPERAÇÃO REAL**
 
-Abra o Preview do projeto. Na tela de entrada, use o identificador `adm` e a senha que você configurou no formulário protegido. A sessão dura até 30 minutos; use **Sair** no cabeçalho para encerrá-la. Reiniciar o serviço pode exigir novo login. Esse acesso serve somente ao mockup, não autoriza o Financeiro de produção.
+Abra o Preview do projeto. Na tela de entrada, use o e-mail `adm@pmais.demo` e a senha que você configurou no formulário protegido. A sessão dura até 30 minutos; use **Sair** no cabeçalho para encerrá-la. Reiniciar o serviço pode exigir novo login. Esse acesso serve somente ao mockup, não autoriza o Financeiro de produção.
 
 A Visão geral é o dashboard e a barra lateral dá acesso aos sete módulos. Os dados ficam somente neste navegador, não no banco. Não insira nomes, valores, documentos ou dados de pessoas/empresas reais. Os dados não são compartilhados entre computadores e não são uma base corporativa.
 

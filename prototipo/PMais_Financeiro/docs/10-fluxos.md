@@ -30,7 +30,7 @@ sequenceDiagram
     B->>Q: readSession()
     Q->>S: GET /api/demo-access/session
     S-->>B: csrf + anonymous/authenticated
-    U->>B: envia adm + senha
+    U->>B: envia adm@pmais.demo + senha
     B->>Q: login()
     Q->>S: POST login + cookie + X-Pmais-CSRF
     S->>M: cria sessão opaca (30 min)

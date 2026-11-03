@@ -98,7 +98,7 @@ export function createDemoAccess(options: { password?: string; now?: () => numbe
     try {
       const candidate = await derive(req.body.password, salt);
       const validPassword = timingSafeEqual(candidate, await verifier);
-      if (!validPassword || req.body.username !== "adm") { reject(res, 401, "invalid_credentials", "Login ou senha inválidos."); return; }
+      if (!validPassword || req.body.username !== "adm@pmais.demo") { reject(res, 401, "invalid_credentials", "Login ou senha inválidos."); return; }
       const oldHash = sessionHash(req);
       if (oldHash) sessions.delete(oldHash);
       const token = randomBytes(32).toString("hex");

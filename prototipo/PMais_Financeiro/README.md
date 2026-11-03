@@ -12,7 +12,7 @@ Não há banco financeiro, pagamento, Pix, importação de extrato/PDF real, Con
 
 ## Acesso ao mockup — extensão de 26/10/2026
 
-Abra o aplicativo e entre com o identificador `adm` e a senha configurada pelo usuário no formulário protegido. A senha é lida somente pelo servidor em `PMAIS_DEMO_LOGIN_PASSWORD`; seu valor não faz parte dos fontes, exemplos, cliente ou logs. Não há cadastro público nem usuário administrador financeiro criado por esse login.
+Abra o aplicativo e entre com o e-mail `adm@pmais.demo` e a senha configurada pelo usuário no formulário protegido. A senha é lida somente pelo servidor em `PMAIS_DEMO_LOGIN_PASSWORD`; seu valor não faz parte dos fontes, exemplos, cliente ou logs. Não há cadastro público nem usuário administrador financeiro criado por esse login.
 
 O acesso usa sessões opacas em memória, expira em até 30 minutos e é revogado pelo botão **Sair**. Reiniciar ou substituir a instância exige entrar novamente; a demonstração não oferece sessão distribuída entre instâncias nem autenticação corporativa. Cookie próprio HttpOnly/Secure/SameSite=None/Partitioned é elegível ao Preview HTTPS. CSRF está vinculado à sessão e tentativas são limitadas em janela de cinco minutos. Senha e token não vão ao armazenamento do navegador.
 

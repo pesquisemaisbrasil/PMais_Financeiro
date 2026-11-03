@@ -67,18 +67,18 @@ describe("Acesso compartilhado restrito à demonstração", () => {
   });
   it("exige desafio CSRF válido antes de verificar a credencial", async () => {
     const f = await fixture(); await f.session();
-    expect((await f.request("/api/demo-access/login", "POST", { username:"adm",password:FIXTURE_PASSWORD }, "wrong")).status).toBe(403);
+    expect((await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:FIXTURE_PASSWORD }, "wrong")).status).toBe(403);
   });
-  it("retorna erro genérico para senha errada e identificador diferente de adm", async () => {
+  it("retorna erro genérico para senha errada e identificador diferente do e-mail demo", async () => {
     const f = await fixture(); await f.session();
-    const wrongPassword = await f.request("/api/demo-access/login", "POST", { username:"adm",password:"wrong" });
-    const wrongLogin = await f.request("/api/demo-access/login", "POST", { username:"ADM",password:FIXTURE_PASSWORD });
+    const wrongPassword = await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:"wrong" });
+    const wrongLogin = await f.request("/api/demo-access/login", "POST", { username:"adm",password:FIXTURE_PASSWORD });
     expect(wrongPassword.status).toBe(401); expect(wrongLogin.status).toBe(401);
     expect(await wrongPassword.json()).toEqual(await wrongLogin.json());
   });
   it("cria sessão opaca mas mantém APIs financeiras/administrativas bloqueadas", async () => {
     const f = await fixture(); await f.session();
-    const response = await f.request("/api/demo-access/login", "POST", { username:"adm",password:FIXTURE_PASSWORD });
+    const response = await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:FIXTURE_PASSWORD });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ok:true});
     const token = f.jar.get("pmais_demo_session"); expect(token).toMatch(/^[a-f0-9]{64}$/);
@@ -89,7 +89,7 @@ describe("Acesso compartilhado restrito à demonstração", () => {
   });
   it("logout revoga a sessão capturada, não só o cookie do navegador", async () => {
     const f = await fixture(); await f.session();
-    await f.request("/api/demo-access/login", "POST", { username:"adm",password:FIXTURE_PASSWORD });
+    await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:FIXTURE_PASSWORD });
     await f.session(); const oldToken = f.jar.get("pmais_demo_session")!;
     expect((await f.request("/api/demo-access/logout", "POST", {})).status).toBe(200);
     f.jar.set("pmais_demo_session", oldToken);
@@ -97,14 +97,14 @@ describe("Acesso compartilhado restrito à demonstração", () => {
   });
   it("expira após 30 minutos, independentemente do cookie presente", async () => {
     const f = await fixture(); await f.session();
-    await f.request("/api/demo-access/login", "POST", { username:"adm",password:FIXTURE_PASSWORD });
+    await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:FIXTURE_PASSWORD });
     f.advance(31 * 60 * 1000);
     expect((await f.session()).data.authenticated).toBe(false);
   });
   it("limita tentativas por janela sem imprimir credenciais", async () => {
     const f = await fixture(); await f.session();
-    for (let i = 0; i < 10; i++) expect((await f.request("/api/demo-access/login", "POST", { username:"adm",password:"wrong" })).status).toBe(401);
-    const blocked = await f.request("/api/demo-access/login", "POST", { username:"adm",password:FIXTURE_PASSWORD });
+    for (let i = 0; i < 10; i++) expect((await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:"wrong" })).status).toBe(401);
+    const blocked = await f.request("/api/demo-access/login", "POST", { username:"adm@pmais.demo",password:FIXTURE_PASSWORD });
     expect(blocked.status).toBe(429); expect(blocked.headers.get("Retry-After")).toBe("300");
   });
 });
