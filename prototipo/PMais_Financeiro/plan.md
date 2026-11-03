@@ -1,8 +1,14 @@
 # P+ Financeiro — plano de reconstrução incremental
 
-**Situação:** plano aprovado em 25/10/2026; execução atual ajustada pela instrução posterior de pular áreas que precisam de chaves.  
-**Autorização recebida em 25/10/2026:** reconstruir no Manus WebDev, aceitando arquitetura adaptada e entrega em fases.  
+**Situação:** plano aprovado em 25/10/2026; execução atual ajustada pela instrução posterior de pular áreas que precisam de chaves.
+**Autorização recebida em 25/10/2026:** reconstruir no Manus WebDev, aceitando arquitetura adaptada e entrega em fases.
 **Projeto:** `/home/ubuntu/pmaisfin`, servidor e banco gerenciados habilitados; em 26/10 a preferência atual do Dashboard informa publicação automática ativa. Essa preferência não foi alterada pelo agente. Mockup e acesso compartilhado demo são separados de administração, MFA e operações financeiras de produção, que permanecem adiados.
+
+## Entrega técnica solicitada — 26/10/2026, documentação integral
+
+O novo briefing solicita documentar a aplicação real, não implementar regras presumidas ou converter o mockup em Financeiro operacional. Auditar primeiro os domínios de código, infraestrutura, schema/migrations, rotas, autenticação, regras, componentes usados/legado e testes. Produzir os vinte arquivos nomeados `docs/01-visao-geral.md` até `docs/20-pendencias.md`, com `docs/README.md` como índice; seguir os nomes exatos do anexo. Todo fato terá referência ao código quando possível e marcação CONFIRMADO NO CÓDIGO, RECOMENDAÇÃO — não implementado atualmente ou A CONFIRMAR. Separar banco real do modelo sintético local, arquivos presentes de caminhos ativos e existência de teste de evidência de execução. Não expor valores de ambiente, segredos, cookies, logs brutos, linhas de pessoas ou credenciais reais.
+
+Entregar pacote completo reproduzível de código frontend/backend, lockfile, configurações, scripts, testes, schema/migrations, documentos e imagens existentes. Imagens novas serão somente diagramas determinísticos corretos (Mermaid + PNG) e captura da tela de entrada sem senha, se disponível; nada de arte que simule telas ou funcionalidades inexistentes. Incluir exemplo de ambiente sem valores protegidos, guia de assets e manifestações de integridade. A leitura de metadata de schema é permitida, mas nenhuma consulta a registros de usuário/negócio, migration, pagamento ou integração real será feita. Não modificar endpoints ou comportamento financeiro para documentá-los.
 
 ## Ajuste de execução — 25/10/2026, 03:43
 
