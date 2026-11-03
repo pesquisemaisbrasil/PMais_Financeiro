@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      # shortcut: role única só para rodar localmente; financeiro_app e financeiro_migrator
+      # entram com a fundação do banco (PF-13, handoff/04).
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "troque-local"
+      POSTGRES_DB: financeiro
+    ports: ["127.0.0.1:5433:5432"] # 5432 fica com o Connect
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
+volumes:
+  pgdata:
