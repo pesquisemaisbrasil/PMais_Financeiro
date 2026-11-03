@@ -46,6 +46,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | openpyxl | 3.1.5 | planilha `.xlsx` de pagamentos |
 | tzdata | 2025.2 | fuso `America/Sao_Paulo` em imagem slim/Windows |
 | pypdf | 6.19.0 | leitura do PDF de comprovantes |
+| pyotp | 2.10.0 | MFA (TOTP). **Novo, não existe no Connect** |
 
 ### Backend (dev/CI)
 
@@ -76,6 +77,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | sonner (toast) | ^2.0.8 |
 | lucide-react | ^1.49.0 |
 | pdf-lib | ^1.17.1 (corta o PDF em partes no navegador) |
+| qrcode.react | ^4.2.0 (QR code do cadastro do MFA, gerado no navegador. **Novo, não existe no Connect**) |
 | typescript | ^5 |
 | vitest | ^3.2.4 |
 | @playwright/test | ^1.64.1 |

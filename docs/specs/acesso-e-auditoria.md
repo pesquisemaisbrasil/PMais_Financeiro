@@ -8,10 +8,12 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - **SSO Google ou Microsoft** como alternativa à senha no primeiro fator. O MFA continua obrigatório depois, nos dois casos.
 - **Não há cadastro público:** a conta nasce com `backend/scripts/create_user.py` até existir a tela de usuários.
 - **MFA (TOTP) obrigatório** para todos os papéis (`admin` e `financeiro`):
-  - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela;
+  - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela: `POST /auth/mfa/setup` devolve a chave e o QR code, e `POST /auth/mfa/setup/confirm` prova o cadastro com o primeiro código e abre a sessão;
   - `POST /auth/token` devolve um token parcial (`mfa_pending`, 5 min);
   - `POST /auth/token/mfa` com o código de 6 dígitos emite o par de tokens;
-  - códigos de recuperação de uso único.
+  - um código já aceito não vale de novo;
+  - 10 códigos de recuperação de uso único, guardados só como hash, que aparecem uma vez no fim do cadastro;
+  - a sessão só nasce depois do segundo fator, e conta sem MFA não renova sessão antiga.
 - **Sessão:**
   - access token de 15 min, só em memória;
   - refresh token de 7 dias em cookie `HttpOnly; Secure; SameSite=Strict`, rotativo e com detecção de reuso (`family_id`);
@@ -52,7 +54,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
    - `/auth/token`: 5/min por IP e 10 falhas/h por e-mail, contadas em `login_events` para valerem depois de um restart e tratarem igual e-mail com e sem conta;
    - `/auth/token/refresh`: 60/min por IP, porque o access token só vive em memória e cada recarga de página renova;
    - `/auth/token/mfa`: 5/min;
-   - 10 erros seguidos de MFA bloqueiam temporariamente.
+   - 10 erros seguidos de MFA bloqueiam a conta por 15 minutos, mesmo com o código certo.
 10. Headers de segurança e `/docs` e `/openapi.json` desligados em produção, desde o primeiro commit.
 11. Gravar o último login (data, IP, user-agent).
 
@@ -64,6 +66,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 | E-mail ou senha errados, ou conta desativada | 401 | E-mail ou senha incorretos |
 | Conta desativada com token de acesso ainda válido | 401 | (padrão do login) |
 | Código MFA errado ou token parcial vencido | 401 | Código de verificação inválido |
+| Cadastrar MFA numa conta que já tem | 409 | O MFA já está cadastrado |
 | Excesso de tentativas | 429 | Muitas tentativas — aguarde alguns minutos |
 | Papel sem a permissão da ação | 403 | Seu perfil não permite essa ação |
 | Rebaixar ou desativar o último admin | 409 | Não é possível remover o último administrador |
@@ -72,18 +75,18 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 
 ## Critérios de aceite
 
-- [ ] O primeiro login de um usuário novo cai no cadastro do MFA e não chega a nenhuma outra tela antes disso.
+- [x] O primeiro login de um usuário novo cai no cadastro do MFA e não chega a nenhuma outra tela antes disso.
 - [ ] Gerar a planilha com chave completa pede o código MFA de novo.
-- [ ] Desativar um usuário derruba a sessão dele no próximo refresh.
-- [ ] Reapresentar um refresh já usado revoga a família inteira.
+- [x] Desativar um usuário derruba a sessão dele no próximo refresh.
+- [x] Reapresentar um refresh já usado revoga a família inteira.
 - [ ] Rebaixar o único admin é recusado com 409.
 - [ ] A tela Auditoria mostra criação, confirmação e cancelamento de lote e cada download de planilha, com autor.
-- [ ] Teste de schema: nenhuma coluna de CPF nem de chave Pix em claro no banco do Financeiro.
+- [x] Teste de schema: nenhuma coluna de CPF nem de chave Pix em claro no banco do Financeiro.
 - [ ] Toda rota tem teste sem token, com token expirado, com papel sem permissão e com conta inativa.
 
 ## Onde está no código
 
-- Destino: `backend/api/auth.py`, `backend/services/auth.py`, `backend/core/security.py`, `backend/core/permissions.py`, `backend/models/user.py`, `backend/services/audit.py`, `backend/api/audit.py`
+- Destino: `backend/api/auth.py`, `backend/services/auth.py`, `backend/services/mfa.py`, `backend/core/crypto.py`, `backend/core/security.py`, `backend/core/permissions.py`, `backend/models/user.py`, `backend/services/audit.py`, `backend/api/audit.py`
 - Frontend: `frontend/src/app/login/`, `frontend/src/app/admin/auditoria/`, `RequireAuth`
 - Testes: `backend/tests/test_auth.py`, `test_mfa.py`, `test_permissions.py`, `test_audit.py`
 - Referência no Connect: `api/auth.py`, `services/auth.py`, `core/permissions.py`, `services/audit.py`
@@ -93,4 +96,5 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - 2026-10-21: login por e-mail, como manda [handoff/06 §1](../handoff/06-seguranca-e-lgpd.md). O [handoff/04](../handoff/04-banco-de-dados.md) diz para copiar os models do Connect com login por CPF. Conflito registrado em [perguntas-abertas](../planning/perguntas-abertas.md) (Q10).
 - 2026-11-03: Q10 fechada (PF-4): login por e-mail + senha, com SSO Google ou Microsoft como alternativa no primeiro fator e TOTP depois nos dois casos. Sem CPF no Financeiro.
 - 2026-11-03: primeira entrega só com e-mail + senha, sessão e limites. Faltam MFA e reautenticação, SSO, troca e recuperação de senha, papéis e auditoria. **Nada vai para a `main` antes do MFA.** O limite por IP ainda é em memória: passa para Redis quando a API tiver mais de uma instância.
+- 2026-11-03: MFA TOTP entregue. O reset ainda é por script (`backend/scripts/reset_mfa.py`), sem aviso ao dono: a tela de administração vem com a entrega de usuários. A reautenticação com MFA nasce junto com as ações críticas, que ainda não existem. Faltam também SSO, troca e recuperação de senha, papéis e auditoria.
 - 2026-10-21: segregação de funções (quem envia o lote não confirma a baixa acima de um valor) fica como pergunta aberta Q8 até o PO definir o valor.
