@@ -1,6 +1,6 @@
 # Testes, qualidade e CI
 
-Como o P+ Connect prova que uma entrega funciona, e como o Financeiro deve repetir isso: as camadas de teste, os padrões de escrita (com exemplos reais), como simular integrações externas, o script de verificação local, os workflows do GitHub Actions e a definição de pronto. A barra é a mesma do Connect: nada vai para a `main` sem tudo verde.
+Como o P+ Connect prova que uma entrega funciona, e como o Financeiro deve repetir isso: as camadas de teste, os padrões de escrita (com exemplos reais), como simular integrações externas, o script de verificação local, os workflows do GitHub Actions e a definição de pronto. A barra é a mesma do Connect: nada vai para a `homolog` nem para a `main` sem tudo verde.
 
 Caminhos citados são do repositório do Connect, para copiar o padrão.
 
@@ -323,7 +323,7 @@ Ao adaptar:
 
 ## 6. GitHub Actions
 
-Todos rodam em `pull_request` para a `main` e em `push` na `main`, com Python 3.11 e Node 22.
+Todos rodam em `pull_request` e em `push` para a `homolog` e para a `main`, com Python 3.11 e Node 22.
 
 | Workflow | Job | O que roda |
 |---|---|---|
@@ -341,8 +341,8 @@ Todos rodam em `pull_request` para a `main` e em `push` na `main`, com Python 3.
 ```yaml
 name: Tests
 on:
-  push: { branches: [main] }
-  pull_request: { branches: [main] }
+  push: { branches: [homolog, main] }
+  pull_request: { branches: [homolog, main] }
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -517,6 +517,6 @@ Uma entrega do Financeiro só está pronta quando:
 - [ ] `seed_e2e.py` recusa qualquer banco que não seja `sqlite:///…/e2e.db`.
 - [ ] `playwright.config.ts` sobe backend e frontend em portas próprias, com rate limit e rotinas desligados.
 - [ ] `scripts/verify-delivery.sh` roda verde num clone limpo.
-- [ ] Os 5 workflows (`tests`, `lint`, `frontend`, `e2e`, `security`) estão no `.github/workflows/` e rodam em PR e push na `main`.
+- [ ] Os 5 workflows (`tests`, `lint`, `frontend`, `e2e`, `security`) estão no `.github/workflows/` e rodam em PR e push na `homolog` e na `main`.
 - [ ] O job `migrations` faz upgrade, `alembic check`, downgrade e upgrade num Postgres 16.
 - [ ] Gitleaks pela CLI com versão fixa e `fetch-depth: 0`; `.gitleaksignore` só com falsos positivos comentados.

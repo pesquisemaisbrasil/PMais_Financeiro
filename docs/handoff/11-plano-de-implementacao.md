@@ -1,6 +1,6 @@
 # Plano de implementação
 
-Ordem sugerida para construir o Financeiro do zero até substituir o que hoje roda dentro do Connect. Cada fase termina com testes verdes, docs atualizados e um PR para a `main` (processo em [10-processo-docs-e-skills.md](10-processo-docs-e-skills.md)).
+Ordem sugerida para construir o Financeiro do zero até substituir o que hoje roda dentro do Connect. Cada fase termina com testes verdes, docs atualizados e um PR para a `homolog` (processo em [10-processo-docs-e-skills.md](10-processo-docs-e-skills.md)).
 
 As fases 0 a 2 não dependem do Connect. A fase 3 exige que o Connect já tenha a API de integração, cuja lista de tarefas está em [07-integracao-com-o-connect.md](07-integracao-com-o-connect.md).
 
@@ -88,6 +88,6 @@ Depende das tarefas do Connect listadas em [07](07-integracao-com-o-connect.md).
 
 ## Checklist
 
-- [ ] Cada fase tem PR próprio, com base na `main`, CI verde e docs no mesmo PR.
+- [ ] Cada fase tem PR próprio, com base na `homolog`, CI verde e docs no mesmo PR.
 - [ ] A fase 3 só começa com as rotas do Connect publicadas e testadas.
 - [ ] A troca (fase 4) só acontece depois de 1 ciclo em paralelo sem divergência.
