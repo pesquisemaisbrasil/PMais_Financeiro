@@ -47,6 +47,16 @@ Abra `http://localhost:3010`. No primeiro login, o sistema pede para cadastrar u
 
 Quem perdeu o celular e os códigos de recuperação: `.venv/Scripts/python scripts/reset_mfa.py --email voce@pesquisemais.com.br`.
 
+## Antes de abrir um PR
+
+```bash
+bash scripts/verify-delivery.sh          # a mesma barra do CI
+bash scripts/verify-delivery.sh --e2e    # mais os testes de tela, se mudou tela ou fluxo
+bash scripts/verify-delivery.sh --fast   # sem cobertura, para iterar
+```
+
+O `--e2e` pede `npx playwright install chromium` uma vez, e o `npm run dev` da porta 3010 parado, porque o `next dev` não sobe duas vezes na mesma pasta.
+
 ## Regras que valem para tudo
 
 - Integração com o Connect **só por API**: nunca acessar o banco ou o MinIO dele.
