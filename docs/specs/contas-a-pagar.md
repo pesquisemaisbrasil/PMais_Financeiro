@@ -133,7 +133,13 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- `backend/models/payable.py`, `backend/models/reference.py`, `backend/services/payable.py`, `backend/api/payables.py`.
+- `frontend/src/app/(app)/contas-a-pagar/` e `frontend/src/lib/payables.ts`.
+- `backend/scripts/seed_demo.py`: dados fictícios para ver as telas localmente.
+
+**O que já funciona (primeira fatia do MVP):** painel que abre no dia, abas, indicadores, filtros, busca, colunas, lançamento com rateio, itens abertos na linha, baixa parcial e em lote, juros, multa e desconto, estorno, Pix devolvido, cancelar, excluir e histórico.
+
+**O que ainda falta:** importar planilha e dividir por data, anexos (Q19), exportar, reclassificar, duplicar, recorrência, substituir provisão por real, autorização acima do orçamento, link do código do projeto para o relatório e os lançamentos chegando do Connect (PF-6).
 
 Origem do requisito:
 
@@ -149,4 +155,5 @@ Origem do requisito:
 - 2026-10-23: **transferência entre empresas** do Grupo (hoje não usada, mas pode acontecer) é marcada no lançamento, para o consolidado não contar duas vezes (F15).
 - 2026-10-28: item com NF pendente não bloqueia o pagamento (decisão do PO em 28/10/2026, ver [documentos-fiscais](documentos-fiscais.md)).
 - 2026-11-03: o pagamento de entrevistadores chega **sozinho como lançamento agrupado** (um por projeto × data de pagamento); planilha, comprovantes e NF ficam no lançamento, que abre os itens na lista; o código do projeto abre o relatório do projeto; a planilha de incentivos é importada e **dividida por data de pagamento**, com prazo em dias úteis por tipo de projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1 a K3, K5 a K7). Perguntas F22 a F25.
+- 2026-11-04: a baixa é recusada com data no futuro, porque é o dia em que o dinheiro saiu. A spec não dizia, e foi resolvido do jeito mais seguro. Excluir é lógico: o título sai das listas e o histórico fica.
 - 2026-11-03 (falas da Bruna e da Camila, K10 a K12): **Contas a pagar é o único lugar onde se paga**; a importação de planilha e as **provisões** ficam aqui; a tela abre **nas contas do dia**; e a planilha de incentivo que já traz a **data de pagamento** usa essa data, sem recalcular pelo prazo. O CP alimenta o projeto, e não o contrário ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), B4, B5, B7, C1, B8).

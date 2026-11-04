@@ -46,7 +46,7 @@ export async function signIn(page: Page, email: string) {
 }
 
 export async function expectHome(page: Page) {
-  await expect(page.getByRole("heading", { name: /^Olá, / })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite), / })).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
 }
 

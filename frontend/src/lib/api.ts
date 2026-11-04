@@ -1,3 +1,14 @@
+import type {
+  HomeSummary,
+  Indicator,
+  PayableDetail,
+  PayableList,
+  PeriodMode,
+  Reference,
+  SortColumn,
+  Tab,
+} from "./payables";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8010";
 
 export class ApiError extends Error {
@@ -191,4 +202,83 @@ export async function logout(): Promise<void> {
 
 export function getMe(): Promise<UserPublic> {
   return request<UserPublic>("/auth/me");
+}
+
+// ---- Contas a pagar ----
+
+function send<T>(path: string, method: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getHome(): Promise<HomeSummary> {
+  return request<HomeSummary>("/home");
+}
+
+export function getReference(): Promise<Reference> {
+  return request<Reference>("/reference");
+}
+
+export interface PayableQuery {
+  mode: PeriodMode;
+  ref: string | null;
+  indicator: Indicator;
+  tab: Tab;
+  filters: Record<string, string>;
+  search: string;
+  sort: SortColumn;
+  descending: boolean;
+  page: number;
+}
+
+export function listPayables(query: PayableQuery): Promise<PayableList> {
+  const params = new URLSearchParams({
+    mode: query.mode,
+    indicator: query.indicator,
+    tab: query.tab,
+    sort: query.sort,
+    descending: String(query.descending),
+    page: String(query.page),
+  });
+  if (query.ref) params.set("ref", query.ref);
+  if (query.search.trim()) params.set("search", query.search.trim());
+  for (const [key, value] of Object.entries(query.filters)) {
+    if (value) params.set(key, value);
+  }
+  return request<PayableList>(`/payables?${params}`);
+}
+
+export function getPayable(id: number): Promise<PayableDetail> {
+  return request<PayableDetail>(`/payables/${id}`);
+}
+
+export function createPayable(body: unknown): Promise<PayableDetail> {
+  return send<PayableDetail>("/payables", "POST", body);
+}
+
+export function updatePayable(id: number, body: unknown): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}`, "PATCH", body);
+}
+
+export function cancelPayable(id: number, reason: string): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/cancel`, "POST", { reason });
+}
+
+export function payPayable(id: number, body: unknown): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/payments`, "POST", body);
+}
+
+export function reversePayment(id: number, paymentId: number, body: unknown): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/payments/${paymentId}/reverse`, "POST", body);
+}
+
+export function payBatch(body: unknown): Promise<{ total: string; count: number }> {
+  return send<{ total: string; count: number }>("/payables/batch/payments", "POST", body);
+}
+
+export function deleteBatch(ids: number[]): Promise<{ count: number }> {
+  return send<{ count: number }>("/payables/batch/delete", "POST", { ids });
 }

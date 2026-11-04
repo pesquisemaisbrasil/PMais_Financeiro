@@ -31,6 +31,7 @@ py -3.12 -m venv .venv    # ou: uv venv --python 3.12 .venv
 .venv/Scripts/python -m pip install -r requirements.txt -r requirements-dev.txt
 cp .env.example .env        # gere SECRET_KEY e ENCRYPTION_KEY: a API não sobe com as de exemplo
 .venv/Scripts/alembic upgrade head
+.venv/Scripts/python scripts/seed_demo.py   # opcional: contas fictícias para ver o Início e o Contas a pagar
 .venv/Scripts/python scripts/create_user.py --email voce@pesquisemais.com.br --name "Seu nome" --role admin
 .venv/Scripts/python -m uvicorn main:app --port 8010
 ```
