@@ -2,6 +2,10 @@
 
 Aplicativo demonstrativo da Pesquise+ / P+Solution Research, reconstruído no Manus WebDev a partir dos documentos fornecidos.
 
+## Manual técnico completo
+
+O índice do manual técnico de 20 documentos, com arquitetura, banco, acesso demo, APIs, entidades, regras, testes, infraestrutura, riscos e pendências, está em [`docs/README.md`](docs/README.md). Diagramas editáveis/renderizados e assets estão listados em [`docs/ANEXO-assets-e-imagens.md`](docs/ANEXO-assets-e-imagens.md). O manual descreve o código presente e separa gates futuros; não habilita funcionalidades financeiras reais.
+
 ## Estado da entrega
 
 **MOCKUP • DADOS SINTÉTICOS • NENHUMA OPERAÇÃO REAL**
@@ -80,4 +84,4 @@ React/TypeScript/Vite, Tailwind/Radix; Express/tRPC; MySQL gerenciado somente pa
 
 Tipos/build/testes e revisão independente foram executados sem escrever no banco ou integrar serviços. Evidências e limitações estão em `docs/development/validacao-mockup.md`. Não houve bateria de browser/teclado/leitor de tela ou certificação WCAG.
 
-Publicação automática continua desativada; Preview não é publicação nem produção. Para evoluir além do mockup, ainda são necessários acesso seguro por e-mail/senha e MFA, permissões, auditoria, persistência financeira durável, decisões de DPO/contabilidade/PO, contratos/API de Connect e banco validados e autorização própria. Nenhuma migração SGE4B, operação bancária ou baixa real foi realizada.
+No snapshot do control-plane em 26/10/2026, o deployment estava `success` e `auto_publish=true`; essa preferência pode mudar pelo Dashboard. Preview e deployment publicado são distintos, e nenhum indica prontidão para produção financeira. Para evoluir além do mockup ainda são necessários autenticação individual com MFA, autorização, auditoria, persistência financeira durável, decisões de DPO/contabilidade/PO e contratos/API de Connect e banco validados. Nenhuma migração SGE4B, operação bancária ou baixa real foi realizada.
