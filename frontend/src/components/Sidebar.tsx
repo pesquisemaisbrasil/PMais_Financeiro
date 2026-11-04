@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, House, LogOut, PanelLeftClose, PanelLeftOpen, type LucideIcon } from "lucide-react";
+import { BookUser, ArrowUpRight, House, LogOut, PanelLeftClose, PanelLeftOpen, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -19,6 +19,7 @@ const GROUPS: {
 }[] = [
   { title: "Visão geral", links: [{ href: "/", label: "Início", icon: House, counted: false }] },
   { title: "Dia a dia", links: [{ href: "/contas-a-pagar", label: "Contas a pagar", icon: ArrowUpRight, counted: true }] },
+  { title: "Configuração", links: [{ href: "/cadastros", label: "Cadastros", icon: BookUser, counted: false }] },
 ];
 
 const ROLE_LABELS: Record<string, string> = {

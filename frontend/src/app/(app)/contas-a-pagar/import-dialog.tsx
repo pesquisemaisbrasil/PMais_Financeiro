@@ -3,7 +3,7 @@
 import { Copy, FileUp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
-import { NUM, TD, TH, Tag } from "@/components/finance";
+import { Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,6 @@ import {
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
-import { Field, FormError } from "./dialogs";
 
 const KINDS = [
   { id: "incentivos", label: "Incentivos" },

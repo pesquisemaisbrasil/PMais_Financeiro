@@ -13,8 +13,10 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import type { Situation } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
@@ -135,3 +137,34 @@ export const CARD = "rounded-2xl border border-border bg-card shadow-[0_1px_2px_
 export const TH = "bg-[#f1f5f9]/70 px-4 py-2.5 text-[13px] font-semibold text-muted-foreground";
 export const TD = "px-4 py-[11px] text-[13px]";
 export const NUM = "text-right tabular-nums";
+
+export function Field({
+  label,
+  id,
+  hint,
+  children,
+}: {
+  label: string;
+  id: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id} className="text-[13px] font-semibold">
+        {label}
+      </Label>
+      {children}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+    </div>
+  );
+}
+
+export function FormError({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <Alert variant="destructive" className="mb-2">
+      <AlertDescription>{message}</AlertDescription>
+    </Alert>
+  );
+}

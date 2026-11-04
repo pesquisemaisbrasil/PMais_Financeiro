@@ -1,0 +1,634 @@
+"use client";
+
+import { Archive, ArchiveRestore, BookUser, Pencil, Plus, Search, Trash2, type LucideIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
+import { SearchSelect } from "@/components/SearchSelect";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ApiError,
+  createRecord,
+  deleteRecord,
+  getReference,
+  listRecords,
+  setRecordActive,
+  updateProjectIncentive,
+  updateRecord,
+} from "@/lib/api";
+import {
+  filterOptions,
+  formatCnpj,
+  plural,
+  type Project,
+  type RecordKind,
+  type RecordRow,
+  type Reference,
+} from "@/lib/payables";
+import { useFormAction } from "@/lib/use-form-action";
+import { cn } from "@/lib/utils";
+
+type TabId = RecordKind | "projects";
+
+const TABS: { id: TabId; label: string; one: string; create?: string }[] = [
+  { id: "suppliers", label: "Fornecedores", one: "fornecedor", create: "Novo fornecedor" },
+  { id: "categories", label: "Plano de contas", one: "conta", create: "Nova conta" },
+  { id: "companies", label: "Empresas", one: "empresa", create: "Nova empresa" },
+  { id: "units", label: "Unidades", one: "unidade", create: "Nova unidade" },
+  { id: "costCenters", label: "Centros de custo", one: "centro de custo", create: "Novo centro de custo" },
+  { id: "bankAccounts", label: "Contas bancárias", one: "conta bancária", create: "Nova conta bancária" },
+  { id: "paymentMethods", label: "Formas de pagamento", one: "forma de pagamento", create: "Nova forma" },
+  { id: "projects", label: "Projetos (Connect)", one: "projeto" },
+];
+
+const PAGE_SIZE = 25;
+const PROJECT_TYPES = ["Health", "CATI", "Consumo", "Outro"];
+const NO_TYPE = "sem-tipo";
+
+function RowButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={onClick}>
+          <Icon size={16} />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function RecordDialog({
+  kind,
+  one,
+  record,
+  companies,
+  onClose,
+  onDone,
+}: {
+  kind: RecordKind;
+  one: string;
+  record: RecordRow | null;
+  companies: { id: number; name: string }[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  const [form, setForm] = useState({
+    name: record?.name ?? "",
+    nickname: record?.nickname ?? "",
+    code: record?.code ?? "",
+    companyId: record?.companyId ? String(record.companyId) : "",
+    document: record?.document ? formatCnpj(record.document) : "",
+    contactName: record?.contactName ?? "",
+    phone: record?.phone ?? "",
+    email: record?.email ?? "",
+    paymentTerms: record?.paymentTerms ?? "",
+  });
+  const input = (key: keyof typeof form) => ({
+    value: form[key],
+    onChange: (event: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: event.target.value })),
+  });
+  const needsCompany = kind === "units" || kind === "bankAccounts";
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await run(async () => {
+      const body = { ...form, companyId: form.companyId ? Number(form.companyId) : null };
+      await (record ? updateRecord(kind, record.id, body) : createRecord(kind, body));
+      onDone();
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[620px]">
+        <form onSubmit={submit} noValidate>
+          <DialogHeader>
+            <DialogTitle>{record ? `Editar ${one}` : `Cadastrar ${one}`}</DialogTitle>
+            <DialogDescription>Os campos com * são obrigatórios.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3.5 py-4">
+            {kind === "suppliers" && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Apelido *" id="c-apelido">
+                    <Input id="c-apelido" autoFocus {...input("nickname")} />
+                  </Field>
+                  <Field label="Nome / razão social *" id="c-nome">
+                    <Input id="c-nome" {...input("name")} />
+                  </Field>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="CNPJ" id="c-doc" hint="Fornecedor pessoa física fica sem documento por enquanto.">
+                    <Input id="c-doc" {...input("document")} />
+                  </Field>
+                  <Field label="Contato responsável" id="c-contato">
+                    <Input id="c-contato" {...input("contactName")} />
+                  </Field>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Telefone" id="c-tel">
+                    <Input id="c-tel" placeholder="+55 41 99999-0000" {...input("phone")} />
+                  </Field>
+                  <Field label="E-mail" id="c-email">
+                    <Input id="c-email" type="email" {...input("email")} />
+                  </Field>
+                </div>
+                <Field label="Condição de pagamento" id="c-cond">
+                  <Input id="c-cond" {...input("paymentTerms")} />
+                </Field>
+              </>
+            )}
+            {kind === "categories" && (
+              <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
+                <Field label="Código *" id="c-cod">
+                  <Input id="c-cod" autoFocus placeholder="2.04" {...input("code")} />
+                </Field>
+                <Field label="Nome *" id="c-nome">
+                  <Input id="c-nome" {...input("name")} />
+                </Field>
+              </div>
+            )}
+            {kind !== "suppliers" && kind !== "categories" && (
+              <>
+                {needsCompany && (
+                  <Field label="Empresa *" id="c-emp">
+                    <SearchSelect
+                      id="c-emp"
+                      value={form.companyId}
+                      onChange={(value) => setForm((current) => ({ ...current, companyId: value }))}
+                      options={companies.map((c) => ({ id: c.id, label: c.name }))}
+                    />
+                  </Field>
+                )}
+                <Field label="Nome *" id="c-nome">
+                  <Input id="c-nome" autoFocus={!needsCompany} {...input("name")} />
+                </Field>
+              </>
+            )}
+            <FormError message={error} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {record ? "Salvar alterações" : "Cadastrar"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteDialog({
+  kind,
+  record,
+  onClose,
+  onDone,
+}: {
+  kind: RecordKind;
+  record: RecordRow;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Excluir {record.name}</DialogTitle>
+          <DialogDescription>Não há lançamentos com ele. Isso não pode ser desfeito.</DialogDescription>
+        </DialogHeader>
+        <FormError message={error} />
+        <DialogFooter>
+          <Button variant="outline" disabled={submitting} onClick={onClose}>
+            Voltar
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={submitting}
+            onClick={() =>
+              run(async () => {
+                await deleteRecord(kind, record.id);
+                onDone();
+              })
+            }
+          >
+            Excluir
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ProjectDialog({
+  project,
+  onClose,
+  onDone,
+}: {
+  project: Project;
+  onClose: () => void;
+  onDone: (project: Project) => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [projectType, setProjectType] = useState(project.projectType ?? NO_TYPE);
+  const [hasIncentive, setHasIncentive] = useState(project.hasIncentive ? "sim" : "nao");
+  const [days, setDays] = useState(project.incentiveDays ? String(project.incentiveDays) : "");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const withIncentive = hasIncentive === "sim";
+    const parsed = Number(days);
+    if (withIncentive && !(Number.isInteger(parsed) && parsed >= 1 && parsed <= 30)) {
+      return setLocalError("Informe o prazo do incentivo em dias úteis (de 1 a 30).");
+    }
+    setLocalError(null);
+    await run(async () =>
+      onDone(
+        await updateProjectIncentive(project.id, {
+          projectType: projectType === NO_TYPE ? null : projectType,
+          hasIncentive: withIncentive,
+          incentiveDays: withIncentive ? parsed : null,
+        })
+      )
+    );
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <form onSubmit={submit} noValidate>
+          <DialogHeader>
+            <DialogTitle>Tipo e incentivo · PRJ-{project.code}</DialogTitle>
+            <DialogDescription>{project.title}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3.5 py-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Tipo de projeto" id="pi-tipo">
+                <SearchSelect
+                  id="pi-tipo"
+                  value={projectType}
+                  onChange={setProjectType}
+                  options={[{ id: NO_TYPE, label: "Sem tipo" }, ...PROJECT_TYPES.map((type) => ({ id: type, label: type }))]}
+                />
+              </Field>
+              <Field label="Tem incentivo?" id="pi-tem">
+                <SearchSelect
+                  id="pi-tem"
+                  value={hasIncentive}
+                  onChange={setHasIncentive}
+                  options={[
+                    { id: "sim", label: "Sim" },
+                    { id: "nao", label: "Não" },
+                  ]}
+                />
+              </Field>
+            </div>
+            {hasIncentive === "sim" && (
+              <Field label="Prazo do incentivo (dias úteis)" id="pi-prazo" hint="Conta a partir da data da pesquisa.">
+                <Input
+                  id="pi-prazo"
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={days}
+                  onChange={(event) => setDays(event.target.value)}
+                />
+              </Field>
+            )}
+            <FormError message={localError ?? error} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function incentiveLabel(project: Project): string {
+  return project.hasIncentive && project.incentiveDays
+    ? `Incentivo em ${plural(project.incentiveDays, "dia útil", "dias úteis")}`
+    : "Sem incentivo";
+}
+
+export default function RecordsPage() {
+  const [tab, setTab] = useState<TabId>("suppliers");
+  const [term, setTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [rows, setRows] = useState<RecordRow[] | null>(null);
+  const [reference, setReference] = useState<Reference | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ record: RecordRow | null } | null>(null);
+  const [deleting, setDeleting] = useState<RecordRow | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  const current = TABS.find((option) => option.id === tab) ?? TABS[0];
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      // Unidade e conta bancária mostram a empresa, e o projeto vem do Connect: tudo vem daqui.
+      const nextReference = await getReference();
+      setReference(nextReference);
+      setRows(tab === "projects" ? [] : await listRecords(tab));
+    } catch (err) {
+      setRows(null);
+      setError(err instanceof ApiError ? err.message : "Não foi possível carregar os cadastros");
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- busca da tela quando a aba muda
+    void load();
+  }, [load]);
+
+  const companies = useMemo(() => reference?.companies ?? [], [reference]);
+  const companyName = (id: number | null) => companies.find((c) => c.id === id)?.name ?? "Empresa inativa";
+
+  const shown = useMemo(() => {
+    const labeled = (rows ?? []).map((row) => ({
+      row,
+      label: [row.name, row.nickname, row.code, row.document].filter(Boolean).join(" "),
+    }));
+    return filterOptions(labeled, term).map(({ row }) => row);
+  }, [rows, term]);
+  const projects = useMemo(
+    () =>
+      filterOptions(
+        (reference?.projects ?? []).map((project) => ({ project, label: `PRJ-${project.code} ${project.title}` })),
+        term
+      ).map(({ project }) => project),
+    [reference, term]
+  );
+
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  function changeTab(next: TabId) {
+    setRows(null);
+    setTab(next);
+    setTerm("");
+    setPage(1);
+  }
+
+  async function toggleActive(record: RecordRow) {
+    if (tab === "projects") return;
+    try {
+      await setRecordActive(tab, record.id, !record.active);
+      toast.success(
+        record.active
+          ? `${record.name} inativado. Some das listas de escolha e continua nos relatórios.`
+          : `${record.name} reativado.`
+      );
+      void load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível alterar o cadastro");
+    }
+  }
+
+  return (
+    <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
+      <PageHeader
+        title="Cadastros"
+        icon={BookUser}
+        actions={
+          current.create && (
+            <Button onClick={() => setEditing({ record: null })} disabled={!rows}>
+              <Plus size={16} />
+              {current.create}
+            </Button>
+          )
+        }
+      />
+
+      <div className="mb-4 inline-flex flex-wrap gap-0.5 rounded-[10px] bg-[#f1f5f9] p-[3px]" role="tablist" aria-label="Tipo de cadastro">
+        {TABS.map((option) => (
+          <Button
+            key={option.id}
+            role="tab"
+            aria-selected={tab === option.id}
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-7 rounded-lg px-3 text-[13px] font-semibold text-muted-foreground",
+              tab === option.id && "bg-card text-brand-cinza-escuro shadow-sm hover:bg-card"
+            )}
+            onClick={() => changeTab(option.id)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mb-4">
+          <ErrorBox message={error} onRetry={load} />
+        </div>
+      )}
+
+      <div className={CARD}>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="relative w-full max-w-[320px]">
+            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
+            <Input
+              className="bg-card pl-8"
+              aria-label={`Buscar em ${current.label.toLowerCase()}`}
+              placeholder={`Buscar em ${current.label.toLowerCase()}…`}
+              value={term}
+              onChange={(event) => {
+                setTerm(event.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          {tab === "projects" && (
+            <span className="text-xs text-muted-foreground">Os projetos vêm do P+ Connect. Aqui só se marca o tipo e o incentivo.</span>
+          )}
+        </div>
+
+        {!rows ? (
+          !error && (
+            <div className="flex justify-center p-8">
+              <Spinner aria-label="Carregando" className="size-6 text-brand-cinza-escuro/70" />
+            </div>
+          )
+        ) : tab === "projects" ? (
+          projects.length ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className={TH}>Projeto</TableHead>
+                  <TableHead className={TH}>Situação</TableHead>
+                  <TableHead className={TH}>Tipo e incentivo</TableHead>
+                  <TableHead className={TH} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {projects.map((project) => (
+                  <TableRow key={project.id}>
+                    <TableCell className={cn(TD, "whitespace-normal font-semibold text-brand-cinza-escuro")}>
+                      PRJ-{project.code} · {project.title}
+                    </TableCell>
+                    <TableCell className={TD}>
+                      <Tag color={project.status === "encerrado" ? "cinza" : "verde"}>
+                        {project.status === "encerrado" ? "Encerrado" : "Em andamento"}
+                      </Tag>
+                    </TableCell>
+                    <TableCell className={TD}>
+                      {project.projectType ?? "Sem tipo"}
+                      <span className="block text-xs text-muted-foreground">{incentiveLabel(project)}</span>
+                    </TableCell>
+                    <TableCell className={cn(TD, "text-right")}>
+                      <RowButton icon={Pencil} label="Editar tipo e incentivo" onClick={() => setEditingProject(project)} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+              {term ? "Nenhum projeto com essa busca." : "Nenhum projeto ainda. Eles chegam do P+ Connect."}
+            </p>
+          )
+        ) : visible.length ? (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {tab === "categories" && <TableHead className={TH}>Código</TableHead>}
+                  {(tab === "units" || tab === "bankAccounts") && <TableHead className={TH}>Empresa</TableHead>}
+                  <TableHead className={TH}>{tab === "suppliers" ? "Apelido · nome" : "Nome"}</TableHead>
+                  {tab === "suppliers" && <TableHead className={TH}>CNPJ</TableHead>}
+                  {tab === "suppliers" && <TableHead className={TH}>Contato</TableHead>}
+                  {tab === "suppliers" && <TableHead className={TH}>Condição</TableHead>}
+                  <TableHead className={TH}>Situação</TableHead>
+                  <TableHead className={TH} />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visible.map((row) => (
+                  <TableRow key={row.id}>
+                    {tab === "categories" && <TableCell className={cn(TD, "font-mono text-xs")}>{row.code}</TableCell>}
+                    {(tab === "units" || tab === "bankAccounts") && (
+                      <TableCell className={TD}>{companyName(row.companyId)}</TableCell>
+                    )}
+                    <TableCell className={cn(TD, "whitespace-normal")}>
+                      <span className="font-semibold text-brand-cinza-escuro">{row.nickname ?? row.name}</span>
+                      {row.nickname && <span className="block text-xs text-muted-foreground">{row.name}</span>}
+                    </TableCell>
+                    {tab === "suppliers" && (
+                      <TableCell className={cn(TD, "tabular-nums")}>{row.document ? formatCnpj(row.document) : "—"}</TableCell>
+                    )}
+                    {tab === "suppliers" && (
+                      <TableCell className={cn(TD, "whitespace-normal")}>
+                        {row.contactName ?? "—"}
+                        {(row.email || row.phone) && (
+                          <span className="block text-xs text-muted-foreground">{row.email ?? row.phone}</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {tab === "suppliers" && <TableCell className={cn(TD, "whitespace-normal")}>{row.paymentTerms ?? "—"}</TableCell>}
+                    <TableCell className={TD}>
+                      <Tag color={row.active ? "verde" : "cinza"}>{row.active ? "Ativo" : "Inativo"}</Tag>
+                    </TableCell>
+                    <TableCell className={cn(TD, "whitespace-nowrap text-right")}>
+                      <RowButton icon={Pencil} label={`Editar ${row.name}`} onClick={() => setEditing({ record: row })} />
+                      <RowButton
+                        icon={row.active ? Archive : ArchiveRestore}
+                        label={`${row.active ? "Inativar" : "Reativar"} ${row.name}`}
+                        onClick={() => toggleActive(row)}
+                      />
+                      {!row.inUse && <RowButton icon={Trash2} label={`Excluir ${row.name}`} onClick={() => setDeleting(row)} />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+              <span>{plural(shown.length, "cadastro", "cadastros")}</span>
+              {pageCount > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
+                    Anterior
+                  </Button>
+                  <span>
+                    {page} de {pageCount}
+                  </span>
+                  <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage(page + 1)}>
+                    Próxima
+                  </Button>
+                </div>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+            {term ? "Nenhum cadastro com essa busca." : "Nada cadastrado ainda."}
+          </p>
+        )}
+      </div>
+
+      {editing && tab !== "projects" && (
+        <RecordDialog
+          kind={tab}
+          one={current.one}
+          record={editing.record}
+          companies={companies}
+          onClose={() => setEditing(null)}
+          onDone={() => {
+            toast.success(editing.record ? "Alterações salvas." : "Cadastro criado.");
+            setEditing(null);
+            void load();
+          }}
+        />
+      )}
+      {deleting && tab !== "projects" && (
+        <DeleteDialog
+          kind={tab}
+          record={deleting}
+          onClose={() => setDeleting(null)}
+          onDone={() => {
+            toast.success(`${deleting.name} excluído.`);
+            setDeleting(null);
+            void load();
+          }}
+        />
+      )}
+      {editingProject && (
+        <ProjectDialog
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onDone={(project) => {
+            toast.success(`PRJ-${project.code} atualizado: ${project.projectType ?? "sem tipo"}, ${incentiveLabel(project).toLowerCase()}.`);
+            setEditingProject(null);
+            void load();
+          }}
+        />
+      )}
+    </main>
+  );
+}

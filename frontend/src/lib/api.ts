@@ -10,7 +10,10 @@ import type {
   DateField,
   ReplacementCandidate,
   ImportPreview,
-  ImportResult
+  ImportResult,
+  Project,
+  RecordKind,
+  RecordRow
 } from "./payables";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
@@ -329,4 +332,30 @@ export function previewImport(form: FormData): Promise<ImportPreview> {
 
 export function importPayables(form: FormData): Promise<ImportResult> {
   return request<ImportResult>("/payables/import", { method: "POST", body: form });
+}
+
+// ---- Cadastros ----
+
+export function listRecords(kind: RecordKind): Promise<RecordRow[]> {
+  return request<RecordRow[]>(`/records/${kind}`);
+}
+
+export function createRecord(kind: RecordKind, body: unknown): Promise<RecordRow> {
+  return send<RecordRow>(`/records/${kind}`, "POST", body);
+}
+
+export function updateRecord(kind: RecordKind, id: number, body: unknown): Promise<RecordRow> {
+  return send<RecordRow>(`/records/${kind}/${id}`, "PATCH", body);
+}
+
+export function setRecordActive(kind: RecordKind, id: number, active: boolean): Promise<RecordRow> {
+  return send<RecordRow>(`/records/${kind}/${id}/active`, "POST", { active });
+}
+
+export async function deleteRecord(kind: RecordKind, id: number): Promise<void> {
+  await fetchWithAuth(`/records/${kind}/${id}`, { method: "DELETE" });
+}
+
+export function updateProjectIncentive(id: number, body: unknown): Promise<Project> {
+  return send<Project>(`/projects/${id}/incentive`, "PATCH", body);
 }

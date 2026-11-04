@@ -4,7 +4,7 @@ import { Check, CheckCheck, Copy, Replace, Search, Tags, Undo2 } from "lucide-re
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
-import { ErrorBox, NUM, OriginTag, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
+import { ErrorBox, Field, FormError, NUM, OriginTag, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,37 +54,6 @@ import {
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
-
-export function Field({
-  label,
-  id,
-  hint,
-  children,
-}: {
-  label: string;
-  id: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={id} className="text-[13px] font-semibold">
-        {label}
-      </Label>
-      {children}
-      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-    </div>
-  );
-}
-
-export function FormError({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <Alert variant="destructive" className="mb-2">
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
-  );
-}
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
 const NO_PROJECT = "sem-projeto";

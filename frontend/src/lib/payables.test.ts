@@ -17,12 +17,13 @@ import {
   replacedMessage,
   replacesNote,
   scheduleText,
+  formatCnpj,
 } from "./payables";
 
 const PROJECTS: Project[] = [
-  { id: 1, code: "1804", title: "A", status: "em_andamento" },
-  { id: 2, code: "1790", title: "B", status: "em_andamento" },
-  { id: 3, code: "1700", title: "C", status: "encerrado" },
+  { id: 1, code: "1804", title: "A", status: "em_andamento", projectType: null, hasIncentive: false, incentiveDays: null },
+  { id: 2, code: "1790", title: "B", status: "em_andamento", projectType: null, hasIncentive: false, incentiveDays: null },
+  { id: 3, code: "1700", title: "C", status: "encerrado", projectType: null, hasIncentive: false, incentiveDays: null },
 ];
 
 describe("parseMoney", () => {
@@ -199,5 +200,12 @@ describe("cronograma para o projeto", () => {
     expect(text).toMatch(/- Pesquisas de 30\/10: 1 incentivo → pagar 16\/11 · R\$\s200,00 \(data calculada pelo prazo\)/);
     expect(text).toMatch(/- Pesquisas: 2 incentivos → pagar 20\/11/);
     expect(text).toMatch(/Total: 3 incentivos · R\$\s600,00$/);
+  });
+});
+
+describe("CNPJ na tela", () => {
+  it("mostra com a máscara, inclusive o alfanumérico", () => {
+    expect(formatCnpj("11222333000181")).toBe("11.222.333/0001-81");
+    expect(formatCnpj("12ABC34501DE35")).toBe("12.ABC.345/01DE-35");
   });
 });

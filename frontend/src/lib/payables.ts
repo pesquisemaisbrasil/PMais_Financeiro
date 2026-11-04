@@ -142,6 +142,9 @@ export interface Project {
   code: string;
   title: string;
   status: string;
+  projectType: string | null;
+  hasIncentive: boolean;
+  incentiveDays: number | null;
 }
 
 export interface Reference {
@@ -435,4 +438,33 @@ export function scheduleText(preview: ImportPreview, code: string, title: string
     "",
     `Total: ${plural(preview.goodCount, "incentivo", "incentivos")} · ${brl(preview.total)}`,
   ].join("\n");
+}
+
+export type RecordKind =
+  | "suppliers"
+  | "categories"
+  | "companies"
+  | "units"
+  | "costCenters"
+  | "bankAccounts"
+  | "paymentMethods";
+
+export interface RecordRow {
+  id: number;
+  name: string;
+  active: boolean;
+  inUse: boolean;
+  nickname: string | null;
+  code: string | null;
+  companyId: number | null;
+  document: string | null;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  paymentTerms: string | null;
+}
+
+/** "11222333000181" vira "11.222.333/0001-81". O CNPJ alfanumérico segue a mesma máscara. */
+export function formatCnpj(document: string): string {
+  return document.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, "$1.$2.$3/$4-$5");
 }
