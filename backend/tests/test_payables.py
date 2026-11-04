@@ -1,10 +1,13 @@
+import io
+import zipfile
 from collections.abc import Callable
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
 from sqlalchemy.orm import Session
 
 from models.payable import Payable, PayableEvent, PayableItem, PayablePayment
@@ -123,6 +126,8 @@ def create(
         ("post", "/payables"),
         ("post", "/payables/batch/payments"),
         ("post", "/payables/batch/delete"),
+        ("post", "/payables/import"),
+        ("post", "/payables/import/preview"),
         ("post", "/payables/batch/reclassify"),
         ("post", "/payables/batch/duplicate"),
         ("get", "/payables/export"),
@@ -147,6 +152,8 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables"),
         ("post", "/payables/batch/payments"),
         ("post", "/payables/batch/delete"),
+        ("post", "/payables/import"),
+        ("post", "/payables/import/preview"),
         ("post", "/payables/batch/reclassify"),
         ("post", "/payables/batch/duplicate"),
         ("get", "/payables/export"),
@@ -1170,3 +1177,388 @@ def test_only_a_provision_can_be_replaced(
     assert response.status_code == 409
     url = f"/payables/{created['id']}/replacement-candidates"
     assert client.get(url, headers=auth).status_code == 409
+
+
+# ---- Importar planilha ----
+
+INCENTIVE_HEADER = ["Nome", "CPF", "Chave Pix", "Valor", "Data da pesquisa", "Data de pagamento"]
+FAKE_CPF = "000.000.000-00"
+FAKE_PIX = "pessoa-ficticia@exemplo.invalid"
+
+
+def _xlsx(rows: list[list[Any]]) -> bytes:
+    book = Workbook()
+    for row in rows:
+        book.active.append(row)
+    output = io.BytesIO()
+    book.save(output)
+    return output.getvalue()
+
+
+def _incentives(*dates: tuple[str, int], value: Any = 120, pay: str = "") -> bytes:
+    rows: list[list[Any]] = [INCENTIVE_HEADER]
+    number = 0
+    for day, count in dates:
+        for _ in range(count):
+            number += 1
+            rows.append([f"Respondente {number:03}", FAKE_CPF, FAKE_PIX, value, day, pay or None])
+    return _xlsx(rows)
+
+
+def _import_fields(world: dict[str, Any], **overrides: Any) -> dict[str, Any]:
+    return {
+        "kind": "incentivos",
+        "projectId": world["project"].id,
+        "categoryId": world["category"].id,
+        "companyId": world["company"].id,
+        "unitId": world["unit"].id,
+        "costCenterId": world["cost_center"].id,
+        "paymentMethodId": world["method"].id,
+        **overrides,
+    }
+
+
+def _send(
+    client: TestClient,
+    auth: dict[str, str],
+    url: str,
+    fields: dict[str, Any],
+    content: bytes,
+    name: str = "planilha.xlsx",
+) -> Any:
+    return client.post(url, data=fields, files={"file": (name, content)}, headers=auth)
+
+
+@pytest.fixture
+def incentive_project(world: dict[str, Any], db_session: Session) -> Project:
+    project = world["project"]
+    project.projectType = "Health"
+    project.hasIncentive = True
+    project.incentiveDays = 10
+    db_session.commit()
+    return project
+
+
+def test_incentives_of_one_date_become_one_group_with_all_people(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+) -> None:
+    content = _incentives(("2026-10-30", 14), value=200)
+    response = _send(client, auth, "/payables/import", _import_fields(world), content)
+    assert response.status_code == 201
+    assert response.json() == {"count": 1, "items": 14, "total": "2800.00"}
+    payable = db_session.query(Payable).one()
+    assert payable.origin == "incentivo"
+    assert payable.payeeName == "Incentivos (14 pessoas)"
+    assert payable.amount == Decimal("2800.00")
+    assert payable.dueDate == date(2026, 11, 16)
+    assert len(payable.items) == 14
+    assert payable.items[0].documentType == "Incentivo"
+
+
+def test_each_payment_date_is_one_payable_and_the_sum_matches(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+) -> None:
+    content = _incentives(
+        ("2026-10-22", 5), ("2026-10-23", 4), ("2026-10-26", 3), ("2026-10-27", 3)
+    )
+    preview = _send(client, auth, "/payables/import/preview", _import_fields(world), content).json()
+    assert preview["goodCount"] == 15
+    assert preview["total"] == "1800.00"
+    assert [(g["payDate"], g["count"], g["source"]) for g in preview["groups"]] == [
+        ("2026-11-06", 5, "calculada pelo prazo"),
+        ("2026-11-09", 4, "calculada pelo prazo"),
+        ("2026-11-10", 3, "calculada pelo prazo"),
+        ("2026-11-11", 3, "calculada pelo prazo"),
+    ]
+    # Conferir não grava nada
+    assert db_session.query(Payable).count() == 0
+
+    result = _send(client, auth, "/payables/import", _import_fields(world), content).json()
+    assert result["count"] == 4
+    payables = db_session.query(Payable).order_by(Payable.dueDate).all()
+    assert [p.dueDate for p in payables] == [
+        g["payDate"] and date.fromisoformat(g["payDate"]) for g in preview["groups"]
+    ]
+    assert sum(p.amount for p in payables) == Decimal("1800.00")
+    assert payables[0].description == "Incentivos · PRJ-1804 · pagar 06/11"
+    assert payables[0].competence == "2026-10"
+    event = db_session.query(PayableEvent).filter_by(payable_id=payables[0].id).one()
+    assert "planilha.xlsx: 5 incentivos das pesquisas de 22/10" in event.text
+
+
+def test_date_given_by_the_sheet_wins_over_the_deadline(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+) -> None:
+    content = _incentives(("", 200), value=50, pay="2026-10-30")
+    result = _send(client, auth, "/payables/import", _import_fields(world), content).json()
+    assert result == {"count": 1, "items": 200, "total": "10000.00"}
+    assert db_session.query(Payable).one().dueDate == date(2026, 10, 30)
+
+
+def test_excel_dates_and_text_dates_both_work(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _xlsx(
+        [
+            INCENTIVE_HEADER,
+            ["Pessoa A", None, None, 10.5, datetime(2026, 10, 30), None],
+            ["Pessoa B", None, None, "1.234,56", "30/10/2026", None],
+        ]
+    )
+    preview = _send(client, auth, "/payables/import/preview", _import_fields(world), content).json()
+    assert preview["errorCount"] == 0
+    assert [line["amount"] for line in preview["lines"]] == ["10.50", "1234.56"]
+    assert preview["total"] == "1245.06"
+
+
+def test_personal_data_outside_the_columns_is_never_kept(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _incentives(("2026-10-30", 2))
+    preview = _send(client, auth, "/payables/import/preview", _import_fields(world), content)
+    assert FAKE_CPF not in preview.text
+    assert FAKE_PIX not in preview.text
+    _send(client, auth, "/payables/import", _import_fields(world), content)
+    listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
+    detail = client.get(f"/payables/{listed['id']}", headers=auth)
+    assert FAKE_CPF not in detail.text
+    assert FAKE_PIX not in detail.text
+
+
+def test_bad_lines_stay_out_and_say_why(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+) -> None:
+    content = _xlsx(
+        [
+            INCENTIVE_HEADER,
+            ["Pessoa boa", None, None, 100, "2026-10-30", None],
+            ["", None, None, 100, "2026-10-30", None],
+            ["Com real", None, None, "R$ 400", "2026-10-30", None],
+            ["Sem data", None, None, 100, None, None],
+            ["Data ruim", None, None, 100, "ontem", None],
+            ["Pago antes", None, None, 100, "2026-10-30", "2026-10-01"],
+            ["Três casas", None, None, 10.555, "2026-10-30", None],
+            ["Zero", None, None, 0, "2026-10-30", None],
+        ]
+    )
+    preview = _send(client, auth, "/payables/import/preview", _import_fields(world), content).json()
+    assert preview["goodCount"] == 1
+    assert preview["errorCount"] == 7
+    assert [line["errors"] for line in preview["lines"][1:]] == [
+        ["Nome vazio"],
+        ["Use só números no valor"],
+        ["Sem data de pagamento e sem data da pesquisa"],
+        ["Data da pesquisa inválida"],
+        ["Pagamento antes da data da pesquisa"],
+        ["Valor inválido"],
+        ["Valor inválido"],
+    ]
+    assert preview["lines"][1]["line"] == 3
+    result = _send(client, auth, "/payables/import", _import_fields(world), content).json()
+    assert result["items"] == 1
+    assert db_session.query(PayableItem).count() == 1
+
+
+def test_project_without_deadline_refuses_lines_without_date(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    content = _incentives(("2026-10-30", 2))
+    preview = _send(client, auth, "/payables/import/preview", _import_fields(world), content).json()
+    assert preview["missingDeadline"] is True
+    assert preview["groups"] == []
+    response = _send(client, auth, "/payables/import", _import_fields(world), content)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Defina o prazo do incentivo no projeto antes de importar a planilha"
+    )
+    assert db_session.query(Payable).count() == 0
+    # Com a data na planilha, o prazo não faz falta
+    given = _incentives(("", 2), pay="2026-10-30")
+    assert _send(client, auth, "/payables/import", _import_fields(world), given).status_code == 201
+
+
+def test_sheet_without_the_required_columns_is_refused(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    url = "/payables/import/preview"
+    fields = _import_fields(world)
+    no_date = _send(client, auth, url, fields, _xlsx([["Nome", "Valor"], ["Ana", 10]]))
+    assert no_date.status_code == 422
+    assert no_date.json()["detail"] == 'A planilha precisa da coluna "data da pesquisa"'
+    no_value = _send(client, auth, url, fields, _xlsx([["Nome", "Data da pesquisa"]]))
+    assert no_value.json()["detail"] == 'A planilha precisa da coluna "valor"'
+    only_pay = _xlsx([["Nome", "Valor", "Data de pagamento"], ["Ana", 10, "2026-10-30"]])
+    assert _send(client, auth, url, fields, only_pay).json()["goodCount"] == 1
+
+
+def test_closed_project_and_empty_results_are_refused(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _incentives(("2026-10-30", 1))
+    closed = _send(
+        client,
+        auth,
+        "/payables/import",
+        _import_fields(world, projectId=world["closed"].id),
+        content,
+    )
+    assert closed.status_code == 409
+    missing = _send(
+        client, auth, "/payables/import/preview", _import_fields(world, projectId=99999), content
+    )
+    assert missing.status_code == 422
+    nothing = _xlsx([INCENTIVE_HEADER, ["", None, None, 100, "2026-10-30", None]])
+    empty = _send(client, auth, "/payables/import", _import_fields(world), nothing)
+    assert empty.status_code == 422
+    assert (
+        empty.json()["detail"] == "Nenhuma linha da planilha pode entrar. Corrija e envie de novo"
+    )
+
+
+def test_same_file_warns_that_it_was_imported(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _incentives(("2026-10-30", 2))
+    url = "/payables/import/preview"
+    assert (
+        _send(client, auth, url, _import_fields(world), content).json()["alreadyImported"] is False
+    )
+    _send(client, auth, "/payables/import", _import_fields(world), content)
+    assert (
+        _send(client, auth, url, _import_fields(world), content).json()["alreadyImported"] is True
+    )
+
+
+def test_payroll_makes_one_payable_with_net_rpa_and_nf_status(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    db_session: Session,
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Documento", "Valor", "Número da NF", "Emissão"],
+            ["Ana Ribeiro", "NF", 600, "58", datetime(2026, 10, 27)],
+            ["Bruno Lima", "nf", 600, None, None],
+            ["Carla Mendes", "RPA", 1000, None, None],
+            ["Pessoa", "Recibo", 100, None, None],
+        ]
+    )
+    fields = _import_fields(
+        world, kind="folha", description="Equipe de campo · novembro", dueDate="2026-11-20"
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert preview["errorCount"] == 1
+    assert preview["lines"][2]["gross"] == "1000.00"
+    assert preview["lines"][2]["amount"] == "890.00"
+    assert preview["lines"][3]["errors"] == ["Documento inválido: use NF, RPA, Incentivo ou Sem NF"]
+    assert preview["groups"] == []
+
+    result = _send(client, auth, "/payables/import", fields, content).json()
+    assert result == {"count": 1, "items": 3, "total": "2090.00"}
+    payable = db_session.query(Payable).one()
+    assert payable.origin == "folha"
+    assert payable.payeeName == "Folha de campo (3 pessoas)"
+    items = {item.name: item for item in payable.items}
+    assert items["Ana Ribeiro"].invoiceStatus == "Recebida"
+    assert items["Ana Ribeiro"].invoiceDate == date(2026, 10, 27)
+    assert items["Bruno Lima"].invoiceStatus == "Pendente"
+    assert items["Carla Mendes"].grossAmount == Decimal("1000.00")
+    assert items["Carla Mendes"].amount == Decimal("890.00")
+
+
+def test_payroll_needs_description_and_due_date(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    content = _xlsx([["Nome", "Documento", "Valor"], ["Ana", "RPA", 100]])
+    fields = _import_fields(world, kind="folha")
+    response = _send(client, auth, "/payables/import", fields, content)
+    assert response.json()["detail"] == "Informe a descrição do lançamento"
+    fields["description"] = "Equipe"
+    response = _send(client, auth, "/payables/import", fields, content)
+    assert response.json()["detail"] == "Informe o vencimento"
+
+
+def test_csv_saved_by_excel_is_accepted(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    text = "Nome;Valor;Data da pesquisa\r\nJoão;1.200,50;30/10/2026\r\n;;\r\n"
+    response = _send(
+        client,
+        auth,
+        "/payables/import/preview",
+        _import_fields(world),
+        text.encode("cp1252"),
+        "planilha.csv",
+    )
+    assert response.json()["lines"] == [
+        {
+            "line": 2,
+            "name": "João",
+            "documentType": "Incentivo",
+            "invoiceNumber": None,
+            "gross": None,
+            "amount": "1200.50",
+            "surveyDate": "2026-10-30",
+            "payDate": "2026-11-16",
+            "payDateGiven": False,
+            "errors": [],
+        }
+    ]
+
+
+def test_bad_files_are_refused_without_breaking(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    url = "/payables/import/preview"
+    fields = _import_fields(world)
+    wrong = _send(client, auth, url, fields, b"%PDF", "comprovante.pdf")
+    assert wrong.status_code == 422
+    assert wrong.json()["detail"] == "Envie a planilha em .xlsx ou .csv"
+    broken = _send(client, auth, url, fields, b"isto nao e um zip")
+    assert broken.status_code == 422
+    assert "Não foi possível ler" in broken.json()["detail"]
+
+    too_big = _send(client, auth, url, fields, b"x" * (5 * 1024 * 1024 + 1))
+    assert too_big.status_code == 413
+    assert too_big.json()["detail"] == "A planilha passa de 5 MB"
+
+    bomb = io.BytesIO()
+    with zipfile.ZipFile(bomb, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("xl/workbook.xml", b"0" * (50 * 1024 * 1024 + 1))
+    response = _send(client, auth, url, fields, bomb.getvalue())
+    assert response.status_code == 422
+    assert "Não foi possível ler" in response.json()["detail"]
+
+    monkeypatch.setattr("services.payable_import.MAX_ROWS", 1)
+    many = _send(client, auth, url, fields, _incentives(("2026-10-30", 3)))
+    assert many.status_code == 422
+    assert "passa de 1 linhas" in many.json()["detail"]
+
+
+def test_reference_exposes_the_incentive_deadline(
+    client: TestClient, auth: dict[str, str], incentive_project: Project
+) -> None:
+    projects = client.get("/reference", headers=auth).json()["projects"]
+    found = next(p for p in projects if p["code"] == "1804")
+    assert (found["projectType"], found["hasIncentive"], found["incentiveDays"]) == (
+        "Health",
+        True,
+        10,
+    )
