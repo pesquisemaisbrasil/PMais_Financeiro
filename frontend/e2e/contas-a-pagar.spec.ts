@@ -143,16 +143,18 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("button", { name: /^Total/ }).click();
   await dates.click();
   await day(today).click();
-  await expect(page.getByText(/escolha a data final, ou aplique só este dia/)).toBeVisible();
+  await expect(page.getByText(/clique na data final/)).toBeVisible();
   await day(addDays(today, 2)).click();
-  await page.getByRole("button", { name: "Aplicar" }).click();
+  // O intervalo já vale no segundo clique
+  await expect(dates).toContainText(" até ");
+  await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Período");
   await expect(page.getByRole("row", { name: /Honorários contábeis/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /Hospedagem da equipe/ })).toHaveCount(0);
 
-  // Com um clique só, vale aquele dia
+  // Para um dia só, há um botão próprio
   await dates.click();
   await day(addDays(today, 2)).click();
-  await page.getByRole("button", { name: "Aplicar" }).click();
+  await page.getByRole("button", { name: "Só este dia" }).click();
   await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Dia");
   await expect(total).toContainText("1 conta");
   await page.getByRole("button", { name: "Hoje", exact: true }).click();

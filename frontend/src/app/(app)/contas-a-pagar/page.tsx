@@ -569,9 +569,9 @@ function PayablesContent() {
             {data && (
               <PeriodPicker
                 label={
-                  mode === "periodo"
-                    ? `${formatDate(rangeStart)} a ${formatDate(rangeEnd)}`
-                    : periodLabel(mode, effectiveRef)
+                  data.rangeStart && data.rangeEnd
+                    ? `${formatDate(data.rangeStart)} até ${formatDate(data.rangeEnd)}`
+                    : "Todo o período"
                 }
                 start={data.rangeStart}
                 end={data.rangeEnd}

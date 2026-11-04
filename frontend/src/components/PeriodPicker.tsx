@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { dateFromIso, formatDate, isoFromDate, nextRange, type DateRange } from "@/lib/payables";
 
-/** A data da lista: abre um calendário para escolher um dia ou um intervalo entre duas datas. */
+/** A data da lista: dois cliques no calendário escolhem o intervalo, que já vale no segundo clique. */
 export function PeriodPicker({
   label,
   start,
@@ -34,6 +34,7 @@ export function PeriodPicker({
     if (open) setDraft({ from: start ?? undefined, to: end ?? undefined });
   }, [open, start, end]);
 
+  const pendingEnd = Boolean(draft.from && !draft.to);
   const selected = draft.from
     ? { from: dateFromIso(draft.from), to: draft.to ? dateFromIso(draft.to) : undefined }
     : undefined;
@@ -58,32 +59,38 @@ export function PeriodPicker({
           numberOfMonths={2}
           defaultMonth={dateFromIso(start ?? today)}
           selected={selected}
-          onSelect={(_range, day) => setDraft((current) => nextRange(current, isoFromDate(day)))}
+          onSelect={(_range, day) => {
+            const next = nextRange(draft, isoFromDate(day));
+            if (next.from && next.to) {
+              onApply(next.from, next.to);
+              onOpenChange(false);
+            } else {
+              setDraft(next);
+            }
+          }}
           className="bg-card"
         />
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-3">
           <span className="text-[13px] text-muted-foreground" role="status">
-            {!draft.from
-              ? "Escolha a data inicial e a final."
-              : !draft.to
-                ? `${formatDate(draft.from)}: escolha a data final, ou aplique só este dia.`
-                : `${formatDate(draft.from)} a ${formatDate(draft.to)}`}
+            {pendingEnd
+              ? `De ${formatDate(draft.from)} até: clique na data final.`
+              : "Clique na data inicial e depois na final."}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button
-              size="sm"
-              disabled={!draft.from}
-              onClick={() => {
-                if (!draft.from) return;
-                onApply(draft.from, draft.to ?? draft.from);
-                onOpenChange(false);
-              }}
-            >
-              Aplicar
-            </Button>
+            {pendingEnd && draft.from && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  onApply(draft.from as string, draft.from as string);
+                  onOpenChange(false);
+                }}
+              >
+                Só este dia
+              </Button>
+            )}
           </div>
         </div>
       </PopoverContent>
