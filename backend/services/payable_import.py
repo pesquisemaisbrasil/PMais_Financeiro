@@ -375,6 +375,7 @@ def _items(lines: list[Line]) -> list[PayableItem]:
                 grossAmount=line.gross,
                 invoiceNumber=line.invoiceNumber,
                 invoiceDate=line.invoiceDate,
+                surveyDate=line.surveyDate,
                 invoiceStatus=status,
             )
         )

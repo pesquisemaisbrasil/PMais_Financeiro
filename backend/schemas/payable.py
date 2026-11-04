@@ -186,6 +186,9 @@ class PayableItemOut(BaseModel):
     amount: Decimal
     invoiceNumber: str | None
     invoiceStatus: str | None
+    invoiceDate: date | None
+    grossAmount: Decimal | None
+    surveyDate: date | None
 
 
 class PaymentOut(BaseModel):

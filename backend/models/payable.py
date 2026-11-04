@@ -139,6 +139,8 @@ class PayableItem(Base):
     grossAmount = Column(Numeric(10, 2), nullable=True)
     invoiceNumber = Column(String(50), nullable=True)
     invoiceDate = Column(Date, nullable=True)
+    # Incentivo: o dia em que a pessoa respondeu, que decide a data de pagamento.
+    surveyDate = Column(Date, nullable=True)
     # Recebida | Pendente. NF pendente é só aviso e não bloqueia o pagamento (decisão de 28/10).
     invoiceStatus = Column(String(20), nullable=True)
 

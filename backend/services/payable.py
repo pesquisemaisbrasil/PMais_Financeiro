@@ -558,6 +558,9 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "amount": i.amount,
                 "invoiceNumber": i.invoiceNumber,
                 "invoiceStatus": i.invoiceStatus,
+                "invoiceDate": i.invoiceDate,
+                "grossAmount": i.grossAmount,
+                "surveyDate": i.surveyDate,
             }
             for i in payable.items
         ],
@@ -1078,6 +1081,8 @@ def duplicate_batch(db: Session, ids: list[int], user: User) -> int:
                     name=i.name,
                     documentType=i.documentType,
                     amount=i.amount,
+                    # O bruto do RPA se repete; nota, emissão e pesquisa são do mês original.
+                    grossAmount=i.grossAmount,
                     invoiceStatus="Pendente" if i.documentType == "NF" else None,
                 )
                 for i in source.items
