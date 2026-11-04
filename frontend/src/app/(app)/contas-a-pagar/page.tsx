@@ -18,6 +18,7 @@ import {
   Plus,
   Replace,
   Search,
+  SlidersHorizontal,
   Tags,
   Trash2,
   type LucideIcon,
@@ -32,8 +33,9 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, exportPayables, getPayable, getReference, listPayables } from "@/lib/api";
 import {
@@ -135,6 +137,33 @@ const KIND_FILTER = [
   { id: "provisao", label: "Provisão" },
 ];
 
+type Density = "comfortable" | "compact";
+const PREFS_KEY = "financeiro:contas-a-pagar:exibicao";
+
+/** Colunas e densidade que a pessoa escolheu; sem isso (ou com lixo no lugar), vale o padrão. */
+function readPrefs(): { columns: string[]; density: Density } | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null");
+    if (!raw || typeof raw !== "object") return null;
+    const known = new Set(COLUMNS.map((column) => column.id));
+    const chosen: unknown[] = Array.isArray(raw.columns) ? raw.columns : DEFAULT_COLUMNS;
+    const columns = COLUMNS.filter(
+      (column) => column.fixed || (chosen.includes(column.id) && known.has(column.id))
+    ).map((column) => column.id);
+    return { columns, density: raw.density === "compact" ? "compact" : "comfortable" };
+  } catch {
+    return null;
+  }
+}
+
+function savePrefs(prefs: { columns: string[]; density: Density }) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // Sem armazenamento (janela privada): a escolha vale só até recarregar.
+  }
+}
+
 const ALL = "todos";
 
 function IconButton({
@@ -172,7 +201,7 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
       {label}
       <SearchSelect
         ariaLabel={label}
@@ -196,7 +225,7 @@ function PayeeCell({
 }) {
   const detail = (
     <>
-      <span className="font-semibold text-brand-cinza-escuro">{row.payee}</span> <OriginTag origin={row.origin} />
+      <span className="font-medium text-brand-cinza-escuro">{row.payee}</span> <OriginTag origin={row.origin} />
       <span className="block text-xs font-normal text-muted-foreground">
         {row.description}
         {row.itemCount > 0 && ` · ${plural(row.itemCount, "pessoa", "pessoas")}`}
@@ -205,16 +234,20 @@ function PayeeCell({
       </span>
     </>
   );
-  if (!row.itemCount) return <div>{detail}</div>;
+  // A seta fica na margem da célula: com ou sem ela, o texto começa no mesmo ponto da coluna.
   return (
-    <div className="flex min-w-[230px] items-start gap-1">
-      <IconButton
-        icon={open ? ChevronDown : ChevronRight}
-        label={open ? "Esconder os itens" : "Mostrar os itens"}
-        expanded={open}
-        onClick={onToggle}
-      />
-      <div>{detail}</div>
+    <div className="min-w-[160px]">
+      {row.itemCount > 0 && (
+        <span className="absolute left-2 top-2">
+          <IconButton
+            icon={open ? ChevronDown : ChevronRight}
+            label={open ? "Esconder os itens" : "Mostrar os itens"}
+            expanded={open}
+            onClick={onToggle}
+          />
+        </span>
+      )}
+      {detail}
     </div>
   );
 }
@@ -228,7 +261,17 @@ function ProjectCell({ row }: { row: PayableRow }) {
       </span>
     );
   }
-  return <span className="font-semibold text-brand-azul-deep">{row.allocations.map((a) => `PRJ-${a.code}`).join(", ")}</span>;
+  // Cada código é uma peça só: a linha pode quebrar entre dois projetos, nunca no meio de "PRJ-1804".
+  return (
+    <span className="font-semibold text-brand-azul-deep">
+      {row.allocations.map((a, index) => (
+        <Fragment key={a.projectId}>
+          {index > 0 && ", "}
+          <span className="whitespace-nowrap">PRJ-{a.code}</span>
+        </Fragment>
+      ))}
+    </span>
+  );
 }
 
 function DocumentCell({ row }: { row: PayableRow }) {
@@ -242,7 +285,7 @@ function Cell({ row, column, open, onToggle }: { row: PayableRow; column: string
       return <TableCell className={TD}>{formatDate(row.dueDate)}</TableCell>;
     case "fornecedor":
       return (
-        <TableCell className={cn(TD, "whitespace-normal")}>
+        <TableCell className={cn(TD, "relative whitespace-normal pl-11")}>
           <PayeeCell row={row} open={open} onToggle={onToggle} />
         </TableCell>
       );
@@ -254,7 +297,7 @@ function Cell({ row, column, open, onToggle }: { row: PayableRow; column: string
       );
     case "projeto":
       return (
-        <TableCell className={TD}>
+        <TableCell className={cn(TD, "whitespace-normal")}>
           <ProjectCell row={row} />
         </TableCell>
       );
@@ -293,6 +336,7 @@ function PayablesContent() {
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [dateField, setDateField] = useState<DateField>("vencimento");
   const [indicator, setIndicator] = useState<Indicator>((params.get("indicador") as Indicator) ?? "total");
   const [tab, setTab] = useState<Tab>((params.get("aba") as Tab) ?? "todas");
@@ -302,6 +346,7 @@ function PayablesContent() {
   const [sort, setSort] = useState<{ column: SortColumn; descending: boolean }>({ column: "vencimento", descending: false });
   const [page, setPage] = useState(1);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
+  const [density, setDensity] = useState<Density>("comfortable");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [opened, setOpened] = useState<Record<number, PayableDetail>>({});
 
@@ -349,6 +394,14 @@ function PayablesContent() {
     }),
     [mode, ref, rangeStart, rangeEnd, dateField, indicator, tab, filters, search, sort, page]
   );
+
+  useEffect(() => {
+    const saved = readPrefs();
+    if (!saved) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- a escolha salva só existe no navegador, depois da primeira tela
+    setColumns(saved.columns);
+    setDensity(saved.density);
+  }, []);
 
   const load = useCallback(async () => {
     // Clicar rápido no período dispara vários pedidos: só vale a resposta do último.
@@ -505,6 +558,8 @@ function PayablesContent() {
     }
   }
 
+  // Só os filtros da gaveta: busca, indicador e aba ficam à vista e se explicam sozinhos.
+  const drawerFilters = Object.values(filters).filter(Boolean).length + (dateField !== "vencimento" ? 1 : 0);
   const activeFilters =
     Object.values(filters).filter(Boolean).length +
     (dateField !== "vencimento" ? 1 : 0) +
@@ -518,7 +573,7 @@ function PayablesContent() {
   const selectedRows = rows.filter((row) => selected.has(row.id));
 
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
+    <main className="mx-auto w-full max-w-[1920px] px-6 pb-16 pt-8 lg:px-8">
       <PageHeader
         title="Contas a pagar"
         icon={ArrowUpRight}
@@ -550,7 +605,7 @@ function PayablesContent() {
         </div>
       )}
 
-      <div className="mb-4 inline-flex flex-wrap gap-0.5 rounded-[10px] bg-[#f1f5f9] p-[3px]" role="tablist" aria-label="Tipo de lançamento">
+      <div className="mb-5 inline-flex flex-wrap gap-0.5 rounded-[10px] bg-[#f1f5f9] p-[3px]" role="tablist" aria-label="Tipo de lançamento">
         {TABS.map((option) => (
           <Button
             key={option.id}
@@ -570,11 +625,7 @@ function PayablesContent() {
         ))}
       </div>
 
-      <p className="mb-3 text-xs text-muted-foreground">
-        Lançamento agrupado (planilhas, incentivos e Do Connect) abre os itens aqui mesmo, pela seta ao lado do nome.
-      </p>
-
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-2">
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {INDICATORS.map((option) => {
           const value = data?.indicators[option.id];
           return (
@@ -583,21 +634,21 @@ function PayablesContent() {
               variant="outline"
               aria-pressed={indicator === option.id}
               className={cn(
-                "h-auto flex-col items-start gap-0.5 rounded-xl bg-card px-3 py-2.5 text-left font-normal whitespace-normal",
-                indicator === option.id && "border-brand-azul-deep bg-accent ring-1 ring-brand-azul-deep"
+                "h-auto flex-col items-start gap-1 rounded-xl border-transparent bg-card px-3.5 py-3.5 text-left font-normal whitespace-normal shadow-[0_1px_2px_rgb(15_23_42/.06)] hover:bg-card hover:shadow-[0_2px_6px_rgb(15_23_42/.08)]",
+                indicator === option.id && "bg-accent ring-2 ring-brand-azul-deep/70 hover:bg-accent"
               )}
               onClick={() => resetPageAnd(() => setIndicator(option.id))}
             >
-              <span className="text-[11px] font-semibold uppercase tracking-[.04em] text-muted-foreground">{option.label}</span>
+              <span className="text-xs font-medium text-muted-foreground">{option.label}</span>
               <span
                 className={cn(
-                  "text-[15px] font-bold tabular-nums",
+                  "text-[15px] font-semibold tabular-nums",
                   option.id === "vencidos" && value?.count ? "text-[#b91c1c]" : undefined
                 )}
               >
                 {value ? brl(value.value) : "—"}
               </span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
                 {value ? plural(value.count, "conta", "contas") : "\u00a0"}
               </span>
             </Button>
@@ -606,7 +657,7 @@ function PayablesContent() {
       </div>
 
       <div className={CARD}>
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
           <div className="flex flex-wrap items-center gap-2">
             {data && (
               <PeriodPicker
@@ -652,6 +703,28 @@ function PayablesContent() {
                 Hoje
               </Button>
             )}
+            <Button
+              variant="outline"
+              className="h-9 gap-2 bg-card font-normal"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <SlidersHorizontal size={16} />
+              Filtros
+              {drawerFilters > 0 && (
+                <span className="rounded-full bg-brand-azul-deep px-1.5 text-[11px] font-semibold text-white">
+                  {drawerFilters}
+                </span>
+              )}
+            </Button>
+            <Button variant="outline" className="h-9 gap-2 bg-card font-normal" disabled={exporting} onClick={exportList}>
+              <Download size={16} />
+              {exporting ? "Exportando…" : "Exportar"}
+            </Button>
+            <Button variant="outline" className="h-9 gap-2 bg-card font-normal" onClick={() => setChoosingColumns(true)}>
+              <Columns3 size={16} />
+              Colunas
+            </Button>
           </div>
           <div className="relative w-full max-w-[300px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
@@ -665,74 +738,9 @@ function PayablesContent() {
           </div>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 border-b border-border bg-muted/50 px-4 py-3">
-          <FilterSelect
-            label="Fornecedor"
-            value={filters.supplier ?? ""}
-            options={(reference?.suppliers ?? []).map((s) => ({ id: s.id, label: s.nickname }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, supplier: value })))}
-          />
-          <FilterSelect
-            label="Projeto"
-            value={filters.project ?? ""}
-            options={(reference?.projects ?? []).map((p) => ({ id: p.id, label: `PRJ-${p.code}` }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, project: value })))}
-          />
-          <FilterSelect
-            label="Categoria"
-            value={filters.category ?? ""}
-            options={(reference?.categories ?? []).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, category: value })))}
-          />
-          <FilterSelect
-            label="Empresa"
-            value={filters.company ?? ""}
-            options={(reference?.companies ?? []).map((c) => ({ id: c.id, label: c.name }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, company: value })))}
-          />
-          <FilterSelect
-            label="Unidade"
-            value={filters.unit ?? ""}
-            options={(reference?.units ?? []).map((u) => ({ id: u.id, label: u.name }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, unit: value })))}
-          />
-          <FilterSelect
-            label="Centro de custo"
-            value={filters.costCenter ?? ""}
-            options={(reference?.costCenters ?? []).map((c) => ({ id: c.id, label: c.name }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, costCenter: value })))}
-          />
-          <FilterSelect
-            label="Forma"
-            value={filters.paymentMethod ?? ""}
-            options={(reference?.paymentMethods ?? []).map((m) => ({ id: m.id, label: m.name }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, paymentMethod: value })))}
-          />
-          <FilterSelect
-            label="Situação"
-            value={filters.situation ?? ""}
-            options={SITUATION_FILTER}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, situation: value })))}
-          />
-          <FilterSelect
-            label="Tipo"
-            value={filters.kind ?? ""}
-            options={KIND_FILTER}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, kind: value })))}
-          />
-          <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
-            Período por
-            <SearchSelect
-              ariaLabel="Período por"
-              value={dateField}
-              options={DATE_FIELDS}
-              onChange={(value) => resetPageAnd(() => setDateField(value as DateField))}
-              className="h-8 bg-card text-[13px] text-foreground"
-            />
-          </label>
-        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+        {(selected.size > 0 || activeFilters > 0) && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-border/60 px-4 py-2.5">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {selected.size ? (
               <>
@@ -760,11 +768,6 @@ function PayablesContent() {
               </>
             ) : (
               <>
-                {data && (
-                  <span className="text-muted-foreground">
-                    {plural(data.total, "conta", "contas")} · pendente {brl(data.filteredPending)}
-                  </span>
-                )}
                 {activeFilters > 0 && (
                   <Button
                     variant="link"
@@ -787,17 +790,8 @@ function PayablesContent() {
               </>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-[30px]" disabled={exporting} onClick={exportList}>
-              <Download size={16} />
-              {exporting ? "Exportando…" : "Exportar"}
-            </Button>
-            <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setChoosingColumns(true)}>
-              <Columns3 size={16} />
-              Colunas
-            </Button>
-          </div>
         </div>
+        )}
 
         {!data ? (
           !error && (
@@ -807,8 +801,11 @@ function PayablesContent() {
           )
         ) : rows.length ? (
           <>
-            <Table>
-              <TableHeader>
+            <Table
+              className="border-t border-border/60 data-[density=compact]:[&_td:not([colspan])]:py-1.5"
+              data-density={density}
+            >
+              <TableHeader className="[&_tr]:border-border/60">
                 <TableRow>
                   <TableHead className={cn(TH, "w-9")}>
                     <Checkbox
@@ -824,14 +821,14 @@ function PayablesContent() {
                     return (
                       <TableHead
                         key={column.id}
-                        className={cn(TH, column.numeric && NUM)}
+                        className={cn(TH, column.numeric && NUM, column.id === "fornecedor" && "pl-11")}
                         aria-sort={sorted ? (sort.descending ? "descending" : "ascending") : "none"}
                       >
                         {column.sort ? (
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto gap-1 p-0 text-[13px] font-semibold text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro"
+                            className="h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0"
                             onClick={() => changeSort(column.sort as SortColumn)}
                           >
                             {column.label}
@@ -843,15 +840,22 @@ function PayablesContent() {
                       </TableHead>
                     );
                   })}
-                  <TableHead className={TH} />
+                  <TableHead className={cn(TH, "px-2")} />
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {rows.map((row) => {
+              <TableBody className="[&_tr]:border-border/50">
+                {rows.map((row, index) => {
                   const detail = opened[row.id];
                   return (
                     <Fragment key={row.id}>
-                      <TableRow data-state={selected.has(row.id) ? "selected" : undefined}>
+                      <TableRow
+                        data-state={selected.has(row.id) ? "selected" : undefined}
+                        // Linhas alternadas em cinza: o índice vale só para as contas, e o painel de itens aberto não entra na conta.
+                        className={cn(
+                          index % 2 === 1 && "bg-[#f1f5f9]",
+                          "hover:bg-[#e6ecf4] data-[state=selected]:bg-accent"
+                        )}
+                      >
                         <TableCell className={TD}>
                           <Checkbox
                             aria-label={`Selecionar ${row.description}`}
@@ -868,7 +872,7 @@ function PayablesContent() {
                             onToggle={() => toggleItems(row)}
                           />
                         ))}
-                        <TableCell className={cn(TD, "whitespace-nowrap text-right")}>
+                        <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
                           <IconButton icon={Eye} label="Ver detalhes" onClick={() => setViewing(row.id)} />
                           {row.canPayDirectly && (
                             <IconButton icon={Check} label="Dar baixa" onClick={() => setPaying(row)} />
@@ -896,14 +900,6 @@ function PayablesContent() {
                   );
                 })}
               </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={visibleColumns.length + 2} className={cn(TD, "font-bold")}>
-                    Total filtrado: {plural(data.total, "conta", "contas")} · valor {brl(data.filteredAmount)} · pago{" "}
-                    {brl(data.filteredPaid)} · pendente {brl(data.filteredPending)}
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
             </Table>
             {pageCount > 1 && (
               <nav className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground" aria-label="Paginação">
@@ -1037,6 +1033,97 @@ function PayablesContent() {
           }}
         />
       )}
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="right" className="w-full gap-0 sm:max-w-[400px]">
+          <SheetHeader className="border-b border-border/60">
+            <SheetTitle>Filtros</SheetTitle>
+            <SheetDescription>A lista muda enquanto você escolhe.</SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+          <FilterSelect
+            label="Fornecedor"
+            value={filters.supplier ?? ""}
+            options={(reference?.suppliers ?? []).map((s) => ({ id: s.id, label: s.nickname }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, supplier: value })))}
+          />
+          <FilterSelect
+            label="Projeto"
+            value={filters.project ?? ""}
+            options={(reference?.projects ?? []).map((p) => ({ id: p.id, label: `PRJ-${p.code}` }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, project: value })))}
+          />
+          <FilterSelect
+            label="Categoria"
+            value={filters.category ?? ""}
+            options={(reference?.categories ?? []).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, category: value })))}
+          />
+          <FilterSelect
+            label="Empresa"
+            value={filters.company ?? ""}
+            options={(reference?.companies ?? []).map((c) => ({ id: c.id, label: c.name }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, company: value })))}
+          />
+          <FilterSelect
+            label="Unidade"
+            value={filters.unit ?? ""}
+            options={(reference?.units ?? []).map((u) => ({ id: u.id, label: u.name }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, unit: value })))}
+          />
+          <FilterSelect
+            label="Centro de custo"
+            value={filters.costCenter ?? ""}
+            options={(reference?.costCenters ?? []).map((c) => ({ id: c.id, label: c.name }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, costCenter: value })))}
+          />
+          <FilterSelect
+            label="Forma"
+            value={filters.paymentMethod ?? ""}
+            options={(reference?.paymentMethods ?? []).map((m) => ({ id: m.id, label: m.name }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, paymentMethod: value })))}
+          />
+          <FilterSelect
+            label="Situação"
+            value={filters.situation ?? ""}
+            options={SITUATION_FILTER}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, situation: value })))}
+          />
+          <FilterSelect
+            label="Tipo"
+            value={filters.kind ?? ""}
+            options={KIND_FILTER}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, kind: value })))}
+          />
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+            Período por
+            <SearchSelect
+              ariaLabel="Período por"
+              value={dateField}
+              options={DATE_FIELDS}
+              onChange={(value) => resetPageAnd(() => setDateField(value as DateField))}
+              className="h-8 bg-card text-[13px] text-foreground"
+            />
+          </label>
+          </div>
+          <SheetFooter className="border-t border-border/60 sm:flex-row sm:justify-between">
+            <Button
+              variant="ghost"
+              disabled={drawerFilters === 0}
+              onClick={() =>
+                resetPageAnd(() => {
+                  setFilters({});
+                  setDateField("vencimento");
+                })
+              }
+            >
+              Limpar filtros
+            </Button>
+            <Button onClick={() => setFiltersOpen(false)}>
+              {data ? `Ver ${plural(data.total, "conta", "contas")}` : "Fechar"}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
       {importing && reference && data && (
         <ImportDialog
           reference={reference}
@@ -1076,9 +1163,12 @@ function PayablesContent() {
         <ColumnsDialog
           columns={COLUMNS}
           selected={columns}
+          density={density}
           onClose={() => setChoosingColumns(false)}
-          onApply={(next) => {
+          onApply={(next, nextDensity) => {
             setColumns(next);
+            setDensity(nextDensity);
+            savePrefs({ columns: next, density: nextDensity });
             setChoosingColumns(false);
           }}
         />

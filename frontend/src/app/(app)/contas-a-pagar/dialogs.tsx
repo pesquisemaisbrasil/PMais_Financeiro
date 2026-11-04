@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -41,6 +42,8 @@ import {
   addDays,
   brl,
   formatDate,
+  inssAmount,
+  itemPaymentLabel,
   parseAllocations,
   parseMoney,
   plural,
@@ -910,20 +913,24 @@ export function ReplaceProvisionDialog({
 export function ColumnsDialog({
   columns,
   selected,
+  density,
   onClose,
   onApply,
 }: {
   columns: { id: string; label: string; fixed?: boolean }[];
   selected: string[];
+  density: "comfortable" | "compact";
   onClose: () => void;
-  onApply: (columns: string[]) => void;
+  onApply: (columns: string[], density: "comfortable" | "compact") => void;
 }) {
   const [current, setCurrent] = useState(new Set(selected));
+  const [chosenDensity, setChosenDensity] = useState(density);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle>Escolher colunas</DialogTitle>
+          <DialogTitle>Colunas e densidade</DialogTitle>
+          <DialogDescription>Fica guardado neste navegador.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 py-2">
           {columns.map((column) => (
@@ -947,11 +954,34 @@ export function ColumnsDialog({
             </div>
           ))}
         </div>
+        <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+          <span className="text-[13px] font-semibold">Densidade da tabela</span>
+          <RadioGroup
+            value={chosenDensity}
+            onValueChange={(value) => setChosenDensity(value as "comfortable" | "compact")}
+            className="flex gap-5"
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="comfortable" id="dens-comfortable" />
+              <Label htmlFor="dens-comfortable" className="text-[13px] font-normal">
+                Confortável
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="compact" id="dens-compact" />
+              <Label htmlFor="dens-compact" className="text-[13px] font-normal">
+                Compacta
+              </Label>
+            </div>
+          </RadioGroup>
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={() => onApply(columns.filter((c) => current.has(c.id)).map((c) => c.id))}>Aplicar</Button>
+          <Button onClick={() => onApply(columns.filter((c) => current.has(c.id)).map((c) => c.id), chosenDensity)}>
+            Aplicar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -965,6 +995,9 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
     const clean = term.trim().toLowerCase();
     return clean ? payable.items.filter((item) => item.name.toLowerCase().includes(clean)) : payable.items;
   }, [payable.items, term]);
+  // Só incentivo tem data da pesquisa: nas outras folhas a coluna ficaria vazia.
+  const withSurvey = payable.items.some((item) => item.surveyDate);
+  const payment = itemPaymentLabel(payable);
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -988,7 +1021,9 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
             <TableHeader>
               <TableRow>
                 <TableHead className={TH}>Pessoa</TableHead>
+                {withSurvey && <TableHead className={TH}>Data da pesquisa</TableHead>}
                 <TableHead className={TH}>Documento</TableHead>
+                <TableHead className={TH}>Pagamento</TableHead>
                 <TableHead className={cn(TH, NUM)}>Valor</TableHead>
               </TableRow>
             </TableHeader>
@@ -996,6 +1031,7 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
               {items.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className={cn(TD, "font-semibold text-brand-cinza-escuro")}>{item.name}</TableCell>
+                  {withSurvey && <TableCell className={TD}>{formatDate(item.surveyDate)}</TableCell>}
                   <TableCell className={TD}>
                     <span className="flex flex-wrap items-center gap-1.5">
                       {item.documentType}
@@ -1003,8 +1039,19 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
                       {item.invoiceStatus === "Pendente" && <Tag color="ambar">NF pendente</Tag>}
                       {item.invoiceStatus === "Recebida" && <Tag color="verde">NF recebida</Tag>}
                     </span>
+                    {item.invoiceDate && (
+                      <span className="block text-xs text-muted-foreground">emitida em {formatDate(item.invoiceDate)}</span>
+                    )}
                   </TableCell>
-                  <TableCell className={cn(TD, NUM, "font-bold")}>{brl(item.amount)}</TableCell>
+                  <TableCell className={cn(TD, "text-muted-foreground")}>{payment}</TableCell>
+                  <TableCell className={cn(TD, NUM, "font-bold")}>
+                    {brl(item.amount)}
+                    {item.grossAmount && (
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        bruto {brl(item.grossAmount)} · INSS −{brl(inssAmount(item.grossAmount, item.amount))}
+                      </span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

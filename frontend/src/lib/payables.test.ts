@@ -18,6 +18,9 @@ import {
   replacesNote,
   scheduleText,
   formatCnpj,
+  inssAmount,
+  itemPaymentLabel,
+  type PayableDetail,
 } from "./payables";
 
 const PROJECTS: Project[] = [
@@ -207,5 +210,36 @@ describe("CNPJ na tela", () => {
   it("mostra com a máscara, inclusive o alfanumérico", () => {
     expect(formatCnpj("11222333000181")).toBe("11.222.333/0001-81");
     expect(formatCnpj("12ABC34501DE35")).toBe("12.ABC.345/01DE-35");
+  });
+});
+
+describe("detalhes de cada pessoa", () => {
+  const base = { situation: "a_vencer" as const, paid: "0", pending: "100.00", payments: [] };
+  const payment = (paidOn: string, reversed = false) =>
+    ({ kind: "pagamento", paidOn, reversed }) as PayableDetail["payments"][number];
+
+  it("diz a pagar quando não há baixa, e cancelada quando o lançamento foi cancelado", () => {
+    expect(itemPaymentLabel(base)).toBe("A pagar");
+    expect(itemPaymentLabel({ ...base, situation: "cancelado" })).toBe("Cancelada");
+  });
+
+  it("usa a data da última baixa quando o lançamento foi todo pago", () => {
+    const paid = {
+      ...base,
+      situation: "pago" as const,
+      paid: "100.00",
+      pending: "0",
+      payments: [payment("2026-11-03"), payment("2026-11-05"), payment("2026-11-09", true)],
+    };
+    expect(itemPaymentLabel(paid)).toBe("Paga em 05/11/2026");
+  });
+
+  it("avisa que a baixa parcial não diz quem foi pago", () => {
+    expect(itemPaymentLabel({ ...base, paid: "40.00", pending: "60.00" })).toBe("Baixa parcial do lançamento");
+  });
+
+  it("calcula o INSS pelo bruto e pelo líquido, sem erro de centavos", () => {
+    expect(inssAmount("1000.00", "890.00")).toBe("110.00");
+    expect(inssAmount("0.30", "0.27")).toBe("0.03");
   });
 });

@@ -134,8 +134,8 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
 
 // Classes que se repetem nas tabelas: mesmo visual do protótipo validado com o financeiro.
 export const CARD = "rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(15_23_42/.04)]";
-export const TH = "bg-[#f1f5f9]/70 px-4 py-2.5 text-[13px] font-semibold text-muted-foreground";
-export const TD = "px-4 py-[11px] text-[13px]";
+export const TH = "px-4 py-3 text-xs font-medium text-muted-foreground";
+export const TD = "px-4 py-3.5 text-[13px]";
 export const NUM = "text-right tabular-nums";
 
 export function Field({

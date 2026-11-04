@@ -204,8 +204,12 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(provision.getByRole("button", { name: "Substituir pelo valor real" })).toHaveCount(0);
 
   // Os filtros novos mudam a lista, e limpar volta tudo
-  await page.getByRole("combobox", { name: "Tipo" }).click();
+  await page.getByRole("button", { name: /^Filtros/ }).click();
+  const panel = page.getByRole("dialog", { name: "Filtros" });
+  await panel.getByRole("combobox", { name: "Tipo" }).click();
   await page.getByRole("option", { name: "Provisão" }).click();
+  // O painel cobre a tela: fecha para conferir a lista por trás dele
+  await panel.getByRole("button", { name: /^Ver \d+ contas?$/ }).click();
   await expect(consultoria).toHaveCount(0);
   await page.getByRole("button", { name: /Limpar filtros/ }).click();
   await expect(consultoria).toBeVisible();
@@ -244,6 +248,21 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(page.getByText(/2 lançamentos criados, 2 itens/)).toBeVisible();
   await expect(page.getByRole("tab", { name: /Planilhas e agrupados/ })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ })).toHaveCount(2);
+  // Cada pessoa mostra o dia da pesquisa e como está de pagamento
+  await page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ }).first().getByRole("button", { name: "Mostrar os itens" }).click();
+  await expect(page.getByRole("columnheader", { name: "Data da pesquisa" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "22/10/2026", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "A pagar", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Esconder os itens" }).click();
+
+  // Colunas e densidade ficam lembradas depois de recarregar
+  await page.getByRole("button", { name: "Colunas" }).click();
+  await page.getByRole("radio", { name: "Compacta" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Aplicar" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "Colunas" }).click();
+  await expect(page.getByRole("radio", { name: "Compacta" })).toBeChecked();
+  await page.keyboard.press("Escape");
 
   // Cadastros: fornecedor com CNPJ conferido, e cadastro em uso só é inativado
   await page.getByRole("link", { name: "Cadastros" }).click();

@@ -95,6 +95,9 @@ export interface PayableItem {
   amount: string;
   invoiceNumber: string | null;
   invoiceStatus: string | null;
+  invoiceDate: string | null;
+  grossAmount: string | null;
+  surveyDate: string | null;
 }
 
 export interface Payment {
@@ -467,4 +470,27 @@ export interface RecordRow {
 /** "11222333000181" vira "11.222.333/0001-81". O CNPJ alfanumérico segue a mesma máscara. */
 export function formatCnpj(document: string): string {
   return document.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, "$1.$2.$3/$4-$5");
+}
+
+/**
+ * Como a pessoa está de pagamento. O sistema ainda não registra o pagamento por pessoa: vale o do
+ * lançamento inteiro, e baixa parcial não diz quem já foi paga.
+ */
+export function itemPaymentLabel(
+  payable: Pick<PayableDetail, "situation" | "paid" | "pending" | "payments">
+): string {
+  if (payable.situation === "cancelado") return "Cancelada";
+  const paid = toCents(payable.paid);
+  if (paid === 0) return "A pagar";
+  if (toCents(payable.pending) > 0) return "Baixa parcial do lançamento";
+  const days = payable.payments
+    .filter((payment) => payment.kind === "pagamento" && !payment.reversed)
+    .map((payment) => payment.paidOn)
+    .sort();
+  return days.length ? `Paga em ${formatDate(days[days.length - 1])}` : "Paga";
+}
+
+/** Quanto o INSS descontou do bruto do RPA, em reais. */
+export function inssAmount(gross: string, net: string): string {
+  return ((toCents(gross) - toCents(net)) / 100).toFixed(2);
 }
