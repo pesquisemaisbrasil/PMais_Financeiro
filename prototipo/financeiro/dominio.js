@@ -74,13 +74,23 @@ function situacaoReceber(r) {
 
 const FERIADOS = ["2026-01-01", "2026-04-03", "2026-04-21", "2026-05-01", "2026-06-04", "2026-09-07", "2026-10-12", "2026-11-02", "2026-11-15", "2026-11-20", "2026-12-25",
   "2027-01-01", "2027-03-26", "2027-04-21", "2027-05-01", "2027-05-27", "2027-09-07", "2027-10-12", "2027-11-02", "2027-11-15", "2027-11-20", "2027-12-25"];
+function ehDiaUtil(iso) {
+  const sem = new Date(iso + "T12:00:00Z").getUTCDay();
+  return sem !== 0 && sem !== 6 && !FERIADOS.includes(iso);
+}
 function diaUtil(iso) {
   let d = iso;
-  for (;;) {
-    const sem = new Date(d + "T12:00:00Z").getUTCDay();
-    if (sem !== 0 && sem !== 6 && !FERIADOS.includes(d)) return d;
+  while (!ehDiaUtil(d)) d = somarDias(d, 1);
+  return d;
+}
+// Conta N dias úteis depois da data (a data em si não conta). Fim de semana e feriado são pulados.
+function somarDiasUteis(iso, n) {
+  let d = iso, falta = n;
+  while (falta > 0) {
     d = somarDias(d, 1);
+    if (ehDiaUtil(d)) falta--;
   }
+  return d;
 }
 // Mesmo dia nos meses seguintes; dia que não existe vira o último dia do mês.
 function mesesDepois(iso, n) {
@@ -115,7 +125,8 @@ function orcadoCategoria(projetoId, categoria) {
 }
 function gastoCategoria(projetoId, categoria, ignorarId = null) {
   return soma(
-    S.contasPagar.filter((c) => c.tipo === "real" && !c.cancelado && c.categoria === categoria && c.id !== ignorarId && c.autorizacao !== "pendente"),
+    // Pagamento de entrevistadores (vem do Connect) tem teto próprio, o orçamento de entrevistas: não entra aqui.
+    S.contasPagar.filter((c) => c.tipo === "real" && !c.cancelado && c.origem !== "connect" && c.categoria === categoria && c.id !== ignorarId && c.autorizacao !== "pendente"),
     (c) => soma(c.rateio.filter((r) => r.projeto === projetoId), (r) => r.valor),
   );
 }

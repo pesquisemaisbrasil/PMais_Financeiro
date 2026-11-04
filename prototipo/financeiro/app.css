@@ -246,7 +246,7 @@ textarea.input { height: auto; min-height: 72px; padding: 8px 12px; resize: vert
 .dialogo .d-topo h2 { margin: 0 0 4px; font-size: 17px; }
 .dialogo .d-topo p { margin: 0; color: var(--muted-foreground); font-size: 13px; }
 .dialogo .d-corpo { padding: 18px 24px; max-height: 65vh; overflow-y: auto; }
-.dialogo .d-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 24px; background: var(--muted); border-top: 1px solid var(--border); }
+.dialogo .d-rodape { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 14px 24px; background: var(--muted); border-top: 1px solid var(--border); }
 .opcoes-validacao { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
 .opcoes-validacao label {
   border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 8px; text-align: center; cursor: pointer; font-weight: 600;
@@ -329,6 +329,91 @@ details.mais[open] summary { margin-bottom: 12px; }
 .entre { justify-content: space-between; }
 .barra-fluxo { height: 8px; border-radius: 999px; display: inline-block; vertical-align: middle; }
 
+/* ---------- Lançamento agrupado aberto na lista de Contas a pagar ---------- */
+/* Só um resumo; quem quer mais detalhe clica (Mais > Ver detalhes). A conferência do PDF abre em diálogo. */
+tbody tr.linha-expandida:hover { background: transparent; }
+tbody tr.aberta, tbody tr.aberta:hover { background: color-mix(in srgb, var(--accent) 60%, white); }
+.cp-tabela { container-type: inline-size; }
+.linha-expandida > td { padding: 0; border-top: 0; background: var(--muted); }
+/* O painel fica colado à esquerda e com a largura visível, para não escapar da tela quando a tabela rola de lado. */
+.painel-itens {
+  position: sticky; left: 0; width: 100cqw; max-width: 100%; box-sizing: border-box; padding: 12px 20px 16px 52px;
+  border-left: 3px solid var(--brand-azul-deep); display: flex; flex-direction: column; gap: 10px;
+}
+.pi-resumo { display: flex; align-items: center; justify-content: space-between; gap: 10px 24px; flex-wrap: wrap; }
+.pi-stats { display: flex; flex-wrap: wrap; gap: 6px 26px; }
+.pi-stat { display: flex; flex-direction: column; min-width: 64px; }
+.pi-stat .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.pi-stat .v small { font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.pi-stat .r { font-size: 12px; color: var(--muted-foreground); }
+.pi-acoes { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.pi-notas { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.pi-nota { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted-foreground); }
+.pi-nota svg.lucide { width: 13px; height: 13px; }
+.pi-nota.alerta { color: var(--ambar-texto); }
+.pi-anexos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pi-rotulo { font-size: 12px; font-weight: 600; color: var(--muted-foreground); display: inline-flex; gap: 5px; align-items: center; }
+.pi-rotulo svg.lucide { width: 13px; height: 13px; }
+.chip-anexo {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-size: 12px; font-weight: 600; cursor: pointer;
+  color: var(--brand-azul-deep); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
+}
+.chip-anexo:hover { border-color: var(--brand-azul-neutro); background: var(--accent); }
+.chip-anexo svg.lucide { width: 13px; height: 13px; }
+.chip-anexo > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
+.pi-envio {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: var(--radius);
+  background: #fff; border: 1px solid var(--border); font-size: 13px;
+}
+.pi-envio.pronto { border-color: #bfdbfe; background: #eff6ff; color: #1e3a8a; }
+.pi-envio.pronto .btn { margin-left: auto; }
+.pi-barra { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; padding-bottom: 8px; }
+.pi-barra .busca { flex: 1 1 200px; max-width: 260px; }
+.pi-barra .input { height: 30px; font-size: 13px; }
+.pi-conta { margin-left: auto; }
+.seg { display: inline-flex; background: #e6ecf3; border-radius: 8px; padding: 2px; }
+.seg button {
+  border: 0; background: transparent; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--muted-foreground);
+  cursor: pointer; display: inline-flex; gap: 5px; align-items: center;
+}
+.seg button.ativa { background: #fff; color: var(--brand-cinza-escuro); box-shadow: 0 1px 2px rgb(0 0 0 / .08); }
+.seg .n { font-size: 11px; opacity: .7; }
+/* Sub-tabela leve: sem card, com rolagem e cabeçalho fixo para listas de até 250 pessoas. */
+.pi-scroll, .rolagem { overflow: auto; }
+.pi-scroll { max-height: 320px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.rolagem th { position: sticky; top: 0; z-index: 1; }
+.pi-tabela th { position: sticky; top: 0; z-index: 1; background: #eaeff5; padding: 7px 12px; }
+.pi-tabela td { padding: 6px 12px; border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.pi-tabela tbody tr:first-child td { border-top: 0; }
+.pi-tabela tbody tr:hover { background: #fff; }
+.pi-tabela svg.lucide { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
+.pi-det { margin-left: 8px; font-size: 12px; color: var(--muted-foreground); font-weight: 400; }
+.menu-mais { position: relative; }
+.menu-mais > summary { list-style: none; cursor: pointer; }
+.menu-mais > summary::-webkit-details-marker { display: none; }
+.menu-pop {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 190px; padding: 4px; display: flex; flex-direction: column;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 10px 30px rgb(15 23 42 / .15);
+}
+.menu-pop button { display: flex; gap: 8px; align-items: center; border: 0; background: none; padding: 8px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+.menu-pop button:hover { background: var(--muted); }
+/* Conferência do PDF (diálogo) */
+.conf-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.conf-tile {
+  text-align: left; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.conf-tile:hover { border-color: var(--brand-azul-neutro); }
+.conf-tile.ativa { border-color: var(--brand-azul-deep); box-shadow: 0 0 0 1px var(--brand-azul-deep); background: var(--accent); }
+.conf-tile .r { font-size: 12px; font-weight: 600; color: var(--muted-foreground); display: inline-flex; gap: 5px; align-items: center; }
+.conf-tile .v { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.conf-tile .s { font-size: 11px; color: var(--muted-foreground); }
+.t-verde .v { color: var(--verde-texto); } .t-ambar .v { color: var(--ambar-texto); } .t-vermelho .v { color: #b91c1c; } .t-cinza .v { color: var(--muted-foreground); }
+.conf-dica { margin-bottom: 10px; }
+.conf-tabela { max-height: 340px; border: 1px solid var(--border); border-radius: var(--radius); }
+.link-projeto { font-weight: 600; text-decoration: none; white-space: nowrap; }
+.link-projeto:hover { text-decoration: underline; }
+
 @media (max-width: 900px) {
   .layout { flex-direction: column; }
   .sidebar { width: 100%; height: auto; position: static; }
@@ -336,5 +421,12 @@ details.mais[open] summary { margin-bottom: 12px; }
   .menu-grupo, .sidebar-footer .usuario { display: none; }
   .main { padding: 20px 16px 48px; }
   .linha-campos, .linha-campos-3, .duas-colunas { grid-template-columns: 1fr; }
+  .painel-itens { padding: 12px 12px 14px 12px; }
+  .pi-conta { margin-left: 0; }
   .painel-lateral { position: static; }
+}
+@media (max-width: 700px) {
+  .col-chave { display: none; }
+  .pi-stats { gap: 6px 18px; }
+  .pi-acoes .btn { flex: 1 1 auto; }
 }

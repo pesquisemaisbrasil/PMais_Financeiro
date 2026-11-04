@@ -1,6 +1,6 @@
 # Spec: Documentos fiscais (NF, RPA e notas recebidas)
 
-> **Módulo 3 — Contas a pagar e a receber**, com uma parte no **Módulo 1** (a NF do entrevistador libera o pagamento). Ordem e estado em [planning/roadmap](../planning/roadmap.md).
+> **Módulo 3 — Contas a pagar e a receber**, com uma parte no **Módulo 1** (a NF do entrevistador sobe no Connect, mas não bloqueia o pagamento). Ordem e estado em [planning/roadmap](../planning/roadmap.md).
 
 Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fiscal, RPA, DANFE, cupom de reembolso ou "sem documento"), de como as notas são guardadas e de como a contabilidade recebe o que precisa.
 
@@ -13,12 +13,12 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 - O cadastro deixa claro que a empresa trabalha só com esses dois modelos [Reunião 21/10 41:21–41:37].
 - Isso mora no Connect, que é dono da pessoa. O Financeiro recebe só o modelo e o status do documento pela API (pendência N4).
 
-**NF do entrevistador** (libera o pagamento). Decidido ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D8):
+**NF do entrevistador** (não bloqueia o pagamento, decisão do PO em 28/10/2026). Decidido ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D8):
 - **O Connect guarda o arquivo**, agrupado **por projeto**, por **6 meses**. O papel financeiro baixa por projeto e leva para a **rede da empresa**, onde a nota fica 5 anos. Depois de 6 meses o Connect apaga.
 - **O Financeiro não guarda o arquivo.** Recebe só o status ("recebida" ou "pendente") e confere número e valor na conciliação.
 - A NF é enviada **no sistema**, pelo entrevistador ou pelo supervisor do projeto, e não mais por e-mail ao supervisor [Reunião 21/10 23:28, 34:35, 42:30].
 - Ela fica ligada aos itens a pagar daquele pagamento (projeto + período).
-- **Quem recebe por NF e não enviou a nota não entra na planilha de pagamento.** Aparece em "Aguardando NF" com o valor [Reunião 21/10 42:30–42:44].
+- **Quem recebe por NF e não enviou a nota continua na planilha de pagamento.** A pessoa aparece com o aviso "NF pendente" e o valor; o aviso só serve para o financeiro cobrar a nota. Decisão do PO em 28/10/2026 (antes, a reunião de 21/10 exigia a nota para pagar [Reunião 21/10 42:30–42:44]).
 
 **RPA:**
 - O Financeiro gera a **lista de RPA** do período (pessoa, valor bruto, projeto) para a **contabilidade**, que emite os recibos e devolve [Reunião 21/10 39:44–40:11].
@@ -26,6 +26,13 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 - O RPA devolvido é anexado ao item.
 
 **Incentivo ao respondente:** não tem nota fiscal [Reunião 21/10 39:16]. O item fica "incentivo — sem documento".
+
+**Tela própria "Notas e RPA"** [Kickoff 03/11, K10]: o que é fiscal fica numa tela separada do pagamento, que só acompanha os documentos:
+- **NF pendente** (só aviso, para o financeiro cobrar);
+- **lista de RPA** do período;
+- **conferência das notas do portal** (prefeitura / Emissor Nacional).
+
+Ninguém paga nessa tela: a baixa, a importação de planilha e os anexos de cada pagamento ficam no lançamento de [contas-a-pagar](contas-a-pagar.md) ("eu vou abrir as contas do dia e sei que os anexos de planilha, nota fiscal, vai estar tudo ali" [Kickoff 03/11 13:23], Bruna).
 
 **Notas recebidas de fornecedores** (cerca de 300 por mês [Reunião 21/10 38:57–39:16]):
 
@@ -45,7 +52,7 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 ## Regras
 
 1. Todo item pago tem um documento fiscal ou a marca explícita "sem documento" com o motivo (incentivo, adiantamento, reembolso sem cupom, outro).
-2. Item de prestador "NF" só entra em planilha ou lote com a NF anexada e com número e data de emissão preenchidos.
+2. **A NF não é obrigatória para pagar.** Item de prestador "NF" sem nota entra na planilha ou no lote com o aviso "NF pendente". Quando a nota chega, o status vira "recebida" e o número e a data de emissão são preenchidos antes de a conciliação do item ser concluída.
 3. A **data de emissão** é guardada separada da data de pagamento: há notas emitidas num mês e pagas no seguinte, com crédito de imposto já usado [Reunião 21/10 15:18–15:57].
 4. **Guarda fiscal de 5 anos** (auditoria fiscal [Reunião 21/10 15:02]):
    - **NF do entrevistador:** os 5 anos ficam na **rede da empresa**. O sistema guarda **6 meses, no Connect**, agrupada por projeto, e apaga sozinho depois (D8). O Financeiro não guarda o arquivo.
@@ -62,7 +69,6 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 
 | Situação | HTTP | `detail` |
 |---|---|---|
-| Incluir na planilha quem recebe por NF sem NF enviada | 409 | {N} pessoas recebem por NF e ainda não enviaram a nota |
 | NF sem número ou data de emissão | 422 | Informe o número e a data de emissão da nota |
 | Apagar nota antes do prazo de guarda | 409 | Essa nota precisa ser guardada até dd/mm/aaaa |
 | Arquivo de nota fora dos tipos aceitos | 422 | Envie PDF ou XML da nota |
@@ -70,12 +76,14 @@ Contrato de como cada pagamento fica amarrado ao seu documento fiscal (nota fisc
 
 ## Critérios de aceite
 
-- [ ] Um entrevistador cadastrado como NF com R$ 600 a pagar fica em "Aguardando NF" até enviar a nota. Depois de enviada, entra na planilha.
+- [ ] Um entrevistador cadastrado como NF com R$ 600 a pagar e sem nota entra na planilha com o aviso "NF pendente". Depois de enviada, o aviso some.
 - [ ] Um entrevistador RPA com R$ 1.000 brutos aparece na lista de RPA e é pago pelo líquido (R$ 890 com 11%).
-- [ ] Um lançamento agrupado de 10 pessoas mostra, por item: 5 NF, 2 RPA, 2 incentivos e 1 "falta NF".
+- [ ] Um lançamento agrupado de 10 pessoas mostra, por item: 5 NF, 2 RPA, 2 incentivos e 1 "NF pendente" (que também entra no pagamento).
 - [ ] A conferência do mês lista uma NFS-e emitida contra o CNPJ que não está anexada a nenhum título.
 - [ ] Uma nota cancelada na prefeitura gera alerta no título pago com ela.
 - [ ] A exportação para a contabilidade traz número e data de emissão de cada NF.
+- [ ] A tela "Notas e RPA" lista a NF pendente, a lista de RPA e a conferência de notas, e não tem ação de baixa nem de importar planilha; o link do item leva ao lançamento em Contas a pagar.
+- [ ] A NF anexada a um item aparece no lançamento do contas a pagar, junto da planilha e dos comprovantes.
 
 ## Onde está no código
 
@@ -90,3 +98,5 @@ Origem do requisito:
 
 - 2026-10-21: spec criado a partir da reunião de 21/10.
 - 2026-10-21: NF do entrevistador passa a ficar 6 meses no Connect, por projeto, e 5 anos na rede da empresa; o Financeiro só recebe o status. Dados do RPA: CPF e PIS/NIT. [decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md).
+- 2026-10-28: **a NF do entrevistador/prestador continua subindo no Connect, mas não é mais obrigatória para pagar.** "NF pendente" é só aviso, e quem está com NF pendente entra na planilha e no pagamento. Muda a regra 2 e o comportamento acima, e some o caso negado 409 "pessoas recebem por NF e ainda não enviaram a nota". Decisão do PO em 28/10/2026 (nota na D8 das [decisões de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md)).
+- 2026-11-03: **notas e RPA ficam numa tela própria ("Notas e RPA")**, só para acompanhar o que é fiscal; o pagamento, a importação de planilha e os anexos de cada pagamento ficam em Contas a pagar ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K10, B7).

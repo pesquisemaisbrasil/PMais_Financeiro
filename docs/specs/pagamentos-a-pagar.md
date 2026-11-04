@@ -4,7 +4,8 @@ Contrato do espelho de itens a pagar, do resumo financeiro do projeto, da planil
 
 ## Comportamento
 
-- **Lista de projetos** (`/financeiro`): projetos do Connect com item a pagar ou baixa nos últimos 30 dias, com lançado, pago, a pagar, orçamento e saldo.
+- **Ponto de entrada do pagamento:** o item a pagar de entrevistadores chega **como lançamento agrupado em [contas-a-pagar](contas-a-pagar.md)** (um por projeto × data de pagamento, com um item por pessoa). A planilha de pagamentos e o envio dos comprovantes saem desse lançamento; o financeiro não precisa abrir uma tela de projeto para pagar [Kickoff 03/11 8:26–10:53].
+- **Lista de projetos** (`/financeiro`), agora o **relatório do projeto** ([relatorios-e-analises](relatorios-e-analises.md)): projetos do Connect com item a pagar ou baixa nos últimos 30 dias, com lançado, pago, a pagar, orçamento e saldo. Serve para acompanhar e fechar relatório, não para pagar [Kickoff 03/11 12:41–13:23].
 - **Resumo do projeto** (`GET /projects/{projectId}/finance/summary`):
   - orçamento, lançado, pago, a pagar e saldo;
   - total e quebra por entrevistador, com nome e chave **mascarada** vindos do Connect (`interviewers:read`).
@@ -15,7 +16,8 @@ Contrato do espelho de itens a pagar, do resumo financeiro do projeto, da planil
   - uma linha por pessoa com item `a_pagar`, ordenada por nome;
   - colunas: Nome, Tipo de chave Pix, Chave Pix (completa), Entrevistas a pagar, Valor a pagar (R$), Primeira e Última entrevista, Previsão de pagamento (da primeira entrevista a pagar) e Projeto (`PRJ-{id} {título}`);
   - linha Total no fim;
-  - nome e chave completa vêm do Connect na hora (`POST /interviewers/payment-data`, `purpose=payment_sheet`), só em memória.
+  - nome e chave completa vêm do Connect na hora (`POST /interviewers/payment-data`, `purpose=payment_sheet`), só em memória;
+  - o botão "Baixar planilha de pagamento" fica **no lançamento** de Contas a pagar, e a planilha gerada fica anexada a ele [Kickoff 03/11 8:04–9:22].
 - **Marca "chave alterada":** se chegar `interviewer.pix_changed` depois de a planilha ser gerada, a planilha é marcada e a pessoa aparece com o aviso "Chave Pix alterada depois da planilha — gere de novo antes de pagar".
 - **Avisos** (no Financeiro; os outros avisos ficam no Connect):
 
@@ -55,10 +57,12 @@ Contrato do espelho de itens a pagar, do resumo financeiro do projeto, da planil
 
 ## Critérios de aceite
 
-- [ ] Um projeto com 3 pessoas a pagar gera uma planilha com 3 linhas, chave completa, sem coluna de CPF e com total no fim.
+- [ ] Um lançamento de entrevistadores com 3 pessoas a pagar gera uma planilha com 3 linhas, chave completa, sem coluna de CPF e com total no fim.
 - [ ] Nome "=1+1" e título "=HYPERLINK(...)" saem como texto no Excel.
 - [ ] Cada download gera 1 `export_logs` e 1 `pii_access_logs` por chave, no Financeiro, e a linha correspondente no Connect.
 - [ ] Projeto sem nada a pagar baixa só o cabeçalho.
+- [ ] Uma entrevista validada no Connect aparece como item de um lançamento agrupado em Contas a pagar, sem o financeiro abrir tela de projeto.
+- [ ] Pessoa com NF pendente aparece na planilha com o aviso "NF pendente" (decisão do PO em 28/10/2026).
 - [ ] Trocar a chave Pix no Connect depois de gerar a planilha marca a pessoa com "Chave Pix alterada".
 - [ ] Mudar o prazo do projeto no Connect de 30 para 15 dias muda a previsão no resumo e na planilha.
 - [ ] Entrevista apagada no Connect some da lista a pagar.
@@ -70,3 +74,8 @@ Contrato do espelho de itens a pagar, do resumo financeiro do projeto, da planil
 - Frontend: `frontend/src/app/financeiro/page.tsx`, `frontend/src/app/financeiro/projetos/[id]/page.tsx`
 - Testes: `backend/tests/test_payment_sheet.py`, `test_payables_sync.py`, `test_finance_notifications.py`
 - Referência no Connect: `services/payment_sheet.py`, `services/finance.py` (resumo), `services/finance_notifications.py`; testes `test_verif_financeiro.py`, `test_semana1.py`, `test_verif_orcamento_notificacoes.py`
+
+## Ajustes
+
+- 2026-11-03: o pagamento de entrevistadores passa a chegar **como lançamento agrupado em Contas a pagar**, e a tela de projeto vira relatório ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1, K2, K4). As rotas `/projects/{projectId}/finance` continuam; a tela é que muda de lugar.
+- 2026-10-28: a NF pendente é só aviso e não tira a pessoa da planilha (decisão do PO em 28/10/2026, ver [documentos-fiscais](documentos-fiscais.md)).

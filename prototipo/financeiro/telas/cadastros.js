@@ -4,10 +4,13 @@
 ponto("tela-cadastros", "Cadastros", "Os cadastros classificam todo lançamento: empresa, unidade, projeto, centro de custo e categoria são independentes.");
 ponto("regra-inativar", "Cadastros", "Cadastro com lançamento não é excluído, só inativado. Inativo some das listas de escolha, mas continua nos relatórios.");
 ponto("regra-projetos-connect", "Cadastros", "Projetos não são cadastrados aqui: vêm do P+ Connect, com orçamento por itens e prazo de pagamento.");
+ponto("regra-projeto-incentivo", "Cadastros", "Para cada projeto marcamos o tipo (Health, CATI, consumo…), se ele tem incentivo e o prazo do incentivo em dias úteis. A proposta é marcar no Connect (pelo coordenador) e o Financeiro só ler; aqui dá para editar só para testar. Onde marcar é a pergunta F23.");
 ponto("regra-importacao-sge4b", "Cadastros", "Importação do SGE4B: mostra as linhas com erro e o motivo, e só grava depois da confirmação.");
 ponto("regra-plano-contas", "Cadastros", "Plano de contas: só conta analítica recebe lançamento, e cada uma aponta para uma linha do DRE. Mudar o vínculo vale daqui para a frente.");
 ponto("regra-documento-unico", "Cadastros", "CPF/CNPJ com dígito verificador válido e único entre os fornecedores ativos.");
 ponto("regra-ficha-fornecedor", "Cadastros", "Ficha de fornecedor: apelido, nome, documento, contato, telefone, e-mail, chave Pix e condição de pagamento. Quais campos faltam?");
+
+const TIPOS_PROJETO = ["Health", "CATI", "Consumo", "Outro"];
 
 const TIPOS_CADASTRO = {
   fornecedores: { rotulo: "Fornecedores", um: "fornecedor", novo: "Novo fornecedor" },
@@ -163,6 +166,38 @@ FORMS["salvar-cadastro"] = (f) => {
   toast(f.id ? "Alterações salvas." : `${nome} cadastrado.`);
 };
 
+// ---- Tipo, incentivo e prazo do projeto (K7) ----
+
+ACOES["projeto-incentivo"] = (d) => {
+  const p = achar("projetos", d.id);
+  abrirDialogo({
+    titulo: `Tipo e incentivo · ${codigoProjeto(p.id)}`,
+    descricao: esc(p.titulo),
+    form: "projeto-incentivo",
+    corpo: `<input type="hidden" name="id" value="${p.id}">
+      <div class="linha-campos">
+        <div class="campo"><label for="pi-tipo">Tipo de projeto</label><select class="input" id="pi-tipo" name="tipoProjeto" autofocus>${TIPOS_PROJETO.map((t) => `<option ${p.tipoProjeto === t ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+        <div class="campo"><label for="pi-tem">Tem incentivo?</label><select class="input" id="pi-tem" name="temIncentivo"><option value="sim" ${p.temIncentivo ? "selected" : ""}>Sim</option><option value="nao" ${p.temIncentivo ? "" : "selected"}>Não</option></select></div>
+      </div>
+      <div class="campo"><label for="pi-prazo">Prazo do incentivo (dias úteis)</label><input class="input" id="pi-prazo" name="prazoIncentivo" type="number" min="1" max="30" value="${p.prazoIncentivo ?? ""}">
+        <span class="dica">Conta a partir da data da resposta. Na reunião: Health ≈ 10; o tipo chamado de "CLT", 3 a 4 (a confirmar). Deixe em branco se não tem incentivo.</span></div>
+      <p class="pequeno muted" style="margin:0">${regra("regra-projeto-incentivo")} ${regra("regra-incentivo-prazo")}</p>`,
+    rodape: `<button type="button" class="btn btn-outline" data-acao="fechar-dialogo">Cancelar</button><button type="submit" class="btn">Salvar</button>`,
+  });
+};
+FORMS["projeto-incentivo"] = (f) => {
+  const p = achar("projetos", f.id);
+  const tem = f.temIncentivo === "sim";
+  const prazo = f.prazoIncentivo === "" ? null : Number(f.prazoIncentivo);
+  if (tem && !(Number.isInteger(prazo) && prazo >= 1 && prazo <= 30)) return toast("Informe o prazo do incentivo em dias úteis (de 1 a 30).", true);
+  const antes = `${p.tipoProjeto}, ${p.temIncentivo ? `incentivo em ${p.prazoIncentivo} dias úteis` : "sem incentivo"}`;
+  Object.assign(p, { tipoProjeto: f.tipoProjeto, temIncentivo: tem, prazoIncentivo: tem ? prazo : null });
+  auditar(`cadastro:projetos:${p.id}`, `${codigoProjeto(p.id)}: ${antes} → ${p.tipoProjeto}, ${tem ? `incentivo em ${prazo} dias úteis` : "sem incentivo"}`);
+  fecharDialogo();
+  salvar();
+  toast(`${codigoProjeto(p.id)} atualizado: ${p.tipoProjeto}, ${tem ? `incentivo em ${plural(prazo, "dia útil", "dias úteis")}` : "sem incentivo"}.`);
+};
+
 // ---- Importação de teste do SGE4B ----
 
 const SGE4B_EXEMPLO = [
@@ -258,11 +293,13 @@ function linhasCadastro(tipo, lista) {
       <td class="num">${brl(x.saldoInicial)}<span class="sub">em ${fmtDia(x.dataSaldo)}</span></td>${sit(x)}${acoes(x)}</tr>`) };
   }
   if (tipo === "projetos") {
-    return { cab: ["Projeto", "Cliente", "Situação", "Orçamento por itens", "Prazo de pagamento"], linhas: lista.map((p) => `<tr>
+    return { cab: ["Projeto", "Cliente", "Situação", "Orçamento por itens", "Prazo de pagamento", "Tipo e incentivo", ""], linhas: lista.map((p) => `<tr>
       <td><span class="nome">${codigoProjeto(p.id)} · ${esc(p.titulo)}</span><span class="sub">${esc(nomeUnidade(p.unidade))}</span></td>
       <td>${esc(nomeCliente(p.cliente))}</td><td>${badgeProjeto(p.situacao)}</td>
       <td class="pequeno">${p.itens.length ? p.itens.map((i) => `${esc(i.item)}: ${brl(i.valor)} (${fmtDia(i.data)})`).join("<br>") : '<span class="muted">—</span>'}${p.orcamento ? `<span class="sub">Entrevistas: ${brl(p.orcamento)}</span>` : ""}</td>
-      <td>${p.prazoPagamento} dias</td></tr>`) };
+      <td>${p.prazoPagamento} dias</td>
+      <td>${esc(p.tipoProjeto)}<span class="sub">${p.temIncentivo ? `Incentivo em ${plural(p.prazoIncentivo, "dia útil", "dias úteis")}` : "Sem incentivo"}</span></td>
+      <td class="num">${botaoIcone("pencil", "Editar tipo e incentivo", "projeto-incentivo", { id: p.id })}</td></tr>`) };
   }
   return { cab: ["Nome", "Situação", ""], linhas: lista.map((x) => `<tr><td class="nome">${esc(x.nome)}</td>${sit(x)}${acoes(x)}</tr>`) };
 }
@@ -296,7 +333,7 @@ registrarTela({
           ${somenteLeitura ? "" : `<button class="btn" data-acao="cadastro-novo" data-tipo="${tipo}">${icone("plus")}${t.novo}</button>`}
         </div>
         ${somenteLeitura ? `<div style="padding:12px 16px 0"><div class="aviso aviso-azul">${icone("info")}<div>
-          <strong>Projetos vêm do P+ Connect</strong>Ciclo de vida, orçamento por itens e prazo ficam no Connect; aqui é só leitura. ${regra("regra-projetos-connect")}</div></div></div>` : ""}
+          <strong>Projetos vêm do P+ Connect</strong>Ciclo de vida, orçamento por itens e prazo de pagamento ficam no Connect; aqui é só leitura. Só o tipo, o incentivo e o prazo do incentivo (lápis) dá para editar, para testar. ${regra("regra-projetos-connect")} ${regra("regra-projeto-incentivo")}</div></div></div>` : ""}
         ${tipo === "categorias" ? `<div style="padding:12px 16px 0"><div class="aviso aviso-azul">${icone("info")}<div><strong>Plano de contas</strong>Lista de exemplo para validar (pergunta F3). ${regra("regra-plano-contas")}</div></div></div>` : ""}
         ${itens.length ? `<div class="tabela-wrap"><table>
           <thead><tr>${cab.map((c) => `<th>${c}</th>`).join("")}</tr></thead>

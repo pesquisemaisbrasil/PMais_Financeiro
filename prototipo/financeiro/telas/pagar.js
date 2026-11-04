@@ -39,9 +39,31 @@ function textoRateio(rateio) {
   if (rateio.length === 1) return codigoProjeto(rateio[0].projeto);
   return `<span title="${rateio.map((r) => `${codigoProjeto(r.projeto)}: ${brl(r.valor)}`).join(", ")}">${rateio.length} projetos</span>`;
 }
+// Etiqueta de onde o lançamento agrupado veio.
+function badgeOrigem(c) {
+  if (c.origem === "connect") return badge("Do Connect", "azul", "link");
+  if (c.origem === "incentivo") return badge("Incentivos", "roxo");
+  return "";
+}
+// Só lançamento que não é do Connect se baixa de uma vez; o do Connect se paga item a item, pelo PDF de comprovantes.
+const baixaDireta = (c) => emAberto(c) && c.tipo === "real" && c.origem !== "connect";
+// Código do projeto vira link para o relatório do projeto.
+function celulaProjeto(c) {
+  if (!c.rateio.length) return '<td><span class="muted">—</span></td>';
+  if (c.rateio.length > 3) return `<td><span title="${c.rateio.map((r) => `${codigoProjeto(r.projeto)}: ${brl(r.valor)}`).join(", ")}">${c.rateio.length} projetos</span></td>`;
+  return `<td>${c.rateio.map((r) => `<a class="link-projeto" href="#/projetos/${r.projeto}" title="Abrir o relatório do projeto (${brl(r.valor)} nesta conta)">${codigoProjeto(r.projeto)}</a>`).join(", ")}</td>`;
+}
 function textoDocumento(doc) {
   if (doc.tipo === "NF") return `NF ${esc(doc.numero)}`;
   return esc(doc.tipo);
+}
+
+// "Substitui provisão de R$ X (+ R$ Y)": a conta real que entrou no lugar de uma provisão.
+function notaSubstituicao(c) {
+  const prov = S.contasPagar.find((x) => x.substituidaPor === c.id);
+  if (!prov) return "";
+  const dif = c.valor - prov.valor;
+  return ` · substitui a provisão de ${brl(prov.valor)}${dif ? ` (${dif > 0 ? "+" : "−"}${brl(Math.abs(dif))})` : ""}`;
 }
 
 // ---- Período ----
@@ -81,20 +103,29 @@ const INDICADORES_PAGAR = {
   provisoes: { rotulo: "Provisões", f: (c) => c.tipo === "provisao" && !c.substituidaPor },
 };
 
-function filtrarPagar(ui) {
+// Visão rápida por tipo de lançamento (abas acima dos indicadores). Não se sobrepõem: o do Connect não conta em "Planilhas e agrupados".
+const ABAS_PAGAR = {
+  todas: { rotulo: "Todas", f: () => true },
+  agrupados: { rotulo: "Planilhas e agrupados", f: (c) => !!c.itens && c.origem !== "connect" },
+  provisoes: { rotulo: "Provisões", f: (c) => c.tipo === "provisao" },
+  connect: { rotulo: "Do Connect", f: (c) => c.origem === "connect" },
+};
+
+// "ignorar" tira da conta um dos controles ("aba" ou "indicador"), para mostrar quanto daria se a pessoa o escolhesse.
+function filtrarPagar(ui, ignorar = []) {
   const [ini, fim] = intervalo(ui.modo, ui.ref);
   const termo = (ui.busca || "").trim().toLowerCase();
   const f = ui.filtros;
   return S.contasPagar.filter((c) =>
     c.vencimento >= ini && c.vencimento <= fim &&
-    INDICADORES_PAGAR[ui.indicador].f(c) &&
+    (ignorar.includes("indicador") || INDICADORES_PAGAR[ui.indicador].f(c)) &&
+    (ignorar.includes("aba") || ABAS_PAGAR[ui.aba].f(c)) &&
     (!f.fornecedor || String(c.fornecedor) === f.fornecedor) &&
     (!f.projeto || c.rateio.some((r) => String(r.projeto) === f.projeto)) &&
     (!f.categoria || String(c.categoria) === f.categoria) &&
     (!f.empresa || c.empresa === f.empresa) &&
     (!f.centro || String(c.centroCusto) === f.centro) &&
     (!f.forma || String(c.forma) === f.forma) &&
-    (!f.tipo || c.tipo === f.tipo) &&
     (!termo || `${quemRecebe(c)} ${c.descricao} ${nomeCategoria(c.categoria)} ${c.documento.numero}`.toLowerCase().includes(termo)));
 }
 
@@ -114,9 +145,14 @@ function valorColuna(c, col) {
 function celula(c, col) {
   switch (col) {
     case "vencimento": return `<td>${fmtDia(c.vencimento)}</td>`;
-    case "fornecedor": return `<td><span class="nome">${esc(quemRecebe(c))}</span><span class="sub">${esc(c.descricao)}${c.serie ? ` · ${c.serie.n}/${c.serie.total}` : ""}${c.transferencia ? " · transferência entre empresas" : ""}${documentacaoAtrasada(c) ? ' · <span class="ambar forte">documentação atrasada</span>' : ""}</span></td>`;
+    case "fornecedor": {
+      const miolo = `<span class="nome">${esc(quemRecebe(c))}</span> ${badgeOrigem(c)}<span class="sub">${esc(c.descricao)}${c.serie ? ` · ${c.serie.n}/${c.serie.total}` : ""}${c.transferencia ? " · transferência entre empresas" : ""}${c.itens ? ` · ${c.itens.filter((i) => i.pago).length} de ${c.itens.length} pagos` : ""}${c.tipo === "provisao" ? " · do orçamento do Connect" : ""}${notaSubstituicao(c)}${documentacaoAtrasada(c) ? ' · <span class="ambar forte">documentação atrasada</span>' : ""}</span>`;
+      if (!c.itens) return `<td>${miolo}</td>`;
+      const aberto = UI.pagar.abertos.has(c.id);
+      return `<td><div class="flex" style="align-items:flex-start;gap:4px;min-width:230px">${botaoIcone(aberto ? "chevron-down" : "chevron-right", aberto ? "Esconder os itens" : "Mostrar os itens", "cp-alternar", { id: c.id }, `aria-expanded="${aberto}"`)}<div>${miolo}</div></div></td>`;
+    }
     case "documento": return `<td>${textoDocumento(c.documento)}</td>`;
-    case "projeto": return `<td>${textoRateio(c.rateio)}</td>`;
+    case "projeto": return celulaProjeto(c);
     case "categoria": return `<td>${esc(nomeCategoria(c.categoria))}</td>`;
     case "centro": return `<td>${esc(nomeCentro(c.centroCusto))}</td>`;
     case "forma": return `<td>${esc(nomeForma(c.forma))}</td>`;
@@ -129,11 +165,29 @@ function celula(c, col) {
   }
 }
 
-ACOES["pagar-indicador"] = (d) => { Object.assign(UI.pagar, { indicador: d.id, pagina: 1, sel: new Set() }); render(); };
-ACOES["pagar-modo"] = (d, el) => { Object.assign(UI.pagar, { modo: el.value, pagina: 1 }); render(); };
-ACOES["pagar-mover"] = (d) => { UI.pagar.ref = d.p === "0" ? HOJE : moverPeriodo(UI.pagar.modo, UI.pagar.ref, Number(d.p)); UI.pagar.pagina = 1; render(); };
-ACOES["pagar-filtro"] = (d, el) => { UI.pagar.filtros[d.campo] = el.value; UI.pagar.pagina = 1; render(); };
-ACOES["pagar-limpar"] = () => { Object.assign(UI.pagar, { filtros: {}, busca: "", indicador: "total", pagina: 1 }); render(); };
+// Controles de período, filtros e indicadores servem Contas a pagar e Contas a receber (ns = "pagar" ou "receber").
+ACOES["indicador-sel"] = (d) => { Object.assign(UI[d.ns], { indicador: d.id, pagina: 1, sel: new Set() }); render(); };
+ACOES["periodo-modo"] = (d, el) => { Object.assign(UI[d.ns], { modo: el.value, pagina: 1 }); render(); };
+ACOES["periodo-mover"] = (d) => { const ui = UI[d.ns]; ui.ref = d.p === "0" ? HOJE : moverPeriodo(ui.modo, ui.ref, Number(d.p)); ui.pagina = 1; render(); };
+ACOES["filtro-campo"] = (d, el) => { UI[d.ns].filtros[d.campo] = el.value; UI[d.ns].pagina = 1; render(); };
+ACOES["pagar-limpar"] = () => { Object.assign(UI.pagar, { filtros: {}, busca: "", indicador: "total", aba: "todas", pagina: 1 }); render(); };
+
+function controlePeriodo(ns, ui) {
+  return `<div class="flex" style="flex-wrap:wrap">
+    <select class="input" style="width:auto" data-mudar="periodo-modo" data-ns="${ns}" aria-label="Visão por período">${[["dia", "Dia"], ["semana", "Semana"], ["mes", "Mês"], ["ano", "Ano"], ["tudo", "Tudo"]].map(([k, r]) => `<option value="${k}" ${ui.modo === k ? "selected" : ""}>${r}</option>`).join("")}</select>
+    ${ui.modo === "tudo" ? "" : `${botaoIcone("chevron-left", "Período anterior", "periodo-mover", { ns, p: -1 })}<strong style="min-width:150px;text-align:center">${rotuloPeriodo(ui.modo, ui.ref)}</strong>${botaoIcone("chevron-right", "Próximo período", "periodo-mover", { ns, p: 1 })}
+    <button class="btn btn-outline btn-sm" data-acao="periodo-mover" data-ns="${ns}" data-p="0">Hoje</button>`}
+  </div>`;
+}
+function campoFiltro(ns, ui, campo, rotulo, lista, rot = (x) => x.nome) {
+  return `<label>${rotulo}<select class="input" data-mudar="filtro-campo" data-ns="${ns}" data-campo="${campo}"><option value="">Todos</option>${opcoes(lista, ui.filtros[campo], rot)}</select></label>`;
+}
+// itens: [{ id, rotulo, valor (centavos), n, alerta }]
+function blocoIndicadores(ns, ui, itens, un = ["conta", "contas"]) {
+  return `<div class="indicadores">${itens.map((x) => `<button class="indicador ${ui.indicador === x.id ? "ativo" : ""}" data-acao="indicador-sel" data-ns="${ns}" data-id="${x.id}" aria-pressed="${ui.indicador === x.id}">
+    <span class="r">${x.rotulo}</span><span class="v ${x.alerta ? "vermelho" : ""}">${brl(x.valor)}</span><span class="n">${plural(x.n, un[0], un[1])}</span></button>`).join("")}</div>`;
+}
+
 ACOES["pagar-ordenar"] = (d) => { const ui = UI.pagar; ui.ordem = { col: d.col, dir: ui.ordem.col === d.col ? -ui.ordem.dir : 1 }; render(); };
 ACOES["pagar-colunas"] = () => abrirDialogo({
   titulo: "Escolher colunas",
@@ -166,8 +220,8 @@ ACOES["pagar-selecionar"] = (d, el) => {
 function selecionadas() { return [...UI.pagar.sel].map((id) => achar("contasPagar", id)).filter(Boolean); }
 
 ACOES["lote-baixa"] = () => {
-  const contas = selecionadas().filter((c) => emAberto(c) && c.tipo === "real");
-  if (!contas.length) return toast("Nenhuma conta em aberto na seleção.", true);
+  const contas = selecionadas().filter(baixaDireta);
+  if (!contas.length) return toast(selecionadas().some((c) => c.origem === "connect") ? "Lançamento do Connect se paga pelo PDF de comprovantes: abra os itens e envie o PDF." : "Nenhuma conta em aberto na seleção.", true);
   abrirDialogo({
     titulo: "Baixa em lote",
     descricao: `${plural(contas.length, "conta", "contas")} · total pendente ${brl(soma(contas, saldoPagar))}. Cada uma é baixada pelo seu pendente.`,
@@ -183,7 +237,7 @@ ACOES["lote-baixa"] = () => {
   });
 };
 FORMS["lote-baixa"] = (f) => {
-  const contas = selecionadas().filter((c) => emAberto(c) && c.tipo === "real");
+  const contas = selecionadas().filter(baixaDireta);
   const bloqueadas = contas.filter((c) => c.autorizacao === "pendente");
   if (bloqueadas.length) return toast(`${plural(bloqueadas.length, "conta está", "contas estão")} acima do orçamento e ainda não ${bloqueadas.length === 1 ? "foi autorizada" : "foram autorizadas"}.`, true);
   for (const c of contas) { const e = erroPeriodo(c.empresa, f.data); if (e) return toast(e, true); }
@@ -433,6 +487,7 @@ ACOES["pagar-baixa"] = (d) => {
   const c = achar("contasPagar", d.id);
   if (c.autorizacao === "pendente") return toast("Esse lançamento está acima do orçamento e ainda não foi autorizado.", true);
   if (c.tipo === "provisao") return toast("Provisão não se paga: substitua pelo valor real.", true);
+  if (c.origem === "connect") return toast("Lançamento do Connect se paga pelo PDF de comprovantes: abra os itens e envie o PDF.", true);
   abrirDialogo({
     titulo: "Dar baixa",
     descricao: `${esc(quemRecebe(c))} · ${esc(c.descricao)}`,
@@ -487,7 +542,7 @@ ACOES["pagar-estornar"] = (d) => {
     botao: "Estornar", perigo: true,
     acao: (motivo) => {
       c.baixas.push({ ...b, id: proximoId(c.baixas), tipo: "estorno", ref: b.id, data: HOJE, motivo, origem: "Estorno", acrescimo: 0 });
-      if (b.item) c.itens.find((i) => i.id === b.item).pago = null;
+      if (b.item) { const it = c.itens.find((i) => i.id === b.item); it.pago = null; ajustarEntrevistasPagas(c, it, -1); }
       auditar(`pagar:${c.id}`, `Estorno da baixa de ${fmtDia(b.data)} (${brl(b.valor)}): ${motivo}`);
       salvar();
       toast(`Baixa estornada. Pendente agora: ${brl(saldoPagar(c))}.`);
@@ -760,7 +815,7 @@ function abrirDetalhe(id, aba = "resumo") {
       ${!c.cancelado ? `<button type="button" class="btn btn-outline" data-acao="pagar-editar" data-id="${c.id}">${icone("pencil")}Editar</button>` : ""}
       ${c.autorizacao === "pendente" ? `<button type="button" class="btn" data-acao="pagar-autorizar" data-id="${c.id}">${icone("shield-check")}Autorizar (administrador)</button>` : ""}
       ${c.tipo === "provisao" && !c.substituidaPor ? `<button type="button" class="btn" data-acao="provisao-real" data-id="${c.id}">${icone("replace")}Substituir por real</button>` : ""}
-      ${emAberto(c) && c.tipo === "real" && c.autorizacao !== "pendente" ? `<button type="button" class="btn btn-verde" data-acao="pagar-baixa" data-id="${c.id}">${icone("check")}Dar baixa</button>` : ""}
+      ${baixaDireta(c) && c.autorizacao !== "pendente" ? `<button type="button" class="btn btn-verde" data-acao="pagar-baixa" data-id="${c.id}">${icone("check")}Dar baixa</button>` : ""}
       <button type="button" class="btn btn-outline" data-acao="fechar-dialogo">Fechar</button>`,
   });
 }
@@ -777,45 +832,64 @@ registrarTela({
   icone: "arrow-up-right",
   grupo: "Dia a dia",
   contador: () => S.contasPagar.filter((c) => ["Vencida", "Vence hoje", "Devolvida", "Pendente de autorização"].includes(situacaoPagar(c))).length,
-  render() {
+  render(param) {
     const ui = (UI.pagar ??= {});
-    ui.modo ??= "mes"; ui.ref ??= HOJE; ui.indicador ??= "total"; ui.filtros ??= {}; ui.sel ??= new Set();
+    // Abre no dia (K11): quem paga olha as contas do dia; semana, mês, ano e tudo continuam à mão.
+    ui.modo ??= "dia"; ui.ref ??= HOJE; ui.indicador ??= "total"; ui.aba ??= "todas"; ui.filtros ??= {}; ui.sel ??= new Set(); ui.abertos ??= new Set();
     ui.colunas ??= [...COLUNAS_PADRAO]; ui.ordem ??= { col: "vencimento", dir: 1 };
-    const [ini, fim] = intervalo(ui.modo, ui.ref);
-    const doPeriodo = S.contasPagar.filter((c) => c.vencimento >= ini && c.vencimento <= fim);
+    // Links de outras telas: #/pagar/<número> abre aquele lançamento; #/pagar/p<código> filtra pelo projeto; #/pagar/provisoes, /agrupados e /connect escolhem a aba.
+    if (!param) ui.paramAplicado = null;
+    else if (ui.paramAplicado !== param) {
+      ui.paramAplicado = param;
+      const doProjeto = /^p(\d+)$/.exec(param);
+      const limpo = { indicador: "total", busca: "", pagina: 1, sel: new Set(), aba: "todas" };
+      if (doProjeto) Object.assign(ui, limpo, { modo: "tudo", filtros: { projeto: doProjeto[1] } });
+      else if (param === "vencidas") Object.assign(ui, limpo, { modo: "tudo", filtros: {}, indicador: "vencidos" });
+      else if (ABAS_PAGAR[param]) Object.assign(ui, limpo, { modo: "tudo", filtros: {}, aba: param });
+      else if (achar("contasPagar", param)) { const c = achar("contasPagar", param); ui.abertos.add(c.id); Object.assign(ui, limpo, { modo: "mes", ref: c.vencimento, filtros: {}, foco: c.id }); }
+    }
     const lista = filtrarPagar(ui).sort((a, b) => {
       const va = valorColuna(a, ui.ordem.col), vb = valorColuna(b, ui.ordem.col);
       return (typeof va === "number" ? va - vb : String(va).localeCompare(String(vb))) * ui.ordem.dir;
     });
+    if (ui.foco) { // veio de um link ou de uma ação: vai para a página do lançamento e rola até ele
+      const pos = lista.findIndex((c) => c.id === ui.foco);
+      if (pos >= 0) ui.pagina = Math.floor(pos / 12) + 1;
+      const rolar = ui.foco; ui.foco = null;
+      setTimeout(() => document.getElementById(`cp-${rolar}`)?.scrollIntoView({ block: "center" }), 0);
+    }
     const { itens, controles } = paginar("pagar", lista, 12);
     const idsPagina = itens.map((c) => c.id);
     const nSel = ui.sel.size;
     const todasMarcadas = idsPagina.length && idsPagina.every((id) => ui.sel.has(id));
     const cols = COLUNAS_PAGAR.filter((c) => ui.colunas.includes(c.id));
-    const f = ui.filtros;
-    const filtro = (campo, rotulo, lista_, rot = (x) => x.nome) => `<label>${rotulo}<select class="input" data-mudar="pagar-filtro" data-campo="${campo}"><option value="">Todos</option>${opcoes(lista_, f[campo], rot)}</select></label>`;
-    const nFiltros = Object.values(f).filter(Boolean).length + (ui.busca ? 1 : 0) + (ui.indicador !== "total" ? 1 : 0);
+    const filtro = (campo, rotulo, lista_, rot) => campoFiltro("pagar", ui, campo, rotulo, lista_, rot);
+    const nFiltros = Object.values(ui.filtros).filter(Boolean).length + (ui.busca ? 1 : 0) + (ui.indicador !== "total" ? 1 : 0) + (ui.aba !== "todas" ? 1 : 0);
+    // Os indicadores e as abas mostram quanto daria ao escolher cada um, com o período, os filtros e a busca de agora.
+    const baseIndicadores = filtrarPagar(ui, ["indicador"]);
+    const baseAbas = filtrarPagar(ui, ["aba"]);
 
     return `
       ${cabecalho({ titulo: "Contas a pagar", icone: "arrow-up-right", tela: "tela-pagar",
-        subtitulo: "Lance as contas, divida entre projetos e dê baixa no dia em que o dinheiro saiu.",
-        acoes: `<button class="btn btn-outline" data-acao="pagar-exportar">${icone("download")}Exportar</button><button class="btn" data-acao="pagar-nova">${icone("plus")}Nova conta a pagar</button>` })}
+        subtitulo: "Tudo o que se paga fica aqui: contas, planilhas de folha e incentivos, pagamentos do Connect e provisões. Dê baixa no dia em que o dinheiro saiu.",
+        acoes: `<button class="btn btn-outline" data-acao="pagar-exportar">${icone("download")}Exportar</button><button class="btn btn-outline" data-acao="folha-importar">${icone("file-up")}Importar planilha</button><button class="btn" data-acao="pagar-nova">${icone("plus")}Nova conta a pagar</button>` })}
 
       <div class="flex entre mb" style="flex-wrap:wrap">
-        <div class="flex">
-          <select class="input" style="width:auto" data-mudar="pagar-modo" aria-label="Visão por período">${[["dia", "Dia"], ["semana", "Semana"], ["mes", "Mês"], ["ano", "Ano"], ["tudo", "Tudo"]].map(([k, r]) => `<option value="${k}" ${ui.modo === k ? "selected" : ""}>${r}</option>`).join("")}</select>
-          ${ui.modo === "tudo" ? "" : `${botaoIcone("chevron-left", "Período anterior", "pagar-mover", { p: -1 })}<strong style="min-width:150px;text-align:center">${rotuloPeriodo(ui.modo, ui.ref)}</strong>${botaoIcone("chevron-right", "Próximo período", "pagar-mover", { p: 1 })}
-          <button class="btn btn-outline btn-sm" data-acao="pagar-mover" data-p="0">Hoje</button>`}
-        </div>
+        ${controlePeriodo("pagar", ui)}
         ${campoBusca("pagar", ui.busca || "", "Buscar conta, fornecedor ou NF…")}
       </div>
 
-      <div class="indicadores">${Object.entries(INDICADORES_PAGAR).map(([k, x]) => {
-        const l = doPeriodo.filter(x.f);
-        const valorInd = k === "pagos" ? soma(l, pagoConta) : k === "total" || k === "provisoes" ? soma(l, (c) => c.valor) : soma(l, saldoPagar);
-        return `<button class="indicador ${ui.indicador === k ? "ativo" : ""}" data-acao="pagar-indicador" data-id="${k}" aria-pressed="${ui.indicador === k}">
-          <span class="r">${x.rotulo}</span><span class="v ${k === "vencidos" && l.length ? "vermelho" : ""}">${brl(valorInd)}</span><span class="n">${plural(l.length, "conta", "contas")}</span></button>`;
-      }).join("")}</div>
+      <div class="flex entre mb" style="flex-wrap:wrap">
+        ${abas("pagar", Object.entries(ABAS_PAGAR).map(([k, x]) => ({ id: k, rotulo: x.rotulo, n: baseAbas.filter(x.f).length })), ui.aba)}
+        ${ui.aba === "provisoes" ? `<div class="flex">${regra("regra-provisao")}<button class="btn btn-outline btn-sm" data-acao="provisao-gerar">${icone("refresh-cw")}Atualizar do orçamento do Connect</button></div>` : ""}
+      </div>
+
+      <p class="pequeno muted" style="margin:-4px 0 12px">Lançamento agrupado (planilhas, incentivos e Do Connect) abre os itens aqui mesmo, pela seta ao lado do nome. ${regra("regra-cp-abrir-itens")} ${regra("regra-cp-do-connect")} ${regra("tela-folha")}</p>
+
+      ${blocoIndicadores("pagar", ui, Object.entries(INDICADORES_PAGAR).map(([k, x]) => {
+        const l = baseIndicadores.filter(x.f);
+        return { id: k, rotulo: x.rotulo, n: l.length, alerta: k === "vencidos" && l.length, valor: k === "pagos" ? soma(l, pagoConta) : k === "total" || k === "provisoes" ? soma(l, (c) => c.valor) : soma(l, saldoPagar) };
+      }))}
 
       <div class="card">
         <div class="filtros">
@@ -825,7 +899,6 @@ registrarTela({
           ${filtro("empresa", "Empresa", S.empresas)}
           ${filtro("centro", "Centro de custo", S.centrosCusto)}
           ${filtro("forma", "Forma", S.formasPagamento)}
-          <label>Tipo<select class="input" data-mudar="pagar-filtro" data-campo="tipo"><option value="">Todos</option><option value="real" ${f.tipo === "real" ? "selected" : ""}>Real</option><option value="provisao" ${f.tipo === "provisao" ? "selected" : ""}>Provisão</option></select></label>
         </div>
         <div class="barra">
           <div class="flex pequeno" style="flex-wrap:wrap">
@@ -838,21 +911,25 @@ registrarTela({
           </div>
           <button class="btn btn-ghost btn-sm" data-acao="pagar-colunas">${icone("columns-3")}Colunas</button>
         </div>
-        ${itens.length ? `<div class="tabela-wrap"><table>
+        ${itens.length ? `<div class="tabela-wrap cp-tabela"><table>
           <thead><tr>
             <th style="width:36px"><input type="checkbox" class="check" aria-label="Selecionar todas da página" data-mudar="pagar-selecionar" data-id="todas" data-ids="${idsPagina.join(",")}" ${todasMarcadas ? "checked" : ""}></th>
             ${cols.map((c) => `<th class="ordenavel ${c.num ? "num" : ""}" data-acao="pagar-ordenar" data-col="${c.id}" aria-sort="${ui.ordem.col === c.id ? (ui.ordem.dir > 0 ? "ascending" : "descending") : "none"}">${c.rotulo}${ui.ordem.col === c.id ? (ui.ordem.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}
             <th></th>
           </tr></thead>
-          <tbody>${itens.map((c) => `<tr class="${ui.sel.has(c.id) ? "selecionada" : ""}">
+          <tbody>${itens.map((c) => {
+            const aberta = !!c.itens && ui.abertos.has(c.id);
+            return `<tr id="cp-${c.id}" class="${ui.sel.has(c.id) ? "selecionada" : ""} ${aberta ? "aberta" : ""}">
             <td><input type="checkbox" class="check" aria-label="Selecionar ${esc(c.descricao)}" data-mudar="pagar-selecionar" data-id="${c.id}" ${ui.sel.has(c.id) ? "checked" : ""}></td>
             ${cols.map((col) => celula(c, col.id)).join("")}
             <td class="num" style="white-space:nowrap">
+              ${c.tipo === "provisao" && !c.substituidaPor ? `<button class="btn btn-outline btn-sm" data-acao="provisao-real" data-id="${c.id}" title="Trocar a provisão pelo valor real">${icone("replace")}Valor real</button>` : ""}
               ${botaoIcone("eye", "Ver detalhes", "pagar-ver", { id: c.id })}
-              ${emAberto(c) && c.tipo === "real" ? botaoIcone("check", c.autorizacao === "pendente" ? "Aguardando autorização" : "Dar baixa", "pagar-baixa", { id: c.id }) : ""}
+              ${baixaDireta(c) ? botaoIcone("check", c.autorizacao === "pendente" ? "Aguardando autorização" : "Dar baixa", "pagar-baixa", { id: c.id }) : ""}
               ${c.codigoBarras && emAberto(c) ? botaoIcone("barcode", "Copiar código de barras", "copiar", { texto: c.codigoBarras }) : ""}
             </td>
-          </tr>`).join("")}</tbody>
+          </tr>${aberta ? painelLancamento(c, cols.length + 2) : ""}`;
+          }).join("")}</tbody>
           <tfoot><tr class="total-linha"><td colspan="${cols.length + 2}">Total filtrado: ${plural(lista.length, "conta", "contas")} · valor ${brl(soma(lista, (c) => c.valor))} · pago ${brl(soma(lista, pagoConta))} · pendente ${brl(soma(lista, saldoPagar))}</td></tr></tfoot>
         </table></div>${controles}` : `<p class="vazio">${nFiltros ? "Nenhuma conta com esses filtros." : `Nenhuma conta em ${rotuloPeriodo(ui.modo, ui.ref)}.`}</p>`}
       </div>`;

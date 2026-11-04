@@ -16,6 +16,19 @@ function tituloPagar(t) {
 function baixa(id, data, valor, conta = 1, forma = 1, extra = {}) {
   return { id, data, valor, conta, forma, tipo: "pagamento", motivo: "", origem: "Lançamento", ...extra };
 }
+// Chave Pix nunca aparece inteira na tela: e-mail mostra o começo, número mostra três dígitos e os dois últimos.
+function mascararChave(chave) {
+  if (!chave) return null;
+  const texto = String(chave).trim();
+  if (texto.includes("@")) { const [u, dominio] = texto.split("@"); return `${u.slice(0, 3)}***@${dominio}`; }
+  const dig = texto.replace(/\D/g, "");
+  return dig.length > 5 ? `${dig.slice(0, 3)}***${dig.slice(-2)}` : "***";
+}
+// Chave Pix fictícia para os respondentes dos exemplos de incentivo.
+function chaveFicticia(n) {
+  const completa = String(41900000000 + n * 7919);
+  return { chave: mascararChave(completa), chaveCompleta: completa };
+}
 function item(id, nome, doc, valor, extra = {}) {
   return { id, nome, doc, bruto: valor, valor, nf: null, nfStatus: null, pago: null, ...extra };
 }
@@ -107,14 +120,14 @@ const DADOS_INICIAIS = {
   // Projetos vêm do P+ Connect (o Financeiro só lê). "orcamento" é o teto de entrevistas;
   // "itens" é o orçamento por itens, com data estimada, que vira provisão.
   projetos: [
-    { id: 1804, titulo: "Hábitos de consumo · Curitiba", cliente: 2, unidade: 2, situacao: "Ativo", orcamento: 70000, prazoPagamento: 30,
+    { id: 1804, titulo: "Hábitos de consumo · Curitiba", cliente: 2, unidade: 2, situacao: "Ativo", orcamento: 70000, prazoPagamento: 30, tipoProjeto: "CATI", temIncentivo: true, prazoIncentivo: 3,
       itens: [{ item: "Deslocamento", categoria: 3, valor: 180000, data: "2026-11-10" }, { item: "Gráfica", categoria: 8, valor: 130000, data: "2026-10-28" }] },
-    { id: 1790, titulo: "Satisfação de clientes · Banco Horizonte", cliente: 1, unidade: 1, situacao: "Ativo", orcamento: 300000, prazoPagamento: 30,
+    { id: 1790, titulo: "Satisfação de clientes · Banco Horizonte", cliente: 1, unidade: 1, situacao: "Ativo", orcamento: 300000, prazoPagamento: 30, tipoProjeto: "Consumo", temIncentivo: false, prazoIncentivo: null,
       itens: [{ item: "Supervisão de campo", categoria: 1, valor: 600000, data: "2026-11-05" }, { item: "Viagens", categoria: 3, valor: 200000, data: "2026-11-05" }] },
-    { id: 1811, titulo: "Saúde e bem-estar 2026", cliente: 3, unidade: 3, situacao: "Pausado", orcamento: 120000, prazoPagamento: 15,
+    { id: 1811, titulo: "Saúde e bem-estar 2026", cliente: 3, unidade: 3, situacao: "Pausado", orcamento: 120000, prazoPagamento: 15, tipoProjeto: "Health", temIncentivo: true, prazoIncentivo: 10,
       itens: [{ item: "Incentivos", categoria: 2, valor: 240000, data: "2026-11-20" }] },
-    { id: 1820, titulo: "Teste de embalagem · Serra Alta", cliente: 4, unidade: 1, situacao: "Ativo", orcamento: null, prazoPagamento: 30, itens: [] },
-    { id: 1752, titulo: "Recall de marca · 1º semestre", cliente: 4, unidade: 1, situacao: "Encerrado", orcamento: 90000, prazoPagamento: 30, itens: [] },
+    { id: 1820, titulo: "Teste de embalagem · Serra Alta", cliente: 4, unidade: 1, situacao: "Ativo", orcamento: null, prazoPagamento: 30, tipoProjeto: "Consumo", temIncentivo: false, prazoIncentivo: null, itens: [] },
+    { id: 1752, titulo: "Recall de marca · 1º semestre", cliente: 4, unidade: 1, situacao: "Encerrado", orcamento: 90000, prazoPagamento: 30, tipoProjeto: "Consumo", temIncentivo: false, prazoIncentivo: null, itens: [] },
   ],
 
   // Pessoas de campo (vêm do Connect). Sem CPF; chave Pix sempre mascarada. "modelo": como recebe (NF ou RPA).
@@ -130,17 +143,18 @@ const DADOS_INICIAIS = {
   ],
 
   // Entrevistas lançadas no Connect, por projeto e pessoa. "nf": situação da nota no Connect (não bloqueia o pagamento).
+  // "vence": data de pagamento do que falta pagar. Cada projeto × data vira um lançamento agrupado em Contas a pagar (veja o fim deste arquivo).
   entrevistas: [
-    { projeto: 1804, pessoa: 1, lancadas: 6, pagas: 2, valor: 2000, nf: "Recebida" },
-    { projeto: 1804, pessoa: 2, lancadas: 5, pagas: 0, valor: 2000, nf: "Pendente" },
-    { projeto: 1804, pessoa: 3, lancadas: 4, pagas: 0, valor: 2000, nf: null },
-    { projeto: 1804, pessoa: 5, lancadas: 3, pagas: 0, valor: 2000, nf: "Pendente" },
+    { projeto: 1804, pessoa: 1, lancadas: 6, pagas: 2, valor: 2000, nf: "Recebida", vence: HOJE },
+    { projeto: 1804, pessoa: 2, lancadas: 5, pagas: 0, valor: 2000, nf: "Pendente", vence: HOJE },
+    { projeto: 1804, pessoa: 3, lancadas: 4, pagas: 0, valor: 2000, nf: null, vence: HOJE },
+    { projeto: 1804, pessoa: 5, lancadas: 3, pagas: 0, valor: 2000, nf: "Pendente", vence: HOJE },
     { projeto: 1804, pessoa: 6, lancadas: 10, pagas: 10, valor: 2000, nf: null },
-    { projeto: 1790, pessoa: 4, lancadas: 40, pagas: 25, valor: 4500, nf: "Recebida" },
+    { projeto: 1790, pessoa: 4, lancadas: 40, pagas: 25, valor: 4500, nf: "Recebida", vence: "2026-10-30" },
     { projeto: 1790, pessoa: 7, lancadas: 22, pagas: 22, valor: 4500, nf: null },
-    { projeto: 1790, pessoa: 8, lancadas: 18, pagas: 6, valor: 4500, nf: "Pendente" },
+    { projeto: 1790, pessoa: 8, lancadas: 18, pagas: 6, valor: 4500, nf: "Pendente", vence: "2026-11-05" },
     { projeto: 1811, pessoa: 7, lancadas: 12, pagas: 12, valor: 3500, nf: null },
-    { projeto: 1820, pessoa: 1, lancadas: 8, pagas: 0, valor: 2500, nf: "Pendente" },
+    { projeto: 1820, pessoa: 1, lancadas: 8, pagas: 0, valor: 2500, nf: "Pendente", vence: "2026-11-06" },
     { projeto: 1752, pessoa: 2, lancadas: 30, pagas: 30, valor: 3000, nf: "Recebida" },
   ],
 
@@ -152,14 +166,13 @@ const DADOS_INICIAIS = {
     { pessoa: 4, valor: 4000, data: "2026-10-27", pagina: 4 },
     { pessoa: 5, valor: 6000, data: "2026-10-27", pagina: 5 },
   ],
+  // Envios de PDF de comprovantes feitos a partir de um lançamento ("lancamento" é preenchido pelo gerador no fim do arquivo).
   envios: [
-    { id: 1, projeto: 1804, data: "2026-10-10", situacao: "Confirmado", comprovantes: 2, fora: 0, totalPago: 24000 },
+    { id: 1, projeto: 1804, lancamento: null, data: "2026-10-09", situacao: "Confirmado", comprovantes: 2, fora: 0, totalPago: 24000 },
   ],
-  // Pagamentos de entrevistador já baixados por comprovante (casam com o extrato).
-  pagamentosCampo: [
-    { id: 1, pessoa: 1, projeto: 1804, valor: 4000, data: "2026-10-09", conta: 1 },
-    { id: 2, pessoa: 6, projeto: 1804, valor: 20000, data: "2026-10-09", conta: 1 },
-  ],
+  // Antes guardava o Pix de entrevistador baixado por comprovante. Agora cada pagamento é a baixa de um item do lançamento
+  // agrupado em Contas a pagar; a lista fica vazia (a conferência do banco ainda a lê).
+  pagamentosCampo: [],
 
   contasPagar: [
     tituloPagar({ id: 1, fornecedor: 1, categoria: 4, forma: 2, descricao: "Aluguel do escritório · outubro", vencimento: "2026-10-05", valor: 450000, documento: { tipo: "Boleto", numero: "", emissao: "", motivo: "" }, serie: { id: 1, n: 10, total: 12, tipo: "Mensal" }, baixas: [baixa(1, "2026-10-05", 450000, 1, 2)] }),
@@ -170,14 +183,14 @@ const DADOS_INICIAIS = {
     tituloPagar({ id: 4, unidade: 2, centroCusto: 1, fornecedor: 4, categoria: 8, forma: 2, descricao: "Impressão de questionários", vencimento: "2026-10-28", valor: 125000, rateio: [{ projeto: 1804, valor: 125000 }], codigoBarras: "23793.38128 60000.000003 00000.000400 1 96200000125000", documento: { tipo: "NF", numero: "4521", emissao: "2026-10-20", motivo: "" }, docsRecebidosEm: "2026-10-27", itemOrcamento: { projeto: 1804, item: "Gráfica" } }),
     tituloPagar({ id: 5, fornecedor: 5, categoria: 6, forma: 1, descricao: "Honorários contábeis · outubro", vencimento: "2026-10-30", valor: 280000, documento: { tipo: "NF", numero: "1203", emissao: "2026-10-26", motivo: "" }, serie: { id: 4, n: 10, total: 12, tipo: "Mensal" } }),
     tituloPagar({ id: 6, unidade: 2, centroCusto: 1, fornecedor: 6, categoria: 3, forma: 5, descricao: "Hospedagem da equipe de campo", vencimento: "2026-11-03", valor: 198000, rateio: [{ projeto: 1804, valor: 118800 }, { projeto: 1790, valor: 79200 }], documento: { tipo: "NF", numero: "889", emissao: "2026-10-18", motivo: "" } }),
-    tituloPagar({ id: 7, centroCusto: 1, fornecedor: 7, categoria: 3, forma: 1, descricao: "Passagens de ônibus · campo", vencimento: "2026-11-05", valor: 64000, rateio: [{ projeto: 1790, valor: 64000 }], documento: { tipo: "Recibo", numero: "", emissao: "", motivo: "" }, baixas: [baixa(3, "2026-10-22", 32000)] }),
+    tituloPagar({ id: 7, centroCusto: 1, fornecedor: 7, categoria: 3, forma: 1, descricao: "Passagens de ônibus · campo", vencimento: HOJE, valor: 64000, rateio: [{ projeto: 1790, valor: 64000 }], documento: { tipo: "Recibo", numero: "", emissao: "", motivo: "" }, baixas: [baixa(3, "2026-10-22", 32000)] }),
     tituloPagar({ id: 8, centroCusto: 4, fornecedor: 8, categoria: 7, forma: 5, descricao: "Licenças de software", vencimento: "2026-11-10", valor: 89900, serie: { id: 5, n: 10, total: 12, tipo: "Mensal" } }),
     tituloPagar({ id: 9, empresa: "mc", unidade: 4, fornecedor: 4, categoria: 8, forma: 2, descricao: "Banners para evento", vencimento: "2026-10-15", valor: 48000, documento: { tipo: "NF", numero: "4470", emissao: "2026-10-08", motivo: "" }, baixas: [baixa(4, "2026-10-15", 48000, 2, 2)] }),
     tituloPagar({ id: 10, empresa: "mc", unidade: 4, fornecedor: 1, categoria: 4, forma: 2, descricao: "Aluguel da sala de grupo · novembro", vencimento: "2026-11-12", valor: 210000, competencia: "2026-11", serie: { id: 6, n: 11, total: 12, tipo: "Mensal" } }),
     tituloPagar({ id: 11, unidade: 1, centroCusto: 1, fornecedor: 10, categoria: 1, forma: 1, descricao: "Diária de supervisão · 13/10", vencimento: "2026-10-14", valor: 15000, rateio: [{ projeto: 1790, valor: 15000 }], documento: { tipo: "NF", numero: "230", emissao: "2026-10-13", motivo: "" }, baixas: [baixa(5, "2026-10-14", 15000)] }),
-    tituloPagar({ id: 12, unidade: 2, centroCusto: 1, favorecido: "14 entrevistados", categoria: 2, forma: 1, descricao: "Incentivos aos entrevistados · outubro", vencimento: "2026-10-31", valor: 280000, rateio: [{ projeto: 1804, valor: 280000 }],
-      documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Incentivo" }, anexos: [{ id: 1, nome: "incentivos-outubro-PRJ-1804.xlsx", tipo: "Planilha", excluido: false }],
-      itens: Array.from({ length: 14 }, (_, i) => item(i + 1, `Entrevistado ${String(i + 1).padStart(2, "0")}`, "Incentivo", 20000)) }),
+    tituloPagar({ id: 12, unidade: 2, centroCusto: 1, favorecido: "14 entrevistados", categoria: 2, forma: 1, descricao: "Incentivos aos entrevistados · outubro", vencimento: HOJE, valor: 280000, rateio: [{ projeto: 1804, valor: 280000 }],
+      origem: "incentivo", documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Incentivo" }, anexos: [{ id: 1, nome: "incentivos-outubro-PRJ-1804.xlsx", tipo: "Planilha", excluido: false }],
+      itens: Array.from({ length: 14 }, (_, i) => item(i + 1, `Entrevistado ${String(i + 1).padStart(2, "0")}`, "Incentivo", 20000, chaveFicticia(i + 1))) }),
     tituloPagar({ id: 13, unidade: 1, centroCusto: 1, favorecido: "Equipe de campo (10 pessoas)", categoria: 1, forma: 1, descricao: "Equipe de campo · PRJ-1790 · outubro", vencimento: "2026-11-05", valor: 580000, rateio: [{ projeto: 1790, valor: 580000 }],
       documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Ver itens" }, docsRecebidosEm: "2026-10-26",
       anexos: [{ id: 1, nome: "folha-PRJ-1790-outubro.xlsx", tipo: "Planilha", excluido: false }],
@@ -198,6 +211,7 @@ const DADOS_INICIAIS = {
     tituloPagar({ id: 20, tipo: "provisao", unidade: 1, centroCusto: 1, favorecido: "Provisão", categoria: 1, forma: 1, descricao: "Supervisão de campo · PRJ-1790", vencimento: "2026-11-05", valor: 600000, rateio: [{ projeto: 1790, valor: 600000 }], itemOrcamento: { projeto: 1790, item: "Supervisão de campo" } }),
     tituloPagar({ id: 21, tipo: "provisao", unidade: 2, centroCusto: 1, favorecido: "Provisão", categoria: 3, forma: 1, descricao: "Deslocamento · PRJ-1804", vencimento: "2026-11-10", valor: 180000, rateio: [{ projeto: 1804, valor: 180000 }], itemOrcamento: { projeto: 1804, item: "Deslocamento" } }),
     tituloPagar({ id: 22, tipo: "provisao", unidade: 3, centroCusto: 1, favorecido: "Provisão", categoria: 2, forma: 1, descricao: "Incentivos · PRJ-1811", vencimento: "2026-11-20", valor: 240000, rateio: [{ projeto: 1811, valor: 240000 }], itemOrcamento: { projeto: 1811, item: "Incentivos" } }),
+    tituloPagar({ id: 23, tipo: "provisao", unidade: 2, centroCusto: 1, favorecido: "Provisão", categoria: 8, forma: 1, descricao: "Gráfica · PRJ-1804", vencimento: HOJE, valor: 130000, rateio: [{ projeto: 1804, valor: 130000 }], itemOrcamento: { projeto: 1804, item: "Gráfica" } }),
   ],
 
   contasReceber: [
@@ -285,5 +299,55 @@ const PERGUNTAS_ABERTAS = [
   { id: "F14", texto: "Na invoice internacional, em que moeda fica o valor? Registramos o câmbio?" },
   { id: "F15", texto: "Precisamos marcar \"transferência entre empresas\" para o consolidado não contar duas vezes?" },
   { id: "F20", texto: "Gasto acima do orçamento do item: o Financeiro segura como \"pendente de autorização\" até um administrador liberar?" },
+  { id: "F22", texto: "Qual é o prazo do incentivo em cada tipo de projeto (Health, CATI, consumo)? Conta em dias úteis a partir da data da resposta? Na reunião: Health ≈ 10 dias úteis e \"CLT\" 3 a 4 dias úteis (confirmar se é o CATI)." },
+  { id: "F23", texto: "Onde se marca o tipo do projeto, se ele tem incentivo e o prazo: no Connect (pelo coordenador) ou no Financeiro? Proposta: no Connect, e o Financeiro só lê." },
+  { id: "F24", texto: "Quais colunas a planilha de incentivos traz sempre (nome, CPF?, chave Pix, valor, data da pesquisa, projeto)? Proposta: um modelo fixo para importar." },
+  { id: "F25", texto: "Entrevistadores: um lançamento por projeto e data de pagamento (proposta) ou um por ciclo, com vários projetos?" },
   { id: "NF-RPA", texto: "Entrevistador que recebe por RPA: a planilha de pagamentos já traz o valor líquido (−11% de INSS)?" },
 ];
+
+// ---- Pagamento de entrevistadores que chega do Connect ----
+// Cada lançamento agrupa um projeto e uma data de pagamento, com um item por pessoa. Os números saem de "entrevistas",
+// então "lançado", "pago" e "a pagar" do projeto batem com os lançamentos de Contas a pagar.
+function lancamentosDoConnect(d) {
+  const dm = (iso) => `${iso.slice(8)}/${iso.slice(5, 7)}`;
+  const pagoEm = { 1804: "2026-10-09" }; // os demais projetos foram pagos em setembro (mês já fechado)
+  const gerados = [];
+  let proximo = Math.max(...d.contasPagar.map((c) => c.id)) + 1;
+  const novoItem = (n, e, qtd) => {
+    const p = d.pessoas.find((x) => x.id === e.pessoa);
+    const nf = p.modelo === "NF" && e.nf === "Recebida" ? { numero: String(100 + e.pessoa * 7), emissao: "2026-10-20" } : null;
+    return item(n, p.nome, p.modelo, qtd * e.valor, { pessoa: p.id, entrevistas: qtd, nf, nfStatus: p.modelo === "NF" ? e.nf : null });
+  };
+  const lancamento = (p, venc, itens, extra = {}) => {
+    const total = itens.reduce((t, i) => t + i.valor, 0);
+    return tituloPagar({
+      id: proximo++, origem: "connect", unidade: p.unidade, centroCusto: 1, favorecido: `Entrevistadores · ${itens.length} ${itens.length === 1 ? "pessoa" : "pessoas"}`,
+      categoria: 1, forma: 1, data: venc, competencia: venc.slice(0, 7), descricao: `Entrevistadores · PRJ-${p.id} · pagamento ${dm(venc)}`, vencimento: venc, valor: total,
+      rateio: [{ projeto: p.id, valor: total }], documento: { tipo: "Sem documento", numero: "", emissao: "", motivo: "Ver itens" }, itens, ...extra,
+    });
+  };
+  for (const p of d.projetos) {
+    const doProjeto = d.entrevistas.filter((e) => e.projeto === p.id);
+    const pagas = doProjeto.filter((e) => e.pagas > 0);
+    if (pagas.length) {
+      const data = pagoEm[p.id] || "2026-09-18";
+      const itens = pagas.map((e, i) => novoItem(i + 1, e, e.pagas));
+      itens.forEach((it) => { it.pago = { data, avisado: true }; });
+      const c = lancamento(p, data, itens, {
+        anexos: [{ id: 1, nome: `pagamentos-PRJ-${p.id}-${data}.csv`, tipo: "Planilha", excluido: false }, { id: 2, nome: `comprovantes-itau-PRJ-${p.id}-${data}.pdf`, tipo: "Comprovante", excluido: false }],
+      });
+      c.baixas = itens.map((it, i) => baixa(i + 1, data, it.valor, 1, 1, { item: it.id, origem: "Comprovante" }));
+      const envio = d.envios.find((x) => x.projeto === p.id && x.situacao === "Confirmado" && !x.lancamento);
+      if (envio) envio.lancamento = c.id;
+      gerados.push(c);
+    }
+    const abertas = doProjeto.filter((e) => e.lancadas > e.pagas);
+    for (const venc of [...new Set(abertas.map((e) => e.vence))].sort()) {
+      const itens = abertas.filter((e) => e.vence === venc).map((e, i) => novoItem(i + 1, e, e.lancadas - e.pagas));
+      gerados.push(lancamento(p, venc, itens, { data: HOJE }));
+    }
+  }
+  return gerados;
+}
+DADOS_INICIAIS.contasPagar.push(...lancamentosDoConnect(DADOS_INICIAIS));

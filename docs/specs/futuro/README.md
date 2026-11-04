@@ -12,6 +12,9 @@
 | [planejamento-orcamentario-do-grupo](planejamento-orcamentario-do-grupo.md) | Orçamento de todas as áreas do Grupo comparado com o realizado (pedido do Fabiano) |
 | [adiantamentos-e-prestacao-de-contas](adiantamentos-e-prestacao-de-contas.md) | Ajuda de custo de viagem com saldo a comprovar e prestação de contas |
 | [evidencias-e-catalogo](evidencias-e-catalogo.md) | Cofre de evidências com OCR/renomeação e catálogo Big Base |
+| [respondentes-e-incentivos-no-connect](respondentes-e-incentivos-no-connect.md) | Base de respondentes no Connect, incentivo gerado por lá com data de pagamento por resposta e tipo de projeto configurado no Connect |
+
+O Connect hoje não tem entrevistados: o incentivo chega por planilha de e-mail, **importada no Financeiro** (o que está no escopo). A evolução é o ecossistema completo (coordenador → supervisor → entrevistador → entrevistado), com o incentivo saindo do Connect ([kickoff de 03/11](../../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5; perguntas [F26](../../planning/perguntas-abertas.md#escopo-futuro) e [F23](../../planning/perguntas-abertas.md#kickoff-de-0311-novas)).
 
 Vêm das entrevistas com a gestão operacional e do relatório SWOT:
 - o custo de telefonia não entra no planejamento;

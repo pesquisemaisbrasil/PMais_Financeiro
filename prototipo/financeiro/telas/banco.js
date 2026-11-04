@@ -36,8 +36,9 @@ function candidatos(linha) {
     // Baixa já registrada no sistema nesta conta.
     for (const c of S.contasPagar) for (const b of c.baixas) {
       const chave = `b:${c.id}:${b.id}`;
+      const it = b.item ? c.itens.find((i) => i.id === b.item) : null; // baixa de um item: o nome da pessoa ajuda a casar com o Pix
       if (b.tipo === "pagamento" && b.conta === linha.conta && b.valor === valor && perto(b.data) && !usados.has(chave))
-        lista.push({ chave, nota: 3 + (temNome(quemRecebe(c)) ? 1 : 0), titulo: `Baixa de ${fmtDia(b.data)} · ${quemRecebe(c)}`, detalhe: c.descricao, aplicar: () => ({ chave, tipo: "baixa", titulo: c.id, baixa: b.id }) });
+        lista.push({ chave, nota: 3 + (it && temNome(it.nome) ? 2 : temNome(quemRecebe(c)) ? 1 : 0), titulo: `Baixa de ${fmtDia(b.data)} · ${it ? it.nome : quemRecebe(c)}`, detalhe: c.descricao, aplicar: () => ({ chave, tipo: "baixa", titulo: c.id, baixa: b.id }) });
     }
     // Pix de entrevistador já baixado por comprovante.
     for (const p of S.pagamentosCampo) {
@@ -87,6 +88,7 @@ function novaBaixa(c, dados) {
 function pagarItem(linha, c, it) {
   const b = novaBaixa(c, { data: linha.data, valor: it.valor, conta: linha.conta, item: it.id });
   it.pago = { data: linha.data, linha: linha.id };
+  ajustarEntrevistasPagas(c, it, 1);
   auditar(`pagar:${c.id}`, `Item "${it.nome}" pago pelo extrato (${brl(it.valor)} em ${fmtDia(linha.data)})`);
   return { chave: `b:${c.id}:${b.id}`, tipo: "baixa", titulo: c.id, baixa: b.id, criada: true };
 }
@@ -177,7 +179,7 @@ ACOES["banco-desfazer"] = (d) => pedirMotivo({
       const c = achar("contasPagar", par.titulo);
       const b = c.baixas.find((x) => x.id === par.baixa);
       c.baixas.push({ ...b, id: proximoId(c.baixas), tipo: "estorno", ref: b.id, motivo, data: linha.data, origem: "Conciliação desfeita" });
-      if (b.item) c.itens.find((i) => i.id === b.item).pago = null;
+      if (b.item) { const it = c.itens.find((i) => i.id === b.item); it.pago = null; ajustarEntrevistasPagas(c, it, -1); }
       if (b.tipo === "devolucao") c.baixas = c.baixas.filter((x) => x.id !== b.id && x.ref !== b.id); // volta desfeita não deixa rastro de saldo
     }
     if (par?.criada && par.tipo === "receb") {

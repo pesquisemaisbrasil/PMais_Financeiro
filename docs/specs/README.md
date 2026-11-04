@@ -40,6 +40,7 @@ Cada spec tem 5 seções, mais `## Ajustes` quando houver (template em [handoff/
 Como o código ainda não existe, "Onde está no código" traz o destino planejado e a **origem do requisito**. As origens possíveis:
 
 - `[Reunião 21/10 mm:ss]`: [registro da reunião com o financeiro](../transcricoes/2026-10-21-processo-de-reconciliacao-e-lancamento.md);
+- `[Kickoff 03/11 mm:ss]`: [registro do kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md);
 - `[S1]` / `[S2]`: entrevistas com a gestão operacional;
 - `[SGE4B §x]`: levantamento do sistema atual;
 - `[SWOT]`: relatório SWOT/Design Thinking;

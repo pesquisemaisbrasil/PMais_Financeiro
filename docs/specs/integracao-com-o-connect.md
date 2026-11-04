@@ -31,12 +31,12 @@ Contrato do que o **Financeiro** implementa para conversar com o P+ Connect. O c
 
 | Evento | Efeito no Financeiro |
 |---|---|
-| `interviews.launched` | relê os itens, cria no espelho e dispara `payment_pending` |
+| `interviews.launched` | relê os itens, cria no espelho, cria ou atualiza o **lançamento agrupado** do projeto × data de pagamento em Contas a pagar e dispara `payment_pending` |
 | `interviews.changed` (`removed`, `amount_changed`, `status_changed`) | relê; item removido vira `cancelado`; se estava numa planilha gerada, avisa |
 | `project.changed` | relê o projeto (prazo muda a previsão) |
 | `project.budget.changed` | relê o orçamento para o resumo |
 | `interviewer.pix_changed` | marca as planilhas geradas antes da troca ("chave alterada") |
-| `payment.applied` / `payment.reversed` | confirma a baixa local (`aplicada`) ou registra a reversão |
+| `payment.applied` / `payment.reversed` | confirma a baixa local (`aplicada`) ou registra a reversão; o Connect avisa o entrevistador ("pagamento realizado") |
 
 - **O que a reunião de 21/10 acrescenta (a entrar no contrato, N4):**
   - itens do orçamento com data (leitura);
@@ -98,3 +98,4 @@ Quando o Financeiro recebe eventos:
 
 - 2026-10-21: o cancelamento de baixa (`POST /payments/{ref}/reversal`) não entra até o PO decidir (pergunta aberta Q4).
 - 2026-10-23: o Connect passa a expor, em `GET /integrations/v1/projects/{id}/budget`, os campos `budgetTotal` e `items[]` (`itemId`, `name`, `kind`, `amount`, `expectedPaymentDate`, `spent`). O **gasto dos itens que não são entrevista é lançado no Connect** pelo coordenador; o Financeiro só lê o total gasto por item, sem descrição nem autor. Isso **inverte** a D5 de 21/10 (antes o Financeiro fornecia o consumo). Mudança aditiva no `v1`. O `updatedAt` do projeto avança a cada gasto, estorno ou troca de itens ([decisões do PO](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), E3).
+- 2026-11-03: o evento `interviews.launched` agora também cria ou atualiza o **lançamento agrupado em Contas a pagar** (um por projeto × data de pagamento), que é o ponto de entrada do pagamento; a baixa continua pedida ao Connect, que avisa o entrevistador ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1, K2). O Connect **não** tem respondentes: o incentivo entra por planilha importada no Financeiro (K5; futuro: respondentes no Connect).

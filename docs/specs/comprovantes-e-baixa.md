@@ -4,7 +4,7 @@ Contrato do envio do PDF de comprovantes Pix, da leitura, da classificação, da
 
 ## Comportamento
 
-- **Envio:** o financeiro solta o PDF "Comprovante de Transferência" (Itaú/Sispag) na tela do projeto.
+- **Envio:** o financeiro solta o PDF "Comprovante de Transferência" (Itaú/Sispag) **no lançamento de Contas a pagar** (de entrevistadores ou de incentivos), onde já estão a planilha e os demais anexos [Kickoff 03/11 8:04–9:22, 13:06–13:23]. A tela do projeto (relatório) só mostra os anexos.
   - O navegador corta o PDF em partes (25 páginas; se passar de 24 MB, divide ao meio de novo) e envia parte por parte com o `pageOffset`.
   - A tela mostra o progresso e reenvia só a parte que falhou.
   - **Arquivo grande nunca é recusado.**
@@ -42,7 +42,8 @@ Contrato do envio do PDF de comprovantes Pix, da leitura, da classificação, da
   - `pendente_envio` → `enviada` → `aplicada` (o Connect confirmou; o item fica `pago` no espelho);
   - ou `pendente_envio` → `enviada` → `recusada` (vai para Divergências).
   - Enquanto não aplica, a tela mostra "aguardando o Connect".
-- O aviso ao entrevistador ("Pagamento de R$ X em {projeto}") é feito pelo **Connect**, quando aplica a baixa.
+- O aviso ao entrevistador ("Pagamento de R$ X em {projeto}") é feito pelo **Connect**, quando aplica a baixa. É o aviso "pagamento realizado" que acaba com a pergunta "já pagaram?" [Kickoff 03/11 8:35–9:22].
+- Ao confirmar a baixa, o PDF de comprovantes do lote fica ligado ao lançamento e os itens pagos mudam de situação no próprio lançamento.
 - **Aviso `receipt_out_of_project`:** quando o lote fica `pronto` com algum comprovante fora do projeto ou de chave não cadastrada, o Financeiro avisa admin e financeiro: "N comprovantes de pessoas fora do projeto {projeto}".
 
 ## Regras
@@ -103,6 +104,7 @@ Mensagens iguais às do Connect hoje:
 - [ ] Um timeout seguido de reenvio com o mesmo `Idempotency-Key` não paga duas vezes.
 - [ ] Cada caso de borda da tabela de [handoff/08 §11](../handoff/08-dominio-e-codigo-atual.md) tem teste equivalente, mais o caso sem teste hoje: comprovante quebrado entre duas partes.
 - [ ] Nada do PDF fica em disco, banco ou log (teste).
+- [ ] Enviar o PDF a partir do lançamento de Contas a pagar e confirmar a baixa marca os itens do lançamento como pagos e o lançamento mostra a baixa, sem o financeiro sair da lista.
 
 ## Onde está no código
 
@@ -114,3 +116,4 @@ Mensagens iguais às do Connect hoje:
 ## Ajustes
 
 - 2026-10-21: `receipt_out_of_project` hoje avisa admin e supervisores no Connect. Como o supervisor não entra no Financeiro, o aviso vai para admin e financeiro. Se o supervisor também deve ser avisado, isso passa pelo Connect: pergunta aberta Q2.
+- 2026-11-03: o envio do PDF de comprovantes parte do **lançamento de Contas a pagar**, não da tela do projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1, K2). O algoritmo de conciliação e as rotas não mudam; o lançamento escolhe o projeto e o lote.
