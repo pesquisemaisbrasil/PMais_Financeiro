@@ -1,18 +1,54 @@
+# Só para rodar localmente. As senhas daqui valem apenas nesta máquina.
+# Portas diferentes das do Connect (5432, 8000 e 3000), para subir junto com ele.
+# shortcut: sem armazenamento de arquivos, porque o MinIO foi arquivado e as imagens oficiais
+# saíram do ar; entra quando o substituto for decidido, antes do primeiro upload.
 services:
   db:
     image: postgres:16
     environment:
-      # shortcut: role única só para rodar localmente; financeiro_app e financeiro_migrator
-      # entram com a fundação do banco (PF-13, handoff/04).
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: "troque-local"
       POSTGRES_DB: financeiro
-    ports: ["127.0.0.1:5433:5432"] # 5432 fica com o Connect
-    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["127.0.0.1:5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # Pela rede: o Postgres temporário da criação das roles só escuta no socket.
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
       interval: 5s
-      retries: 5
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    env_file: [./backend/.env]
+    environment:
+      DATABASE_URL: postgresql://financeiro_app:troque-local@db:5432/financeiro
+      MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:troque-local@db:5432/financeiro
+    ports: ["127.0.0.1:8010:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/readyz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      db: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8010 # endereço que o NAVEGADOR alcança
+    ports: ["127.0.0.1:3010:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      api: { condition: service_healthy }
 
 volumes:
   pgdata:

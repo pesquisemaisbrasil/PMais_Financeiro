@@ -63,7 +63,8 @@ jobs:
     env:
       SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
       ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/financeiro
+      DATABASE_URL: postgresql://financeiro_app:troque-local@localhost:5432/financeiro
+      MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:troque-local@localhost:5432/financeiro
     steps:
       - uses: actions/checkout@v4
 
@@ -73,6 +74,11 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Create the roles
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d financeiro -f ../docker/postgres/roles.sql
 
       - name: Only one head
         run: test "$(alembic heads | wc -l)" -eq 1
@@ -88,3 +94,11 @@ jobs:
 
       - name: Upgrade head again
         run: alembic upgrade head
+
+      - name: App role reads and writes, but cannot change the schema
+        env:
+          PGPASSWORD: troque-local
+        run: |
+          psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "SELECT count(*) FROM users"
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "CREATE TABLE escape (id int)"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DROP TABLE users"; then exit 1; fi

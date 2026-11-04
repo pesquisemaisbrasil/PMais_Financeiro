@@ -43,6 +43,20 @@ npm install
 npm run dev
 ```
 
+Para subir tudo em containers (`backend/.env` precisa existir), com a API em `:8010` e o front em `:3010`:
+
+```bash
+docker compose up -d --build --wait
+```
+
+O banco tem duas roles: `financeiro_migrator`, dona das tabelas, e `financeiro_app`, que só lê e grava. Um volume criado antes delas continua funcionando com o `postgres` do seu `.env`. Para passar a usar as roles:
+
+```bash
+docker compose exec -T db psql -U postgres -d financeiro < docker/postgres/roles.sql
+```
+
+Depois, troque `DATABASE_URL` e `MIGRATION_DATABASE_URL` no `backend/.env`, como no `.env.example`.
+
 Abra `http://localhost:3010`. No primeiro login, o sistema pede para cadastrar um app autenticador. O roteiro de teste está no [roadmap](docs/planning/roadmap.md#como-testar).
 
 Quem perdeu o celular e os códigos de recuperação: `.venv/Scripts/python scripts/reset_mfa.py --email voce@pesquisemais.com.br`.
