@@ -137,16 +137,25 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("button", { name: /^Canceladas/ }).click();
   await expect(page.getByRole("row", { name: /Aluguel da sala/ })).toContainText("Cancelada");
 
-  // Período livre, com as duas datas
+  // O calendário escolhe um intervalo entre duas datas
+  const dates = page.getByRole("button", { name: /^Escolher datas/ });
+  const day = (iso: string) => page.locator(`[data-day="${iso}"] button`).first();
   await page.getByRole("button", { name: /^Total/ }).click();
-  await page.getByRole("combobox", { name: "Visão por período" }).click();
-  await page.getByRole("option", { name: "Período" }).click();
-  await page.getByLabel("Data inicial").fill(addDays(today, -10));
-  await page.getByLabel("Data final").fill(addDays(today, -5));
-  await expect(page.getByRole("row", { name: /Telefonia e internet/ })).toBeVisible();
+  await dates.click();
+  await day(today).click();
+  await expect(page.getByText(/escolha a data final, ou aplique só este dia/)).toBeVisible();
+  await day(addDays(today, 2)).click();
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByRole("row", { name: /Honorários contábeis/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Hospedagem da equipe/ })).toHaveCount(0);
+
+  // Com um clique só, vale aquele dia
+  await dates.click();
+  await day(addDays(today, 2)).click();
+  await page.getByRole("button", { name: "Aplicar" }).click();
+  await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Dia");
   await expect(total).toContainText("1 conta");
-  await page.getByLabel("Data final").fill(addDays(today, -20));
-  await expect(page.getByText("A data inicial precisa ser igual ou anterior à data final.")).toBeVisible();
+  await page.getByRole("button", { name: "Hoje", exact: true }).click();
 
   // O menu recolhe, continua navegável e lembra da escolha
   await page.getByRole("button", { name: "Recolher menu" }).click();

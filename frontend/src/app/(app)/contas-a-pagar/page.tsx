@@ -21,6 +21,7 @@ import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH } from "@/components/finance";
+import { PeriodPicker } from "@/components/PeriodPicker";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -262,6 +263,7 @@ function PayablesContent() {
   const [ref, setRef] = useState<string | null>(null);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [indicator, setIndicator] = useState<Indicator>((params.get("indicador") as Indicator) ?? "total");
   const [tab, setTab] = useState<Tab>((params.get("aba") as Tab) ?? "todas");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -299,15 +301,6 @@ function PayablesContent() {
     // Clicar rápido no período dispara vários pedidos: só vale a resposta do último.
     const request = ++lastRequest.current;
     setError(null);
-    if (mode === "periodo" && (!rangeStart || !rangeEnd || rangeStart > rangeEnd)) {
-      setData(null);
-      setError(
-        !rangeStart || !rangeEnd
-          ? "Escolha a data inicial e a data final."
-          : "A data inicial precisa ser igual ou anterior à data final."
-      );
-      return;
-    }
     try {
       const list = await listPayables({
         mode,
@@ -384,6 +377,20 @@ function PayablesContent() {
         setRangeEnd(month.end);
       }
       setMode(next);
+      if (next === "periodo") setCalendarOpen(true);
+    });
+  }
+
+  function applyDates(start: string, end: string) {
+    resetPageAnd(() => {
+      if (start === end) {
+        setMode("dia");
+        setRef(start);
+      } else {
+        setMode("periodo");
+        setRangeStart(start);
+        setRangeEnd(end);
+      }
     });
   }
 
@@ -552,42 +559,48 @@ function PayablesContent() {
                 ))}
               </SelectContent>
             </Select>
-            {mode === "periodo" && (
-              <>
-                <Input
-                  type="date"
-                  className="w-[150px] bg-card"
-                  aria-label="Data inicial"
-                  value={rangeStart}
-                  onChange={(event) => resetPageAnd(() => setRangeStart(event.target.value))}
-                />
-                <span className="text-sm text-muted-foreground">até</span>
-                <Input
-                  type="date"
-                  className="w-[150px] bg-card"
-                  aria-label="Data final"
-                  value={rangeEnd}
-                  onChange={(event) => resetPageAnd(() => setRangeEnd(event.target.value))}
-                />
-              </>
+            {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
+              <IconButton
+                icon={ChevronLeft}
+                label="Período anterior"
+                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
+              />
+            )}
+            {data && (
+              <PeriodPicker
+                label={
+                  mode === "periodo"
+                    ? `${formatDate(rangeStart)} a ${formatDate(rangeEnd)}`
+                    : periodLabel(mode, effectiveRef)
+                }
+                start={data.rangeStart}
+                end={data.rangeEnd}
+                today={data.today}
+                open={calendarOpen}
+                onOpenChange={setCalendarOpen}
+                onApply={applyDates}
+              />
             )}
             {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
-              <>
-                <IconButton
-                  icon={ChevronLeft}
-                  label="Período anterior"
-                  onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
-                />
-                <strong className="min-w-[150px] text-center text-sm">{periodLabel(mode, effectiveRef)}</strong>
-                <IconButton
-                  icon={ChevronRight}
-                  label="Próximo período"
-                  onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, 1)))}
-                />
-                <Button variant="outline" size="sm" onClick={() => resetPageAnd(() => setRef(null))}>
-                  Hoje
-                </Button>
-              </>
+              <IconButton
+                icon={ChevronRight}
+                label="Próximo período"
+                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, 1)))}
+              />
+            )}
+            {mode !== "tudo" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  resetPageAnd(() => {
+                    if (mode === "periodo") setMode("dia");
+                    setRef(null);
+                  })
+                }
+              >
+                Hoje
+              </Button>
             )}
           </div>
           <div className="relative w-full max-w-[300px]">

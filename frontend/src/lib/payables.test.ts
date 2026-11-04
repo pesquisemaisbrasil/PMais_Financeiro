@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   brl,
+  dateFromIso,
   formatDate,
   greeting,
+  isoFromDate,
   monthRange,
   movePeriod,
+  nextRange,
   parseAllocations,
   parseMoney,
   periodLabel,
@@ -103,6 +106,32 @@ describe("período", () => {
 
   it("soma dias atravessando o mês", () => {
     expect(addDays("2026-02-28", 1)).toBe("2026-03-01");
+  });
+});
+
+describe("calendário", () => {
+  it("o primeiro clique marca o início, e o segundo fecha o intervalo", () => {
+    const first = nextRange({}, "2026-11-04");
+    expect(first).toEqual({ from: "2026-11-04" });
+    expect(nextRange(first, "2026-11-10")).toEqual({ from: "2026-11-04", to: "2026-11-10" });
+  });
+
+  it("aceita escolher a data final antes da inicial", () => {
+    expect(nextRange({ from: "2026-11-10" }, "2026-11-04")).toEqual({ from: "2026-11-04", to: "2026-11-10" });
+  });
+
+  it("clicar no mesmo dia duas vezes escolhe um dia só", () => {
+    expect(nextRange({ from: "2026-11-04" }, "2026-11-04")).toEqual({ from: "2026-11-04", to: "2026-11-04" });
+  });
+
+  it("com o intervalo pronto, o próximo clique recomeça", () => {
+    expect(nextRange({ from: "2026-11-04", to: "2026-11-10" }, "2026-11-07")).toEqual({ from: "2026-11-07" });
+  });
+
+  it("converte a data sem mudar o dia por causa do fuso", () => {
+    expect(isoFromDate(new Date(2026, 10, 4, 23, 59))).toBe("2026-11-04");
+    expect(isoFromDate(new Date(2026, 0, 1, 0, 0))).toBe("2026-01-01");
+    expect(isoFromDate(dateFromIso("2026-12-31"))).toBe("2026-12-31");
   });
 });
 

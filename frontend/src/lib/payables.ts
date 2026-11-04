@@ -235,6 +235,29 @@ export function periodLabel(mode: PeriodMode, ref: string): string {
   return "Todo o período";
 }
 
+export interface DateRange {
+  from?: string;
+  to?: string;
+}
+
+/** Clique no calendário: o primeiro marca o início, o segundo fecha o intervalo, o terceiro recomeça. */
+export function nextRange(current: DateRange, day: string): DateRange {
+  if (!current.from || current.to) return { from: day };
+  return day < current.from ? { from: day, to: current.from } : { from: current.from, to: day };
+}
+
+/** O calendário trabalha com a data local, e a API com "aaaa-mm-dd": sem passar por UTC, para o dia não mudar. */
+export function isoFromDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+export function dateFromIso(iso: string): Date {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 /** O mês inteiro de uma data: de onde parte a escolha de um período livre. */
 export function monthRange(ref: string): { start: string; end: string } {
   return { start: `${ref.slice(0, 7)}-01`, end: addDays(addMonths(ref, 1), -1) };

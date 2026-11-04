@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // O botão de desenvolvimento do Next ficava por cima do "Sair" e do botão de recolher o menu.
+  devIndicators: false,
   // A CSP com nonce e o HSTS saem por pedido, em src/proxy.ts.
   async headers() {
     return [
