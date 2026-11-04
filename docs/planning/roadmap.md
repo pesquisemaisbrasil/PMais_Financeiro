@@ -85,6 +85,14 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 13. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
 14. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
 
+Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em ambiente de teste. Em **Contas a pagar → Importar planilha**:
+
+1. Escolha **Incentivos**, o PRJ-1804, os cadastros e um arquivo com as colunas `Nome`, `Valor` e `Data da pesquisa`, em .xlsx ou .csv.
+2. **Ler planilha** mostra o cronograma: um lançamento por data de pagamento, 10 dias úteis depois da pesquisa, pulando feriados. Linha com `R$` no valor fica de fora e diz o motivo.
+3. Com o PRJ-1790, que não tem prazo, a tela avisa e não deixa criar, a não ser que a planilha traga a coluna `Data de pagamento`.
+4. **Copiar cronograma para o projeto** gera o texto para o e-mail. **Criar** abre os lançamentos na aba **Planilhas e agrupados**, com as pessoas na seta da linha.
+5. Em **Folha de campo**, use `Nome`, `Documento`, `Valor`, `Número da NF` e `Emissão`: RPA de R$ 1.000,00 entra como R$ 890,00, e NF sem número fica como pendente.
+
 ### Login com MFA, Google e Microsoft
 
 Com o sistema rodando ([README](../../README.md#como-rodar)):

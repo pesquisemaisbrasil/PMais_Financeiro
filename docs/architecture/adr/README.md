@@ -11,3 +11,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0005](0005-orcamento-e-teto-e-mora-no-connect.md) | Orçamento é teto, e quem o altera é o Connect | Aceito |
 | [0006](0006-gitleaks-cli-no-ci.md) | Gitleaks pela CLI na CI | Aceito |
 | [0007](0007-calendario-com-react-day-picker.md) | Calendário com react-day-picker | Aceito |
+| [0008](0008-ler-planilha-com-openpyxl.md) | Ler planilha com openpyxl | Aceito |

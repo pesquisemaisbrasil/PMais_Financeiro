@@ -139,7 +139,7 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 
 **O que já funciona (primeira fatia do MVP):** painel que abre no dia, abas, indicadores, filtros, busca, colunas, lançamento com rateio, itens abertos na linha, baixa parcial e em lote, juros, multa e desconto, estorno, Pix devolvido, cancelar, excluir e histórico.
 
-**O que ainda falta:** importar planilha e dividir por data, anexos (Q19), recorrência, provisão gerada do orçamento do Connect, autorização acima do orçamento, link do código do projeto para o relatório, lançamentos chegando do Connect (PF-6), reautenticação na baixa (Q20), seleção em mais de uma página e o filtro de linha do DRE, que depende do cadastro dessas linhas.
+**O que ainda falta:** anexar a planilha ao lançamento e os anexos em geral (Q19), recorrência, provisão gerada do orçamento do Connect, autorização acima do orçamento, link do código do projeto para o relatório, lançamentos chegando do Connect (PF-6), reautenticação na baixa (Q20), seleção em mais de uma página e o filtro de linha do DRE, que depende do cadastro dessas linhas.
 
 Origem do requisito:
 
@@ -166,3 +166,6 @@ Origem do requisito:
 - 2026-11-04 (segunda fatia): **reclassificar** muda projeto, categoria ou centro de custo de várias contas, com uma linha no histórico por conta. Mudar o projeto deixa a conta 100% nele. Projeto fechado e conta encerrada são recusados, e o lote é tudo ou nada.
 - 2026-11-04 (segunda fatia): **exportar** gera CSV com `;` e BOM para o Excel, com todas as contas dos filtros, sem paginar, e os filtros na primeira linha. Célula que começa com `=`, `+`, `-` ou `@` ganha um `'` na frente, para a planilha não executar fórmula.
 - 2026-11-04 (segunda fatia): o intervalo de datas pode seguir o **vencimento, a competência ou a data da baixa**. Baixa estornada ou devolvida não conta na visão por data da baixa, porque o dinheiro não ficou fora.
+- 2026-11-04 (importar planilha): a planilha é **lida em memória e descartada**. Até a Q19 e a Q22, ela não fica anexada ao lançamento, e **chave Pix e CPF não são lidos**: só as colunas do modelo saem do arquivo. Fica guardado um resumo do arquivo, que não permite recuperar o conteúdo, para avisar quando a mesma planilha vier de novo. O aviso não bloqueia, como no protótipo.
+- 2026-11-04 (importar planilha): a planilha sem a coluna "data da pesquisa" é aceita quando traz a coluna "data de pagamento", porque o caso dos 200 incentivos (K12) já vem com a data. Linha com erro fica de fora e diz o motivo; a importação cria todos os lançamentos ou nenhum. Valor com mais de duas casas é recusado, para nunca arredondar sem ninguém ver.
+- 2026-11-04 (importar planilha): tipo do projeto, "tem incentivo" e prazo ficam no projeto, aqui no Financeiro, até a F23 ser decidida. Os dias úteis pulam sábado, domingo e feriado nacional, como no protótipo; feriado municipal ainda não conta. Na folha de campo, o RPA paga o líquido com 11% de INSS, sem teto até a resposta da N3, e o bruto fica guardado no item.
