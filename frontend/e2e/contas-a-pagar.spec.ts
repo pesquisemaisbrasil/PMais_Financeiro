@@ -210,6 +210,41 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("button", { name: /Limpar filtros/ }).click();
   await expect(consultoria).toBeVisible();
 
+  // Importar planilha: confere antes, e cria um lançamento por data de pagamento
+  const sheet = [
+    "Nome;CPF;Chave Pix;Valor;Data da pesquisa",
+    "Respondente A;000.000.000-00;pessoa-a@exemplo.invalid;120,00;22/10/2026",
+    "Respondente B;000.000.000-00;pessoa-b@exemplo.invalid;80,00;26/10/2026",
+    "Respondente C;000.000.000-00;pessoa-c@exemplo.invalid;R$ 400;26/10/2026",
+  ].join("\r\n");
+  await page.getByRole("button", { name: "Importar planilha" }).click();
+  const importer = page.getByRole("dialog");
+  await importer.getByRole("button", { name: "Ler planilha" }).click();
+  await expect(importer.getByText("Preencha os campos com *.")).toBeVisible();
+  await choose(page, "Projeto *", "PRJ-1790");
+  await choose(page, "Categoria *", /Serviços de terceiros/);
+  await choose(page, "Forma de pagamento *", "Pix");
+  await choose(page, "Empresa *", "PPlus");
+  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Centro de custo *", "Administrativo");
+  await importer.getByLabel("Planilha *").setInputFiles({
+    name: "incentivos-exemplo.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(sheet, "utf-8"),
+  });
+  await importer.getByRole("button", { name: "Ler planilha" }).click();
+  // Projeto sem prazo não importa linha sem data de pagamento
+  await expect(importer.getByText("Este projeto não tem incentivo ou prazo marcado")).toBeVisible();
+  await importer.getByRole("button", { name: "Voltar" }).click();
+  await choose(page, "Projeto *", "PRJ-1804");
+  await importer.getByRole("button", { name: "Ler planilha" }).click();
+  await expect(importer.getByText("Use só números no valor")).toBeVisible();
+  await expect(importer).not.toContainText("pessoa-a@exemplo.invalid");
+  await importer.getByRole("button", { name: "Criar 2 lançamentos com 2 itens" }).click();
+  await expect(page.getByText(/2 lançamentos criados, 2 itens/)).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Planilhas e agrupados/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ })).toHaveCount(2);
+
   // O menu recolhe, continua navegável e lembra da escolha
   await page.getByRole("button", { name: "Recolher menu" }).click();
   await expect(page.getByText("Visão geral")).toBeHidden();
