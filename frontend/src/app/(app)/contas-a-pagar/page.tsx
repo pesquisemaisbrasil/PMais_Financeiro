@@ -544,28 +544,6 @@ function PayablesContent() {
       <div className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={mode}
-              onValueChange={(next) => changeMode(next as PeriodMode)}
-            >
-              <SelectTrigger className="w-[120px] bg-card" aria-label="Visão por período">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MODES.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
-              <IconButton
-                icon={ChevronLeft}
-                label="Período anterior"
-                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
-              />
-            )}
             {data && (
               <PeriodPicker
                 label={
@@ -583,11 +561,33 @@ function PayablesContent() {
             )}
             {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
               <IconButton
+                icon={ChevronLeft}
+                label="Período anterior"
+                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
+              />
+            )}
+            {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
+              <IconButton
                 icon={ChevronRight}
                 label="Próximo período"
                 onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, 1)))}
               />
             )}
+            <Select
+              value={mode}
+              onValueChange={(next) => changeMode(next as PeriodMode)}
+            >
+              <SelectTrigger className="w-[120px] bg-card" aria-label="Visão por período">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODES.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {mode !== "tudo" && (
               <Button
                 variant="outline"
