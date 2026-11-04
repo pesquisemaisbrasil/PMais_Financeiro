@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, CheckCheck, Search, Undo2 } from "lucide-react";
+import { Check, CheckCheck, Copy, Replace, Search, Tags, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { ErrorBox, NUM, OriginTag, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,9 +27,13 @@ import {
   cancelPayable,
   createPayable,
   deleteBatch,
+  duplicateBatch,
   getPayable,
+  getReplacementCandidates,
   payBatch,
   payPayable,
+  reclassifyBatch,
+  replaceProvision,
   reversePayment,
   updatePayable,
 } from "@/lib/api";
@@ -46,6 +50,7 @@ import {
   type PayableRow,
   type Payment,
   type Reference,
+  type ReplacementCandidate,
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
@@ -72,35 +77,6 @@ function Field({
   );
 }
 
-function Choice({
-  id,
-  value,
-  onChange,
-  options,
-  placeholder = "Selecione",
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: { id: number | string; label: string }[];
-  placeholder?: string;
-}) {
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger id={id} className="w-full">
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((option) => (
-          <SelectItem key={option.id} value={String(option.id)}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
@@ -112,6 +88,8 @@ function FormError({ message }: { message: string | null }) {
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
 const NO_PROJECT = "sem-projeto";
+const KEEP = "nao-mudar";
+const NEW_REAL = "novo";
 const NO_ACCOUNT_HINT = "Esta empresa não tem conta bancária cadastrada.";
 
 export function NewPayableDialog({
@@ -131,6 +109,7 @@ export function NewPayableDialog({
     issueDate: today,
     dueDate: addDays(today, 7),
     amount: "",
+    isProvision: false,
     supplierId: "",
     categoryId: "",
     description: "",
@@ -171,7 +150,7 @@ export function NewPayableDialog({
     const amount = parseMoney(form.amount);
     if (!amount || Number(amount) === 0) return setLocalError("Informe um valor maior que zero.");
     const required = [
-      form.supplierId,
+      form.isProvision || form.supplierId,
       form.categoryId,
       form.companyId,
       form.unitId,
@@ -195,10 +174,11 @@ export function NewPayableDialog({
     }
     await run(async () => {
       const payable = await createPayable({
+        type: form.isProvision ? "provisao" : "real",
         issueDate: form.issueDate,
         dueDate: form.dueDate,
         amount,
-        supplierId: Number(form.supplierId),
+        supplierId: form.supplierId ? Number(form.supplierId) : null,
         categoryId: Number(form.categoryId),
         companyId: Number(form.companyId),
         unitId: Number(form.unitId),
@@ -244,8 +224,18 @@ export function NewPayableDialog({
                 <Input id="p-valor" inputMode="decimal" placeholder="0,00" autoFocus {...input("amount")} />
               </Field>
             </div>
+            <div className="flex items-center gap-2 text-xs">
+              <Checkbox
+                id="p-prov"
+                checked={form.isProvision}
+                onCheckedChange={(checked) => set("isProvision")(checked === true)}
+              />
+              <Label htmlFor="p-prov" className="text-xs font-normal">
+                É uma provisão: valor previsto, que depois é substituído pelo real
+              </Label>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Fornecedor *" id="p-forn">
+              <Field label={form.isProvision ? "Fornecedor" : "Fornecedor *"} id="p-forn">
                 <Choice
                   id="p-forn"
                   value={form.supplierId}
@@ -718,6 +708,236 @@ export function ConfirmDeleteDialog({
   );
 }
 
+export function ReclassifyDialog({
+  rows,
+  reference,
+  onClose,
+  onDone,
+}: {
+  rows: PayableRow[];
+  reference: Reference;
+  onClose: () => void;
+  onDone: (count: number) => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [form, setForm] = useState({ projectId: KEEP, categoryId: KEEP, costCenterId: KEEP });
+  const total = rows.reduce((sum, row) => sum + toCents(row.amount), 0) / 100;
+  const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const changed = (value: string) => (value === KEEP ? null : Number(value));
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const fields = {
+      projectId: changed(form.projectId),
+      categoryId: changed(form.categoryId),
+      costCenterId: changed(form.costCenterId),
+    };
+    if (!fields.projectId && !fields.categoryId && !fields.costCenterId) {
+      return setLocalError("Escolha o que vai mudar.");
+    }
+    setLocalError(null);
+    await run(async () => onDone((await reclassifyBatch({ ids: rows.map((row) => row.id), ...fields })).count));
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <form onSubmit={submit} noValidate>
+          <DialogHeader>
+            <DialogTitle>Reclassificar</DialogTitle>
+            <DialogDescription>
+              {plural(rows.length, "conta", "contas")} · total {brl(total)}. O que ficar em &quot;Não mudar&quot; continua como está.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3.5 py-4">
+            <Field label="Projeto" id="rc-proj" hint="Mudar o projeto deixa a conta 100% nele.">
+              <Choice
+                id="rc-proj"
+                value={form.projectId}
+                onChange={set("projectId")}
+                options={[
+                  { id: KEEP, label: "Não mudar" },
+                  ...reference.projects
+                    .filter((p) => p.status !== "encerrado")
+                    .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
+                ]}
+              />
+            </Field>
+            <Field label="Categoria" id="rc-cat">
+              <Choice
+                id="rc-cat"
+                value={form.categoryId}
+                onChange={set("categoryId")}
+                options={[
+                  { id: KEEP, label: "Não mudar" },
+                  ...reference.categories.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` })),
+                ]}
+              />
+            </Field>
+            <Field label="Centro de custo" id="rc-cc">
+              <Choice
+                id="rc-cc"
+                value={form.costCenterId}
+                onChange={set("costCenterId")}
+                options={[
+                  { id: KEEP, label: "Não mudar" },
+                  ...reference.costCenters.map((c) => ({ id: c.id, label: c.name })),
+                ]}
+              />
+            </Field>
+            <FormError message={localError ?? error} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              <Tags size={16} />
+              Reclassificar {plural(rows.length, "conta", "contas")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function DuplicateDialog({
+  rows,
+  onClose,
+  onDone,
+}: {
+  rows: PayableRow[];
+  onClose: () => void;
+  onDone: (count: number) => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Duplicar</DialogTitle>
+          <DialogDescription>
+            Vamos criar uma cópia de {plural(rows.length, "conta", "contas")}, sem baixas e com vencimento um mês depois. O número do documento e o código de barras ficam em branco.
+          </DialogDescription>
+        </DialogHeader>
+        <FormError message={error} />
+        <DialogFooter>
+          <Button variant="outline" disabled={submitting} onClick={onClose}>
+            Voltar
+          </Button>
+          <Button
+            disabled={submitting}
+            onClick={() => run(async () => onDone((await duplicateBatch(rows.map((row) => row.id))).count))}
+          >
+            <Copy size={16} />
+            Duplicar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ReplaceProvisionDialog({
+  row,
+  reference,
+  onClose,
+  onDone,
+}: {
+  row: PayableRow;
+  reference: Reference;
+  onClose: () => void;
+  onDone: (real: PayableDetail) => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<ReplacementCandidate[]>([]);
+  const [choice, setChoice] = useState(NEW_REAL);
+  const [amount, setAmount] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+
+  // Sem a lista, ainda dá para lançar o valor real agora.
+  useEffect(() => {
+    getReplacementCandidates(row.id).then(setCandidates, () => setCandidates([]));
+  }, [row.id]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    let body: unknown = { realId: Number(choice) };
+    if (choice === NEW_REAL) {
+      const parsed = parseMoney(amount);
+      if (!parsed || Number(parsed) === 0) return setLocalError("Informe o valor real.");
+      if (!supplierId) return setLocalError("Escolha o fornecedor.");
+      body = { amount: parsed, supplierId: Number(supplierId) };
+    }
+    setLocalError(null);
+    await run(async () => onDone(await replaceProvision(row.id, body)));
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <form onSubmit={submit} noValidate>
+          <DialogHeader>
+            <DialogTitle>Substituir provisão pelo valor real</DialogTitle>
+            <DialogDescription>
+              {row.description} · provisão de {brl(row.amount)} para {formatDate(row.dueDate)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3.5 py-4">
+            <Field label="Qual é o valor real?" id="pr-qual">
+              <Choice
+                id="pr-qual"
+                value={choice}
+                onChange={setChoice}
+                options={[
+                  { id: NEW_REAL, label: "Lançar o valor real agora" },
+                  ...candidates.map((c) => ({ id: c.id, label: `Conta já lançada: ${c.description} · ${brl(c.amount)}` })),
+                ]}
+              />
+            </Field>
+            {choice === NEW_REAL && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Valor real (R$)" id="pr-valor">
+                  <Input
+                    id="pr-valor"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    autoFocus
+                    value={amount}
+                    onChange={(event) => setAmount(event.target.value)}
+                  />
+                </Field>
+                <Field label="Fornecedor" id="pr-forn">
+                  <Choice
+                    id="pr-forn"
+                    value={supplierId}
+                    onChange={setSupplierId}
+                    options={reference.suppliers.map((s) => ({ id: s.id, label: `${s.nickname} · ${s.name}` }))}
+                  />
+                </Field>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">A provisão sai do previsto e o real entra no lugar, sem contar duas vezes.</p>
+            <FormError message={localError ?? error} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              <Replace size={16} />
+              Substituir
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ColumnsDialog({
   columns,
   selected,
@@ -848,11 +1068,13 @@ export function DetailDialog({
   today,
   onClose,
   onChanged,
+  onReplace,
 }: {
   id: number;
   today: string;
   onClose: () => void;
   onChanged: () => void;
+  onReplace: (payable: PayableDetail) => void;
 }) {
   const [payable, setPayable] = useState<PayableDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -946,8 +1168,14 @@ export function DetailDialog({
                   <p className="mt-3 break-all font-mono text-xs text-muted-foreground">{payable.barcode}</p>
                 )}
                 {payable.notes && <p className="mt-3 text-[13px]">{payable.notes}</p>}
-                {payable.situation !== "cancelado" && payable.origin !== "connect" && (
+                {payable.situation !== "cancelado" && payable.situation !== "substituido" && payable.origin !== "connect" && (
                   <div className="mt-4 flex gap-2">
+                    {payable.canReplace && (
+                      <Button size="sm" onClick={() => onReplace(payable)}>
+                        <Replace size={14} />
+                        Substituir pelo valor real
+                      </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={() => setAction({ kind: "edit" })}>
                       Editar
                     </Button>

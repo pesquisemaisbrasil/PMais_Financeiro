@@ -5,7 +5,9 @@ export type Situation =
   | "hoje"
   | "a_vencer"
   | "devolvido"
-  | "cancelado";
+  | "cancelado"
+  | "substituido";
+export type DateField = "vencimento" | "competencia" | "baixa";
 export type PeriodMode = "dia" | "semana" | "mes" | "ano" | "tudo" | "periodo";
 export type Indicator =
   | "total"
@@ -60,6 +62,15 @@ export interface PayableRow {
   barcode: string | null;
   itemCount: number;
   canPayDirectly: boolean;
+  canReplace: boolean;
+  replaces: string | null;
+}
+
+export interface ReplacementCandidate {
+  id: number;
+  description: string;
+  payee: string;
+  amount: string;
 }
 
 export interface PayableList {
@@ -332,4 +343,34 @@ export const PAYABLES_CHANGED = "payables:changed";
 
 export function notifyPayablesChanged(): void {
   window.dispatchEvent(new Event(PAYABLES_CHANGED));
+}
+
+function folded(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+/** Busca da lista de opções: sem diferença entre maiúscula e acento, como a pessoa digita. */
+export function filterOptions<T extends { label: string }>(options: T[], term: string): T[] {
+  const clean = folded(term.trim());
+  return clean ? options.filter((option) => folded(option.label).includes(clean)) : options;
+}
+
+/** Quanto o real ficou acima ou abaixo da provisão, em centavos para não errar a conta. */
+function difference(real: string, provision: string): number {
+  return toCents(real) - toCents(provision);
+}
+
+export function replacesNote(amount: string, provision: string): string {
+  const diff = difference(amount, provision);
+  const shown = diff ? ` (${diff > 0 ? "+" : "−"}${brl(Math.abs(diff) / 100)})` : "";
+  return `substitui a provisão de ${brl(provision)}${shown}`;
+}
+
+export function replacedMessage(real: string, provision: string): string {
+  const diff = difference(real, provision);
+  const shown = diff ? ` (${brl(Math.abs(diff) / 100)} ${diff > 0 ? "acima" : "abaixo"})` : "";
+  return `Provisão de ${brl(provision)} substituída pelo real de ${brl(real)}${shown}. Saiu do previsto.`;
 }

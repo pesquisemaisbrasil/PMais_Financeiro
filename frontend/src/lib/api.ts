@@ -7,6 +7,8 @@ import type {
   Reference,
   SortColumn,
   Tab,
+  DateField,
+  ReplacementCandidate
 } from "./payables";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
@@ -228,6 +230,7 @@ export interface PayableQuery {
   ref: string | null;
   start: string;
   end: string;
+  dateField: DateField;
   indicator: Indicator;
   tab: Tab;
   filters: Record<string, string>;
@@ -237,14 +240,14 @@ export interface PayableQuery {
   page: number;
 }
 
-export function listPayables(query: PayableQuery): Promise<PayableList> {
+function payableParams(query: PayableQuery): URLSearchParams {
   const params = new URLSearchParams({
     mode: query.mode,
+    dateField: query.dateField,
     indicator: query.indicator,
     tab: query.tab,
     sort: query.sort,
     descending: String(query.descending),
-    page: String(query.page),
   });
   if (query.ref) params.set("ref", query.ref);
   if (query.mode === "periodo") {
@@ -255,7 +258,19 @@ export function listPayables(query: PayableQuery): Promise<PayableList> {
   for (const [key, value] of Object.entries(query.filters)) {
     if (value) params.set(key, value);
   }
+  return params;
+}
+
+export function listPayables(query: PayableQuery): Promise<PayableList> {
+  const params = payableParams(query);
+  params.set("page", String(query.page));
   return request<PayableList>(`/payables?${params}`);
+}
+
+/** Tudo o que os filtros trazem, sem paginar, em CSV. */
+export async function exportPayables(query: PayableQuery): Promise<Blob> {
+  const response = await fetchWithAuth(`/payables/export?${payableParams(query)}`);
+  return response.blob();
 }
 
 export function getPayable(id: number): Promise<PayableDetail> {
@@ -288,4 +303,20 @@ export function payBatch(body: unknown): Promise<{ total: string; count: number 
 
 export function deleteBatch(ids: number[]): Promise<{ count: number }> {
   return send<{ count: number }>("/payables/batch/delete", "POST", { ids });
+}
+
+export function reclassifyBatch(body: unknown): Promise<{ count: number }> {
+  return send<{ count: number }>("/payables/batch/reclassify", "POST", body);
+}
+
+export function duplicateBatch(ids: number[]): Promise<{ count: number }> {
+  return send<{ count: number }>("/payables/batch/duplicate", "POST", { ids });
+}
+
+export function getReplacementCandidates(id: number): Promise<ReplacementCandidate[]> {
+  return request<ReplacementCandidate[]>(`/payables/${id}/replacement-candidates`);
+}
+
+export function replaceProvision(id: number, body: unknown): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/replace`, "POST", body);
 }

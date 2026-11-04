@@ -13,6 +13,9 @@ import {
   periodLabel,
   toCents,
   type Project,
+  filterOptions,
+  replacedMessage,
+  replacesNote,
 } from "./payables";
 
 const PROJECTS: Project[] = [
@@ -138,5 +141,33 @@ describe("formatação", () => {
     expect(greeting(new Date("2026-11-04T16:00:00Z"))).toBe("Boa tarde");
     expect(greeting(new Date("2026-11-04T23:00:00Z"))).toBe("Boa noite");
     expect(greeting(new Date("2026-11-05T01:00:00Z"))).toBe("Boa noite");
+  });
+});
+
+describe("busca nas listas", () => {
+  const options = [{ label: "Gráfica Ponto Certo" }, { label: "Exata Contabilidade" }];
+
+  it("ignora maiúscula e acento", () => {
+    expect(filterOptions(options, "grafica")).toEqual([options[0]]);
+    expect(filterOptions(options, "  EXATA ")).toEqual([options[1]]);
+  });
+
+  it("sem termo, mostra tudo; sem resultado, lista vazia", () => {
+    expect(filterOptions(options, "")).toEqual(options);
+    expect(filterOptions(options, "zzz")).toEqual([]);
+  });
+});
+
+describe("provisão substituída", () => {
+  it("mostra a diferença sem erro de centavos", () => {
+    expect(replacesNote("0.30", "0.10")).toMatch(/substitui a provisão de R\$\s0,10 \(\+R\$\s0,20\)/);
+    expect(replacesNote("900.00", "1000.00")).toMatch(/\(−R\$\s100,00\)/);
+    expect(replacesNote("1000.00", "1000.00")).not.toContain("(");
+  });
+
+  it("diz se o real ficou acima ou abaixo", () => {
+    expect(replacedMessage("1100.00", "1000.00")).toMatch(/R\$\s100,00 acima\)\. Saiu do previsto\.$/);
+    expect(replacedMessage("900.00", "1000.00")).toMatch(/R\$\s100,00 abaixo\)/);
+    expect(replacedMessage("1000.00", "1000.00")).toMatch(/real de R\$\s1\.000,00\. Saiu/);
   });
 });

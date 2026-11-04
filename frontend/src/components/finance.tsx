@@ -2,6 +2,7 @@
 
 import {
   Ban,
+  Replace,
   CalendarClock,
   CircleCheck,
   CircleDot,
@@ -51,6 +52,7 @@ const SITUATIONS: Record<Situation, [string, keyof typeof COLORS, LucideIcon]> =
   a_vencer: ["A vencer", "cinza", Clock],
   devolvido: ["Devolvida", "vermelho", Undo2],
   cancelado: ["Cancelada", "cinza", Ban],
+  substituido: ["Substituída", "cinza", Replace],
 };
 
 export function SituationTag({ situation }: { situation: Situation }) {

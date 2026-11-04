@@ -11,17 +11,22 @@ import {
   ChevronLeft,
   ChevronRight,
   Columns3,
+  Copy,
+  Download,
   Eye,
   Plus,
+  Replace,
   Search,
+  Tags,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Fragment, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH } from "@/components/finance";
 import { PeriodPicker } from "@/components/PeriodPicker";
+import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -29,7 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiError, getPayable, getReference, listPayables } from "@/lib/api";
+import { ApiError, exportPayables, getPayable, getReference, listPayables } from "@/lib/api";
 import {
   brl,
   formatDate,
@@ -37,6 +42,9 @@ import {
   notifyPayablesChanged,
   periodLabel,
   plural,
+  replacedMessage,
+  replacesNote,
+  type DateField,
   type Indicator,
   type PayableDetail,
   type PayableList,
@@ -52,9 +60,12 @@ import {
   ColumnsDialog,
   ConfirmDeleteDialog,
   DetailDialog,
+  DuplicateDialog,
   ItemsPanel,
   NewPayableDialog,
   PaymentDialog,
+  ReclassifyDialog,
+  ReplaceProvisionDialog,
 } from "./dialogs";
 
 const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean; fixed?: boolean }[] = [
@@ -100,6 +111,28 @@ const MODES: { id: PeriodMode; label: string }[] = [
   { id: "periodo", label: "Período" },
 ];
 
+const DATE_FIELDS: { id: DateField; label: string }[] = [
+  { id: "vencimento", label: "Vencimento" },
+  { id: "competencia", label: "Competência" },
+  { id: "baixa", label: "Data da baixa" },
+];
+
+const SITUATION_FILTER = [
+  { id: "a_vencer", label: "A vencer" },
+  { id: "hoje", label: "Vence hoje" },
+  { id: "vencido", label: "Vencida" },
+  { id: "parcial", label: "Parcial" },
+  { id: "pago", label: "Paga" },
+  { id: "devolvido", label: "Devolvida" },
+  { id: "cancelado", label: "Cancelada" },
+  { id: "substituido", label: "Substituída" },
+];
+
+const KIND_FILTER = [
+  { id: "real", label: "Conta real" },
+  { id: "provisao", label: "Provisão" },
+];
+
 const ALL = "todos";
 
 function IconButton({
@@ -133,25 +166,19 @@ function FilterSelect({
 }: {
   label: string;
   value: string;
-  options: { id: number; label: string }[];
+  options: { id: number | string; label: string }[];
   onChange: (value: string) => void;
 }) {
   return (
     <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
       {label}
-      <Select value={value || ALL} onValueChange={(next) => onChange(next === ALL ? "" : next)}>
-        <SelectTrigger size="sm" className="w-full bg-card text-[13px] font-normal text-foreground" aria-label={label}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>Todos</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option.id} value={String(option.id)}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchSelect
+        ariaLabel={label}
+        value={value || ALL}
+        options={[{ id: ALL, label: "Todos" }, ...options]}
+        onChange={(next) => onChange(next === ALL ? "" : next)}
+        className="h-8 bg-card text-[13px] text-foreground"
+      />
     </label>
   );
 }
@@ -171,6 +198,7 @@ function PayeeCell({
       <span className="block text-xs font-normal text-muted-foreground">
         {row.description}
         {row.itemCount > 0 && ` · ${plural(row.itemCount, "pessoa", "pessoas")}`}
+        {row.replaces && ` · ${replacesNote(row.amount, row.replaces)}`}
         {row.docsLate && <span className="font-semibold text-[#b45309]"> · documentação atrasada</span>}
       </span>
     </>
@@ -263,6 +291,7 @@ function PayablesContent() {
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [dateField, setDateField] = useState<DateField>("vencimento");
   const [indicator, setIndicator] = useState<Indicator>((params.get("indicador") as Indicator) ?? "total");
   const [tab, setTab] = useState<Tab>((params.get("aba") as Tab) ?? "todas");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -284,6 +313,10 @@ function PayablesContent() {
   const [paying, setPaying] = useState<PayableRow | null>(null);
   const [batchPaying, setBatchPaying] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reclassifying, setReclassifying] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
+  const [replacing, setReplacing] = useState<PayableRow | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [choosingColumns, setChoosingColumns] = useState(false);
 
@@ -296,24 +329,30 @@ function PayablesContent() {
     return () => clearTimeout(timer);
   }, [searchText]);
 
+  const query = useMemo(
+    () => ({
+      mode,
+      ref,
+      start: rangeStart,
+      end: rangeEnd,
+      dateField,
+      indicator,
+      tab,
+      filters,
+      search,
+      sort: sort.column,
+      descending: sort.descending,
+      page,
+    }),
+    [mode, ref, rangeStart, rangeEnd, dateField, indicator, tab, filters, search, sort, page]
+  );
+
   const load = useCallback(async () => {
     // Clicar rápido no período dispara vários pedidos: só vale a resposta do último.
     const request = ++lastRequest.current;
     setError(null);
     try {
-      const list = await listPayables({
-        mode,
-        ref,
-        start: rangeStart,
-        end: rangeEnd,
-        indicator,
-        tab,
-        filters,
-        search,
-        sort: sort.column,
-        descending: sort.descending,
-        page,
-      });
+      const list = await listPayables(query);
       if (request !== lastRequest.current) return;
       // A última conta da página saiu da lista: volta para a última página que ainda existe.
       if (!list.items.length && list.total > 0 && list.page > 1) {
@@ -327,7 +366,7 @@ function PayablesContent() {
       setData(null);
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar as contas");
     }
-  }, [mode, ref, rangeStart, rangeEnd, indicator, tab, filters, search, sort, page]);
+  }, [query]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca da tela quando os filtros mudam
@@ -447,8 +486,25 @@ function PayablesContent() {
     }
   }
 
+  async function exportList() {
+    setExporting(true);
+    try {
+      const url = URL.createObjectURL(await exportPayables(query));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `contas-a-pagar-${data?.today ?? "lista"}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível exportar");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const activeFilters =
     Object.values(filters).filter(Boolean).length +
+    (dateField !== "vencimento" ? 1 : 0) +
     (search ? 1 : 0) +
     (indicator !== "total" ? 1 : 0) +
     (tab !== "todas" ? 1 : 0);
@@ -626,6 +682,12 @@ function PayablesContent() {
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, company: value })))}
           />
           <FilterSelect
+            label="Unidade"
+            value={filters.unit ?? ""}
+            options={(reference?.units ?? []).map((u) => ({ id: u.id, label: u.name }))}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, unit: value })))}
+          />
+          <FilterSelect
             label="Centro de custo"
             value={filters.costCenter ?? ""}
             options={(reference?.costCenters ?? []).map((c) => ({ id: c.id, label: c.name }))}
@@ -637,6 +699,28 @@ function PayablesContent() {
             options={(reference?.paymentMethods ?? []).map((m) => ({ id: m.id, label: m.name }))}
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, paymentMethod: value })))}
           />
+          <FilterSelect
+            label="Situação"
+            value={filters.situation ?? ""}
+            options={SITUATION_FILTER}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, situation: value })))}
+          />
+          <FilterSelect
+            label="Tipo"
+            value={filters.kind ?? ""}
+            options={KIND_FILTER}
+            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, kind: value })))}
+          />
+          <label className="flex flex-col gap-1 text-[11px] font-semibold text-muted-foreground">
+            Período por
+            <SearchSelect
+              ariaLabel="Período por"
+              value={dateField}
+              options={DATE_FIELDS}
+              onChange={(value) => resetPageAnd(() => setDateField(value as DateField))}
+              className="h-8 bg-card text-[13px] text-foreground"
+            />
+          </label>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
@@ -651,6 +735,14 @@ function PayablesContent() {
                 >
                   <CheckCheck size={16} />
                   Dar baixa
+                </Button>
+                <Button variant="ghost" size="sm" className="h-[30px]" disabled={!reference} onClick={() => setReclassifying(true)}>
+                  <Tags size={16} />
+                  Reclassificar
+                </Button>
+                <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setDuplicating(true)}>
+                  <Copy size={16} />
+                  Duplicar
                 </Button>
                 <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setDeleting(true)}>
                   <Trash2 size={16} />
@@ -672,6 +764,7 @@ function PayablesContent() {
                     onClick={() =>
                       resetPageAnd(() => {
                         setFilters({});
+                        setDateField("vencimento");
                         setSearchText("");
                         setSearch("");
                         setIndicator("total");
@@ -685,10 +778,16 @@ function PayablesContent() {
               </>
             )}
           </div>
-          <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setChoosingColumns(true)}>
-            <Columns3 size={16} />
-            Colunas
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" className="h-[30px]" disabled={exporting} onClick={exportList}>
+              <Download size={16} />
+              {exporting ? "Exportando…" : "Exportar"}
+            </Button>
+            <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setChoosingColumns(true)}>
+              <Columns3 size={16} />
+              Colunas
+            </Button>
+          </div>
         </div>
 
         {!data ? (
@@ -764,6 +863,9 @@ function PayablesContent() {
                           <IconButton icon={Eye} label="Ver detalhes" onClick={() => setViewing(row.id)} />
                           {row.canPayDirectly && (
                             <IconButton icon={Check} label="Dar baixa" onClick={() => setPaying(row)} />
+                          )}
+                          {row.canReplace && (
+                            <IconButton icon={Replace} label="Substituir pelo valor real" onClick={() => setReplacing(row)} />
                           )}
                           {row.barcode && Number(row.pending) > 0 && (
                             <IconButton
@@ -891,12 +993,51 @@ function PayablesContent() {
           }}
         />
       )}
+      {reclassifying && reference && (
+        <ReclassifyDialog
+          rows={selectedRows}
+          reference={reference}
+          onClose={() => setReclassifying(false)}
+          onDone={(count) => {
+            setReclassifying(false);
+            toast.success(`${plural(count, "conta reclassificada", "contas reclassificadas")}.`);
+            changed();
+          }}
+        />
+      )}
+      {duplicating && (
+        <DuplicateDialog
+          rows={selectedRows}
+          onClose={() => setDuplicating(false)}
+          onDone={(count) => {
+            setDuplicating(false);
+            toast.success(`${plural(count, "conta duplicada", "contas duplicadas")} para o mês seguinte.`);
+            changed();
+          }}
+        />
+      )}
+      {replacing && reference && (
+        <ReplaceProvisionDialog
+          row={replacing}
+          reference={reference}
+          onClose={() => setReplacing(null)}
+          onDone={(real) => {
+            toast.success(replacedMessage(real.amount, replacing.amount));
+            setReplacing(null);
+            changed();
+          }}
+        />
+      )}
       {viewing && data && (
         <DetailDialog
           id={viewing}
           today={data.today}
           onClose={() => setViewing(null)}
           onChanged={changed}
+          onReplace={(payable) => {
+            setViewing(null);
+            setReplacing(payable);
+          }}
         />
       )}
       {choosingColumns && (
