@@ -1562,3 +1562,76 @@ def test_reference_exposes_the_incentive_deadline(
         True,
         10,
     )
+
+
+# ---- Detalhes de cada pessoa ----
+
+
+def _first_detail(client: TestClient, auth: dict[str, str]) -> Any:
+    listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
+    return client.get(f"/payables/{listed['id']}", headers=auth).json()
+
+
+def test_each_incentive_keeps_its_survey_date(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _incentives(("2026-10-30", 2), ("2026-10-26", 1))
+    _send(client, auth, "/payables/import", _import_fields(world), content)
+    details = [
+        client.get(f"/payables/{row['id']}", headers=auth).json()
+        for row in client.get("/payables?mode=tudo&sort=vencimento", headers=auth).json()["items"]
+    ]
+    assert [[i["surveyDate"] for i in d["items"]] for d in details] == [
+        ["2026-10-26"],
+        ["2026-10-30", "2026-10-30"],
+    ]
+    assert details[0]["items"][0]["grossAmount"] is None
+
+
+def test_rpa_and_invoice_details_reach_the_screen(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Documento", "Valor", "Número da NF", "Emissão"],
+            ["Ana Ribeiro", "NF", 600, "58", datetime(2026, 10, 27)],
+            ["Carla Mendes", "RPA", 1000, None, None],
+        ]
+    )
+    fields = _import_fields(world, kind="folha", description="Equipe", dueDate="2026-11-20")
+    _send(client, auth, "/payables/import", fields, content)
+    items = {i["name"]: i for i in _first_detail(client, auth)["items"]}
+    assert (items["Ana Ribeiro"]["invoiceNumber"], items["Ana Ribeiro"]["invoiceDate"]) == (
+        "58",
+        "2026-10-27",
+    )
+    assert items["Ana Ribeiro"]["grossAmount"] is None
+    assert (items["Carla Mendes"]["grossAmount"], items["Carla Mendes"]["amount"]) == (
+        "1000.00",
+        "890.00",
+    )
+
+
+def test_duplicate_keeps_the_rpa_gross_but_not_the_month_details(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Documento", "Valor", "Número da NF", "Emissão"],
+            ["Ana Ribeiro", "NF", 600, "58", datetime(2026, 10, 27)],
+            ["Carla Mendes", "RPA", 1000, None, None],
+        ]
+    )
+    fields = _import_fields(world, kind="folha", description="Equipe", dueDate="2026-11-20")
+    _send(client, auth, "/payables/import", fields, content)
+    original = _first_detail(client, auth)
+    client.post("/payables/batch/duplicate", json={"ids": [original["id"]]}, headers=auth)
+    copy = client.get("/payables?mode=mes&ref=2026-12-01", headers=auth).json()["items"][0]
+    items = {
+        i["name"]: i for i in client.get(f"/payables/{copy['id']}", headers=auth).json()["items"]
+    }
+    assert items["Carla Mendes"]["grossAmount"] == "1000.00"
+    assert items["Ana Ribeiro"]["invoiceNumber"] is None
+    assert items["Ana Ribeiro"]["invoiceDate"] is None
+    assert items["Ana Ribeiro"]["invoiceStatus"] == "Pendente"
+    assert items["Ana Ribeiro"]["surveyDate"] is None
