@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays } from "../src/lib/payables";
 import { signIn } from "./fixtures";
@@ -158,6 +159,56 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Dia");
   await expect(total).toContainText("1 conta");
   await page.getByRole("button", { name: "Hoje", exact: true }).click();
+
+  // Exportar traz o que os filtros mostram
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Exportar" }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^contas-a-pagar-.*\.csv$/);
+  const csv = await readFile(await download.path(), "utf-8");
+  expect(csv).toContain("Vencimento;Fornecedor;");
+  expect(csv).toContain("Consultoria de teste");
+
+  // Reclassificar pede o que muda, e o projeto fica 100%
+  await page.getByRole("checkbox", { name: "Selecionar Consultoria de teste" }).check();
+  await page.getByRole("button", { name: "Reclassificar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reclassificar 1 conta" }).click();
+  await expect(page.getByRole("dialog").getByText("Escolha o que vai mudar.")).toBeVisible();
+  await choose(page, "Projeto", "PRJ-1790");
+  await page.getByRole("dialog").getByRole("button", { name: "Reclassificar 1 conta" }).click();
+  await expect(page.getByText("1 conta reclassificada.")).toBeVisible();
+  const consultoria = page.getByRole("row", { name: /Consultoria de teste/ });
+  await expect(consultoria).toContainText("PRJ-1790");
+  await expect(consultoria).not.toContainText("PRJ-1804");
+
+  // Duplicar leva a cópia para o mês seguinte
+  await page.getByRole("checkbox", { name: "Selecionar Consultoria de teste" }).check();
+  await page.getByRole("button", { name: "Duplicar" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Duplicar" }).click();
+  await expect(page.getByText("1 conta duplicada para o mês seguinte.")).toBeVisible();
+
+  // A provisão dá lugar ao real, e o seletor de fornecedor tem busca
+  const provision = page.getByRole("row", { name: /Gráfica · PRJ-1804/ });
+  await provision.getByRole("button", { name: "Substituir pelo valor real" }).click();
+  const replace = page.getByRole("dialog");
+  await replace.getByRole("button", { name: "Substituir", exact: true }).click();
+  await expect(replace.getByText("Informe o valor real.")).toBeVisible();
+  await replace.getByLabel("Valor real (R$)").fill("1.500,00");
+  await replace.getByRole("combobox", { name: "Fornecedor" }).click();
+  await page.getByLabel("Buscar na lista").fill("exata");
+  await page.getByRole("option", { name: /Exata/ }).click();
+  await replace.getByRole("button", { name: "Substituir", exact: true }).click();
+  await expect(page.getByText(/substituída pelo real de R\$\s1\.500,00/)).toBeVisible();
+  await expect(provision).toContainText("substitui a provisão");
+  await expect(provision.getByRole("button", { name: "Substituir pelo valor real" })).toHaveCount(0);
+
+  // Os filtros novos mudam a lista, e limpar volta tudo
+  await page.getByRole("combobox", { name: "Tipo" }).click();
+  await page.getByRole("option", { name: "Provisão" }).click();
+  await expect(consultoria).toHaveCount(0);
+  await page.getByRole("button", { name: /Limpar filtros/ }).click();
+  await expect(consultoria).toBeVisible();
 
   // O menu recolhe, continua navegável e lembra da escolha
   await page.getByRole("button", { name: "Recolher menu" }).click();
