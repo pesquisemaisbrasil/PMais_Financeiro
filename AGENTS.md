@@ -14,7 +14,7 @@ Entrada para pessoas e agentes de IA que trabalham no **Financeiro** da Pesquise
    - nada é pago sem "Confirmar baixa";
    - um Pix (ID da transação) só paga uma vez.
 5. **Commits separados por assunto** (backend, frontend, testes e docs por funcionalidade), no padrão Conventional Commits, sem linha de atribuição.
-6. **Um PR por entrega, sempre com base na `homolog`.** Não abra PR empilhado sobre outra branch: o merge vai para a branch errada. Toda mudança passa pela `homolog`; depois de validada, vai para a `main` num PR `homolog` → `main`. **Merge só com o dono** (João) pedindo ou autorizando.
+6. **Durante a construção do MVP, o trabalho vai direto na `homolog`** (decisão do Bruno em 04/11/2026), com a verificação completa antes de cada envio. Nada vai direto para a `main`: depois de validada, a `homolog` vai para a `main` num PR `homolog` → `main`. **Merge na `main` só com o dono** (João) pedindo ou autorizando.
 7. **Pronto = verde:** `bash scripts/verify-delivery.sh` (testes do backend com cobertura ≥ 80%, `ruff`, `ruff format --check`, `mypy`, um head do Alembic; no frontend, `next typegen`, `tsc`, `lint`, `check:ui` e `npm test`), mais `--e2e` quando a tela ou o fluxo mudou. Comandos em [docs/handoff/09-testes-qualidade-e-ci.md](docs/handoff/09-testes-qualidade-e-ci.md).
 8. **Regra mudou, teste novo.** Bug conhecido sem correção fica com `xfail(strict=True, reason="BUG: ...")`.
 9. **Dado pessoal:**

@@ -9,7 +9,7 @@ Rotina obrigatória antes de qualquer PR de código do Financeiro. Ela fecha o t
 
 ## 1. Preparar
 
-- Branch criada a partir da `homolog` atualizada (`feat/…`, `fix/…`, `docs/…`, `chore/…`).
+- Trabalhe na `homolog` atualizada: durante a construção do MVP, não há branch de trabalho (AGENTS.md, regra 6).
 - O spec dono em `docs/specs/` já reflete o comportamento novo, e as decisões tomadas estão registradas (passo 5 da rotina de mudança).
 - Commits **separados por assunto** (backend, frontend, testes, docs), Conventional Commits, sem linha de atribuição. Nunca entram `.coverage`, `*.stackdump`, `.env`, `*.db`, zip, PDF ou planilha real.
 
@@ -59,7 +59,7 @@ Depois das correções, rode de novo o passo 2. Se as correções foram grandes,
 
 Siga só quando a pessoa pediu a entrega ou o PR. Um pedido apenas de revisão para no passo 3.
 
-- Push da branch e PR **com base na `homolog`** (nunca empilhado). O corpo, em pt-BR, traz:
+- Envie a `homolog` quando a pessoa pedir. O PR só existe de `homolog` para `main`, e o corpo, em pt-BR, traz:
   - o que entra;
   - como testar (atualize `docs/planning/roadmap.md`);
   - a verificação, com números;
