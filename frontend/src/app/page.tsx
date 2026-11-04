@@ -1,30 +1,18 @@
 "use client";
 
 import { RequireAuth } from "@/components/RequireAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Sidebar } from "@/components/Sidebar";
 import { useAuth } from "@/lib/auth-context";
 
 function HomeContent() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <h1 className="text-center text-lg font-semibold text-brand-cinza-escuro">
-            Olá, {user?.name}
-          </h1>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <p className="text-center text-sm text-muted-foreground">
-            Você entrou no P+ Financeiro. Os módulos aparecem aqui conforme forem entregues.
-          </p>
-          <Button variant="outline" className="w-full" onClick={logout}>
-            Sair
-          </Button>
-        </CardContent>
-      </Card>
+    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <h1 className="mb-1 text-xl font-semibold text-brand-cinza-escuro">Olá, {user?.name}</h1>
+      <p className="text-sm text-muted-foreground">
+        Você entrou no P+ Financeiro. Os módulos aparecem aqui conforme forem entregues.
+      </p>
     </main>
   );
 }
@@ -32,7 +20,12 @@ function HomeContent() {
 export default function HomePage() {
   return (
     <RequireAuth>
-      <HomeContent />
+      <div className="flex flex-1">
+        <Sidebar />
+        <div className="flex-1 overflow-y-auto">
+          <HomeContent />
+        </div>
+      </div>
     </RequireAuth>
   );
 }

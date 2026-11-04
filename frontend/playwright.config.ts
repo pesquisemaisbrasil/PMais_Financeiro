@@ -73,7 +73,10 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      command: `npx next dev --port ${FRONTEND_PORT}`,
+      // Na CI, o build de produção: a CSP de lá é mais rígida que a do `next dev`.
+      command: process.env.CI
+        ? `npx next build && npx next start --port ${FRONTEND_PORT}`
+        : `npx next dev --port ${FRONTEND_PORT}`,
       cwd: __dirname,
       url: `${FRONTEND_URL}/login`,
       env: { NEXT_PUBLIC_API_URL: API_URL },
