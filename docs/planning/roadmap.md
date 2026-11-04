@@ -79,11 +79,12 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 7. **Nova conta a pagar**: um rateio que não fecha mostra a diferença e não salva. Corrija e lance.
 8. Selecione duas contas e dê baixa em lote. Tente excluir uma com baixa: o sistema recusa até estornar.
 9. Recolha o menu lateral pelo botão ao lado do logo: ficam só os ícones, e a escolha continua depois de recarregar.
-10. Nos filtros, digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Unidade**, **Situação**, **Tipo** e **Período por**.
-11. **Exportar** baixa um CSV com tudo o que os filtros mostram. Abra no Excel: os acentos aparecem certos, e os filtros estão na primeira linha.
-12. Selecione contas e use **Reclassificar**: sem escolher nada, o sistema pede o que vai mudar. O **Histórico** mostra o antes e o depois.
-13. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
-14. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
+10. **Filtros** abre um painel lateral: a lista muda enquanto você escolhe, e o botão de baixo mostra quantas contas sobraram. Digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Unidade**, **Situação**, **Tipo** e **Período por**.
+11. Em **Colunas**, ligue mais colunas e escolha a densidade **Compacta**. A escolha fica guardada neste navegador.
+12. **Exportar** baixa um CSV com tudo o que os filtros mostram. Abra no Excel: os acentos aparecem certos, e os filtros estão na primeira linha.
+13. Selecione contas e use **Reclassificar**: sem escolher nada, o sistema pede o que vai mudar. O **Histórico** mostra o antes e o depois.
+14. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
+15. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
 
 Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em ambiente de teste. Em **Contas a pagar → Importar planilha**:
 
@@ -91,7 +92,8 @@ Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em
 2. **Ler planilha** mostra o cronograma: um lançamento por data de pagamento, 10 dias úteis depois da pesquisa, pulando feriados. Linha com `R$` no valor fica de fora e diz o motivo.
 3. Com o PRJ-1790, que não tem prazo, a tela avisa e não deixa criar, a não ser que a planilha traga a coluna `Data de pagamento`.
 4. **Copiar cronograma para o projeto** gera o texto para o e-mail. **Criar** abre os lançamentos na aba **Planilhas e agrupados**, com as pessoas na seta da linha.
-5. Em **Folha de campo**, use `Nome`, `Documento`, `Valor`, `Número da NF` e `Emissão`: RPA de R$ 1.000,00 entra como R$ 890,00, e NF sem número fica como pendente.
+5. Na seta de um lançamento importado, cada pessoa mostra a **data da pesquisa** (incentivos), o número e a emissão da **nota**, o **bruto e o INSS** (RPA) e o **pagamento**: "A pagar" até a baixa do lançamento, e "Paga em dd/mm" depois dela.
+6. Em **Folha de campo**, use `Nome`, `Documento`, `Valor`, `Número da NF` e `Emissão`: RPA de R$ 1.000,00 entra como R$ 890,00, e NF sem número fica como pendente.
 
 Em **Cadastros**, no menu:
 

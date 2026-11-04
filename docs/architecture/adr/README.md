@@ -12,3 +12,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0006](0006-gitleaks-cli-no-ci.md) | Gitleaks pela CLI na CI | Aceito |
 | [0007](0007-calendario-com-react-day-picker.md) | Calendário com react-day-picker | Aceito |
 | [0008](0008-ler-planilha-com-openpyxl.md) | Ler planilha com openpyxl | Aceito |
+| [0009](0009-padroes-de-outras-bibliotecas-em-shadcn.md) | Padrões do Ant Design, MUI X e Mantine feitos em shadcn | Aceito |
