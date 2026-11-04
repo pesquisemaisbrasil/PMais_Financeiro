@@ -246,6 +246,7 @@ def list_payables(
     *,
     mode: str,
     ref: date | None,
+    custom_range: tuple[date, date] | None = None,
     indicator: str,
     tab: str,
     filters: dict[str, int | None],
@@ -255,7 +256,7 @@ def list_payables(
     page: int,
 ) -> dict[str, Any]:
     on = today()
-    start, end = period_range(mode, ref or on)
+    start, end = custom_range or period_range(mode, ref or on)
     query = _base_query(db)
     if start and end:
         query = query.filter(Payable.dueDate >= start, Payable.dueDate <= end)

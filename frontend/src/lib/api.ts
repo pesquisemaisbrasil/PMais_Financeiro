@@ -226,6 +226,8 @@ export function getReference(): Promise<Reference> {
 export interface PayableQuery {
   mode: PeriodMode;
   ref: string | null;
+  start: string;
+  end: string;
   indicator: Indicator;
   tab: Tab;
   filters: Record<string, string>;
@@ -245,6 +247,10 @@ export function listPayables(query: PayableQuery): Promise<PayableList> {
     page: String(query.page),
   });
   if (query.ref) params.set("ref", query.ref);
+  if (query.mode === "periodo") {
+    params.set("start", query.start);
+    params.set("end", query.end);
+  }
   if (query.search.trim()) params.set("search", query.search.trim());
   for (const [key, value] of Object.entries(query.filters)) {
     if (value) params.set(key, value);

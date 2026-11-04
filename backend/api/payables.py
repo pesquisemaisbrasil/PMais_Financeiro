@@ -89,6 +89,8 @@ def list_payables(
     _: FinanceUser,
     mode: PeriodMode = "dia",
     ref: date | None = None,
+    start: date | None = None,
+    end: date | None = None,
     indicator: Indicator = "total",
     tab: Tab = "todas",
     supplier: int | None = None,
@@ -102,12 +104,22 @@ def list_payables(
     descending: bool = False,
     page: Annotated[int, Query(ge=1)] = 1,
 ) -> dict[str, Any]:
-    if ref and not 2000 <= ref.year <= 2100:
+    if any(day and not 2000 <= day.year <= 2100 for day in (ref, start, end)):
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Data fora do intervalo aceito")
+    if mode == "periodo" and (not start or not end):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Escolha a data inicial e a data final"
+        )
+    if mode == "periodo" and start and end and start > end:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "A data inicial precisa ser igual ou anterior à data final",
+        )
     return payable_service.list_payables(
         db,
         mode=mode,
         ref=ref,
+        custom_range=(start, end) if mode == "periodo" and start and end else None,
         indicator=indicator,
         tab=tab,
         filters={

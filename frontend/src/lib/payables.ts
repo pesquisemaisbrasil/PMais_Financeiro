@@ -6,7 +6,7 @@ export type Situation =
   | "a_vencer"
   | "devolvido"
   | "cancelado";
-export type PeriodMode = "dia" | "semana" | "mes" | "ano" | "tudo";
+export type PeriodMode = "dia" | "semana" | "mes" | "ano" | "tudo" | "periodo";
 export type Indicator =
   | "total"
   | "pagos"
@@ -233,6 +233,11 @@ export function periodLabel(mode: PeriodMode, ref: string): string {
   if (mode === "mes") return `${MONTHS[Number(ref.slice(5, 7)) - 1]}/${ref.slice(0, 4)}`;
   if (mode === "ano") return ref.slice(0, 4);
   return "Todo o período";
+}
+
+/** O mês inteiro de uma data: de onde parte a escolha de um período livre. */
+export function monthRange(ref: string): { start: string; end: string } {
+  return { start: `${ref.slice(0, 7)}-01`, end: addDays(addMonths(ref, 1), -1) };
 }
 
 export function movePeriod(mode: PeriodMode, ref: string, step: number): string {

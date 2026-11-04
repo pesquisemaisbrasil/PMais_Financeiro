@@ -8,7 +8,7 @@ Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
 OptionalMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
-PeriodMode = Literal["dia", "semana", "mes", "ano", "tudo"]
+PeriodMode = Literal["dia", "semana", "mes", "ano", "tudo", "periodo"]
 Indicator = Literal[
     "total", "pagos", "pendentes", "vencidos", "hoje", "avencer", "provisoes", "cancelados"
 ]

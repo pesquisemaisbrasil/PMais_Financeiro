@@ -714,6 +714,38 @@ def test_docs_late_when_less_than_three_days_before_due(
     assert on_time["docsLate"] is False
 
 
+def test_custom_period_includes_both_ends(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    on = today()
+    for days in (0, 5, 10, 11):
+        create(client, auth, world, dueDate=(on + timedelta(days=days)).isoformat())
+    query = f"mode=periodo&start={on.isoformat()}&end={(on + timedelta(days=10)).isoformat()}"
+    data = client.get(f"/payables?{query}", headers=auth).json()
+    assert data["total"] == 3
+    assert data["rangeStart"] == on.isoformat()
+
+
+@pytest.mark.parametrize(
+    ("query", "detail"),
+    [
+        ("mode=periodo", "Escolha a data inicial e a data final"),
+        ("mode=periodo&start=2026-01-01", "Escolha a data inicial e a data final"),
+        (
+            "mode=periodo&start=2026-02-01&end=2026-01-01",
+            "A data inicial precisa ser igual ou anterior à data final",
+        ),
+        ("mode=periodo&start=2026-01-01&end=9999-12-31", "Data fora do intervalo aceito"),
+    ],
+)
+def test_custom_period_refuses_bad_dates(
+    client: TestClient, auth: dict[str, str], query: str, detail: str
+) -> None:
+    response = client.get(f"/payables?{query}", headers=auth)
+    assert response.status_code == 422
+    assert response.json()["detail"] == detail
+
+
 def test_extreme_date_is_refused(client: TestClient, auth: dict[str, str]) -> None:
     assert client.get("/payables?mode=mes&ref=9999-12-01", headers=auth).status_code == 422
 

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { addDays } from "../src/lib/payables";
 import { signIn } from "./fixtures";
 
 async function choose(page: Page, label: string, option: string | RegExp) {
@@ -135,6 +136,27 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /^Canceladas/ }).click();
   await expect(page.getByRole("row", { name: /Aluguel da sala/ })).toContainText("Cancelada");
+
+  // Período livre, com as duas datas
+  await page.getByRole("button", { name: /^Total/ }).click();
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Período" }).click();
+  await page.getByLabel("Data inicial").fill(addDays(today, -10));
+  await page.getByLabel("Data final").fill(addDays(today, -5));
+  await expect(page.getByRole("row", { name: /Telefonia e internet/ })).toBeVisible();
+  await expect(total).toContainText("1 conta");
+  await page.getByLabel("Data final").fill(addDays(today, -20));
+  await expect(page.getByText("A data inicial precisa ser igual ou anterior à data final.")).toBeVisible();
+
+  // O menu recolhe, continua navegável e lembra da escolha
+  await page.getByRole("button", { name: "Recolher menu" }).click();
+  await expect(page.getByText("Visão geral")).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Expandir menu" })).toBeVisible();
+  await page.getByRole("link", { name: "Início" }).click();
+  await expect(page.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite), / })).toBeVisible();
+  await page.getByRole("button", { name: "Expandir menu" }).click();
+  await expect(page.getByText("Visão geral")).toBeVisible();
 
   expect(blocked).toEqual([]);
 });

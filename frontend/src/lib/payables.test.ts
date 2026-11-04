@@ -4,6 +4,7 @@ import {
   brl,
   formatDate,
   greeting,
+  monthRange,
   movePeriod,
   parseAllocations,
   parseMoney,
@@ -93,6 +94,11 @@ describe("período", () => {
     expect(movePeriod("semana", "2026-11-04", -1)).toBe("2026-10-28");
     expect(movePeriod("dia", "2026-12-31", 1)).toBe("2027-01-01");
     expect(movePeriod("tudo", "2026-12-31", 1)).toBe("2026-12-31");
+  });
+
+  it("o período livre parte do mês da data", () => {
+    expect(monthRange("2026-02-18")).toEqual({ start: "2026-02-01", end: "2026-02-28" });
+    expect(monthRange("2026-12-31")).toEqual({ start: "2026-12-01", end: "2026-12-31" });
   });
 
   it("soma dias atravessando o mês", () => {

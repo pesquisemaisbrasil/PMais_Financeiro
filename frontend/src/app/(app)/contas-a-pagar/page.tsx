@@ -32,6 +32,7 @@ import { ApiError, getPayable, getReference, listPayables } from "@/lib/api";
 import {
   brl,
   formatDate,
+  monthRange,
   movePeriod,
   notifyPayablesChanged,
   periodLabel,
@@ -96,6 +97,7 @@ const MODES: { id: PeriodMode; label: string }[] = [
   { id: "mes", label: "Mês" },
   { id: "ano", label: "Ano" },
   { id: "tudo", label: "Tudo" },
+  { id: "periodo", label: "Período" },
 ];
 
 const ALL = "todos";
@@ -258,6 +260,8 @@ function PayablesContent() {
 
   const [mode, setMode] = useState<PeriodMode>((params.get("modo") as PeriodMode) ?? "dia");
   const [ref, setRef] = useState<string | null>(null);
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
   const [indicator, setIndicator] = useState<Indicator>((params.get("indicador") as Indicator) ?? "total");
   const [tab, setTab] = useState<Tab>((params.get("aba") as Tab) ?? "todas");
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -295,10 +299,21 @@ function PayablesContent() {
     // Clicar rápido no período dispara vários pedidos: só vale a resposta do último.
     const request = ++lastRequest.current;
     setError(null);
+    if (mode === "periodo" && (!rangeStart || !rangeEnd || rangeStart > rangeEnd)) {
+      setData(null);
+      setError(
+        !rangeStart || !rangeEnd
+          ? "Escolha a data inicial e a data final."
+          : "A data inicial precisa ser igual ou anterior à data final."
+      );
+      return;
+    }
     try {
       const list = await listPayables({
         mode,
         ref,
+        start: rangeStart,
+        end: rangeEnd,
         indicator,
         tab,
         filters,
@@ -320,7 +335,7 @@ function PayablesContent() {
       setData(null);
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar as contas");
     }
-  }, [mode, ref, indicator, tab, filters, search, sort, page]);
+  }, [mode, ref, rangeStart, rangeEnd, indicator, tab, filters, search, sort, page]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca da tela quando os filtros mudam
@@ -351,11 +366,25 @@ function PayablesContent() {
     );
   }, [linkedId]);
 
+  const effectiveRef = ref ?? data?.today ?? "";
+
   function changed() {
     setSelected(new Set());
     setOpened({});
     notifyPayablesChanged();
     void load();
+  }
+
+  function changeMode(next: PeriodMode) {
+    resetPageAnd(() => {
+      // O período livre começa no mês que estava à vista, e a pessoa ajusta as duas datas.
+      if (next === "periodo" && !rangeStart && effectiveRef) {
+        const month = monthRange(effectiveRef);
+        setRangeStart(month.start);
+        setRangeEnd(month.end);
+      }
+      setMode(next);
+    });
   }
 
   function resetPageAnd(action: () => void) {
@@ -412,7 +441,6 @@ function PayablesContent() {
     }
   }
 
-  const effectiveRef = ref ?? data?.today ?? "";
   const activeFilters =
     Object.values(filters).filter(Boolean).length +
     (search ? 1 : 0) +
@@ -451,54 +479,6 @@ function PayablesContent() {
           />
         </div>
       )}
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={mode}
-            onValueChange={(next) => resetPageAnd(() => setMode(next as PeriodMode))}
-          >
-            <SelectTrigger className="w-[120px] bg-card" aria-label="Visão por período">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MODES.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {mode !== "tudo" && effectiveRef && (
-            <>
-              <IconButton
-                icon={ChevronLeft}
-                label="Período anterior"
-                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
-              />
-              <strong className="min-w-[150px] text-center text-sm">{periodLabel(mode, effectiveRef)}</strong>
-              <IconButton
-                icon={ChevronRight}
-                label="Próximo período"
-                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, 1)))}
-              />
-              <Button variant="outline" size="sm" onClick={() => resetPageAnd(() => setRef(null))}>
-                Hoje
-              </Button>
-            </>
-          )}
-        </div>
-        <div className="relative w-full max-w-[300px]">
-          <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
-          <Input
-            className="bg-card pl-8"
-            aria-label="Buscar conta, fornecedor ou NF"
-            placeholder="Buscar conta, fornecedor ou NF…"
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-          />
-        </div>
-      </div>
 
       <div className="mb-4 inline-flex flex-wrap gap-0.5 rounded-[10px] bg-[#f1f5f9] p-[3px]" role="tablist" aria-label="Tipo de lançamento">
         {TABS.map((option) => (
@@ -556,6 +536,73 @@ function PayablesContent() {
       </div>
 
       <div className={CARD}>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={mode}
+              onValueChange={(next) => changeMode(next as PeriodMode)}
+            >
+              <SelectTrigger className="w-[120px] bg-card" aria-label="Visão por período">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODES.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {mode === "periodo" && (
+              <>
+                <Input
+                  type="date"
+                  className="w-[150px] bg-card"
+                  aria-label="Data inicial"
+                  value={rangeStart}
+                  onChange={(event) => resetPageAnd(() => setRangeStart(event.target.value))}
+                />
+                <span className="text-sm text-muted-foreground">até</span>
+                <Input
+                  type="date"
+                  className="w-[150px] bg-card"
+                  aria-label="Data final"
+                  value={rangeEnd}
+                  onChange={(event) => resetPageAnd(() => setRangeEnd(event.target.value))}
+                />
+              </>
+            )}
+            {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
+              <>
+                <IconButton
+                  icon={ChevronLeft}
+                  label="Período anterior"
+                  onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
+                />
+                <strong className="min-w-[150px] text-center text-sm">{periodLabel(mode, effectiveRef)}</strong>
+                <IconButton
+                  icon={ChevronRight}
+                  label="Próximo período"
+                  onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, 1)))}
+                />
+                <Button variant="outline" size="sm" onClick={() => resetPageAnd(() => setRef(null))}>
+                  Hoje
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="relative w-full max-w-[300px]">
+            <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
+            <Input
+              className="bg-card pl-8"
+              aria-label="Buscar conta, fornecedor ou NF"
+              placeholder="Buscar conta, fornecedor ou NF…"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 border-b border-border bg-muted/50 px-4 py-3">
           <FilterSelect
             label="Fornecedor"
@@ -787,7 +834,9 @@ function PayablesContent() {
               ? "Nenhuma conta com esses filtros."
               : mode === "tudo"
                 ? "Nenhuma conta lançada ainda."
-                : `Nenhuma conta em ${periodLabel(mode, effectiveRef)}. Veja semana ou mês no seletor acima.`}
+                : mode === "periodo"
+                  ? `Nenhuma conta de ${formatDate(rangeStart)} a ${formatDate(rangeEnd)}.`
+                  : `Nenhuma conta em ${periodLabel(mode, effectiveRef)}. Veja semana ou mês no seletor acima.`}
           </p>
         )}
       </div>
