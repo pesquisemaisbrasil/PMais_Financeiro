@@ -123,6 +123,10 @@ def create(
         ("post", "/payables"),
         ("post", "/payables/batch/payments"),
         ("post", "/payables/batch/delete"),
+        ("post", "/payables/batch/reclassify"),
+        ("post", "/payables/batch/duplicate"),
+        ("get", "/payables/export"),
+        ("post", "/payables/1/replace"),
         ("patch", "/payables/1"),
         ("post", "/payables/1/cancel"),
         ("post", "/payables/1/payments"),
@@ -143,6 +147,10 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables"),
         ("post", "/payables/batch/payments"),
         ("post", "/payables/batch/delete"),
+        ("post", "/payables/batch/reclassify"),
+        ("post", "/payables/batch/duplicate"),
+        ("get", "/payables/export"),
+        ("post", "/payables/1/replace"),
         ("patch", "/payables/1"),
         ("post", "/payables/1/cancel"),
         ("post", "/payables/1/payments"),
@@ -822,3 +830,343 @@ def test_reference_lists_only_active_records(
     assert [s["nickname"] for s in data["suppliers"]] == ["Ponto Certo"]
     assert data["categories"][0]["code"] == "2.04"
     assert data["units"][0]["companyId"] == world["company"].id
+
+
+# ---- Filtros novos ----
+
+
+def test_filter_by_unit_kind_and_situation(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    other_unit = BusinessUnit(company_id=world["company"].id, name="Health")
+    db_session.add(other_unit)
+    db_session.commit()
+    on = today()
+    create(client, auth, world, amount="100.00", dueDate=(on - timedelta(days=1)).isoformat())
+    create(client, auth, world, amount="200.00", unitId=other_unit.id)
+    create(client, auth, world, amount="300.00", type="provisao")
+
+    def total(query: str) -> int:
+        return client.get(f"/payables?mode=tudo&{query}", headers=auth).json()["total"]
+
+    assert total(f"unit={other_unit.id}") == 1
+    assert total("kind=provisao") == 1
+    assert total("kind=real") == 2
+    assert total("situation=vencido") == 1
+    assert total("situation=hoje") == 2
+    assert client.get("/payables?situation=errada", headers=auth).status_code == 422
+
+
+def test_period_can_follow_payment_date_or_competence(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    on = today()
+    yesterday = on - timedelta(days=1)
+    created = create(client, auth, world, dueDate=(on + timedelta(days=60)).isoformat())
+    paid = client.post(
+        f"/payables/{created['id']}/payments",
+        json=payment(world, paidOn=yesterday.isoformat(), note="Ontem"),
+        headers=auth,
+    ).json()
+    day = f"mode=periodo&start={yesterday.isoformat()}&end={yesterday.isoformat()}"
+    assert client.get(f"/payables?{day}", headers=auth).json()["total"] == 0
+    assert client.get(f"/payables?{day}&dateField=baixa", headers=auth).json()["total"] == 1
+    client.post(
+        f"/payables/{created['id']}/payments/{paid['payments'][0]['id']}/reverse",
+        json={"kind": "estorno", "reason": "Errado"},
+        headers=auth,
+    )
+    # Baixa estornada não conta como dinheiro que saiu.
+    assert client.get(f"/payables?{day}&dateField=baixa", headers=auth).json()["total"] == 0
+
+    due = on + timedelta(days=60)
+    span = f"mode=periodo&start={due.isoformat()}&end={due.isoformat()}&dateField=competencia"
+    assert client.get(f"/payables?{span}", headers=auth).json()["total"] == 1
+
+
+# ---- Exportar ----
+
+
+def test_export_brings_all_filtered_rows_with_filters_on_top(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    for value in range(1, 15):
+        create(client, auth, world, amount=f"{value}.00")
+    response = client.get(f"/payables/export?supplier={world['supplier'].id}", headers=auth)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert response.headers["cache-control"] == "no-store"
+    assert response.text.startswith("\ufeff")
+    lines = response.text.lstrip("\ufeff").splitlines()
+    assert "fornecedor=Gráfica Ponto Certo" in lines[0]
+    assert lines[1].startswith("Vencimento;Fornecedor;")
+    assert len(lines) == 16
+    assert lines[2].endswith(";Vence hoje;1,00;0,00;1,00")
+
+
+def test_export_neutralizes_spreadsheet_formulas(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, description='=HYPERLINK("http://x")')
+    text = client.get("/payables/export", headers=auth).text
+    assert "'=HYPERLINK" in text.replace('""', '"')
+
+
+# ---- Reclassificar ----
+
+
+def test_reclassify_records_one_line_per_payable(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    ids = [create(client, auth, world)["id"] for _ in range(3)]
+    new_center = CostCenter(name="Comercial")
+    db_session.add(new_center)
+    db_session.commit()
+    response = client.post(
+        "/payables/batch/reclassify",
+        json={"ids": ids, "projectId": world["project"].id, "costCenterId": new_center.id},
+        headers=auth,
+    )
+    assert response.json() == {"count": 3}
+    detail = client.get(f"/payables/{ids[0]}", headers=auth).json()
+    assert detail["costCenterName"] == "Comercial"
+    assert [a["amount"] for a in detail["allocations"]] == ["1000.00"]
+    assert "sem projeto" in detail["events"][0]["text"]
+    assert "PRJ-1804" in detail["events"][0]["text"]
+    assert (
+        db_session.query(PayableEvent).filter(PayableEvent.text.like("Reclassificada%")).count()
+        == 3
+    )
+
+
+def test_reclassify_needs_a_change_and_refuses_closed_project(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world)
+    empty = client.post("/payables/batch/reclassify", json={"ids": [created["id"]]}, headers=auth)
+    assert empty.status_code == 422
+    closed = client.post(
+        "/payables/batch/reclassify",
+        json={"ids": [created["id"]], "projectId": world["closed"].id},
+        headers=auth,
+    )
+    assert closed.status_code == 409
+
+
+# ---- Duplicar ----
+
+
+def test_duplicate_goes_to_next_month_without_payments(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
+    created = create(
+        client,
+        auth,
+        world,
+        dueDate="2027-01-31",
+        allocations=allocations,
+        documentType="Boleto",
+        documentNumber="123",
+        barcode="999",
+    )
+    client.post(f"/payables/{created['id']}/payments", json=payment(world), headers=auth)
+    response = client.post("/payables/batch/duplicate", json={"ids": [created["id"]]}, headers=auth)
+    assert response.json() == {"count": 1}
+    copy = client.get("/payables?mode=mes&ref=2027-02-01", headers=auth).json()["items"][0]
+    assert copy["dueDate"] == "2027-02-28"
+    assert copy["paid"] == "0"
+    assert copy["pending"] == "1000.00"
+    assert copy["documentNumber"] is None
+    assert copy["barcode"] is None
+    assert copy["allocations"][0]["code"] == "1804"
+
+
+def test_connect_is_not_duplicated_nor_reclassified(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    created = create(client, auth, world)
+    db_session.get(Payable, created["id"]).origin = "connect"
+    db_session.commit()
+    ids = {"ids": [created["id"]]}
+    assert client.post("/payables/batch/duplicate", json=ids, headers=auth).status_code == 409
+    assert (
+        client.post(
+            "/payables/batch/reclassify",
+            json={**ids, "costCenterId": world["cost_center"].id},
+            headers=auth,
+        ).status_code
+        == 409
+    )
+
+
+# ---- Provisão ----
+
+
+def test_provision_needs_no_supplier_but_real_does(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    provision = client.post(
+        "/payables", json=body(world, type="provisao", supplierId=None), headers=auth
+    )
+    assert provision.status_code == 201
+    assert provision.json()["payee"] == "Provisão"
+    real = client.post("/payables", json=body(world, supplierId=None), headers=auth)
+    assert real.status_code == 422
+    assert real.json()["detail"] == "Escolha o fornecedor"
+
+
+def _provision(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], **fields: Any
+) -> Any:
+    allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
+    return create(client, auth, world, type="provisao", allocations=allocations, **fields)
+
+
+def _replace(client: TestClient, auth: dict[str, str], provision_id: int, **fields: Any) -> Any:
+    return client.post(f"/payables/{provision_id}/replace", json=fields, headers=auth)
+
+
+def test_replacing_provision_keeps_classification_and_leaves_the_totals(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    allocations = [
+        {"projectId": world["project"].id, "amount": "600.00"},
+        {"projectId": world["other_project"].id, "amount": "400.00"},
+    ]
+    provision = create(client, auth, world, type="provisao", allocations=allocations)
+    assert provision["canReplace"] is True
+    assert provision["canPayDirectly"] is False
+    response = _replace(
+        client, auth, provision["id"], supplierId=world["supplier"].id, amount="1100.01"
+    )
+    assert response.status_code == 200
+    real = response.json()
+    assert real["type"] == "real"
+    assert real["dueDate"] == provision["dueDate"]
+    assert real["categoryName"] == provision["categoryName"]
+    assert [a["amount"] for a in real["allocations"]] == ["660.01", "440.00"]
+    assert real["replaces"] == "1000.00"
+
+    old = client.get(f"/payables/{provision['id']}", headers=auth).json()
+    assert old["situation"] == "substituido"
+    assert old["pending"] == "0"
+    assert old["canReplace"] is False
+
+    data = client.get("/payables", headers=auth).json()
+    assert data["indicators"]["total"] == {"value": "1100.01", "count": 1}
+    assert data["indicators"]["provisoes"]["count"] == 0
+    assert data["tabs"]["provisoes"] == 0
+    home = client.get("/home", headers=auth).json()
+    assert [entry["id"] for entry in home["upcoming"]] == [real["id"]]
+
+    again = _replace(client, auth, provision["id"], supplierId=world["supplier"].id, amount="1.00")
+    assert again.status_code == 409
+    assert again.json()["detail"] == "Essa conta não é uma provisão em aberto"
+
+
+def test_tiny_real_value_never_creates_negative_share(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    allocations = [
+        {"projectId": world["project"].id, "amount": "500.00"},
+        {"projectId": world["other_project"].id, "amount": "500.00"},
+    ]
+    provision = create(client, auth, world, type="provisao", allocations=allocations)
+    real = _replace(
+        client, auth, provision["id"], supplierId=world["supplier"].id, amount="0.01"
+    ).json()
+    shares = [Decimal(a["amount"]) for a in real["allocations"]]
+    assert sum(shares) == Decimal("0.01")
+    assert all(share > 0 for share in shares)
+
+
+def test_new_real_needs_value_and_supplier(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    provision = _provision(client, auth, world)
+    response = _replace(client, auth, provision["id"], amount="10.00")
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Informe o valor real e o fornecedor"
+
+
+def test_provision_can_point_to_a_real_already_launched(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
+    provision = _provision(client, auth, world)
+    other = _provision(client, auth, world)
+    real = create(client, auth, world, description="Gráfica real", allocations=allocations)
+    create(client, auth, world, description="Sem projeto")
+    url = f"/payables/{provision['id']}/replacement-candidates"
+    assert [c["id"] for c in client.get(url, headers=auth).json()] == [real["id"]]
+
+    assert _replace(client, auth, provision["id"], realId=real["id"]).status_code == 200
+    row = client.get(f"/payables/{real['id']}", headers=auth).json()
+    assert row["replaces"] == "1000.00"
+
+    # Uma conta real só substitui uma provisão
+    twice = _replace(client, auth, other["id"], realId=real["id"])
+    assert twice.status_code == 409
+    assert twice.json()["detail"] == "Essa conta não pode substituir a provisão"
+    url = f"/payables/{other['id']}/replacement-candidates"
+    assert client.get(url, headers=auth).json() == []
+
+
+def test_real_from_another_project_cannot_replace(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    provision = _provision(client, auth, world)
+    allocations = [{"projectId": world["other_project"].id, "amount": "1000.00"}]
+    real = create(client, auth, world, allocations=allocations)
+    assert _replace(client, auth, provision["id"], realId=real["id"]).status_code == 409
+    assert _replace(client, auth, provision["id"], realId=99999).status_code == 404
+
+
+@pytest.mark.parametrize("how", ["cancel", "delete"])
+def test_provision_comes_back_when_the_real_goes_away(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], how: str
+) -> None:
+    provision = _provision(client, auth, world)
+    real = _replace(
+        client, auth, provision["id"], supplierId=world["supplier"].id, amount="900.00"
+    ).json()
+    if how == "cancel":
+        client.post(f"/payables/{real['id']}/cancel", json={"reason": "Engano"}, headers=auth)
+    else:
+        client.post("/payables/batch/delete", json={"ids": [real["id"]]}, headers=auth)
+    back = client.get(f"/payables/{provision['id']}", headers=auth).json()
+    assert back["canReplace"] is True
+    assert back["pending"] == "1000.00"
+    assert "Voltou a valer" in back["events"][0]["text"]
+
+
+def test_replaced_provision_stays_only_in_the_history(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    provision = _provision(client, auth, world)
+    _replace(client, auth, provision["id"], supplierId=world["supplier"].id, amount="900.00")
+    url = f"/payables/{provision['id']}"
+    edit = client.patch(
+        url,
+        json={"description": "Outra", "amount": "1.00", "dueDate": provision["dueDate"]},
+        headers=auth,
+    )
+    cancel = client.post(f"{url}/cancel", json={"reason": "Engano"}, headers=auth)
+    delete = client.post("/payables/batch/delete", json={"ids": [provision["id"]]}, headers=auth)
+    for response in (edit, cancel, delete):
+        assert response.status_code == 409
+        assert (
+            response.json()["detail"]
+            == "Essa provisão já foi substituída — ela fica só no histórico"
+        )
+
+
+def test_only_a_provision_can_be_replaced(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world)
+    response = _replace(client, auth, created["id"], supplierId=world["supplier"].id, amount="1.00")
+    assert response.status_code == 409
+    url = f"/payables/{created['id']}/replacement-candidates"
+    assert client.get(url, headers=auth).status_code == 409
