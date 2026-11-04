@@ -16,6 +16,7 @@ import {
   filterOptions,
   replacedMessage,
   replacesNote,
+  scheduleText,
 } from "./payables";
 
 const PROJECTS: Project[] = [
@@ -169,5 +170,34 @@ describe("provisão substituída", () => {
     expect(replacedMessage("1100.00", "1000.00")).toMatch(/R\$\s100,00 acima\)\. Saiu do previsto\.$/);
     expect(replacedMessage("900.00", "1000.00")).toMatch(/R\$\s100,00 abaixo\)/);
     expect(replacedMessage("1000.00", "1000.00")).toMatch(/real de R\$\s1\.000,00\. Saiu/);
+  });
+});
+
+describe("cronograma para o projeto", () => {
+  it("lista cada data, com o prazo e o total", () => {
+    const text = scheduleText(
+      {
+        kind: "incentivos",
+        projectType: "Health",
+        deadlineDays: 10,
+        missingDeadline: false,
+        alreadyImported: false,
+        total: "600.00",
+        goodCount: 3,
+        errorCount: 0,
+        lines: [],
+        groups: [
+          { payDate: "2026-11-16", surveyDates: ["2026-10-30"], count: 1, total: "200.00", source: "calculada pelo prazo" },
+          { payDate: "2026-11-20", surveyDates: [], count: 2, total: "400.00", source: "informada na planilha" },
+        ],
+      },
+      "1804",
+      "Pesquisa"
+    );
+    expect(text).toContain("PRJ-1804 Pesquisa");
+    expect(text).toContain("Prazo: 10 dias úteis depois da data da pesquisa (Health)");
+    expect(text).toMatch(/- Pesquisas de 30\/10: 1 incentivo → pagar 16\/11 · R\$\s200,00 \(data calculada pelo prazo\)/);
+    expect(text).toMatch(/- Pesquisas: 2 incentivos → pagar 20\/11/);
+    expect(text).toMatch(/Total: 3 incentivos · R\$\s600,00$/);
   });
 });

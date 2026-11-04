@@ -55,7 +55,7 @@ import {
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 
-function Field({
+export function Field({
   label,
   id,
   hint,
@@ -77,7 +77,7 @@ function Field({
   );
 }
 
-function FormError({ message }: { message: string | null }) {
+export function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
     <Alert variant="destructive" className="mb-2">

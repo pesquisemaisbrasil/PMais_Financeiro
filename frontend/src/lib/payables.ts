@@ -374,3 +374,65 @@ export function replacedMessage(real: string, provision: string): string {
   const shown = diff ? ` (${brl(Math.abs(diff) / 100)} ${diff > 0 ? "acima" : "abaixo"})` : "";
   return `Provisão de ${brl(provision)} substituída pelo real de ${brl(real)}${shown}. Saiu do previsto.`;
 }
+
+export interface ImportGroup {
+  payDate: string;
+  surveyDates: string[];
+  count: number;
+  total: string;
+  source: string;
+}
+
+export interface ImportLine {
+  line: number;
+  name: string;
+  documentType: string;
+  invoiceNumber: string | null;
+  gross: string | null;
+  amount: string | null;
+  surveyDate: string | null;
+  payDate: string | null;
+  payDateGiven: boolean;
+  errors: string[];
+}
+
+export interface ImportPreview {
+  kind: "incentivos" | "folha";
+  projectType: string | null;
+  deadlineDays: number | null;
+  missingDeadline: boolean;
+  alreadyImported: boolean;
+  total: string;
+  goodCount: number;
+  errorCount: number;
+  groups: ImportGroup[];
+  lines: ImportLine[];
+}
+
+export interface ImportResult {
+  count: number;
+  items: number;
+  total: string;
+}
+
+/** O texto que o financeiro devolve ao projeto, hoje calculado à mão (kickoff de 03/11, K6). */
+export function scheduleText(preview: ImportPreview, code: string, title: string): string {
+  const deadline = preview.deadlineDays
+    ? `Prazo: ${plural(preview.deadlineDays, "dia útil", "dias úteis")} depois da data da pesquisa${
+        preview.projectType ? ` (${preview.projectType})` : ""
+      }, quando a planilha não traz a data de pagamento.`
+    : "Datas de pagamento informadas na planilha.";
+  const groups = preview.groups.map((group) => {
+    const days = group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ");
+    const from = days ? `Pesquisas de ${days}` : "Pesquisas";
+    return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})`;
+  });
+  return [
+    `Cronograma de pagamento dos incentivos · PRJ-${code} ${title}`,
+    deadline,
+    "",
+    ...groups,
+    "",
+    `Total: ${plural(preview.goodCount, "incentivo", "incentivos")} · ${brl(preview.total)}`,
+  ].join("\n");
+}

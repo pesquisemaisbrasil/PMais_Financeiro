@@ -14,6 +14,7 @@ import {
   Copy,
   Download,
   Eye,
+  FileUp,
   Plus,
   Replace,
   Search,
@@ -67,6 +68,7 @@ import {
   ReclassifyDialog,
   ReplaceProvisionDialog,
 } from "./dialogs";
+import { ImportDialog } from "./import-dialog";
 
 const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean; fixed?: boolean }[] = [
   { id: "vencimento", label: "Vencimento", sort: "vencimento", fixed: true },
@@ -317,6 +319,7 @@ function PayablesContent() {
   const [duplicating, setDuplicating] = useState(false);
   const [replacing, setReplacing] = useState<PayableRow | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [viewing, setViewing] = useState<number | null>(null);
   const [choosingColumns, setChoosingColumns] = useState(false);
 
@@ -520,10 +523,16 @@ function PayablesContent() {
         title="Contas a pagar"
         icon={ArrowUpRight}
         actions={
-          <Button onClick={() => setCreating(true)} disabled={!reference}>
-            <Plus size={16} />
-            Nova conta a pagar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setImporting(true)} disabled={!reference}>
+              <FileUp size={16} />
+              Importar planilha
+            </Button>
+            <Button onClick={() => setCreating(true)} disabled={!reference}>
+              <Plus size={16} />
+              Nova conta a pagar
+            </Button>
+          </div>
         }
       />
 
@@ -1024,6 +1033,29 @@ function PayablesContent() {
           onDone={(real) => {
             toast.success(replacedMessage(real.amount, replacing.amount));
             setReplacing(null);
+            changed();
+          }}
+        />
+      )}
+      {importing && reference && data && (
+        <ImportDialog
+          reference={reference}
+          today={data.today}
+          onClose={() => setImporting(false)}
+          onDone={(result) => {
+            setImporting(false);
+            toast.success(
+              `${plural(result.count, "lançamento criado", "lançamentos criados")}, ${plural(result.items, "item", "itens")}, ${brl(result.total)}.`
+            );
+            // A lista passa a mostrar o que acabou de entrar, em qualquer data.
+            resetPageAnd(() => {
+              setMode("tudo");
+              setTab("agrupados");
+              setIndicator("total");
+              setFilters({});
+              setSearchText("");
+              setSearch("");
+            });
             changed();
           }}
         />

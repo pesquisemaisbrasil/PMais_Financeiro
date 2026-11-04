@@ -8,7 +8,9 @@ import type {
   SortColumn,
   Tab,
   DateField,
-  ReplacementCandidate
+  ReplacementCandidate,
+  ImportPreview,
+  ImportResult
 } from "./payables";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
@@ -319,4 +321,12 @@ export function getReplacementCandidates(id: number): Promise<ReplacementCandida
 
 export function replaceProvision(id: number, body: unknown): Promise<PayableDetail> {
   return send<PayableDetail>(`/payables/${id}/replace`, "POST", body);
+}
+
+export function previewImport(form: FormData): Promise<ImportPreview> {
+  return request<ImportPreview>("/payables/import/preview", { method: "POST", body: form });
+}
+
+export function importPayables(form: FormData): Promise<ImportResult> {
+  return request<ImportResult>("/payables/import", { method: "POST", body: form });
 }
