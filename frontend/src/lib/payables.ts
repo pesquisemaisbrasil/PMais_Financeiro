@@ -263,14 +263,6 @@ export function monthRange(ref: string): { start: string; end: string } {
   return { start: `${ref.slice(0, 7)}-01`, end: addDays(addMonths(ref, 1), -1) };
 }
 
-export function movePeriod(mode: PeriodMode, ref: string, step: number): string {
-  if (mode === "dia") return addDays(ref, step);
-  if (mode === "semana") return addDays(ref, 7 * step);
-  if (mode === "mes") return addMonths(ref, step);
-  if (mode === "ano") return addMonths(ref, 12 * step);
-  return ref;
-}
-
 /** "1.234,56" ou "1234,56" vira "1234.56". Devolve null se não for um valor em reais. */
 export function parseMoney(text: string): string | null {
   const clean = text.trim().replace(/\s/g, "");

@@ -7,7 +7,6 @@ import {
   greeting,
   isoFromDate,
   monthRange,
-  movePeriod,
   nextRange,
   parseAllocations,
   parseMoney,
@@ -88,15 +87,6 @@ describe("período", () => {
     expect(periodLabel("mes", "2026-11-04")).toBe("novembro/2026");
     expect(periodLabel("ano", "2026-11-04")).toBe("2026");
     expect(periodLabel("tudo", "2026-11-04")).toBe("Todo o período");
-  });
-
-  it("navega sem pular mês em dia 31", () => {
-    expect(movePeriod("mes", "2026-01-31", 1)).toBe("2026-02-01");
-    expect(movePeriod("mes", "2026-01-15", -1)).toBe("2025-12-01");
-    expect(movePeriod("ano", "2026-05-20", 1)).toBe("2027-05-01");
-    expect(movePeriod("semana", "2026-11-04", -1)).toBe("2026-10-28");
-    expect(movePeriod("dia", "2026-12-31", 1)).toBe("2027-01-01");
-    expect(movePeriod("tudo", "2026-12-31", 1)).toBe("2026-12-31");
   });
 
   it("o período livre parte do mês da data", () => {

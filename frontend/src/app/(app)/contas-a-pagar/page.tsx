@@ -34,7 +34,6 @@ import {
   brl,
   formatDate,
   monthRange,
-  movePeriod,
   notifyPayablesChanged,
   periodLabel,
   plural,
@@ -557,20 +556,6 @@ function PayablesContent() {
                 open={calendarOpen}
                 onOpenChange={setCalendarOpen}
                 onApply={applyDates}
-              />
-            )}
-            {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
-              <IconButton
-                icon={ChevronLeft}
-                label="Período anterior"
-                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, -1)))}
-              />
-            )}
-            {mode !== "tudo" && mode !== "periodo" && effectiveRef && (
-              <IconButton
-                icon={ChevronRight}
-                label="Próximo período"
-                onClick={() => resetPageAnd(() => setRef(movePeriod(mode, effectiveRef, 1)))}
               />
             )}
             <Select

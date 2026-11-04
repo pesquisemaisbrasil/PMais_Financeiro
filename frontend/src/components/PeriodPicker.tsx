@@ -46,9 +46,9 @@ export function PeriodPicker({
           variant="outline"
           size="sm"
           aria-label={`Escolher datas: ${label}`}
-          className="h-9 min-w-[150px] gap-2 bg-card font-semibold tabular-nums"
+          className="h-9 gap-2 bg-card px-3 font-normal tabular-nums text-[#047857] hover:text-[#047857]"
         >
-          <CalendarDays size={15} className="text-muted-foreground" />
+          <CalendarDays size={18} strokeWidth={2.25} />
           {label}
         </Button>
       </PopoverTrigger>
