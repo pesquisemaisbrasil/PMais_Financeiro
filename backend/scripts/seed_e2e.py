@@ -35,6 +35,7 @@ from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
+from scripts.seed_demo import seed as seed_payables  # noqa: E402
 
 PASSWORD = "E2e!Fictic1a"
 TOTP_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"  # gitleaks:allow
@@ -46,6 +47,7 @@ WITH_MFA = [
     "repete@e2e.invalid",
     "recupera@e2e.invalid",
     "roubo@e2e.invalid",
+    "contas@e2e.invalid",
 ]
 
 
@@ -64,6 +66,7 @@ def main() -> None:
             )
             user.mfaEnabledAt = datetime.now(UTC)
             db.add(MfaRecoveryCode(user_id=user.id, codeHash=hash_token(RECOVERY_CODE)))
+        seed_payables(db)
         db.commit()
     finally:
         db.close()

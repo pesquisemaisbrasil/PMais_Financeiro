@@ -14,6 +14,7 @@ from models.login_event import LoginEvent  # noqa: E402,F401 (registers model on
 from models.mfa_recovery_code import (  # noqa: E402,F401 (registers model on Base.metadata)
     MfaRecoveryCode,
 )
+from models.payable import Payable  # noqa: E402,F401 (registers model on Base.metadata)
 from models.refresh_token import RefreshToken  # noqa: E402,F401 (registers model on Base.metadata)
 from models.user import User  # noqa: E402,F401 (registers model on Base.metadata)
 

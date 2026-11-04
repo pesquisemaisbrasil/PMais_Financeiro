@@ -12,6 +12,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from api.auth import RATE_LIMITED_DETAIL
 from api.auth import router as auth_router
 from api.health import router as health_router
+from api.payables import router as payables_router
 from core.config import CORS_ORIGINS, ENVIRONMENT
 from core.limiter import limiter
 from core.logging_config import setup_logging
@@ -108,3 +109,4 @@ async def security_headers(
 
 app.include_router(health_router)
 app.include_router(auth_router)
+app.include_router(payables_router)
