@@ -1,4 +1,15 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, false
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    false,
+    func,
+    text,
+)
 
 from db.connection import Base
 
@@ -64,10 +75,26 @@ class BankAccount(Base):
 
 class Supplier(Base):
     __tablename__ = "suppliers"
+    # O banco segura dois pedidos ao mesmo tempo com o mesmo documento.
+    __table_args__ = (
+        Index(
+            "uq_suppliers_active_document",
+            "document",
+            unique=True,
+            postgresql_where=text("active AND document IS NOT NULL"),
+            sqlite_where=text("active AND document IS NOT NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     nickname = Column(String(100), nullable=False)
     name = Column(String(200), nullable=False)
+    # Só CNPJ: CPF não é guardado (pergunta Q23).
+    document = Column(String(14), nullable=True)
+    contactName = Column(String(120), nullable=True)
+    phone = Column(String(30), nullable=True)
+    email = Column(String(200), nullable=True)
+    paymentTerms = Column(String(200), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 
@@ -85,3 +112,19 @@ class Project(Base):
     projectType = Column(String(40), nullable=True)
     hasIncentive = Column(Boolean, nullable=False, default=False, server_default=false())
     incentiveDays = Column(Integer, nullable=True)
+
+
+class RecordEvent(Base):
+    """Histórico dos cadastros: quem mudou o quê e quando. Só recebe linhas novas."""
+
+    __tablename__ = "record_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kind = Column(String(20), nullable=False, index=True)
+    # Sem chave estrangeira: o cadastro pode ser excluído, e o histórico fica.
+    record_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    text = Column(String(500), nullable=False)
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
