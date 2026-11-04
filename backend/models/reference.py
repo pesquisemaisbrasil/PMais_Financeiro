@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, false
 
 from db.connection import Base
 
@@ -81,3 +81,7 @@ class Project(Base):
     title = Column(String(200), nullable=False)
     # em_andamento → encerrado. Encerrado não aceita lançamento nem mudança de valor.
     status = Column(String(20), nullable=False, default="em_andamento")
+    # Por enquanto marcados aqui (F23). Sem prazo, incentivo sem data na planilha é recusado.
+    projectType = Column(String(40), nullable=True)
+    hasIncentive = Column(Boolean, nullable=False, default=False, server_default=false())
+    incentiveDays = Column(Integer, nullable=True)

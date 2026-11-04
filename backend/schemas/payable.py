@@ -249,6 +249,9 @@ class ProjectOut(BaseModel):
     code: str
     title: str
     status: str
+    projectType: str | None
+    hasIncentive: bool
+    incentiveDays: int | None
 
 
 class Reference(BaseModel):
@@ -294,3 +297,59 @@ class HomeSummary(BaseModel):
     attention: list[AttentionItem]
     cashflow: list[CashflowWeek]
     upcoming: list[UpcomingEntry]
+
+
+ImportKind = Literal["incentivos", "folha"]
+
+
+class ImportFields(BaseModel):
+    kind: ImportKind
+    projectId: int
+    categoryId: int
+    companyId: int
+    unitId: int
+    costCenterId: int
+    paymentMethodId: int
+    # Só a folha pede: no incentivo, a descrição e o vencimento saem do cronograma.
+    description: str | None = Field(default=None, max_length=200)
+    dueDate: date | None = None
+
+
+class ImportLine(BaseModel):
+    line: int
+    name: str
+    documentType: str
+    invoiceNumber: str | None
+    gross: Decimal | None
+    amount: Decimal | None
+    surveyDate: date | None
+    payDate: date | None
+    payDateGiven: bool
+    errors: list[str]
+
+
+class ImportGroup(BaseModel):
+    payDate: date
+    surveyDates: list[date]
+    count: int
+    total: Decimal
+    source: str
+
+
+class ImportPreview(BaseModel):
+    kind: ImportKind
+    projectType: str | None
+    deadlineDays: int | None
+    missingDeadline: bool
+    alreadyImported: bool
+    total: Decimal
+    goodCount: int
+    errorCount: int
+    groups: list[ImportGroup]
+    lines: list[ImportLine]
+
+
+class ImportResult(BaseModel):
+    count: int
+    items: int
+    total: Decimal

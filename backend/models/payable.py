@@ -75,6 +75,8 @@ class Payable(Base):
     isTransfer = Column(Boolean, nullable=False, default=False, server_default="false")
     notes = Column(String, nullable=True)
     # Provisão trocada pelo lançamento real: sai das contas, e o real entra no lugar.
+    # Resumo do arquivo importado, para avisar quando a mesma planilha vier de novo.
+    importHash = Column(String(64), nullable=True, index=True)
     replaced_by_id = Column(
         Integer, ForeignKey("payables.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -133,7 +135,10 @@ class PayableItem(Base):
     # NF | RPA | Incentivo | Sem NF
     documentType = Column(String(20), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
+    # RPA: `amount` é o líquido a pagar, e aqui fica o bruto.
+    grossAmount = Column(Numeric(10, 2), nullable=True)
     invoiceNumber = Column(String(50), nullable=True)
+    invoiceDate = Column(Date, nullable=True)
     # Recebida | Pendente. NF pendente é só aviso e não bloqueia o pagamento (decisão de 28/10).
     invoiceStatus = Column(String(20), nullable=True)
 

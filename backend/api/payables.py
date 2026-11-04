@@ -2,7 +2,17 @@ from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from core.limiter import limiter
@@ -18,6 +28,10 @@ from schemas.payable import (
     BatchReclassify,
     DateField,
     HomeSummary,
+    ImportFields,
+    ImportKind,
+    ImportPreview,
+    ImportResult,
     Indicator,
     KindFilter,
     PayableCreate,
@@ -36,6 +50,7 @@ from schemas.payable import (
     Tab,
 )
 from services import payable as payable_service
+from services import payable_import
 from services.auth import get_current_user
 
 router = APIRouter(tags=["contas a pagar"])
@@ -207,6 +222,73 @@ def pay_batch(
 ) -> dict[str, Any]:
     total = _in_transaction(db, lambda: payable_service.pay_batch(db, data, user))
     return {"total": total, "count": len(set(data.ids))}
+
+
+def _upload(file: UploadFile) -> tuple[str, bytes]:
+    content = file.file.read(payable_import.MAX_BYTES + 1)
+    if len(content) > payable_import.MAX_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "A planilha passa de 5 MB")
+    return file.filename or "", content
+
+
+def _import_fields(
+    kind: Annotated[ImportKind, Form()],
+    projectId: Annotated[int, Form()],
+    categoryId: Annotated[int, Form()],
+    companyId: Annotated[int, Form()],
+    unitId: Annotated[int, Form()],
+    costCenterId: Annotated[int, Form()],
+    paymentMethodId: Annotated[int, Form()],
+    description: Annotated[str | None, Form(max_length=200)] = None,
+    dueDate: Annotated[date | None, Form()] = None,
+) -> ImportFields:
+    return ImportFields(
+        kind=kind,
+        projectId=projectId,
+        categoryId=categoryId,
+        companyId=companyId,
+        unitId=unitId,
+        costCenterId=costCenterId,
+        paymentMethodId=paymentMethodId,
+        description=description,
+        dueDate=dueDate,
+    )
+
+
+@router.post(
+    "/payables/import/preview",
+    response_model=ImportPreview,
+    description="Confere a planilha, sem gravar nada",
+)
+@limiter.limit(WRITE_LIMIT)
+def preview_import(
+    request: Request,
+    file: UploadFile,
+    kind: Annotated[ImportKind, Form()],
+    projectId: Annotated[int, Form()],
+    db: DbSession,
+    _: FinanceUser,
+) -> dict[str, Any]:
+    filename, content = _upload(file)
+    return _handle(lambda: payable_import.preview(db, kind, projectId, filename, content))
+
+
+@router.post(
+    "/payables/import",
+    response_model=ImportResult,
+    status_code=status.HTTP_201_CREATED,
+    description="Cria os lançamentos da planilha; o arquivo não fica guardado",
+)
+@limiter.limit(WRITE_LIMIT)
+def import_payables(
+    request: Request,
+    file: UploadFile,
+    fields: Annotated[ImportFields, Depends(_import_fields)],
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    filename, content = _upload(file)
+    return _in_transaction(db, lambda: payable_import.confirm(db, fields, filename, content, user))
 
 
 @router.post(

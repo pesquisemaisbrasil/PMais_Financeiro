@@ -95,8 +95,14 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
         ]
     }
     db.add_all(suppliers.values())
-    p1804 = Project(code="1804", title="Pesquisa de satisfação · varejo")
-    p1790 = Project(code="1790", title="Tracking de marca · CATI")
+    p1804 = Project(
+        code="1804",
+        title="Pesquisa de satisfação · varejo",
+        projectType="Health",
+        hasIncentive=True,
+        incentiveDays=10,
+    )
+    p1790 = Project(code="1790", title="Tracking de marca · CATI", projectType="CATI")
     db.add_all([p1804, p1790])
     db.flush()
 

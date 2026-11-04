@@ -588,7 +588,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
 # ---- Escrita ----
 
 
-def _audit(db: Session, payable: Payable, user: User, text: str) -> None:
+def audit(db: Session, payable: Payable, user: User, text: str) -> None:
     db.add(PayableEvent(payable_id=payable.id, user_id=user.id, text=text[:500]))
 
 
@@ -619,18 +619,37 @@ def _check_allocations(db: Session, allocations: list[AllocationIn], amount: Dec
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
 
 
+def check_classification(
+    db: Session,
+    *,
+    categoryId: int,
+    companyId: int,
+    unitId: int,
+    costCenterId: int,
+    paymentMethodId: int,
+) -> None:
+    _active(db, ExpenseCategory, categoryId, "Categoria")
+    _active(db, Company, companyId, "Empresa")
+    _active(db, CostCenter, costCenterId, "Centro de custo")
+    _active(db, PaymentMethod, paymentMethodId, "Forma de pagamento")
+    unit = _active(db, BusinessUnit, unitId, "Unidade")
+    if unit.company_id != companyId:
+        raise PayableInvalid("A unidade não é dessa empresa")
+
+
 def create(db: Session, data: PayableCreate, user: User) -> Payable:
     if data.supplierId is not None:
         _active(db, Supplier, data.supplierId, "Fornecedor")
     elif data.type == "real":
         raise PayableInvalid("Escolha o fornecedor")
-    _active(db, ExpenseCategory, data.categoryId, "Categoria")
-    _active(db, Company, data.companyId, "Empresa")
-    _active(db, CostCenter, data.costCenterId, "Centro de custo")
-    _active(db, PaymentMethod, data.paymentMethodId, "Forma de pagamento")
-    unit = _active(db, BusinessUnit, data.unitId, "Unidade")
-    if unit.company_id != data.companyId:
-        raise PayableInvalid("A unidade não é dessa empresa")
+    check_classification(
+        db,
+        categoryId=data.categoryId,
+        companyId=data.companyId,
+        unitId=data.unitId,
+        costCenterId=data.costCenterId,
+        paymentMethodId=data.paymentMethodId,
+    )
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
     _check_allocations(db, data.allocations, data.amount)
@@ -663,7 +682,7 @@ def create(db: Session, data: PayableCreate, user: User) -> Payable:
     )
     db.add(payable)
     db.flush()
-    _audit(
+    audit(
         db,
         payable,
         user,
@@ -707,7 +726,7 @@ def update(db: Session, payable_id: int, data: PayableUpdate, user: User) -> Non
         changes.append(f"descrição {payable.description} → {data.description}")
         payable.description = data.description
     if changes:
-        _audit(db, payable, user, "Alterada: " + "; ".join(changes))
+        audit(db, payable, user, "Alterada: " + "; ".join(changes))
     db.commit()
 
 
@@ -777,7 +796,7 @@ def pay(db: Session, payable_id: int, data: PaymentCreate, user: User) -> Decima
         created_by_user_id=user.id,
     )
     db.add(payment)
-    _audit(
+    audit(
         db,
         payable,
         user,
@@ -812,7 +831,7 @@ def pay_batch(db: Session, data: BatchPaymentCreate, user: User) -> Decimal:
                 created_by_user_id=user.id,
             )
         )
-        _audit(
+        audit(
             db,
             payable,
             user,
@@ -849,7 +868,7 @@ def reverse_payment(
         )
     )
     label = "Estorno" if data.kind == "estorno" else "Pix devolvido"
-    _audit(
+    audit(
         db,
         payable,
         user,
@@ -870,7 +889,7 @@ def cancel(db: Session, payable_id: int, reason: str, user: User) -> None:
     if payable.origin == "connect":
         raise PayableConflict("Lançamento do Connect não é cancelado aqui")
     payable.canceledAt = datetime.now(UTC)
-    _audit(db, payable, user, f"Cancelada: {reason}")
+    audit(db, payable, user, f"Cancelada: {reason}")
     _reopen_provisions(db, payable, user)
     db.commit()
 
@@ -937,7 +956,7 @@ def _launch_real(db: Session, provision: Payable, data: ProvisionReplace, user: 
     )
     db.add(real)
     db.flush()
-    _audit(db, real, user, f'Lançada como valor real da provisão "{provision.description}"')
+    audit(db, real, user, f'Lançada como valor real da provisão "{provision.description}"')
     return real
 
 
@@ -955,7 +974,7 @@ def replace_provision(db: Session, payable_id: int, data: ProvisionReplace, user
     else:
         real = _launch_real(db, provision, data, user)
     provision.replaced_by_id = real.id
-    _audit(
+    audit(
         db,
         provision,
         user,
@@ -970,7 +989,7 @@ def _reopen_provisions(db: Session, real: Payable, user: User) -> None:
     """Sem a conta real, a provisão volta a contar: o previsto não pode sumir sem aviso."""
     for provision in real.replaced_provisions:
         provision.replaced_by_id = None
-        _audit(db, provision, user, f'Voltou a valer: a conta real "{real.description}" saiu')
+        audit(db, provision, user, f'Voltou a valer: a conta real "{real.description}" saiu')
 
 
 def _classification(payable: Payable) -> str:
@@ -1009,7 +1028,7 @@ def reclassify_batch(db: Session, data: BatchReclassify, user: User) -> int:
             payable.category = category
         if center is not None:
             payable.cost_center = center
-        _audit(db, payable, user, f"Reclassificada: {before} → {_classification(payable)}")
+        audit(db, payable, user, f"Reclassificada: {before} → {_classification(payable)}")
     db.commit()
     return len(ids)
 
@@ -1066,7 +1085,7 @@ def duplicate_batch(db: Session, ids: list[int], user: User) -> int:
         )
         db.add(copy)
         db.flush()
-        _audit(db, copy, user, f"Criada como cópia da conta {source.description}")
+        audit(db, copy, user, f"Criada como cópia da conta {source.description}")
     db.commit()
     return len(unique)
 
@@ -1083,7 +1102,7 @@ def delete_batch(db: Session, ids: list[int], user: User) -> int:
     now = datetime.now(UTC)
     for payable in payables:
         payable.deletedAt = now
-        _audit(db, payable, user, f"Excluída: {payable.description} ({format_brl(payable.amount)})")
+        audit(db, payable, user, f"Excluída: {payable.description} ({format_brl(payable.amount)})")
         _reopen_provisions(db, payable, user)
     db.commit()
     return len(payables)
