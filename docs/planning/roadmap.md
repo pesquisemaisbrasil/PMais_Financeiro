@@ -79,6 +79,11 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 7. **Nova conta a pagar**: um rateio que não fecha mostra a diferença e não salva. Corrija e lance.
 8. Selecione duas contas e dê baixa em lote. Tente excluir uma com baixa: o sistema recusa até estornar.
 9. Recolha o menu lateral pelo botão ao lado do logo: ficam só os ícones, e a escolha continua depois de recarregar.
+10. Nos filtros, digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Unidade**, **Situação**, **Tipo** e **Período por**.
+11. **Exportar** baixa um CSV com tudo o que os filtros mostram. Abra no Excel: os acentos aparecem certos, e os filtros estão na primeira linha.
+12. Selecione contas e use **Reclassificar**: sem escolher nada, o sistema pede o que vai mudar. O **Histórico** mostra o antes e o depois.
+13. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
+14. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
 
 ### Login com MFA, Google e Microsoft
 
