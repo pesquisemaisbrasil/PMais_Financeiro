@@ -39,7 +39,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
 
 ## Regras
 
-1. **O dono do orçamento é o Connect.** Só **supervisor autorizado pelo administrador** altera os itens, e toda mudança aparece aqui (D1). O Financeiro **não edita** o orçamento: lê e aplica. Mudar exige autorização de um administrador, no Connect, auditada [Reunião 21/10 33:26; handoff/01 decisão 8].
+1. **O dono do orçamento é o Connect.** Quem altera os itens é o **administrador e o coordenador do projeto**, com histórico, e toda mudança aparece aqui (E4). O supervisor não altera; o papel `financeiro` no Connect continua alterando por enquanto, até o Financeiro novo assumir a planilha e a baixa. O Financeiro **não edita** o orçamento: lê e aplica. Mudar exige autorização de um administrador, no Connect, auditada [Reunião 21/10 33:26; handoff/01 decisão 8].
 2. **Teto por categoria:**
    - um lançamento real que leva comprometido + realizado acima do orçado da categoria entra como `pendente_autorizacao`;
    - só segue (programação, lote, baixa) depois da autorização de **algum administrador**, e **a autorização fica em log** (quem, quando, valor e motivo) (D3);
@@ -53,7 +53,7 @@ Contrato de como o orçamento do projeto chega ao Financeiro, vira **provisão**
    - total real de uma categoria muito diferente do provisionado na data ("tinha 18 mil, chegou 35 mil" [Reunião 21/10 32:28]);
    - **projeção de estouro:** o consumo proporcional ao campo feito passa do orçado (fórmula inicial `realizado / % campo concluído > orçado × 1,05`).
 8. O alerta explica a causa e **nunca altera o orçamento**.
-   - **Consumo no Connect (D5):** o supervisor vê no Connect quanto já foi gasto dos itens que não são entrevista. O Financeiro **fornece** o consumo por categoria do projeto (só valores, sem dado pessoal), pelo contrato (N4).
+   - **Consumo no Connect (E3, que muda a D5):** o gasto dos itens que não são entrevista é lançado no Connect pelo coordenador. O Financeiro **lê** o total gasto por item (`items[].spent`), sem descrição nem autor.
 9. Competência × caixa: a carteira usa **competência**; o fluxo de caixa usa a **data prevista** (provisão) e a **data de baixa** (realizado).
 
 ## Casos negados

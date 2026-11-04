@@ -2,63 +2,47 @@
 
 > **Módulo 4 — Projetos, orçamento e provisionamento.** Ordem e estado em [planning/roadmap](../planning/roadmap.md).
 
-Contrato da ficha financeira do projeto, do seu ciclo de vida e dos eventos de abertura e fechamento. Substitui a planilha de controle de projetos e o "cronograma" mantidos à mão, e o cadastro de projetos do SGE4B.
+Contrato da **visão financeira** do projeto: receita, custo, provisão, margem e relatório. O projeto em si nasce e vive no **Connect** (E1, E5), com o coordenador. Aqui ele é um espelho mínimo, e o Contas a pagar é quem o alimenta (K1).
 
 ## Comportamento
 
-- **Ficha do projeto** (visível para todas as áreas no escopo, que era o "cronograma para todo mundo ver" pedido [S1 02:23]):
-  - identificação: código do job* (a nossa referência), nome*, referência do cliente, cliente*, empresa*, unidade*, centro de custo*, ID no Connect*. **O projeto nasce no Connect e chega aqui sozinho** com código, nome, datas e orçamento; o financeiro completa só o que é dele [Reunião 21/10 3:00, 33:26];
-  - operação: área (Health, CATI, Campo...), metodologia (quanti/quali, CATI, presencial, online, NPS...), gestora responsável*, supervisores, amostra prevista, duração do questionário (min);
-  - datas: mês de **venda** e mês de **execução** (são diferentes: vende num ano e executa no outro [S1 08:25]), início e término de campo previstos e reais;
-  - regras financeiras: **fonte do incentivo** (`caixa_proprio` | `link_cliente` — no link do cliente o dinheiro não sai do nosso caixa [S1 03:50]), **origem da lista** (`propria` | `cliente` | `mista`, com cotas por origem quando houver), modelo de pagamento do campo (por entrevista, por hora, por diária ou misto), ciclo de folha;
-  - valores: valor vendido (receita), orçamento por rubrica (ver [orcamento-e-saude-financeira](orcamento-e-saude-financeira.md)) e reserva de contingência.
-- **Fim do projeto:** o encerramento no Connect marca a data que conta para a folha final (o prazo é definido pelo supervisor no projeto e vale para todas as equipes; ver [folha-de-campo](folha-de-campo.md)) e transforma em data certa a provisão da folha final.
-- **Ciclo de vida:** `proposta` → `aprovado` → `em_campo` → `campo_encerrado` → `em_fechamento` → `fechado`; pode ir para `cancelado` a partir de qualquer estado antes de `fechado`.
-- **Abertura** (ao passar para `em_campo`): gera um **checklist de abertura** com tarefas por área (processamento, verificação, delivery/online, financeiro). Cada tarefa tem responsável, prazo e aceite, e o checklist inclui itens como "checagem de consistência" que hoje são esquecidos no copia-e-cola de e-mail [S2 11:01–15:20]. Gera também uma comunicação curta com o link da ficha, em vez do e-mail longo.
-- **Fechamento** em dois passos:
-  1. **Encerrar campo**, pelo supervisor ou pela gestora: avisa na hora o processamento e as demais áreas [S2 16:27].
-  2. **Fechamento financeiro**, pela gestora: só depois da última folha paga e sem divergência aberta. Mostra planejado × realizado por rubrica, resultado (receita − custos) e margem, e exige a **classificação do resultado**.
-- **Resultado:** `positivo` | `negativo` | `neutro`. Se negativo, ou se alguma rubrica estourou, exige **causa** (lista + texto livre). Causas iniciais: duração maior que a prevista, lista improdutiva, cotas rígidas, custo de delivery/online, verificação, telefonia, aumento de incentivo, aumento de equipe/diárias e outro [S1 09:37–11:20; S2 01:15–02:25].
-- **Relatório do projeto** [Kickoff 03/11 12:41–13:23]: a tela por projeto mostra orçamento, lançado, pago, a pagar, saldo e **os anexos de todos os lançamentos** de Contas a pagar do projeto (planilhas, comprovantes, notas), com link para cada lançamento. Responde "quanto foi gasto no projeto X" e serve para fechar relatório. **Não é onde se paga**: o pagamento é feito nos lançamentos de [contas-a-pagar](contas-a-pagar.md).
-- **Tipo do projeto** (Health, CATI, consumo...), **tem incentivo** e **prazo do incentivo em dias úteis** ficam na ficha; onde são configurados (Connect ou Financeiro) é a pergunta F23 [Kickoff 03/11 16:31–17:10].
-- A lista de projetos mostra cartões com totais, filtros por status, área, cliente, gestora, resultado e mês de venda/execução, e as cores positivo/negativo da planilha atual [S1 09:37].
+- **O projeto chega sozinho do Connect**, com código, nome, datas, orçamento por itens e situação. O Financeiro não cria projeto, não muda a situação e não altera o orçamento [Reunião 21/10 3:00, 33:26; E5].
+- **O que o financeiro completa aqui:**
+  - valor vendido (receita);
+  - mês de **venda** e mês de **execução**, que são diferentes: vende num ano e executa no outro [S1 08:25];
+  - **fonte do incentivo** (`caixa_proprio` | `link_cliente`): no link do cliente, o dinheiro não sai do nosso caixa [S1 03:50].
+- **Relatório do projeto** [Kickoff 03/11 12:41–13:23]: a tela por projeto mostra orçamento, lançado, pago, a pagar, provisões, saldo, margem e **os anexos de todos os lançamentos** de Contas a pagar do projeto, com link para cada lançamento. Responde "quanto foi gasto no projeto X" e serve para fechar relatório. **Não é onde se paga.**
+- **Fim do projeto:** o encerramento no Connect marca a data que conta para a folha final ([folha-de-campo](folha-de-campo.md)) e transforma em data certa a provisão da folha final.
+- **Tipo do projeto** (Health, CATI, consumo...), **tem incentivo** e **prazo do incentivo em dias úteis**: onde são configurados é a pergunta F23 [Kickoff 03/11 16:31–17:10].
+- **Resultado:** receita − custos, com a classificação `positivo` | `negativo` | `neutro`. Se negativo, ou se alguma categoria estourou, pede a **causa** (lista + texto livre) [S1].
+- A lista de projetos mostra cartões com totais, filtros por situação, cliente, resultado e mês de venda ou execução, e as cores positivo/negativo da planilha atual [S1 09:37].
 
 ## Regras
 
-1. Código único por empresa. O ID do Connect é único quando informado.
-2. Não passa para `em_campo` sem cliente, centro de custo, gestora, modelo de pagamento e orçamento aprovado.
-3. Orçamento aprovado na abertura é a **linha de base** (baseline) e não se edita. Mudanças depois disso são ajustes registrados no ledger.
-4. `fechado` é imutável: nenhum lançamento novo entra. Ajuste depois do fechamento exige **reabrir** (só administrador, com motivo) ou lançar em projeto de ajuste.
-5. Fechamento financeiro bloqueado se houver folha não paga, lote com devolução não resolvida, divergência do Connect aberta ou título a pagar do projeto em aberto. Pela ordem: primeiro trate, depois feche.
-6. Projeto `cancelado` com custos lançados também passa por fechamento financeiro, com resultado e causa.
-7. As tarefas de abertura e de fechamento são configuráveis por área e por metodologia (modelos de checklist), sem código.
+1. O código do projeto vem do Connect e é único. O ID do Connect é guardado como `connect_project_id`, sem FK.
+2. Projeto encerrado no Connect não aceita lançamento novo nem mudança de valor. Quem reabre é um administrador, no Connect.
+3. O resultado é **calculado** a partir dos lançamentos: custo vem de Contas a pagar, nunca é digitado na tela do projeto.
+4. O relatório nunca altera lançamentos nem o orçamento.
 
 ## Casos negados
 
 | Situação | HTTP | `detail` |
 |---|---|---|
-| Iniciar campo sem orçamento aprovado | 409 | Aprove o orçamento antes de iniciar o campo |
-| Iniciar campo sem gestora ou modelo de pagamento | 422 | (validação por campo) |
-| Fechar financeiro com folha ou lote pendente | 409 | Ainda há pagamentos pendentes neste projeto: N folhas / M lotes |
-| Fechar negativo sem causa | 422 | Informe a causa do resultado negativo |
 | Lançar em projeto fechado | 409 | Projeto fechado — peça a reabertura a um administrador |
-| Reabrir sem ser administrador | 403 | Só um administrador pode reabrir um projeto fechado |
-| Código de projeto já usado na empresa | 409 | Já existe um projeto com esse código |
+| Fechar resultado negativo sem causa | 422 | Informe a causa do resultado negativo |
 
 ## Critérios de aceite
 
-- [ ] A gestora cria a ficha, aprova o orçamento e inicia o campo; as tarefas de abertura aparecem para processamento, verificação e financeiro, com prazo.
+- [ ] Um projeto criado no Connect aparece aqui sem digitação, e o financeiro só completa receita e meses.
 - [ ] O relatório do projeto lista orçamento, lançado, pago, a pagar, saldo e os anexos de todos os seus lançamentos de Contas a pagar, e cada lançamento abre ao ser clicado.
 - [ ] Um projeto vendido em dez/2025 e executado em mar/2026 aparece nos dois filtros (venda e execução).
 - [ ] Incentivo marcado como "link do cliente" não gera título a pagar, mas aparece como informativo no planejado × realizado.
-- [ ] Ao encerrar o campo, o processamento recebe a tarefa na hora, sem depender de e-mail.
-- [ ] Fechar com folha pendente é recusado com a contagem certa.
-- [ ] Fechar negativo pede a causa; o relatório de resultados agrupa os projetos por causa.
-- [ ] Um projeto fechado não aceita lançamento; um administrador reabre com motivo e isso aparece na auditoria.
+- [ ] Resultado negativo pede a causa; o relatório de resultados agrupa os projetos por causa.
+- [ ] Um projeto encerrado no Connect não aceita lançamento em Contas a pagar.
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- O espelho mínimo está em `backend/models/reference.py`. O restante será criado na implementação do módulo.
 
 Origem do requisito:
 
@@ -76,3 +60,4 @@ Origem do requisito:
 - 2026-10-21: o projeto **fica no Connect** e o supervisor administra tudo lá ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md), D4). O ciclo de vida e a aprovação do orçamento descritos aqui precisam ser revistos (pergunta Q16, resolvida em 23/10: ver o ajuste abaixo).
 - 2026-10-23: **resolvida a Q16.** O ciclo de vida do projeto, o orçamento por itens e o gasto ficam no **Connect**, com o papel de **coordenador** (cria o projeto, atribui o supervisor, muda orçamento e preço com histórico e lança o gasto dos itens que não são entrevista); o supervisor só lança entrevistas nos projetos atribuídos ([decisões do PO](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), E1 a E5). Este spec deve ser reduzido à **visão financeira** do projeto (receita, custo, provisão, margem), sem ciclo de vida próprio.
 - 2026-11-03: a tela por projeto vira **relatório do projeto** (orçamento, lançado, pago, a pagar, saldo e anexos), e o pagamento fica em Contas a pagar; o tipo do projeto, "tem incentivo" e o prazo do incentivo entram na ficha ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K4, K7).
+- 2026-11-04: spec reduzida à visão financeira, como pedem a E1 e a E5. Saíram o ciclo de vida próprio, a gestora, o checklist de abertura e o fechamento em dois passos, que ficam no Connect ou deixam de existir. A classificação do resultado e as causas ficam até o financeiro validar o relatório do projeto.

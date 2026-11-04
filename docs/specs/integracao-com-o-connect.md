@@ -41,7 +41,7 @@ Contrato do que o **Financeiro** implementa para conversar com o P+ Connect. O c
 - **O que a reunião de 21/10 acrescenta (a entrar no contrato, N4):**
   - itens do orçamento com data (leitura);
   - modelo fiscal (NF ou RPA) e status da NF do entrevistador (leitura). **O arquivo da NF não passa por aqui**: fica no Connect (D8);
-  - **consumo do orçamento por categoria**, que o **Financeiro fornece** e o Connect lê para mostrar ao supervisor (D5): só valores, sem dado pessoal;
+  - **consumo do orçamento por item** (`items[].spent`), que o coordenador lança no Connect e o **Financeiro lê** (E3): só valores, sem descrição nem autor;
   - prazo de pagamento do projeto, definido pelo supervisor (D9).
 - **Sincronização de segurança:**
   - feed `GET /events?after=<maior seq>` a cada 5 min e no início do dia;
