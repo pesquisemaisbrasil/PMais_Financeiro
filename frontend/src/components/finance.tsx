@@ -93,7 +93,7 @@ export function PageHeader({
   overline?: string;
   title: string;
   icon: LucideIcon;
-  subtitle: string;
+  subtitle?: string;
   actions?: React.ReactNode;
 }) {
   return (
@@ -108,7 +108,7 @@ export function PageHeader({
           </span>
           {title}
         </h1>
-        <p className="max-w-[720px] text-sm text-muted-foreground">{subtitle}</p>
+        {subtitle && <p className="max-w-[720px] text-sm text-muted-foreground">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>

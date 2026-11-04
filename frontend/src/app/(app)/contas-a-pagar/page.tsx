@@ -457,7 +457,6 @@ function PayablesContent() {
       <PageHeader
         title="Contas a pagar"
         icon={ArrowUpRight}
-        subtitle="Tudo o que se paga fica aqui: contas, planilhas de folha e incentivos, pagamentos do Connect e provisões. Dê baixa no dia em que o dinheiro saiu."
         actions={
           <Button onClick={() => setCreating(true)} disabled={!reference}>
             <Plus size={16} />
