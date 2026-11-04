@@ -19,7 +19,7 @@ Ordem dos módulos do Financeiro e o estado de cada um. Cada módulo segue o mes
 
 | # | Módulo | Specs | Depende de | Estado |
 |---|---|---|---|---|
-| 0 | Fundação do repositório | [handoff/11 fase 0](../handoff/11-plano-de-implementacao.md) | — | em andamento: login com MFA e CI entregues; faltam MinIO e o resto da fundação |
+| 0 | Fundação do repositório | [handoff/11 fase 0](../handoff/11-plano-de-implementacao.md) | — | em andamento: login com MFA e SSO, CI, compose e componentes entregues; faltam o armazenamento de arquivos (Q18) e AGENTS.md, skills e revisores (PF-11) |
 | 1 | Pagamento de entrevistadores | acesso-e-auditoria, pagamentos-a-pagar, comprovantes-e-baixa, integracao-com-o-connect | 0; API de integração no Connect | specs prontos |
 | 2 | Cadastros, papéis e migração | cadastros-e-dimensoes, papeis-e-escopo-ampliados | 0; exportação do SGE4B | specs prontos; falta a exportação |
 | 3 | Contas a pagar e a receber | contas-a-pagar, contas-a-receber, baixas-recorrencia-e-anexos, documentos-fiscais | 2 | specs prontos; protótipo a fazer |

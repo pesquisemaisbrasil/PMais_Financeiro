@@ -5,6 +5,7 @@
 ## Comportamento
 
 - Cada usuário tem um papel e um **escopo**: empresas e unidades, e opcionalmente uma lista de projetos.
+- **Coordenador e supervisor vivem no Connect** (E1, E2): o coordenador cria o projeto, atribui o supervisor, muda orçamento e preço com histórico e lança o gasto dos itens que não são entrevista; o supervisor só lança entrevistas nos projetos atribuídos a ele. Os dois só enxergam os projetos em que são responsáveis. O Financeiro recebe disso, pela API, o projeto, o orçamento por itens e o total gasto, e nenhum dos dois entra aqui hoje (Q1).
 - Papéis novos:
 
 | Papel | Quem é | Faz |
