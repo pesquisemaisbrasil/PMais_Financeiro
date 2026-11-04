@@ -58,7 +58,9 @@ Critério: o saldo em aberto por empresa e por fornecedor/cliente bate 100% com 
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- `backend/api/records.py`, `backend/services/records.py` e `frontend/src/app/(app)/cadastros/page.tsx`.
+
+**O que ainda falta:** cliente e contrato, CNPJ e razão social da empresa, centro de custo e conta com código por empresa, plano de contas com conta sintética, natureza e linha do DRE, rubrica, CPF e chave Pix do fornecedor (Q23), telefones e e-mails múltiplos, endereço, dados bancários, anexos, filtros, ordenação, impressão e exportação das listas, "últimos alterados", importação em massa e a migração do SGE4B.
 
 Origem do requisito:
 
@@ -72,3 +74,6 @@ Origem do requisito:
 ## Ajustes
 
 - 2026-10-23: o Grupo tem **4 empresas** (MC, PPlus, P Plus Log e Medtrek). A **I-hea** é uma unidade de negócio com sistema próprio e fica **fora** do Financeiro por enquanto (pergunta F13) ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A1).
+- 2026-11-04 (tela de cadastros): o fornecedor aceita só **CNPJ**, opcional, inclusive o alfanumérico. O spec pede CPF/CNPJ, mas a regra do projeto é não guardar CPF, e o hash com os 4 últimos dígitos ainda depende do DPO; por isso fornecedor pessoa física fica sem documento até a Q23. A chave Pix de fornecedor também fica de fora até lá.
+- 2026-11-04 (tela de cadastros): **projeto não é criado aqui**, só recebe o tipo, o "tem incentivo" e o prazo (F23). Até a integração com o Connect (PF-6), os projetos só existem se entrarem pela carga inicial.
+- 2026-11-04 (tela de cadastros): toda criação, edição, inativação e exclusão fica em `record_events`, que só recebe linhas novas. Cadastro em uso mantém a empresa, para o lançamento não ficar com a unidade de outra empresa. Empresa com unidade ou conta bancária conta como em uso.

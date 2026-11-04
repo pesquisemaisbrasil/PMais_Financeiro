@@ -93,6 +93,13 @@ Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em
 4. **Copiar cronograma para o projeto** gera o texto para o e-mail. **Criar** abre os lançamentos na aba **Planilhas e agrupados**, com as pessoas na seta da linha.
 5. Em **Folha de campo**, use `Nome`, `Documento`, `Valor`, `Número da NF` e `Emissão`: RPA de R$ 1.000,00 entra como R$ 890,00, e NF sem número fica como pendente.
 
+Em **Cadastros**, no menu:
+
+1. **Novo fornecedor**: apelido e nome são obrigatórios. Um CNPJ com dígito errado é recusado, e um CPF também, porque CPF não fica guardado. Teste com `11.222.333/0001-81`.
+2. O mesmo CNPJ em outro fornecedor ativo é recusado.
+3. Um cadastro com lançamento não mostra **Excluir**, só **Inativar**. Inativado, ele some da **Nova conta a pagar** e continua na lista de contas.
+4. Em **Projetos (Connect)**, marque o tipo, o incentivo e o prazo. Volte ao **Importar planilha**: o projeto passa a calcular o cronograma.
+
 ### Login com MFA, Google e Microsoft
 
 Com o sistema rodando ([README](../../README.md#como-rodar)):
