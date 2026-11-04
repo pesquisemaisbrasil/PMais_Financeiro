@@ -51,7 +51,7 @@ export function Sidebar() {
     .toUpperCase();
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 flex-shrink-0 flex-col self-start border-r border-border bg-card">
+    <aside className="flex w-full flex-shrink-0 flex-col self-start border-b border-border bg-card md:sticky md:top-0 md:h-screen md:w-64 md:border-b-0 md:border-r">
       <div className="flex items-center gap-2.5 bg-brand-azul-deep px-5 py-[18px]">
         <Image src="/logo-branco.png" alt="P+ Financeiro" width={77} height={28} priority />
         <span className="border-l border-white/40 pl-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-white">
@@ -82,7 +82,7 @@ export function Sidebar() {
                   {link.label}
                   {link.counted && badge > 0 && (
                     <span
-                      title={`${badge} pendências`}
+                      title={badge === 1 ? "1 pendência" : `${badge} pendências`}
                       className={cn(
                         "ml-auto rounded-full px-[7px] text-[11px] font-bold leading-[18px]",
                         active ? "bg-white/25 text-white" : "bg-[#fef3c7] text-[#b45309]"

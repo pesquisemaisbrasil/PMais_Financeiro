@@ -21,6 +21,11 @@ describe("buildCsp", () => {
     expect(buildCsp("n", false)).not.toContain("'unsafe-eval'");
   });
 
+  it("sem a variável, libera a mesma API que o front chama", () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", undefined);
+    expect(buildCsp("n", false)).toContain("connect-src 'self' http://localhost:8010;");
+  });
+
   it("libera conexão só para a própria API", () => {
     vi.stubEnv("NEXT_PUBLIC_API_URL", "https://api.exemplo.com.br/");
     expect(buildCsp("n", false)).toContain("connect-src 'self' https://api.exemplo.com.br;");

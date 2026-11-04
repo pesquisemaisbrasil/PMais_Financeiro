@@ -22,6 +22,8 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q17 | O prazo de **6 meses** vale também para as **notas de fornecedores** (hoje 5 anos no cofre do Financeiro)? | DPO + Bruna | 5 anos no cofre, com `retainUntil` | decisões pós-reunião |
 | Q18 | O que substitui o **MinIO** no armazenamento de arquivos? O projeto foi arquivado no GitHub, e as imagens e os binários oficiais saíram do ar | João | Não há upload ainda, e o compose sobe sem armazenamento | PF-13, 03/11/2026 |
 | Q19 | O PDF de comprovantes **fica guardado no lançamento**? O kickoff de 03/11 (K2) pede isso, mas a decisão 10 do handoff, a regra 5 de `visao-geral` e a regra 7 de `comprovantes-e-baixa` dizem que ele é descartado. Se ficar, em qual cofre e por quanto tempo? | João + DPO | Não guarda. Até a decisão, os anexos não entram no Contas a pagar | kickoff 03/11 |
+| Q20 | A **baixa manual** em Contas a pagar pede reautenticação? A spec de acesso pede para "confirmar baixa", e ainda não está definido como quem entra por Google ou Microsoft se reautentica | João | Não pede; a baixa exige só a sessão. Resolver antes de produção | revisão de 04/11 |
+| Q21 | Provisão conta em **Hoje** e **Vencidos**, e no aviso do Início? Conta parcial que vence hoje mostra "Vence hoje" ou "Parcial"? | Financeiro | Como no protótipo: conta, e o prazo prevalece | revisão de 04/11 |
 
 ## Módulos 2 a 7
 

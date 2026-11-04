@@ -9,7 +9,9 @@ OptionalMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 PeriodMode = Literal["dia", "semana", "mes", "ano", "tudo"]
-Indicator = Literal["total", "pagos", "pendentes", "vencidos", "hoje", "avencer", "provisoes"]
+Indicator = Literal[
+    "total", "pagos", "pendentes", "vencidos", "hoje", "avencer", "provisoes", "cancelados"
+]
 Tab = Literal["todas", "agrupados", "provisoes", "connect"]
 SortColumn = Literal[
     "vencimento", "fornecedor", "documento", "categoria", "situacao", "valor", "pago", "pendente"
@@ -33,7 +35,7 @@ class PayableCreate(BaseModel):
     costCenterId: int
     paymentMethodId: int
     description: ShortText
-    allocations: list[AllocationIn] = []
+    allocations: list[AllocationIn] = Field(default=[], max_length=200)
     documentType: DocumentType = "Sem documento"
     documentNumber: str | None = Field(default=None, max_length=50)
     documentDate: date | None = None
@@ -71,6 +73,15 @@ class BatchPaymentCreate(BaseModel):
 
 class BatchIds(BaseModel):
     ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class BatchPaymentResult(BaseModel):
+    total: Decimal
+    count: int
+
+
+class BatchDeleteResult(BaseModel):
+    count: int
 
 
 class ReasonIn(BaseModel):

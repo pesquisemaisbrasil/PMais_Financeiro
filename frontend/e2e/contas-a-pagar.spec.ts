@@ -102,5 +102,39 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("option", { name: "Tudo" }).click();
   await expect(page.getByRole("button", { name: /^Vencidos/ })).toContainText("R$ 389,90");
 
+  // Trocar de página limpa a seleção: o lote só age no que está à vista
+  await page.getByRole("checkbox", { name: "Selecionar Telefonia e internet" }).check();
+  await expect(page.getByText("1 selecionada")).toBeVisible();
+  await page.getByRole("button", { name: "Próxima página" }).click();
+  await expect(page.getByText("1 selecionada")).toHaveCount(0);
+  await page.getByRole("button", { name: "Página anterior" }).click();
+
+  // Baixa em lote
+  await page.getByRole("checkbox", { name: "Selecionar Honorários contábeis" }).check();
+  await page.getByRole("checkbox", { name: "Selecionar Licenças de software" }).check();
+  await page.getByRole("button", { name: "Dar baixa" }).first().click();
+  await expect(page.getByRole("dialog")).toContainText("2 contas");
+  await choose(page, "Forma", "Pix");
+  await page.getByRole("dialog").getByRole("button", { name: "Baixar 2 contas" }).click();
+  await expect(page.getByText(/Baixa feita em 2 contas/)).toBeVisible();
+
+  // Excluir conta com baixa é recusado
+  await page.getByRole("checkbox", { name: "Selecionar Honorários contábeis" }).check();
+  await page.getByRole("button", { name: "Excluir" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Excluir" }).click();
+  await expect(page.getByRole("dialog").getByText(/estorne antes de excluir/)).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Voltar" }).click();
+  await page.getByRole("checkbox", { name: "Selecionar Honorários contábeis" }).uncheck();
+
+  // Conta cancelada continua consultável
+  await page.getByRole("row", { name: /Aluguel da sala/ }).getByRole("button", { name: "Ver detalhes" }).click();
+  await page.getByRole("button", { name: "Cancelar conta" }).click();
+  await page.getByLabel("Motivo").fill("Lançada por engano");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar conta" }).last().click();
+  await expect(page.getByText("Conta cancelada.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Canceladas/ }).click();
+  await expect(page.getByRole("row", { name: /Aluguel da sala/ })).toContainText("Cancelada");
+
   expect(blocked).toEqual([]);
 });

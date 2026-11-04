@@ -40,6 +40,7 @@ import {
   parseAllocations,
   parseMoney,
   plural,
+  toCents,
   toField,
   type PayableDetail,
   type PayableRow,
@@ -110,6 +111,8 @@ function FormError({ message }: { message: string | null }) {
 }
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
+const NO_PROJECT = "sem-projeto";
+const NO_ACCOUNT_HINT = "Esta empresa não tem conta bancária cadastrada.";
 
 export function NewPayableDialog({
   reference,
@@ -217,7 +220,7 @@ export function NewPayableDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[820px]">
         <form onSubmit={submit} noValidate>
           <DialogHeader>
@@ -303,12 +306,14 @@ export function NewPayableDialog({
               <Field label="Projeto" id="p-proj" hint="Ou divida entre projetos logo abaixo.">
                 <Choice
                   id="p-proj"
-                  value={form.projectId}
-                  onChange={set("projectId")}
-                  placeholder="Sem projeto"
-                  options={reference.projects
-                    .filter((p) => p.status !== "encerrado")
-                    .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
+                  value={form.projectId || NO_PROJECT}
+                  onChange={(value) => set("projectId")(value === NO_PROJECT ? "" : value)}
+                  options={[
+                    { id: NO_PROJECT, label: "Sem projeto" },
+                    ...reference.projects
+                      .filter((p) => p.status !== "encerrado")
+                      .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
+                  ]}
                 />
               </Field>
             </div>
@@ -378,7 +383,7 @@ export function NewPayableDialog({
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
               Cancelar
             </Button>
             <Button type="submit" disabled={submitting}>
@@ -410,8 +415,9 @@ export function PaymentDialog({
     (account) => reference.companies.find((c) => c.id === account.companyId)?.name === row.companyName
   );
   const method = reference.paymentMethods.find((m) => m.name === row.paymentMethodName);
+  const [amountEdited, setAmountEdited] = useState(false);
   const [form, setForm] = useState({
-    amount: toField(row.pending),
+    amount: "",
     paidOn: today,
     bankAccountId: accounts.length === 1 ? String(accounts[0].id) : "",
     paymentMethodId: method ? String(method.id) : "",
@@ -425,11 +431,16 @@ export function PaymentDialog({
     onChange: (event: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: event.target.value })),
   });
 
+  const dueCents =
+    toCents(row.pending) + toCents(parseMoney(form.surcharge) ?? "0.00") - toCents(parseMoney(form.discount) ?? "0.00");
+  const due = (dueCents / 100).toFixed(2);
+  const amountText = amountEdited ? form.amount : toField(due);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLocalError(null);
-    const amount = parseMoney(form.amount);
-    if (!amount || Number(amount) === 0) return setLocalError("Informe o valor pago.");
+    const amount = parseMoney(amountText);
+    if (!amount || Number(amount) === 0) return setLocalError("Informe o valor pago, como 1.234,56.");
     if (!form.paidOn) return setLocalError("Informe a data da baixa.");
     if (!form.bankAccountId) return setLocalError("Escolha a conta bancária.");
     if (!form.paymentMethodId) return setLocalError("Escolha a forma de pagamento.");
@@ -454,7 +465,7 @@ export function PaymentDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <form onSubmit={submit} noValidate>
           <DialogHeader>
@@ -466,17 +477,32 @@ export function PaymentDialog({
           <div className="flex flex-col gap-3.5 py-4">
             <p className="text-sm">
               Pendente: <strong>{brl(row.pending)}</strong> de {brl(row.amount)}.
+              {due !== row.pending && (
+                <>
+                  {" "}
+                  Com juros e desconto, o total a pagar é <strong>{brl(due)}</strong>.
+                </>
+              )}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Valor pago (R$)" id="b-valor" hint="Menor que o pendente vira baixa parcial.">
-                <Input id="b-valor" inputMode="decimal" autoFocus {...input("amount")} />
+                <Input
+                  id="b-valor"
+                  inputMode="decimal"
+                  autoFocus
+                  value={amountText}
+                  onChange={(event) => {
+                    setAmountEdited(true);
+                    setForm((current) => ({ ...current, amount: event.target.value }));
+                  }}
+                />
               </Field>
               <Field label="Data em que o dinheiro saiu" id="b-data">
                 <Input id="b-data" type="date" max={today} {...input("paidOn")} />
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Conta bancária" id="b-conta">
+              <Field label="Conta bancária" id="b-conta" hint={accounts.length ? undefined : NO_ACCOUNT_HINT}>
                 <Choice
                   id="b-conta"
                   value={form.bankAccountId}
@@ -510,7 +536,7 @@ export function PaymentDialog({
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
               Cancelar
             </Button>
             <Button type="submit" disabled={submitting} className="bg-brand-verde text-[#053d27] hover:bg-[#00b56b]">
@@ -574,7 +600,7 @@ export function BatchPaymentDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <form onSubmit={submit} noValidate>
           <DialogHeader>
@@ -605,7 +631,7 @@ export function BatchPaymentDialog({
                       onChange={(event) => setForm((current) => ({ ...current, paidOn: event.target.value }))}
                     />
                   </Field>
-                  <Field label="Conta bancária" id="lb-conta">
+                  <Field label="Conta bancária" id="lb-conta" hint={accounts.length ? undefined : NO_ACCOUNT_HINT}>
                     <Choice
                       id="lb-conta"
                       value={form.bankAccountId}
@@ -636,7 +662,7 @@ export function BatchPaymentDialog({
             <FormError message={error} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
               Cancelar
             </Button>
             <Button
@@ -666,7 +692,7 @@ export function ConfirmDeleteDialog({
   const { error, submitting, run } = useFormAction();
   const total = rows.reduce((sum, row) => sum + Number(row.amount), 0);
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Excluir contas</DialogTitle>
@@ -676,7 +702,7 @@ export function ConfirmDeleteDialog({
         </DialogHeader>
         <FormError message={error} />
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" disabled={submitting} onClick={onClose}>
             Voltar
           </Button>
           <Button
@@ -948,6 +974,9 @@ export function DetailDialog({
                             {Number(payment.surcharge) > 0 && ` · ${brl(payment.surcharge)} de juros/multa`}
                             {Number(payment.discount) > 0 && ` · ${brl(payment.discount)} de desconto`}
                           </span>
+                          {payment.transactionId && (
+                            <span className="block font-mono text-xs">ID da transação: {payment.transactionId}</span>
+                          )}
                           {payment.note && <span className="block text-xs">{payment.note}</span>}
                         </div>
                         {payment.kind === "pagamento" && !payment.reversed && (
@@ -1081,7 +1110,7 @@ function EditForm({
       </div>
       <FormError message={localError ?? error} />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>
+        <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={onClose}>
           Voltar
         </Button>
         <Button type="submit" size="sm" disabled={submitting}>
@@ -1138,7 +1167,7 @@ function ReasonForm({
       </Field>
       <FormError message={error} />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onClose}>
+        <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={onClose}>
           Voltar
         </Button>
         <Button type="submit" variant="destructive" size="sm" disabled={submitting || !reason.trim()}>

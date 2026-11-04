@@ -209,6 +209,19 @@ def upgrade() -> None:
     op.create_index(op.f('ix_payable_payments_payment_method_id'), 'payable_payments', ['payment_method_id'], unique=False)
     # ### end Alembic commands ###
 
+    # A role da app só existe onde roles.sql rodou: fora dele (CI antigo, testes), não há o que revogar.
+    if op.get_bind().dialect.name == "postgresql":
+        op.execute(
+            """
+            DO $$
+            BEGIN
+              IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'financeiro_app') THEN
+                REVOKE UPDATE, DELETE ON payable_payments, payable_events FROM financeiro_app;
+              END IF;
+            END $$;
+            """
+        )
+
 
 def downgrade() -> None:
     """Downgrade schema."""

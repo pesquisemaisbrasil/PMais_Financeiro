@@ -108,7 +108,7 @@ function Content({ home }: { home: HomeSummary }) {
         <Kpi label="Saldo nos bancos" value="—" detail="Chega com a Conferência do banco" icon={Landmark} color="azul" />
       </div>
 
-      <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(340px,1fr))] gap-4">
+      <div className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))] gap-4">
         <div className={CARD}>
           <CardTitle title="Precisa da sua atenção" subtitle={plural(home.attention.length, "item", "itens")} />
           {home.attention.length ? (

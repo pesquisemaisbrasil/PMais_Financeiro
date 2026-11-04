@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
       <TooltipProvider>
-        <div className="flex min-h-screen flex-1">
+        <div className="flex min-h-screen flex-1 flex-col md:flex-row">
           <Sidebar />
           <div className="min-w-0 flex-1">{children}</div>
         </div>

@@ -133,12 +133,29 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
     assert getattr(client, method)(path).status_code == 401
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/home"),
+        ("get", "/reference"),
+        ("get", "/payables"),
+        ("get", "/payables/1"),
+        ("post", "/payables"),
+        ("post", "/payables/batch/payments"),
+        ("post", "/payables/batch/delete"),
+        ("patch", "/payables/1"),
+        ("post", "/payables/1/cancel"),
+        ("post", "/payables/1/payments"),
+        ("post", "/payables/1/payments/1/reverse"),
+    ],
+)
 def test_role_without_finance_access_is_refused(
-    client: TestClient, make_user: Callable[..., User]
+    client: TestClient, make_user: Callable[..., User], method: str, path: str
 ) -> None:
     user = make_user(email="outro@pesquisemais.com.br", role="auditor")
     headers = {"Authorization": f"Bearer {create_access_token(user.id)}"}
-    assert client.get("/payables", headers=headers).status_code == 403
+    kwargs: dict[str, Any] = {} if method == "get" else {"json": {}}
+    assert getattr(client, method)(path, headers=headers, **kwargs).status_code == 403
 
 
 def test_inactive_user_is_refused(client: TestClient, make_user: Callable[..., User]) -> None:
@@ -272,7 +289,7 @@ def test_payment_cannot_exceed_pending(
     path = f"/payables/{created['id']}/payments"
     response = client.post(path, json=payment(world, amount="1000.01"), headers=auth)
     assert response.status_code == 409
-    assert "passa do saldo" in response.json()["detail"]
+    assert response.json()["detail"] == "O valor passa do saldo pendente (R$ 1.000,00)"
 
 
 def test_surcharge_and_discount_change_what_is_due(
@@ -284,6 +301,7 @@ def test_surcharge_and_discount_change_what_is_due(
         path, json=payment(world, amount="1050.00", surcharge="50.00"), headers=auth
     ).json()
     assert paid["situation"] == "pago"
+    assert paid["pending"] == "0.00"
 
     other = create(client, auth, world)
     paid_other = client.post(
@@ -292,6 +310,88 @@ def test_surcharge_and_discount_change_what_is_due(
         headers=auth,
     ).json()
     assert paid_other["situation"] == "pago"
+
+
+def test_discount_lowers_the_limit_of_the_payment(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world)
+    response = client.post(
+        f"/payables/{created['id']}/payments",
+        json=payment(world, amount="1000.00", discount="100.00"),
+        headers=auth,
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "O valor passa do saldo pendente (R$ 900,00)"
+
+
+def test_edit_counts_discount_and_surcharge_already_paid(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    today_iso = today().isoformat()
+    edit = {"description": "Novo", "dueDate": today_iso}
+    with_discount = create(client, auth, world)
+    client.post(
+        f"/payables/{with_discount['id']}/payments",
+        json=payment(world, amount="900.00", discount="100.00"),
+        headers=auth,
+    )
+    refused = client.patch(
+        f"/payables/{with_discount['id']}", json={**edit, "amount": "950.00"}, headers=auth
+    )
+    assert refused.status_code == 409
+
+    with_surcharge = create(client, auth, world)
+    client.post(
+        f"/payables/{with_surcharge['id']}/payments",
+        json=payment(world, amount="1050.00", surcharge="50.00"),
+        headers=auth,
+    )
+    accepted = client.patch(
+        f"/payables/{with_surcharge['id']}", json={**edit, "amount": "1020.00"}, headers=auth
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["pending"] == "20.00"
+
+
+def test_edit_refused_when_the_payable_has_items(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    created = create(client, auth, world)
+    db_session.add(
+        PayableItem(
+            payable_id=created["id"], name="Pessoa", documentType="NF", amount=Decimal("1000")
+        )
+    )
+    db_session.commit()
+    response = client.patch(
+        f"/payables/{created['id']}",
+        json={"description": "Novo", "amount": "1200.00", "dueDate": today().isoformat()},
+        headers=auth,
+    )
+    assert response.status_code == 409
+
+
+def test_same_transaction_id_does_not_pay_twice(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    first = create(client, auth, world)
+    second = create(client, auth, world)
+    body_with_id = payment(world, amount="400.00", transactionId="E0001")
+    paid = client.post(f"/payables/{first['id']}/payments", json=body_with_id, headers=auth).json()
+    again = client.post(f"/payables/{first['id']}/payments", json=body_with_id, headers=auth)
+    assert again.status_code == 409
+    other = client.post(f"/payables/{second['id']}/payments", json=body_with_id, headers=auth)
+    assert other.status_code == 409
+    client.post(
+        f"/payables/{first['id']}/payments/{paid['payments'][0]['id']}/reverse",
+        json={"kind": "estorno", "reason": "Errado"},
+        headers=auth,
+    )
+    after_reversal = client.post(
+        f"/payables/{first['id']}/payments", json=body_with_id, headers=auth
+    )
+    assert after_reversal.status_code == 200
 
 
 def test_past_date_needs_a_note(
@@ -389,6 +489,28 @@ def test_returned_pix_marks_as_returned(
     assert returned["pending"] == "1000.00"
 
 
+def test_returned_stays_returned_after_an_unrelated_reversal(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world)
+    path = f"/payables/{created['id']}/payments"
+    first = client.post(path, json=payment(world, amount="400.00"), headers=auth).json()
+    client.post(
+        f"{path}/{first['payments'][0]['id']}/reverse",
+        json={"kind": "devolucao", "reason": "Chave errada"},
+        headers=auth,
+    )
+    second = client.post(path, json=payment(world, amount="100.00"), headers=auth).json()
+    new_payment = next(p for p in second["payments"] if p["amount"] == "100.00")
+    assert second["situation"] != "devolvido"
+    after = client.post(
+        f"{path}/{new_payment['id']}/reverse",
+        json={"kind": "estorno", "reason": "Errado"},
+        headers=auth,
+    ).json()
+    assert after["situation"] == "devolvido"
+
+
 def test_batch_payment_pays_each_pending(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
 ) -> None:
@@ -452,6 +574,9 @@ def test_cancel_refused_with_payment_and_accepted_after_reversal(
     canceled = client.post(path, json={"reason": "Errada"}, headers=auth).json()
     assert canceled["situation"] == "cancelado"
     assert canceled["pending"] == "0"
+    listed = client.get("/payables?indicator=cancelados", headers=auth).json()
+    assert [row["id"] for row in listed["items"]] == [created["id"]]
+    assert listed["indicators"]["total"]["count"] == 0
 
 
 def test_delete_hides_the_payable_but_keeps_the_history(
@@ -560,7 +685,7 @@ def test_filters_are_combined(
     assert client.get(f"/payables?project={project}", headers=auth).json()["total"] == 1
     assert client.get("/payables?search=com%20proj", headers=auth).json()["total"] == 1
     assert client.get("/payables?search=ponto", headers=auth).json()["total"] == 2
-    assert client.get("/payables?search=100%25", headers=auth).json()["total"] == 0
+    assert client.get("/payables?search=%25", headers=auth).json()["total"] == 0
     both = client.get(f"/payables?project={project}&search=sem", headers=auth).json()
     assert both["total"] == 0
 
@@ -587,6 +712,21 @@ def test_docs_late_when_less_than_three_days_before_due(
     on_time = create(client, auth, world, docsReceivedOn=(on - timedelta(days=3)).isoformat())
     assert late["docsLate"] is True
     assert on_time["docsLate"] is False
+
+
+def test_extreme_date_is_refused(client: TestClient, auth: dict[str, str]) -> None:
+    assert client.get("/payables?mode=mes&ref=9999-12-01", headers=auth).status_code == 422
+
+
+def test_write_routes_are_rate_limited(
+    client: TestClient, auth: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("core.limiter.limiter.enabled", True)
+    statuses = {
+        client.post("/payables/1/cancel", json={"reason": "x"}, headers=auth).status_code
+        for _ in range(61)
+    }
+    assert statuses == {404, 429}
 
 
 def test_period_range_covers_each_mode() -> None:

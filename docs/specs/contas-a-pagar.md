@@ -139,7 +139,7 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 
 **O que já funciona (primeira fatia do MVP):** painel que abre no dia, abas, indicadores, filtros, busca, colunas, lançamento com rateio, itens abertos na linha, baixa parcial e em lote, juros, multa e desconto, estorno, Pix devolvido, cancelar, excluir e histórico.
 
-**O que ainda falta:** importar planilha e dividir por data, anexos (Q19), exportar, reclassificar, duplicar, recorrência, substituir provisão por real, autorização acima do orçamento, link do código do projeto para o relatório e os lançamentos chegando do Connect (PF-6).
+**O que ainda falta:** importar planilha e dividir por data, anexos (Q19), exportar, reclassificar, duplicar, recorrência, criar provisão à mão, substituir provisão por real, autorização acima do orçamento, link do código do projeto para o relatório, lançamentos chegando do Connect (PF-6), reautenticação na baixa (Q20), seletores com busca, seleção em mais de uma página e os filtros de unidade, situação, tipo, linha do DRE e intervalo de datas.
 
 Origem do requisito:
 
@@ -156,4 +156,6 @@ Origem do requisito:
 - 2026-10-28: item com NF pendente não bloqueia o pagamento (decisão do PO em 28/10/2026, ver [documentos-fiscais](documentos-fiscais.md)).
 - 2026-11-03: o pagamento de entrevistadores chega **sozinho como lançamento agrupado** (um por projeto × data de pagamento); planilha, comprovantes e NF ficam no lançamento, que abre os itens na lista; o código do projeto abre o relatório do projeto; a planilha de incentivos é importada e **dividida por data de pagamento**, com prazo em dias úteis por tipo de projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1 a K3, K5 a K7). Perguntas F22 a F25.
 - 2026-11-04: a baixa é recusada com data no futuro, porque é o dia em que o dinheiro saiu. A spec não dizia, e foi resolvido do jeito mais seguro. Excluir é lógico: o título sai das listas e o histórico fica.
+- 2026-11-04 (revisão da primeira fatia): baixa em lote é tudo ou nada e usa uma conta bancária só. Lançamento do Connect não é editado, cancelado nem excluído aqui. O mesmo projeto não se repete no rateio. Conta cancelada sai de Total e fica no indicador "Canceladas". Um ID de transação não dá baixa duas vezes; depois do estorno, vale de novo. Mudar o valor de título com itens ou rateio é recusado.
+- 2026-11-04: como no protótipo validado no kickoff, o prazo prevalece sobre `parcial` (título parcial que vence hoje mostra "Vence hoje"), a provisão aparece em Hoje e Vencidos, e Pix devolvido conta como vencido. A confirmar com o financeiro: Q21.
 - 2026-11-03 (falas da Bruna e da Camila, K10 a K12): **Contas a pagar é o único lugar onde se paga**; a importação de planilha e as **provisões** ficam aqui; a tela abre **nas contas do dia**; e a planilha de incentivo que já traz a **data de pagamento** usa essa data, sem recalcular pelo prazo. O CP alimenta o projeto, e não o contrário ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), B4, B5, B7, C1, B8).

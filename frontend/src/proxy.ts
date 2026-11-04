@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { DEFAULT_API_URL } from "@/lib/api";
 
 /**
  * Content-Security-Policy com nonce por pedido (handoff/06 §10). O nonce libera só os scripts que o
@@ -16,7 +17,8 @@ function origin(url: string | undefined): string {
 }
 
 export function buildCsp(nonce: string, isDev: boolean): string {
-  const api = origin(process.env.NEXT_PUBLIC_API_URL);
+  // O mesmo padrão do api.ts: sem isso, o navegador bloquearia a API e a sessão cairia.
+  const api = origin(process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL);
   const connect = ["'self'", api, isDev ? "ws:" : ""].filter(Boolean).join(" ");
   const directives = [
     "default-src 'self'",

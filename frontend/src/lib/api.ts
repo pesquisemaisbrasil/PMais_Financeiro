@@ -9,7 +9,8 @@ import type {
   Tab,
 } from "./payables";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8010";
+export const DEFAULT_API_URL = "http://localhost:8010";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 
 export class ApiError extends Error {
   status: number;

@@ -7,7 +7,15 @@ export type Situation =
   | "devolvido"
   | "cancelado";
 export type PeriodMode = "dia" | "semana" | "mes" | "ano" | "tudo";
-export type Indicator = "total" | "pagos" | "pendentes" | "vencidos" | "hoje" | "avencer" | "provisoes";
+export type Indicator =
+  | "total"
+  | "pagos"
+  | "pendentes"
+  | "vencidos"
+  | "hoje"
+  | "avencer"
+  | "provisoes"
+  | "cancelados";
 export type Tab = "todas" | "agrupados" | "provisoes" | "connect";
 export type SortColumn =
   | "vencimento"
@@ -238,6 +246,7 @@ export function movePeriod(mode: PeriodMode, ref: string, step: number): string 
 /** "1.234,56" ou "1234,56" vira "1234.56". Devolve null se não for um valor em reais. */
 export function parseMoney(text: string): string | null {
   const clean = text.trim().replace(/\s/g, "");
+  if (/^\d+\.\d{1,2}$/.test(clean)) return `${clean.split(".")[0]}.${clean.split(".")[1].padEnd(2, "0")}`;
   if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d{1,2})?$/.test(clean)) return null;
   const [whole, cents = ""] = clean.replaceAll(".", "").split(",");
   return `${whole}.${cents.padEnd(2, "0")}`;

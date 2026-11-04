@@ -2,15 +2,18 @@ from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
+from core.limiter import limiter
 from core.permissions import require_finance
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
+    BatchDeleteResult,
     BatchIds,
     BatchPaymentCreate,
+    BatchPaymentResult,
     HomeSummary,
     Indicator,
     PayableCreate,
@@ -31,6 +34,10 @@ from services.auth import get_current_user
 router = APIRouter(tags=["contas a pagar"])
 
 T = TypeVar("T")
+
+# Por IP, e o escritório sai todo pelo mesmo: folga para várias pessoas no dia a dia.
+READ_LIMIT = "120/minute"
+WRITE_LIMIT = "60/minute"
 
 
 def finance_user(user: Annotated[User, Depends(get_current_user)]) -> User:
@@ -62,18 +69,22 @@ def _in_transaction(db: Session, action: Callable[[], T]) -> T:
         raise
 
 
-@router.get("/home", response_model=HomeSummary)
-def home(db: DbSession, _: FinanceUser) -> dict[str, Any]:
+@router.get("/home", response_model=HomeSummary, description="Resumo da tela Início")
+@limiter.limit(READ_LIMIT)
+def home(request: Request, db: DbSession, _: FinanceUser) -> dict[str, Any]:
     return payable_service.home_summary(db)
 
 
-@router.get("/reference", response_model=Reference)
-def reference(db: DbSession, _: FinanceUser) -> dict[str, Any]:
+@router.get("/reference", response_model=Reference, description="Cadastros ativos")
+@limiter.limit(READ_LIMIT)
+def reference(request: Request, db: DbSession, _: FinanceUser) -> dict[str, Any]:
     return payable_service.reference(db)
 
 
-@router.get("/payables", response_model=PayableList)
+@router.get("/payables", response_model=PayableList, description="Contas do período, com totais")
+@limiter.limit(READ_LIMIT)
 def list_payables(
+    request: Request,
     db: DbSession,
     _: FinanceUser,
     mode: PeriodMode = "dia",
@@ -91,6 +102,8 @@ def list_payables(
     descending: bool = False,
     page: Annotated[int, Query(ge=1)] = 1,
 ) -> dict[str, Any]:
+    if ref and not 2000 <= ref.year <= 2100:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Data fora do intervalo aceito")
     return payable_service.list_payables(
         db,
         mode=mode,
@@ -112,56 +125,104 @@ def list_payables(
     )
 
 
-@router.post("/payables", response_model=PayableDetail, status_code=status.HTTP_201_CREATED)
-def create_payable(data: PayableCreate, db: DbSession, user: FinanceUser) -> dict[str, Any]:
+@router.post(
+    "/payables",
+    response_model=PayableDetail,
+    status_code=status.HTTP_201_CREATED,
+    description="Lança uma conta",
+)
+@limiter.limit(WRITE_LIMIT)
+def create_payable(
+    request: Request, data: PayableCreate, db: DbSession, user: FinanceUser
+) -> dict[str, Any]:
     payable = _in_transaction(db, lambda: payable_service.create(db, data, user))
     return payable_service.detail(db, payable.id)
 
 
-@router.post("/payables/batch/payments")
-def pay_batch(data: BatchPaymentCreate, db: DbSession, user: FinanceUser) -> dict[str, Any]:
+@router.post(
+    "/payables/batch/payments",
+    response_model=BatchPaymentResult,
+    description="Baixa o pendente de várias contas, tudo ou nada",
+)
+@limiter.limit(WRITE_LIMIT)
+def pay_batch(
+    request: Request, data: BatchPaymentCreate, db: DbSession, user: FinanceUser
+) -> dict[str, Any]:
     total = _in_transaction(db, lambda: payable_service.pay_batch(db, data, user))
     return {"total": total, "count": len(set(data.ids))}
 
 
-@router.post("/payables/batch/delete")
-def delete_batch(data: BatchIds, db: DbSession, user: FinanceUser) -> dict[str, int]:
+@router.post(
+    "/payables/batch/delete",
+    response_model=BatchDeleteResult,
+    description="Exclui contas sem baixa; o histórico fica",
+)
+@limiter.limit(WRITE_LIMIT)
+def delete_batch(
+    request: Request, data: BatchIds, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
     count = _in_transaction(db, lambda: payable_service.delete_batch(db, data.ids, user))
     return {"count": count}
 
 
-@router.get("/payables/{payable_id}", response_model=PayableDetail)
-def get_payable(payable_id: int, db: DbSession, _: FinanceUser) -> dict[str, Any]:
+@router.get("/payables/{payable_id}", response_model=PayableDetail, description="Detalhe da conta")
+@limiter.limit(READ_LIMIT)
+def get_payable(request: Request, payable_id: int, db: DbSession, _: FinanceUser) -> dict[str, Any]:
     return _handle(lambda: payable_service.detail(db, payable_id))
 
 
-@router.patch("/payables/{payable_id}", response_model=PayableDetail)
+@router.patch(
+    "/payables/{payable_id}",
+    response_model=PayableDetail,
+    description="Altera descrição, valor e vencimento",
+)
+@limiter.limit(WRITE_LIMIT)
 def update_payable(
-    payable_id: int, data: PayableUpdate, db: DbSession, user: FinanceUser
+    request: Request, payable_id: int, data: PayableUpdate, db: DbSession, user: FinanceUser
 ) -> dict[str, Any]:
     _in_transaction(db, lambda: payable_service.update(db, payable_id, data, user))
     return payable_service.detail(db, payable_id)
 
 
-@router.post("/payables/{payable_id}/cancel", response_model=PayableDetail)
+@router.post(
+    "/payables/{payable_id}/cancel",
+    response_model=PayableDetail,
+    description="Cancela uma conta sem baixa",
+)
+@limiter.limit(WRITE_LIMIT)
 def cancel_payable(
-    payable_id: int, data: ReasonIn, db: DbSession, user: FinanceUser
+    request: Request, payable_id: int, data: ReasonIn, db: DbSession, user: FinanceUser
 ) -> dict[str, Any]:
     _in_transaction(db, lambda: payable_service.cancel(db, payable_id, data.reason, user))
     return payable_service.detail(db, payable_id)
 
 
-@router.post("/payables/{payable_id}/payments", response_model=PayableDetail)
+@router.post(
+    "/payables/{payable_id}/payments",
+    response_model=PayableDetail,
+    description="Dá baixa, total ou parcial",
+)
+@limiter.limit(WRITE_LIMIT)
 def pay_payable(
-    payable_id: int, data: PaymentCreate, db: DbSession, user: FinanceUser
+    request: Request, payable_id: int, data: PaymentCreate, db: DbSession, user: FinanceUser
 ) -> dict[str, Any]:
     _in_transaction(db, lambda: payable_service.pay(db, payable_id, data, user))
     return payable_service.detail(db, payable_id)
 
 
-@router.post("/payables/{payable_id}/payments/{payment_id}/reverse", response_model=PayableDetail)
+@router.post(
+    "/payables/{payable_id}/payments/{payment_id}/reverse",
+    response_model=PayableDetail,
+    description="Anula uma baixa por estorno ou Pix devolvido",
+)
+@limiter.limit(WRITE_LIMIT)
 def reverse_payment(
-    payable_id: int, payment_id: int, data: PaymentReverse, db: DbSession, user: FinanceUser
+    request: Request,
+    payable_id: int,
+    payment_id: int,
+    data: PaymentReverse,
+    db: DbSession,
+    user: FinanceUser,
 ) -> dict[str, Any]:
     _in_transaction(
         db, lambda: payable_service.reverse_payment(db, payable_id, payment_id, data, user)

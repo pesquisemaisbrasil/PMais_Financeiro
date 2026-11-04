@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Fragment, Suspense, useCallback, useEffect, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH } from "@/components/finance";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,7 @@ const INDICATORS: { id: Indicator; label: string }[] = [
   { id: "hoje", label: "Hoje" },
   { id: "avencer", label: "A vencer" },
   { id: "provisoes", label: "Provisões" },
+  { id: "cancelados", label: "Canceladas" },
 ];
 
 const TABS: { id: Tab; label: string }[] = [
@@ -271,6 +272,8 @@ function PayablesContent() {
   const [data, setData] = useState<PayableList | null>(null);
   const [reference, setReference] = useState<Reference | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [referenceError, setReferenceError] = useState(false);
+  const lastRequest = useRef(0);
 
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<PayableRow | null>(null);
@@ -283,11 +286,14 @@ function PayablesContent() {
     const timer = setTimeout(() => {
       setSearch(searchText);
       setPage(1);
+      setSelected(new Set());
     }, 300);
     return () => clearTimeout(timer);
   }, [searchText]);
 
   const load = useCallback(async () => {
+    // Clicar rápido no período dispara vários pedidos: só vale a resposta do último.
+    const request = ++lastRequest.current;
     setError(null);
     try {
       const list = await listPayables({
@@ -301,8 +307,17 @@ function PayablesContent() {
         descending: sort.descending,
         page,
       });
+      if (request !== lastRequest.current) return;
+      // A última conta da página saiu da lista: volta para a última página que ainda existe.
+      if (!list.items.length && list.total > 0 && list.page > 1) {
+        setPage(Math.ceil(list.total / list.pageSize));
+        return;
+      }
       setData(list);
     } catch (err) {
+      if (request !== lastRequest.current) return;
+      // Sem valores antigos na tela: eles pareceriam ser os do período novo.
+      setData(null);
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar as contas");
     }
   }, [mode, ref, indicator, tab, filters, search, sort, page]);
@@ -312,11 +327,15 @@ function PayablesContent() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    getReference().then(setReference, () => {
-      // os filtros ficam vazios; a lista continua funcionando
-    });
+  const loadReference = useCallback(() => {
+    setReferenceError(false);
+    getReference().then(setReference, () => setReferenceError(true));
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- busca inicial dos cadastros
+    loadReference();
+  }, [loadReference]);
 
   // Link do Início: vai para o dia da conta e abre os itens, ou o detalhe se ela não tiver itens.
   useEffect(() => {
@@ -362,7 +381,13 @@ function PayablesContent() {
     }
   }
 
+  function changePage(next: number) {
+    setPage(next);
+    setSelected(new Set());
+  }
+
   function changeSort(column: SortColumn) {
+    setSelected(new Set());
     setSort((current) => ({
       column,
       descending: current.column === column ? !current.descending : false,
@@ -412,6 +437,20 @@ function PayablesContent() {
           </Button>
         }
       />
+
+      {error && (
+        <div className="mb-4">
+          <ErrorBox message={error} onRetry={load} />
+        </div>
+      )}
+      {referenceError && (
+        <div className="mb-4">
+          <ErrorBox
+            message="Não foi possível carregar os cadastros. Sem eles, não dá para lançar nem dar baixa."
+            onRetry={loadReference}
+          />
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -506,19 +545,15 @@ function PayablesContent() {
                   option.id === "vencidos" && value?.count ? "text-[#b91c1c]" : undefined
                 )}
               >
-                {brl(value?.value ?? 0)}
+                {value ? brl(value.value) : "—"}
               </span>
-              <span className="text-[11px] text-muted-foreground">{plural(value?.count ?? 0, "conta", "contas")}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {value ? plural(value.count, "conta", "contas") : "\u00a0"}
+              </span>
             </Button>
           );
         })}
       </div>
-
-      {error && (
-        <div className="mb-4">
-          <ErrorBox message={error} onRetry={load} />
-        </div>
-      )}
 
       <div className={CARD}>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 border-b border-border bg-muted/50 px-4 py-3">
@@ -580,9 +615,11 @@ function PayablesContent() {
               </>
             ) : (
               <>
-                <span className="text-muted-foreground">
-                  {plural(data?.total ?? 0, "conta", "contas")} · pendente {brl(data?.filteredPending ?? 0)}
-                </span>
+                {data && (
+                  <span className="text-muted-foreground">
+                    {plural(data.total, "conta", "contas")} · pendente {brl(data.filteredPending)}
+                  </span>
+                )}
                 {activeFilters > 0 && (
                   <Button
                     variant="link"
@@ -611,9 +648,11 @@ function PayablesContent() {
         </div>
 
         {!data ? (
-          <div className="flex justify-center p-8">
-            <Spinner aria-label="Carregando" className="size-6 text-brand-cinza-escuro/70" />
-          </div>
+          !error && (
+            <div className="flex justify-center p-8">
+              <Spinner aria-label="Carregando" className="size-6 text-brand-cinza-escuro/70" />
+            </div>
+          )
         ) : rows.length ? (
           <>
             <Table>
@@ -722,7 +761,7 @@ function PayablesContent() {
                     size="icon-sm"
                     aria-label="Página anterior"
                     disabled={data.page === 1}
-                    onClick={() => setPage(data.page - 1)}
+                    onClick={() => changePage(data.page - 1)}
                   >
                     <ChevronLeft size={16} />
                   </Button>
@@ -734,7 +773,7 @@ function PayablesContent() {
                     size="icon-sm"
                     aria-label="Próxima página"
                     disabled={data.page >= pageCount}
-                    onClick={() => setPage(data.page + 1)}
+                    onClick={() => changePage(data.page + 1)}
                   >
                     <ChevronRight size={16} />
                   </Button>
@@ -746,7 +785,9 @@ function PayablesContent() {
           <p className="px-5 py-8 text-center text-sm text-muted-foreground">
             {activeFilters
               ? "Nenhuma conta com esses filtros."
-              : `Nenhuma conta em ${periodLabel(mode, effectiveRef)}.`}
+              : mode === "tudo"
+                ? "Nenhuma conta lançada ainda."
+                : `Nenhuma conta em ${periodLabel(mode, effectiveRef)}. Veja semana ou mês no seletor acima.`}
           </p>
         )}
       </div>

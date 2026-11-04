@@ -85,12 +85,19 @@ def pending_amount(payable: Payable) -> Decimal:
     return payable.amount + surcharge - discount - paid_amount(payable)
 
 
+def _returned(payable: Payable) -> bool:
+    """Houve Pix devolvido, e nenhuma baixa válida depois dele."""
+    returned = [p.id for p in payable.payments if p.kind == "devolucao"]
+    last_active = max((p.id for p in _active_payments(payable)), default=0)
+    return bool(returned) and max(returned) > last_active
+
+
 def situation(payable: Payable, on: date) -> str:
     if payable.canceledAt is not None:
         return "cancelado"
     if pending_amount(payable) <= 0:
         return "pago"
-    if payable.payments and payable.payments[-1].kind == "devolucao":
+    if _returned(payable):
         return "devolvido"
     if payable.dueDate < on:
         return "vencido"
@@ -130,6 +137,7 @@ INDICATORS: dict[str, Predicate] = {
     "hoje": lambda p, on: situation(p, on) == "hoje",
     "avencer": lambda p, on: situation(p, on) in ("a_vencer", "parcial") and p.type == "real",
     "provisoes": lambda p, on: p.type == "provisao" and p.canceledAt is None,
+    "cancelados": lambda p, on: p.canceledAt is not None,
 }
 
 TABS: dict[str, Callable[[Payable, dict[int, int]], bool]] = {
@@ -143,7 +151,7 @@ TABS: dict[str, Callable[[Payable, dict[int, int]], bool]] = {
 def _indicator_value(key: str, payables: list[Payable]) -> Decimal:
     if key == "pagos":
         return sum((paid_amount(p) for p in payables), ZERO)
-    if key in ("total", "provisoes"):
+    if key in ("total", "provisoes", "cancelados"):
         return sum((p.amount for p in payables), ZERO)
     return sum((pending_amount(p) for p in payables), ZERO)
 
@@ -166,6 +174,8 @@ def _base_query(db: Session) -> Any:
     return (
         db.query(Payable)
         .filter(Payable.deletedAt.is_(None))
+        # Ordem fixa: títulos com o mesmo vencimento não trocam de página entre duas leituras.
+        .order_by(Payable.id)
         .options(
             selectinload(Payable.supplier),
             selectinload(Payable.category),
@@ -463,7 +473,12 @@ def update(db: Session, payable_id: int, data: PayableUpdate, user: User) -> Non
     if data.amount != payable.amount:
         if any(a.project.status == "encerrado" for a in payable.allocations):
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
-        if data.amount < paid_amount(payable):
+        if payable.items:
+            raise PayableConflict("Lançamento com itens: o valor é a soma das pessoas")
+        active = _active_payments(payable)
+        surcharge = sum((p.surcharge for p in active), ZERO)
+        discount = sum((p.discount for p in active), ZERO)
+        if data.amount + surcharge - discount < paid_amount(payable):
             raise PayableConflict("O novo valor é menor do que já foi pago")
         if len(payable.allocations) > 1:
             raise PayableConflict("Conta com rateio: refaça o rateio para mudar o valor")
@@ -507,6 +522,21 @@ def _bank_account(db: Session, account_id: int, company_id: int) -> BankAccount:
     return account
 
 
+def _transaction_used(db: Session, transaction_id: str) -> bool:
+    """O mesmo Pix não dá baixa duas vezes. Depois de um estorno, o ID vale de novo."""
+    undone = db.query(PayablePayment.reverses_id).filter(PayablePayment.reverses_id.isnot(None))
+    return (
+        db.query(PayablePayment.id)
+        .filter(
+            PayablePayment.transactionId == transaction_id,
+            PayablePayment.kind == "pagamento",
+            PayablePayment.id.notin_(undone),
+        )
+        .first()
+        is not None
+    )
+
+
 def pay(db: Session, payable_id: int, data: PaymentCreate, user: User) -> Decimal:
     payable = _get(db, payable_id, lock=True)
     _check_payable(payable)
@@ -516,11 +546,11 @@ def pay(db: Session, payable_id: int, data: PaymentCreate, user: User) -> Decima
     pending = pending_amount(payable)
     if pending <= 0:
         raise PayableConflict("Essa conta já está paga")
-    if data.amount > pending + data.surcharge - data.discount:
-        raise PayableConflict(
-            f"O valor passa do saldo pendente ({format_brl(pending)}). "
-            "Se teve juros ou multa, informe no campo"
-        )
+    limit = pending + data.surcharge - data.discount
+    if data.amount > limit:
+        raise PayableConflict(f"O valor passa do saldo pendente ({format_brl(limit)})")
+    if data.transactionId and _transaction_used(db, data.transactionId):
+        raise PayableConflict("Esse ID de transação já foi usado em outra baixa")
     payment = PayablePayment(
         payable_id=payable.id,
         paidOn=data.paidOn,
