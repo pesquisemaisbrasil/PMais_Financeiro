@@ -245,6 +245,40 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(page.getByRole("tab", { name: /Planilhas e agrupados/ })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ })).toHaveCount(2);
 
+  // Cadastros: fornecedor com CNPJ conferido, e cadastro em uso só é inativado
+  await page.getByRole("link", { name: "Cadastros" }).click();
+  await expect(page.getByRole("heading", { name: "Cadastros" })).toBeVisible();
+  await page.getByRole("button", { name: "Novo fornecedor" }).click();
+  const supplier = page.getByRole("dialog");
+  await supplier.getByLabel("Apelido *").fill("Teste Ltda");
+  await supplier.getByLabel("Nome / razão social *").fill("Fornecedor de Teste Ltda");
+  await supplier.getByLabel("CNPJ").fill("11.222.333/0001-82");
+  await supplier.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(supplier.getByText("CNPJ inválido. Confira os dígitos")).toBeVisible();
+  await supplier.getByLabel("CNPJ").fill("11.222.333/0001-81");
+  await supplier.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(page.getByText("Cadastro criado.")).toBeVisible();
+  await page.getByLabel("Buscar em fornecedores").fill("teste ltda");
+  const created = page.getByRole("row", { name: /Teste Ltda/ });
+  await expect(created).toContainText("11.222.333/0001-81");
+  await created.getByRole("button", { name: /^Inativar/ }).click();
+  await expect(created).toContainText("Inativo");
+  await created.getByRole("button", { name: /^Excluir/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Excluir" }).click();
+  await expect(created).toHaveCount(0);
+
+  // O projeto vem do Connect: aqui só se marca o tipo e o incentivo
+  await page.getByRole("tab", { name: "Projetos (Connect)" }).click();
+  const project = page.getByRole("row", { name: /PRJ-1790/ });
+  await expect(project).toContainText("Sem incentivo");
+  await project.getByRole("button", { name: "Editar tipo e incentivo" }).click();
+  await choose(page, "Tem incentivo?", "Sim");
+  await page.getByRole("dialog").getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByRole("dialog").getByText(/de 1 a 30/)).toBeVisible();
+  await page.getByLabel("Prazo do incentivo (dias úteis)").fill("3");
+  await page.getByRole("dialog").getByRole("button", { name: "Salvar" }).click();
+  await expect(project).toContainText("Incentivo em 3 dias úteis");
+
   // O menu recolhe, continua navegável e lembra da escolha
   await page.getByRole("button", { name: "Recolher menu" }).click();
   await expect(page.getByText("Visão geral")).toBeHidden();
