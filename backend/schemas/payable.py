@@ -17,6 +17,11 @@ SortColumn = Literal[
     "vencimento", "fornecedor", "documento", "categoria", "situacao", "valor", "pago", "pendente"
 ]
 DocumentType = Literal["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"]
+DateField = Literal["vencimento", "competencia", "baixa"]
+SituationFilter = Literal[
+    "pago", "parcial", "vencido", "hoje", "a_vencer", "devolvido", "cancelado", "substituido"
+]
+KindFilter = Literal["real", "provisao"]
 
 
 class AllocationIn(BaseModel):
@@ -25,10 +30,12 @@ class AllocationIn(BaseModel):
 
 
 class PayableCreate(BaseModel):
+    type: KindFilter = "real"
     issueDate: date
     dueDate: date
     amount: Money
-    supplierId: int
+    # Provisão pode ainda não ter fornecedor; a conta real, sempre tem.
+    supplierId: int | None = None
     categoryId: int
     companyId: int
     unitId: int
@@ -44,6 +51,27 @@ class PayableCreate(BaseModel):
     docsReceivedOn: date | None = None
     isTransfer: bool = False
     notes: str | None = Field(default=None, max_length=2000)
+
+
+class ProvisionReplace(BaseModel):
+    # Ou liga a uma conta já lançada, ou lança o real agora, com o valor e o fornecedor.
+    realId: int | None = None
+    supplierId: int | None = None
+    amount: Money | None = None
+
+
+class ReplacementCandidate(BaseModel):
+    id: int
+    description: str
+    payee: str
+    amount: Decimal
+
+
+class BatchReclassify(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    projectId: int | None = None
+    categoryId: int | None = None
+    costCenterId: int | None = None
 
 
 class PayableUpdate(BaseModel):
@@ -77,6 +105,10 @@ class BatchIds(BaseModel):
 
 class BatchPaymentResult(BaseModel):
     total: Decimal
+    count: int
+
+
+class BatchCount(BaseModel):
     count: int
 
 
@@ -123,6 +155,8 @@ class PayableRow(BaseModel):
     barcode: str | None
     itemCount: int
     canPayDirectly: bool
+    canReplace: bool
+    replaces: Decimal | None
 
 
 class ValueCount(BaseModel):

@@ -74,6 +74,10 @@ class Payable(Base):
     docsReceivedOn = Column(Date, nullable=True)
     isTransfer = Column(Boolean, nullable=False, default=False, server_default="false")
     notes = Column(String, nullable=True)
+    # Provisão trocada pelo lançamento real: sai das contas, e o real entra no lugar.
+    replaced_by_id = Column(
+        Integer, ForeignKey("payables.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     canceledAt = Column(DateTime(timezone=True), nullable=True)
     deletedAt = Column(DateTime(timezone=True), nullable=True, index=True)
     created_by_user_id = Column(
@@ -90,6 +94,7 @@ class Payable(Base):
     category = relationship(ExpenseCategory)
     payment_method = relationship(PaymentMethod)
     supplier = relationship(Supplier)
+    replaced_provisions = relationship("Payable", foreign_keys=[replaced_by_id])
     allocations = relationship(
         "PayableAllocation", cascade="all, delete-orphan", order_by="PayableAllocation.id"
     )

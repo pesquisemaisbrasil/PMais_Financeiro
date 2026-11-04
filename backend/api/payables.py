@@ -2,7 +2,7 @@ from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from core.limiter import limiter
@@ -10,12 +10,16 @@ from core.permissions import require_finance
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
+    BatchCount,
     BatchDeleteResult,
     BatchIds,
     BatchPaymentCreate,
     BatchPaymentResult,
+    BatchReclassify,
+    DateField,
     HomeSummary,
     Indicator,
+    KindFilter,
     PayableCreate,
     PayableDetail,
     PayableList,
@@ -23,8 +27,11 @@ from schemas.payable import (
     PaymentCreate,
     PaymentReverse,
     PeriodMode,
+    ProvisionReplace,
     ReasonIn,
     Reference,
+    ReplacementCandidate,
+    SituationFilter,
     SortColumn,
     Tab,
 )
@@ -81,59 +88,97 @@ def reference(request: Request, db: DbSession, _: FinanceUser) -> dict[str, Any]
     return payable_service.reference(db)
 
 
+class ListParams:
+    """Os mesmos filtros valem para a lista e para a exportação."""
+
+    def __init__(
+        self,
+        mode: PeriodMode = "dia",
+        ref: date | None = None,
+        start: date | None = None,
+        end: date | None = None,
+        dateField: DateField = "vencimento",
+        indicator: Indicator = "total",
+        tab: Tab = "todas",
+        supplier: int | None = None,
+        project: int | None = None,
+        category: int | None = None,
+        company: int | None = None,
+        unit: int | None = None,
+        costCenter: int | None = None,
+        paymentMethod: int | None = None,
+        situation: SituationFilter | None = None,
+        kind: KindFilter | None = None,
+        search: Annotated[str | None, Query(max_length=100)] = None,
+        sort: SortColumn = "vencimento",
+        descending: bool = False,
+    ) -> None:
+        if any(day and not 2000 <= day.year <= 2100 for day in (ref, start, end)):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Data fora do intervalo aceito"
+            )
+        if mode == "periodo" and (not start or not end):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Escolha a data inicial e a data final"
+            )
+        if mode == "periodo" and start and end and start > end:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "A data inicial precisa ser igual ou anterior à data final",
+            )
+        self.values: dict[str, Any] = {
+            "mode": mode,
+            "ref": ref,
+            "custom_range": (start, end) if mode == "periodo" and start and end else None,
+            "date_field": dateField,
+            "indicator": indicator,
+            "tab": tab,
+            "filters": {
+                "supplier": supplier,
+                "project": project,
+                "category": category,
+                "company": company,
+                "unit": unit,
+                "costCenter": costCenter,
+                "paymentMethod": paymentMethod,
+                "situation": situation,
+                "kind": kind,
+            },
+            "search": search,
+            "sort": sort,
+            "descending": descending,
+        }
+
+
+Params = Annotated[ListParams, Depends()]
+
+
 @router.get("/payables", response_model=PayableList, description="Contas do período, com totais")
 @limiter.limit(READ_LIMIT)
 def list_payables(
     request: Request,
     db: DbSession,
     _: FinanceUser,
-    mode: PeriodMode = "dia",
-    ref: date | None = None,
-    start: date | None = None,
-    end: date | None = None,
-    indicator: Indicator = "total",
-    tab: Tab = "todas",
-    supplier: int | None = None,
-    project: int | None = None,
-    category: int | None = None,
-    company: int | None = None,
-    costCenter: int | None = None,
-    paymentMethod: int | None = None,
-    search: Annotated[str | None, Query(max_length=100)] = None,
-    sort: SortColumn = "vencimento",
-    descending: bool = False,
+    params: Params,
     page: Annotated[int, Query(ge=1)] = 1,
 ) -> dict[str, Any]:
-    if any(day and not 2000 <= day.year <= 2100 for day in (ref, start, end)):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Data fora do intervalo aceito")
-    if mode == "periodo" and (not start or not end):
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "Escolha a data inicial e a data final"
-        )
-    if mode == "periodo" and start and end and start > end:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
-            "A data inicial precisa ser igual ou anterior à data final",
-        )
-    return payable_service.list_payables(
-        db,
-        mode=mode,
-        ref=ref,
-        custom_range=(start, end) if mode == "periodo" and start and end else None,
-        indicator=indicator,
-        tab=tab,
-        filters={
-            "supplier": supplier,
-            "project": project,
-            "category": category,
-            "company": company,
-            "costCenter": costCenter,
-            "paymentMethod": paymentMethod,
+    return payable_service.list_payables(db, **params.values, page=page)
+
+
+@router.get(
+    "/payables/export",
+    response_class=Response,
+    description="As contas dos filtros em CSV, com os filtros na primeira linha",
+)
+@limiter.limit(READ_LIMIT)
+def export_payables(request: Request, db: DbSession, _: FinanceUser, params: Params) -> Response:
+    return Response(
+        payable_service.export_csv(db, **params.values),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="contas-a-pagar.csv"',
+            "Cache-Control": "no-store",
         },
-        search=search,
-        sort=sort,
-        descending=descending,
-        page=page,
     )
 
 
@@ -162,6 +207,32 @@ def pay_batch(
 ) -> dict[str, Any]:
     total = _in_transaction(db, lambda: payable_service.pay_batch(db, data, user))
     return {"total": total, "count": len(set(data.ids))}
+
+
+@router.post(
+    "/payables/batch/reclassify",
+    response_model=BatchCount,
+    description="Muda projeto, categoria ou centro de custo de várias contas",
+)
+@limiter.limit(WRITE_LIMIT)
+def reclassify_batch(
+    request: Request, data: BatchReclassify, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _in_transaction(db, lambda: payable_service.reclassify_batch(db, data, user))
+    return {"count": count}
+
+
+@router.post(
+    "/payables/batch/duplicate",
+    response_model=BatchCount,
+    description="Copia as contas para o mês seguinte",
+)
+@limiter.limit(WRITE_LIMIT)
+def duplicate_batch(
+    request: Request, data: BatchIds, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _in_transaction(db, lambda: payable_service.duplicate_batch(db, data.ids, user))
+    return {"count": count}
 
 
 @router.post(
@@ -194,6 +265,42 @@ def update_payable(
 ) -> dict[str, Any]:
     _in_transaction(db, lambda: payable_service.update(db, payable_id, data, user))
     return payable_service.detail(db, payable_id)
+
+
+@router.get(
+    "/payables/{payable_id}/replacement-candidates",
+    response_model=list[ReplacementCandidate],
+    description="Contas já lançadas que podem substituir a provisão",
+)
+@limiter.limit(READ_LIMIT)
+def replacement_candidates(
+    request: Request, payable_id: int, db: DbSession, _: FinanceUser
+) -> list[dict[str, Any]]:
+    provision = _handle(lambda: payable_service.get_open_provision(db, payable_id))
+    return [
+        {
+            "id": c.id,
+            "description": c.description,
+            "payee": payable_service.payee_name(c),
+            "amount": c.amount,
+        }
+        for c in payable_service.replacement_candidates(db, provision)
+    ]
+
+
+@router.post(
+    "/payables/{payable_id}/replace",
+    response_model=PayableDetail,
+    description="Troca a provisão pelo lançamento real",
+)
+@limiter.limit(WRITE_LIMIT)
+def replace_provision(
+    request: Request, payable_id: int, data: ProvisionReplace, db: DbSession, user: FinanceUser
+) -> dict[str, Any]:
+    payable = _in_transaction(
+        db, lambda: payable_service.replace_provision(db, payable_id, data, user)
+    )
+    return payable_service.detail(db, payable.id)
 
 
 @router.post(
