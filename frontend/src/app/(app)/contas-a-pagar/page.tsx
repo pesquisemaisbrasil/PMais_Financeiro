@@ -50,6 +50,7 @@ import {
   plural,
   replacedMessage,
   replacesNote,
+  expenseCategories,
   seriesLabel,
   type DateField,
   type Indicator,
@@ -1107,7 +1108,7 @@ function PayablesContent() {
           <FilterSelect
             label="Categoria"
             value={filters.category ?? ""}
-            options={(reference?.categories ?? []).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
+            options={(reference ? expenseCategories(reference) : []).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, category: value })))}
           />
           <FilterSelect

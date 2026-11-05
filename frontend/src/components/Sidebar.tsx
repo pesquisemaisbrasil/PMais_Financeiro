@@ -41,7 +41,7 @@ const NAV: Entry[] = [
     icon: Wallet,
     children: [
       { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
-      { label: "Contas a receber" },
+      { href: "/contas-a-receber", label: "Contas a receber" },
       { label: "Notas e RPA" },
       { label: "Conferência bancária" },
       { href: "/divergencias", label: "Divergências" },
@@ -64,6 +64,7 @@ const NAV: Entry[] = [
     icon: BookUser,
     children: [
       { href: "/cadastros?aba=suppliers", label: "Fornecedores" },
+      { href: "/cadastros?aba=customers", label: "Clientes" },
       { href: "/cadastros?aba=projects", label: "Projetos" },
       { href: "/cadastros?aba=categories", label: "Plano de contas" },
       { href: "/cadastros?aba=companies", label: "Empresas" },

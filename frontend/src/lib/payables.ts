@@ -201,10 +201,11 @@ export interface Reference {
   companies: Named[];
   units: (Named & { companyId: number })[];
   costCenters: Named[];
-  categories: (Named & { code: string })[];
+  categories: (Named & { code: string; kind: "despesa" | "receita" })[];
   paymentMethods: Named[];
   bankAccounts: (Named & { companyId: number })[];
   suppliers: (Named & { nickname: string })[];
+  customers: (Named & { nickname: string })[];
   projects: Project[];
 }
 
@@ -492,6 +493,7 @@ export function scheduleText(preview: ImportPreview, code: string, title: string
 
 export type RecordKind =
   | "suppliers"
+  | "customers"
   | "categories"
   | "companies"
   | "units"
@@ -512,6 +514,16 @@ export interface RecordRow {
   phone: string | null;
   email: string | null;
   paymentTerms: string | null;
+  // só na conta do plano de contas
+  kind: "despesa" | "receita" | null;
+}
+
+export function expenseCategories(reference: Reference) {
+  return reference.categories.filter((c) => c.kind === "despesa");
+}
+
+export function revenueCategories(reference: Reference) {
+  return reference.categories.filter((c) => c.kind === "receita");
 }
 
 /** "11222333000181" vira "11.222.333/0001-81". O CNPJ alfanumérico segue a mesma máscara. */

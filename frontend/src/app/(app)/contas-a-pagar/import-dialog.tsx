@@ -21,6 +21,7 @@ import { importPayables, previewImport } from "@/lib/api";
 import {
   addDays,
   brl,
+  expenseCategories,
   formatDate,
   plural,
   scheduleText,
@@ -143,7 +144,7 @@ export function ImportDialog({
                     id="i-cat"
                     value={form.categoryId}
                     onChange={set("categoryId")}
-                    options={reference.categories.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
+                    options={expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
                   />
                 </Field>
                 <Field label="Forma de pagamento *" id="i-forma">

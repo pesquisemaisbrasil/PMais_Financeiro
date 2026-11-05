@@ -43,6 +43,7 @@ import {
 import {
   addDays,
   brl,
+  expenseCategories,
   formatDate,
   inssAmount,
   itemPaymentLabel,
@@ -113,7 +114,7 @@ export function NewPayableDialog({
 
   const missingRecords = [
     !reference.suppliers.length && "fornecedores",
-    !reference.categories.length && "categorias",
+    !expenseCategories(reference).length && "categorias",
     !reference.companies.length && "empresas",
     !reference.units.length && "unidades",
     !reference.costCenters.length && "centros de custo",
@@ -241,7 +242,7 @@ export function NewPayableDialog({
                   id="p-cat"
                   value={form.categoryId}
                   onChange={set("categoryId")}
-                  options={reference.categories.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
+                  options={expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
                 />
               </Field>
             </div>
@@ -772,7 +773,7 @@ export function ReclassifyDialog({
                 onChange={set("categoryId")}
                 options={[
                   { id: KEEP, label: "Não mudar" },
-                  ...reference.categories.map((c) => ({ id: c.id, label: `${c.code} ${c.name}` })),
+                  ...expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` })),
                 ]}
               />
             </Field>

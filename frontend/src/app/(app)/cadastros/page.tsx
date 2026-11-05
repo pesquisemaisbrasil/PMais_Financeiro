@@ -45,6 +45,7 @@ type TabId = RecordKind | "projects";
 
 const TABS: { id: TabId; label: string; one: string; create?: string }[] = [
   { id: "suppliers", label: "Fornecedores", one: "fornecedor", create: "Novo fornecedor" },
+  { id: "customers", label: "Clientes", one: "cliente", create: "Novo cliente" },
   { id: "categories", label: "Plano de contas", one: "conta", create: "Nova conta" },
   { id: "companies", label: "Empresas", one: "empresa", create: "Nova empresa" },
   { id: "units", label: "Unidades", one: "unidade", create: "Nova unidade" },
@@ -97,12 +98,14 @@ function RecordDialog({
     phone: record?.phone ?? "",
     email: record?.email ?? "",
     paymentTerms: record?.paymentTerms ?? "",
+    kind: record?.kind ?? "despesa",
   });
   const input = (key: keyof typeof form) => ({
     value: form[key],
     onChange: (event: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: event.target.value })),
   });
   const needsCompany = kind === "units" || kind === "bankAccounts";
+  const isParty = kind === "suppliers" || kind === "customers";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -122,7 +125,7 @@ function RecordDialog({
             <DialogDescription>Os campos com * são obrigatórios.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
-            {kind === "suppliers" && (
+            {isParty && (
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Apelido *" id="c-apelido">
@@ -133,7 +136,7 @@ function RecordDialog({
                   </Field>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="CNPJ" id="c-doc" hint="Fornecedor pessoa física fica sem documento por enquanto.">
+                  <Field label="CNPJ" id="c-doc" hint={`${kind === "customers" ? "Cliente" : "Fornecedor"} pessoa física fica sem documento por enquanto.`}>
                     <Input id="c-doc" {...input("document")} />
                   </Field>
                   <Field label="Contato responsável" id="c-contato">
@@ -148,22 +151,37 @@ function RecordDialog({
                     <Input id="c-email" type="email" {...input("email")} />
                   </Field>
                 </div>
-                <Field label="Condição de pagamento" id="c-cond">
-                  <Input id="c-cond" {...input("paymentTerms")} />
-                </Field>
+                {kind === "suppliers" && (
+                  <Field label="Condição de pagamento" id="c-cond">
+                    <Input id="c-cond" {...input("paymentTerms")} />
+                  </Field>
+                )}
               </>
             )}
             {kind === "categories" && (
-              <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-                <Field label="Código *" id="c-cod">
-                  <Input id="c-cod" autoFocus placeholder="2.04" {...input("code")} />
+              <>
+                <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
+                  <Field label="Código *" id="c-cod">
+                    <Input id="c-cod" autoFocus placeholder="2.04" {...input("code")} />
+                  </Field>
+                  <Field label="Nome *" id="c-nome">
+                    <Input id="c-nome" {...input("name")} />
+                  </Field>
+                </div>
+                <Field label="Tipo *" id="c-tipo" hint="Despesa vai para Contas a pagar; receita, para Contas a receber. Com lançamentos, o tipo não muda.">
+                  <SearchSelect
+                    id="c-tipo"
+                    value={form.kind}
+                    onChange={(value) => setForm((current) => ({ ...current, kind: value as "despesa" | "receita" }))}
+                    options={[
+                      { id: "despesa", label: "Despesa" },
+                      { id: "receita", label: "Receita" },
+                    ]}
+                  />
                 </Field>
-                <Field label="Nome *" id="c-nome">
-                  <Input id="c-nome" {...input("name")} />
-                </Field>
-              </div>
+              </>
             )}
-            {kind !== "suppliers" && kind !== "categories" && (
+            {!isParty && kind !== "categories" && (
               <>
                 {needsCompany && (
                   <Field label="Empresa *" id="c-emp">
@@ -352,6 +370,7 @@ function RecordsByUrl() {
 }
 
 function Records({ tab }: { tab: TabId }) {
+  const isParty = tab === "suppliers" || tab === "customers";
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
@@ -510,9 +529,10 @@ function Records({ tab }: { tab: TabId }) {
                 <TableRow>
                   {tab === "categories" && <TableHead className={TH}>Código</TableHead>}
                   {(tab === "units" || tab === "bankAccounts") && <TableHead className={TH}>Empresa</TableHead>}
-                  <TableHead className={TH}>{tab === "suppliers" ? "Apelido · nome" : "Nome"}</TableHead>
-                  {tab === "suppliers" && <TableHead className={TH}>CNPJ</TableHead>}
-                  {tab === "suppliers" && <TableHead className={TH}>Contato</TableHead>}
+                  <TableHead className={TH}>{isParty ? "Apelido · nome" : "Nome"}</TableHead>
+                  {tab === "categories" && <TableHead className={TH}>Tipo</TableHead>}
+                  {isParty && <TableHead className={TH}>CNPJ</TableHead>}
+                  {isParty && <TableHead className={TH}>Contato</TableHead>}
                   {tab === "suppliers" && <TableHead className={TH}>Condição</TableHead>}
                   <TableHead className={TH}>Situação</TableHead>
                   <TableHead className={TH} />
@@ -529,10 +549,15 @@ function Records({ tab }: { tab: TabId }) {
                       <span className="font-semibold text-brand-cinza-escuro">{row.nickname ?? row.name}</span>
                       {row.nickname && <span className="block text-xs text-muted-foreground">{row.name}</span>}
                     </TableCell>
-                    {tab === "suppliers" && (
+                    {tab === "categories" && (
+                      <TableCell className={TD}>
+                        <Tag color={row.kind === "receita" ? "azul" : "cinza"}>{row.kind === "receita" ? "Receita" : "Despesa"}</Tag>
+                      </TableCell>
+                    )}
+                    {isParty && (
                       <TableCell className={cn(TD, "tabular-nums")}>{row.document ? formatCnpj(row.document) : "—"}</TableCell>
                     )}
-                    {tab === "suppliers" && (
+                    {isParty && (
                       <TableCell className={cn(TD, "whitespace-normal")}>
                         {row.contactName ?? "—"}
                         {(row.email || row.phone) && (
