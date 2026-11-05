@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { expenseCategories, revenueCategories, type Reference } from "./payables";
-import { daysLateText, effectiveIndicator, netCents, receivableParams, type ReceivableQuery } from "./receivables";
+import {
+  daysLateText,
+  effectiveIndicator,
+  netCents,
+  receivableParams,
+  type ReceivableQuery,
+} from "./receivables";
 
 const base: ReceivableQuery = {
   mode: "mes",
@@ -83,5 +89,13 @@ describe("plano de contas", () => {
   it("cada tela vê só as contas do seu tipo", () => {
     expect(expenseCategories(reference).map((c) => c.id)).toEqual([1]);
     expect(revenueCategories(reference).map((c) => c.id)).toEqual([2]);
+  });
+});
+
+describe("série", () => {
+  it("escreve o número do título na série", async () => {
+    const { seriesLabel } = await import("./payables");
+    const row = { id: 1, index: 2, count: 3, kind: "parcelado" as const, estimated: false };
+    expect(seriesLabel(row)).toBe("2/3");
   });
 });

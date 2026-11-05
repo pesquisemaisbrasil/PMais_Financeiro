@@ -14,26 +14,47 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cancelSeries, editSeries } from "@/lib/api";
 import {
   SERIES_SCOPES,
   parseMoney,
   plural,
   seriesLabel,
-  type PayableRow,
+  type SeriesInfo,
   type SeriesScope,
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
+
+/** Chamadas da API da tela que abre o diálogo (contas a pagar ou a receber). */
+export interface SeriesApi {
+  edit: (id: number, body: unknown) => Promise<{ count: number }>;
+  cancel: (id: number, body: unknown) => Promise<{ count: number }>;
+}
+
+/** As palavras da tela: "conta" e "pago" no Contas a pagar; "título" e "recebido" no a receber. */
+export interface SeriesTexts {
+  canceled: [string, string];
+  changed: [string, string];
+  /** "O que já foi pago" */
+  settled: string;
+  /** Mensagem de quando nada mudou, porque todas já têm baixa ou estão canceladas */
+  none: string;
+  /** "contas" ou "títulos" */
+  many: string;
+}
 
 /** Editar ou cancelar uma ocorrência da série: só esta, esta e as seguintes, ou todas em aberto. */
 export function SeriesDialog({
   row,
   mode,
+  api,
+  texts,
   onClose,
   onDone,
 }: {
-  row: PayableRow;
+  row: { id: number; description: string; series: SeriesInfo | null };
   mode: "edit" | "cancel";
+  api: SeriesApi;
+  texts: SeriesTexts;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
@@ -54,23 +75,23 @@ export function SeriesDialog({
     if (mode === "cancel") {
       if (!reason.trim()) return setLocalError("Diga o motivo do cancelamento.");
       return run(async () => {
-        const { count } = await cancelSeries(row.id, { scope: current, reason: reason.trim() });
-        onDone(`${plural(count, "conta cancelada", "contas canceladas")}. O que já foi pago continua.`);
+        const { count } = await api.cancel(row.id, { scope: current, reason: reason.trim() });
+        onDone(`${plural(count, ...texts.canceled)}. ${texts.settled} continua.`);
       });
     }
     const value = amount.trim() ? parseMoney(amount) : null;
     if (amount.trim() && !value) return setLocalError("Valor inválido.");
     if (!value && !description.trim()) return setLocalError("Mude o valor ou a descrição.");
     return run(async () => {
-      const { count } = await editSeries(row.id, {
+      const { count } = await api.edit(row.id, {
         scope: current,
         amount: value ?? undefined,
         description: description.trim() || undefined,
       });
       onDone(
         count === 0
-          ? "Nenhuma conta mudou: todas já têm baixa ou estão canceladas."
-          : `${plural(count, "conta alterada", "contas alteradas")}. O que já foi pago não muda.`,
+          ? texts.none
+          : `${plural(count, ...texts.changed)}. ${texts.settled} não muda.`,
       );
     });
   }
@@ -79,7 +100,7 @@ export function SeriesDialog({
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle>{mode === "cancel" ? "Cancelar contas da série" : "Alterar contas da série"}</DialogTitle>
+          <DialogTitle>{mode === "cancel" ? `Cancelar ${texts.many} da série` : `Alterar ${texts.many} da série`}</DialogTitle>
           <DialogDescription>
             {row.description} · ocorrência {seriesLabel(series)}
           </DialogDescription>
@@ -119,7 +140,7 @@ export function SeriesDialog({
             disabled={submitting}
             onClick={submit}
           >
-            {mode === "cancel" ? "Cancelar contas" : "Alterar contas"}
+            {mode === "cancel" ? `Cancelar ${texts.many}` : `Alterar ${texts.many}`}
           </Button>
         </DialogFooter>
       </DialogContent>

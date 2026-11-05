@@ -1,5 +1,5 @@
-import { remove, request, send } from "./api";
-import type { PeriodMode } from "./payables";
+import { fetchBlob, remove, request, send } from "./api";
+import type { PeriodMode, SeriesInfo } from "./payables";
 
 // ---- Tipos (iguais aos do backend: schemas/receivable.py) ----
 
@@ -29,6 +29,7 @@ export interface ReceivableRow {
   pending: string;
   daysLate: number | null;
   canReceive: boolean;
+  series: SeriesInfo | null;
 }
 
 export interface ReceivableList {
@@ -165,6 +166,25 @@ export function receivableParams(query: ReceivableQuery): URLSearchParams {
 
 export function listReceivables(query: ReceivableQuery): Promise<ReceivableList> {
   return request<ReceivableList>(`/receivables?${receivableParams(query)}`);
+}
+
+/** Tudo o que os filtros trazem, sem paginar, em CSV. */
+export function exportReceivables(query: ReceivableQuery): Promise<Blob> {
+  const params = receivableParams(query);
+  params.delete("page");
+  return fetchBlob(`/receivables/export?${params}`);
+}
+
+export function createReceivableSeries(body: unknown): Promise<{ seriesId: number; ids: number[] }> {
+  return send<{ seriesId: number; ids: number[] }>("/receivables/recurrence", "POST", body);
+}
+
+export function editReceivableSeries(id: number, body: unknown): Promise<{ count: number }> {
+  return send<{ count: number }>(`/receivables/${id}/series`, "PATCH", body);
+}
+
+export function cancelReceivableSeries(id: number, body: unknown): Promise<{ count: number }> {
+  return send<{ count: number }>(`/receivables/${id}/series/cancel`, "POST", body);
 }
 
 export function getReceivable(id: number): Promise<ReceivableDetail> {

@@ -39,6 +39,7 @@ export function RecurrenceFields({
   amount,
   disabled,
   onError,
+  noun = "conta",
 }: {
   value: RecurrenceState;
   onChange: (next: RecurrenceState) => void;
@@ -46,6 +47,8 @@ export function RecurrenceFields({
   amount: string | null;
   disabled: boolean;
   onError: (message: string | null) => void;
+  /** "conta" no Contas a pagar; "título" no Contas a receber */
+  noun?: string;
 }) {
   const [simulating, setSimulating] = useState(false);
   const set = (patch: Partial<RecurrenceState>) =>
@@ -159,7 +162,7 @@ export function RecurrenceFields({
           )}
           {value.rows && (
             <p className="text-xs text-muted-foreground">
-              {value.rows.length} contas, de {formatDate(value.rows[0].dueDate)} a{" "}
+              {value.rows.length} {noun === "conta" ? "contas" : "títulos"}, de {formatDate(value.rows[0].dueDate)} a{" "}
               {formatDate(value.rows[value.rows.length - 1].dueDate)}, no total de{" "}
               {brl(value.rows.reduce((sum, row) => sum + Number(row.amount), 0))}. Vencimento em fim de semana
               ou feriado vai para o próximo dia útil.

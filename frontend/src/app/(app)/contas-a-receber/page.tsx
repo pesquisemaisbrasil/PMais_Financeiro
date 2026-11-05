@@ -3,11 +3,14 @@
 import {
   ArrowDown,
   ArrowUp,
+  Ban,
   Check,
   ChevronLeft,
   ChevronRight,
+  Download,
   Eye,
   Plus,
+  Repeat,
   Search,
   SlidersHorizontal,
   TriangleAlert,
@@ -16,9 +19,10 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CARD, ErrorBox, NUM, PageHeader, TD, TH } from "@/components/finance";
+import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { SearchSelect } from "@/components/SearchSelect";
+import { SeriesDialog } from "@/components/SeriesDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +38,7 @@ import {
   notifyPayablesChanged,
   plural,
   revenueCategories,
+  seriesLabel,
   type PeriodMode,
   type Reference,
 } from "@/lib/payables";
@@ -41,7 +46,10 @@ import {
   DATE_FIELDS,
   INDICATORS,
   SITUATION_LABELS,
+  cancelReceivableSeries,
   daysLateText,
+  editReceivableSeries,
+  exportReceivables,
   listReceivables,
   type ReceivableDateField,
   type ReceivableDetail,
@@ -126,7 +134,12 @@ function Cell({ row, column }: { row: ReceivableRow; column: string }) {
     case "cliente":
       return (
         <TableCell className={cn(TD, "min-w-[180px] whitespace-normal")}>
-          <span className="font-medium text-brand-cinza-escuro">{row.customer}</span>
+          <span className="font-medium text-brand-cinza-escuro">{row.customer}</span>{" "}
+          {row.series && (
+            <Tag color="cinza" icon={Repeat}>
+              {seriesLabel(row.series)}
+            </Tag>
+          )}
           <span className="block text-xs font-normal text-muted-foreground">
             {row.description}
             {row.contract && ` · contrato ${row.contract}`}
@@ -203,6 +216,8 @@ export default function ReceivablesPage() {
   const [receiving, setReceiving] = useState<ReceivableRow | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   const [delinquency, setDelinquency] = useState(false);
+  const [seriesAction, setSeriesAction] = useState<{ row: ReceivableRow; mode: "edit" | "cancel" } | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -301,6 +316,22 @@ export default function ReceivablesPage() {
         setRangeEnd(end);
       }
     });
+  }
+
+  async function exportList() {
+    setExporting(true);
+    try {
+      const url = URL.createObjectURL(await exportReceivables(query));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `contas-a-receber-${data?.today ?? "lista"}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível exportar");
+    } finally {
+      setExporting(false);
+    }
   }
 
   function changeSort(column: ReceivableSort) {
@@ -434,6 +465,10 @@ export default function ReceivablesPage() {
                 </span>
               )}
             </Button>
+            <Button variant="outline" className="h-9 gap-2 bg-card font-normal" disabled={exporting} onClick={exportList}>
+              <Download size={16} />
+              {exporting ? "Exportando…" : "Exportar"}
+            </Button>
           </div>
           <div className="relative w-full max-w-[300px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
@@ -518,6 +553,20 @@ export default function ReceivablesPage() {
                     ))}
                     <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
                       <IconButton icon={Eye} label="Ver detalhes" onClick={() => setViewing(row.id)} />
+                      {row.series && (
+                        <IconButton
+                          icon={Repeat}
+                          label="Alterar ou cancelar a série"
+                          onClick={() => setSeriesAction({ row, mode: "edit" })}
+                        />
+                      )}
+                      {row.series && (
+                        <IconButton
+                          icon={Ban}
+                          label="Cancelar os títulos da série"
+                          onClick={() => setSeriesAction({ row, mode: "cancel" })}
+                        />
+                      )}
                       {row.canReceive && (
                         <IconButton icon={Check} label="Registrar recebimento" onClick={() => setReceiving(row)} />
                       )}
@@ -586,9 +635,13 @@ export default function ReceivablesPage() {
           reference={reference}
           today={data.today}
           onClose={() => setCreating(false)}
-          onDone={(receivable: ReceivableDetail) => {
+          onDone={(receivable: ReceivableDetail, seriesCount?: number) => {
             setCreating(false);
-            toast.success(`Conta lançada: ${brl(receivable.net)}, vence em ${formatDate(receivable.dueDate)}.`);
+            toast.success(
+              seriesCount
+                ? `${seriesCount} títulos lançados, o primeiro vence em ${formatDate(receivable.dueDate)}.`
+                : `Conta lançada: ${brl(receivable.net)}, vence em ${formatDate(receivable.dueDate)}.`,
+            );
             changed();
           }}
         />
@@ -618,6 +671,26 @@ export default function ReceivablesPage() {
           onReceive={(receivable) => {
             setViewing(null);
             setReceiving(receivable);
+          }}
+        />
+      )}
+      {seriesAction && (
+        <SeriesDialog
+          row={seriesAction.row}
+          mode={seriesAction.mode}
+          api={{ edit: editReceivableSeries, cancel: cancelReceivableSeries }}
+          texts={{
+            canceled: ["título cancelado", "títulos cancelados"],
+            changed: ["título alterado", "títulos alterados"],
+            settled: "O que já foi recebido",
+            none: "Nenhum título mudou: todos já têm recebimento ou estão cancelados.",
+            many: "títulos",
+          }}
+          onClose={() => setSeriesAction(null)}
+          onDone={(message) => {
+            setSeriesAction(null);
+            toast.success(message);
+            changed();
           }}
         />
       )}

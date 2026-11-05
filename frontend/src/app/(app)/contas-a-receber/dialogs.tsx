@@ -2,6 +2,7 @@
 
 import { Undo2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { ErrorBox, Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,6 +25,7 @@ import {
   addDays,
   brl,
   formatDate,
+  occurrenceEdits,
   parseMoney,
   plural,
   revenueCategories,
@@ -35,6 +37,7 @@ import {
   SITUATION_LABELS,
   cancelReceivable,
   createReceivable,
+  createReceivableSeries,
   daysLateText,
   deleteReceivable,
   getReceivable,
@@ -74,10 +77,11 @@ export function NewReceivableDialog({
   reference: Reference;
   today: string;
   onClose: () => void;
-  onDone: (receivable: ReceivableDetail) => void;
+  onDone: (receivable: ReceivableDetail, seriesCount?: number) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [recurrence, setRecurrence] = useState<RecurrenceState>(NO_RECURRENCE);
   const [form, setForm] = useState({
     customerId: "",
     projectId: "",
@@ -137,9 +141,10 @@ export function NewReceivableDialog({
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
     if (net !== null && net <= 0) return setLocalError("Os abatimentos precisam ser menores que o valor.");
-    await run(async () => {
-      onDone(
-        await createReceivable({
+    if (recurrence.repeat && !recurrence.rows) {
+      return setLocalError("Clique em Simular para conferir as parcelas antes de salvar.");
+    }
+    const body = {
           customerId: Number(form.customerId),
           projectId: Number(form.projectId),
           categoryId: Number(form.categoryId),
@@ -157,8 +162,22 @@ export function NewReceivableDialog({
           documentNumber: form.documentNumber.trim() || null,
           documentDate: form.documentDate || null,
           notes: form.notes.trim() || null,
-        }),
-      );
+    };
+    await run(async () => {
+      if (recurrence.repeat && recurrence.rows && recurrence.simulated) {
+        const { ids } = await createReceivableSeries({
+          ...body,
+          recurrence: {
+            kind: recurrence.kind,
+            count: Number(recurrence.count),
+            estimated: recurrence.estimated,
+            occurrences: occurrenceEdits(recurrence.simulated, recurrence.rows),
+          },
+        });
+        onDone(await getReceivable(ids[0]), ids.length);
+        return;
+      }
+      onDone(await createReceivable(body));
     });
   }
 
@@ -281,6 +300,15 @@ export function NewReceivableDialog({
                 <Input id="r-doce" type="date" {...input("documentDate")} />
               </Field>
             </div>
+            <RecurrenceFields
+              value={recurrence}
+              onChange={setRecurrence}
+              dueDate={form.dueDate}
+              amount={gross}
+              disabled={submitting}
+              onError={setLocalError}
+              noun="título"
+            />
             <Field label="Observações" id="r-obs">
               <Textarea id="r-obs" {...input("notes")} />
             </Field>

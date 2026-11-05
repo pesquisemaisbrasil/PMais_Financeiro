@@ -40,7 +40,15 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ApiError, exportPayables, getPayable, getReference, listPayables } from "@/lib/api";
+import {
+  ApiError,
+  cancelSeries,
+  editSeries,
+  exportPayables,
+  getPayable,
+  getReference,
+  listPayables,
+} from "@/lib/api";
 import {
   brl,
   formatDate,
@@ -77,7 +85,7 @@ import {
 } from "./dialogs";
 import { ImportDialog } from "./import-dialog";
 import { ReceiptsDialog } from "./receipts-dialog";
-import { SeriesDialog } from "./series-dialog";
+import { SeriesDialog } from "@/components/SeriesDialog";
 
 const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean; fixed?: boolean }[] = [
   { id: "vencimento", label: "Vencimento", sort: "vencimento", fixed: true },
@@ -998,6 +1006,14 @@ function PayablesContent() {
         <SeriesDialog
           row={seriesAction.row}
           mode={seriesAction.mode}
+          api={{ edit: editSeries, cancel: cancelSeries }}
+          texts={{
+            canceled: ["conta cancelada", "contas canceladas"],
+            changed: ["conta alterada", "contas alteradas"],
+            settled: "O que já foi pago",
+            none: "Nenhuma conta mudou: todas já têm baixa ou estão canceladas.",
+            many: "contas",
+          }}
           onClose={() => setSeriesAction(null)}
           onDone={(message) => {
             setSeriesAction(null);

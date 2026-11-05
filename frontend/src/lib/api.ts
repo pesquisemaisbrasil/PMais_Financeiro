@@ -229,6 +229,12 @@ export function upload<T>(path: string, method: string, form: FormData): Promise
   return request<T>(path, { method, body: form });
 }
 
+/** GET que devolve um arquivo (CSV). */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const response = await fetchWithAuth(path);
+  return response.blob();
+}
+
 /** POST que responde 204, sem corpo. */
 export async function postNoContent(path: string): Promise<void> {
   await fetchWithAuth(path, { method: "POST" });
