@@ -39,7 +39,7 @@ Contrato dos títulos a receber de clientes, simétrico ao [contas-a-pagar](cont
 
 ## Critérios de aceite
 
-- [ ] Uma receita parcelada em 3 tem parcelas com número, vencimento, valor e status próprios.
+- [x] Uma receita parcelada em 3 tem parcelas com número, vencimento, valor e status próprios.
 - [x] Um recebimento parcial mantém o saldo pendente e aparece como parcial nos indicadores e nos relatórios.
 - [x] A lista de inadimplência mostra o cliente com 2 títulos vencidos, os dias de atraso e o total.
 - [ ] A receita da ficha do projeto bate com a soma dos títulos; diferença mostra aviso.
@@ -50,7 +50,8 @@ Contrato dos títulos a receber de clientes, simétrico ao [contas-a-pagar](cont
 ## Onde está no código
 
 - Backend: `backend/models/receivable.py`, `backend/services/receivable.py`, `backend/api/receivables.py`, `backend/schemas/receivable.py`; cadastro de cliente em `backend/services/records.py` (tipo `customers`).
-- Frontend: `frontend/src/app/(app)/contas-a-receber/` (`page.tsx` e `dialogs.tsx`) e `frontend/src/lib/receivables.ts`.
+- Frontend: `frontend/src/app/(app)/contas-a-receber/` (`page.tsx` e `dialogs.tsx`) e `frontend/src/lib/receivables.ts`; a tela de repetir e o diálogo da série são os mesmos do Contas a pagar (`frontend/src/components/RecurrenceFields.tsx` e `SeriesDialog.tsx`).
+- Série e parcelas: `backend/services/receivable_series.py`, que usa `backend/services/recurrence.py` (simulação) e a mesma tabela `payable_series` do Contas a pagar.
 - Testes: `backend/tests/test_receivables.py`, `frontend/src/lib/receivables.test.ts`, `frontend/e2e/contas-a-receber.spec.ts`.
 
 Origem do requisito:
@@ -69,3 +70,7 @@ Origem do requisito:
 - 2026-11-06: **situação.** Título vencido continua "Vencida" mesmo com recebimento parcial (como no Contas a pagar); "Parcial" é do que ainda não venceu. O indicador **Recebidos** soma só o que foi recebido por inteiro, como "Pagos". Os cancelados saem do Total e têm indicador próprio, aberto pela situação "Cancelada" nos Filtros.
 - 2026-11-06: **contrato** é texto livre (sem cadastro de contratos). **Conta de receita:** o plano de contas ganhou o tipo despesa ou receita: Contas a pagar só aceita despesa, Contas a receber só receita, e o tipo de uma conta em uso não muda. Recebimento no passado pede observação, e o mesmo ID de transação não vale para dois recebimentos.
 - 2026-11-06: **projeto obrigatório** (regra 2), com a mensagem "Informe o projeto da receita"; projeto fechado não recebe título novo. Se existe receita sem projeto é pergunta ao financeiro (Q27).
+- 2026-11-06 (fatia 2 entregue): **parcelamento e recorrência da receita** (todo mês, toda semana ou parcelado, de 2 a 60 ocorrências) com a tabela simulada editável antes de salvar, e **exportação em CSV** com os filtros e a busca na primeira linha. As regras são as do Contas a pagar: dia que não existe vira o último do mês, fim de semana e feriado vão para o próximo dia útil, a diferença de centavos do parcelado fica na última parcela, e só a primeira ocorrência leva o número e a data da nota.
+- 2026-11-06: no **parcelado**, os abatimentos também são divididos entre as parcelas, e a soma das parcelas tem de ser igual ao valor do título: se não for, 422 "As parcelas somam R$ X, mas o título é de R$ Y" e nada é criado. Dá para ajustar valor e data de cada parcela antes de salvar (por exemplo, 30% na aprovação e 70% na entrega).
+- 2026-11-06: **alterar ou cancelar a série** ("só este", "este e os seguintes", "todos em aberto") nunca mexe em título que já tem recebimento: ele fica de fora, e se o título escolhido em "só este" já recebeu, a resposta é 409 ("Títulos com recebimento não são alterados pela série").
+- 2026-11-06: **recebimento em lote não foi feito**: a spec só fala em recebimento total ou parcial de um título, e o lote existe no Contas a pagar por pedido do financeiro. Vira pedido se a Vivi quiser. Continuam para a fatia 3: anexos da nota (depende do armazenamento de arquivos, Q18), faixas de vencimento e a receita da ficha do projeto.

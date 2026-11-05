@@ -98,4 +98,4 @@ Origem do requisito:
 - 2026-11-06: **editar a série** muda valor e descrição ("só esta", "esta e as seguintes", "todas em aberto"); o vencimento de uma ocorrência continua sendo mudado nela mesma. **Cancelar a série** vale para "esta e as seguintes" ou "todas em aberto" (cancelar só uma é o cancelamento normal da conta). Ocorrência paga, parcialmente paga ou já cancelada nunca é alterada pela série: fica de fora, e se a ocorrência escolhida em "só esta" já foi paga, a resposta é 409 ("Ocorrências pagas não são alteradas pela série").
 - 2026-11-06: **recorrência estimada** (luz): marca a série como estimada; "só esta" troca uma ocorrência pelo valor real sem mexer nas seguintes. Provisão não tem série (422).
 - 2026-11-06: ficou de fora desta entrega: estender uma série (acrescentar ocorrências depois) e a baixa em lote por série.
-
+- 2026-11-06: a série (`payable_series`) e a simulação também servem ao Contas a receber, para parcelar a receita do projeto (ver [contas-a-receber](contas-a-receber.md)). O nome da tabela ficou como está para não migrar dado; a coluna `series_id` de `receivables` aponta para ela.

@@ -419,3 +419,5 @@ As credenciais do Financeiro **no Connect** ficam no `.env` (`CONNECT_CLIENT_ID`
 - [ ] `outbox_events.idempotencyKey` e `inbound_events.eventId` únicos.
 
 **Contas a receber (código, fatia 1):** `customers` (apelido, nome, CNPJ único entre os ativos, contato; sem CPF), `receivables` (cliente, projeto único, empresa, unidade, centro de custo, conta de receita, contrato, documento, emissão, vencimento, competência, `amount` bruto e `withheld` abatimentos; `canceledAt` e `deletedAt` lógicos), `receivable_payments` (recebimento e estorno, `reverses_id` único, nunca apagado) e `receivable_events` (histórico). `expense_categories.kind` (`despesa` ou `receita`).
+
+`receivables.series_id` (RESTRICT, nulo em título avulso) e `receivables.seriesIndex` ligam o título à mesma `payable_series` do Contas a pagar (parcelas e recorrência da receita).

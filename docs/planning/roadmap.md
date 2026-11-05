@@ -131,6 +131,9 @@ Com o sistema rodando. Em **Financeiro > Contas a receber**:
 4. **Registrar recebimento** (botão da linha): data, valor, conta e forma. Menos que o saldo é recebimento parcial; mais que o saldo é recusado.
 5. **Ver detalhes:** resumo, recebimentos (com **Estornar**, que pede o motivo) e histórico. Dá para alterar, cancelar (sem recebimento) e excluir.
 6. **Inadimplência:** vencidos por cliente, com os dias de atraso e o total, e botão para abrir cada título.
+7. **Parcelar a receita:** em **Nova conta a receber**, marque **Repetir esta conta**, escolha "Parcelado" e a quantidade, e clique em **Simular**. Ajuste valor e data de cada parcela na tabela (a soma tem de fechar com o título) e lance. Cada parcela aparece com o número na série (`1/3`).
+8. O botão de série da linha altera "só este", "este e os seguintes" ou "todos em aberto" (valor ou descrição) ou cancela a série; quem já recebeu não muda.
+9. **Exportar** baixa o CSV do que está na tela, com os filtros e a busca na primeira linha.
 
 ### Repetir uma conta (PF-57)
 
