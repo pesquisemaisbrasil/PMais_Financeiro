@@ -51,6 +51,8 @@ class ExpenseCategory(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(20), nullable=False, unique=True)
     name = Column(String(100), nullable=False)
+    # despesa (Contas a pagar) | receita (Contas a receber): cada tela só vê a sua
+    kind = Column(String(10), nullable=False, default="despesa", server_default="despesa")
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 
@@ -70,6 +72,31 @@ class BankAccount(Base):
         Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+
+
+class Customer(Base):
+    """Cliente de Contas a receber. Só CNPJ: CPF não é guardado (pergunta Q23)."""
+
+    __tablename__ = "customers"
+    # O banco segura dois pedidos ao mesmo tempo com o mesmo documento.
+    __table_args__ = (
+        Index(
+            "uq_customers_active_document",
+            "document",
+            unique=True,
+            postgresql_where=text("active AND document IS NOT NULL"),
+            sqlite_where=text("active AND document IS NOT NULL"),
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    nickname = Column(String(100), nullable=False)
+    name = Column(String(200), nullable=False)
+    document = Column(String(14), nullable=True)
+    contactName = Column(String(120), nullable=True)
+    phone = Column(String(30), nullable=True)
+    email = Column(String(200), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 

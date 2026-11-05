@@ -245,6 +245,7 @@ class CodeName(BaseModel):
 
 class CategoryOut(CodeName):
     code: str
+    kind: str
 
 
 class SupplierOut(CodeName):
@@ -277,6 +278,7 @@ class Reference(BaseModel):
     paymentMethods: list[CodeName]
     bankAccounts: list[BankAccountOut]
     suppliers: list[SupplierOut]
+    customers: list[SupplierOut]
     projects: list[ProjectOut]
 
 

@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 RecordKind = Literal[
     "suppliers",
+    "customers",
     "categories",
     "companies",
     "units",
@@ -23,6 +24,8 @@ class RecordIn(BaseModel):
     phone: str | None = Field(default=None, max_length=30)
     email: str | None = Field(default=None, max_length=200)
     paymentTerms: str | None = Field(default=None, max_length=200)
+    # só na conta do plano de contas: despesa (padrão) ou receita
+    kind: Literal["despesa", "receita"] | None = None
 
 
 class RecordOut(BaseModel):
@@ -38,6 +41,7 @@ class RecordOut(BaseModel):
     phone: str | None
     email: str | None
     paymentTerms: str | None
+    kind: str | None
 
 
 class ActiveIn(BaseModel):

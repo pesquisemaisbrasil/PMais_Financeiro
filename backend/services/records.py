@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session
 
 from core.document import clean_cnpj, is_cpf_shaped, valid_cnpj
 from models.payable import Payable, PayablePayment
+from models.receivable import Receivable, ReceivablePayment
 from models.reference import (
     BankAccount,
     BusinessUnit,
     Company,
     CostCenter,
+    Customer,
     ExpenseCategory,
     PaymentMethod,
     Project,
@@ -38,21 +40,38 @@ class Kind:
 
 KINDS: dict[str, Kind] = {
     "suppliers": Kind(Supplier, "fornecedor", (Payable.supplier_id,)),
-    "categories": Kind(ExpenseCategory, "conta", (Payable.category_id,)),
+    "customers": Kind(Customer, "cliente", (Receivable.customer_id,)),
+    "categories": Kind(ExpenseCategory, "conta", (Payable.category_id, Receivable.category_id)),
     "companies": Kind(
         Company,
         "empresa",
-        (Payable.company_id, BusinessUnit.company_id, BankAccount.company_id),
+        (
+            Payable.company_id,
+            Receivable.company_id,
+            BusinessUnit.company_id,
+            BankAccount.company_id,
+        ),
     ),
-    "units": Kind(BusinessUnit, "unidade", (Payable.unit_id,)),
-    "costCenters": Kind(CostCenter, "centro de custo", (Payable.cost_center_id,)),
-    "bankAccounts": Kind(BankAccount, "conta bancária", (PayablePayment.bank_account_id,)),
+    "units": Kind(BusinessUnit, "unidade", (Payable.unit_id, Receivable.unit_id)),
+    "costCenters": Kind(
+        CostCenter, "centro de custo", (Payable.cost_center_id, Receivable.cost_center_id)
+    ),
+    "bankAccounts": Kind(
+        BankAccount,
+        "conta bancária",
+        (PayablePayment.bank_account_id, ReceivablePayment.bank_account_id),
+    ),
     "paymentMethods": Kind(
         PaymentMethod,
         "forma de pagamento",
-        (Payable.payment_method_id, PayablePayment.payment_method_id),
+        (
+            Payable.payment_method_id,
+            PayablePayment.payment_method_id,
+            ReceivablePayment.payment_method_id,
+        ),
     ),
 }
+_ARTICLE = {"suppliers": "um", "customers": "um"}
 IN_USE_DETAIL = "Esse cadastro tem lançamentos — inative em vez de excluir"
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 PHONE = re.compile(r"\+\d{2} \d{2} [\d-]{8,10}")
@@ -79,6 +98,7 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "phone": getattr(record, "phone", None),
         "email": getattr(record, "email", None),
         "paymentTerms": getattr(record, "paymentTerms", None),
+        "kind": getattr(record, "kind", None),
     }
 
 
@@ -117,7 +137,8 @@ def _taken(db: Session, kind: str, record_id: int | None, *conditions: Any) -> b
     return query.first() is not None
 
 
-def _supplier_document(db: Session, record_id: int | None, value: str | None) -> str | None:
+def _party_document(db: Session, kind: str, record_id: int | None, value: str | None) -> str | None:
+    """CNPJ de fornecedor ou de cliente: só CNPJ, válido, e único entre os ativos."""
     if not _filled(value):
         return None
     document = clean_cnpj(value or "")
@@ -125,8 +146,11 @@ def _supplier_document(db: Session, record_id: int | None, value: str | None) ->
         raise PayableInvalid("Por enquanto, só CNPJ: CPF não é guardado aqui")
     if not valid_cnpj(document):
         raise PayableInvalid("CNPJ inválido. Confira os dígitos")
-    if _taken(db, "suppliers", record_id, Supplier.document == document, Supplier.active.is_(True)):
-        raise PayableConflict("Já existe um fornecedor ativo com esse documento")
+    model = KINDS[kind].model
+    if _taken(db, kind, record_id, model.document == document, model.active.is_(True)):
+        raise PayableConflict(
+            f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} ativo com esse documento"
+        )
     return document
 
 
@@ -146,7 +170,7 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
     fields: dict[str, Any] = {"name": name}
     same_name = func.lower(model.name) == name.lower()
 
-    if kind == "suppliers":
+    if kind in ("suppliers", "customers"):
         nickname = (data.nickname or "").strip()
         if not nickname:
             raise PayableInvalid("Preencha o apelido")
@@ -159,12 +183,13 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
             raise PayableInvalid("Telefone no formato +55 41 99999-0000")
         fields.update(
             nickname=nickname,
-            document=_supplier_document(db, record_id, data.document),
+            document=_party_document(db, kind, record_id, data.document),
             contactName=_filled(data.contactName),
             phone=phone,
             email=email,
-            paymentTerms=_filled(data.paymentTerms),
         )
+        if kind == "suppliers":
+            fields["paymentTerms"] = _filled(data.paymentTerms)
     elif kind == "categories":
         code = (data.code or "").strip()
         if not code:
@@ -173,6 +198,7 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if _taken(db, kind, record_id, model.code == code):
             raise PayableConflict("Já existe uma conta com esse código")
         fields["code"] = code
+        fields["kind"] = data.kind or "despesa"
     elif kind in ("units", "bankAccounts"):
         company_id = _company(db, data.companyId)
         if _taken(db, kind, record_id, same_name, model.company_id == company_id):
@@ -198,6 +224,10 @@ def update(db: Session, kind: str, record_id: int, data: RecordIn, user: User) -
     in_use = record_id in _used_ids(db, kind)
     if in_use and "company_id" in fields and fields["company_id"] != record.company_id:
         raise PayableConflict("Esse cadastro tem lançamentos — a empresa não pode mudar")
+    if in_use and "kind" in fields and fields["kind"] != record.kind:
+        raise PayableConflict(
+            "Essa conta tem lançamentos — o tipo (despesa ou receita) não pode mudar"
+        )
     for attribute, value in fields.items():
         setattr(record, attribute, value)
     _log(db, kind, record_id, user, f"Editou {record.name}")
@@ -209,11 +239,19 @@ def set_active(db: Session, kind: str, record_id: int, active: bool, user: User)
     record = _get(db, kind, record_id)
     if (
         active
-        and kind == "suppliers"
+        and kind in ("suppliers", "customers")
         and record.document
-        and _taken(db, kind, record_id, Supplier.document == record.document, Supplier.active)
+        and _taken(
+            db,
+            kind,
+            record_id,
+            KINDS[kind].model.document == record.document,
+            KINDS[kind].model.active,
+        )
     ):
-        raise PayableConflict("Já existe um fornecedor ativo com esse documento")
+        raise PayableConflict(
+            f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} ativo com esse documento"
+        )
     if record.active != active:
         record.active = active
         _log(db, kind, record_id, user, f"{'Reativou' if active else 'Inativou'} {record.name}")

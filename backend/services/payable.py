@@ -21,6 +21,7 @@ from models.reference import (
     BusinessUnit,
     Company,
     CostCenter,
+    Customer,
     ExpenseCategory,
     PaymentMethod,
     Project,
@@ -643,7 +644,9 @@ def check_classification(
     costCenterId: int,
     paymentMethodId: int,
 ) -> None:
-    _active(db, ExpenseCategory, categoryId, "Categoria")
+    category = _active(db, ExpenseCategory, categoryId, "Categoria")
+    if category.kind != "despesa":
+        raise PayableInvalid("Contas a pagar usam conta de despesa")
     _active(db, Company, companyId, "Empresa")
     _active(db, CostCenter, costCenterId, "Centro de custo")
     _active(db, PaymentMethod, paymentMethodId, "Forma de pagamento")
@@ -1153,6 +1156,7 @@ def reference(db: Session) -> dict[str, Any]:
         .filter(ExpenseCategory.active.is_(True))
         .order_by(ExpenseCategory.code)
         .all(),
+        "customers": active(Customer).all(),
         "paymentMethods": active(PaymentMethod).all(),
         "bankAccounts": [
             {"id": b.id, "name": b.name, "companyId": b.company_id} for b in active(BankAccount)
