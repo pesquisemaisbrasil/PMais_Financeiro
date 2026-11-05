@@ -10,11 +10,21 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core.config import MIGRATION_DATABASE_URL  # noqa: E402
 from db.connection import Base  # noqa: E402
+from models.connect_payable_item import (  # noqa: E402,F401 (registers model on Base.metadata)
+    ConnectPayableItem,
+)
 from models.login_event import LoginEvent  # noqa: E402,F401 (registers model on Base.metadata)
 from models.mfa_recovery_code import (  # noqa: E402,F401 (registers model on Base.metadata)
     MfaRecoveryCode,
 )
 from models.payable import Payable  # noqa: E402,F401 (registers model on Base.metadata)
+from models.project_ref import ProjectRef  # noqa: E402,F401 (registers model on Base.metadata)
+from models.receipt import (  # noqa: E402,F401 (registers model on Base.metadata)
+    PaymentReceipt,
+    ReceiptAllocation,
+    ReceiptBatch,
+    ReceiptBatchPart,
+)
 from models.refresh_token import RefreshToken  # noqa: E402,F401 (registers model on Base.metadata)
 from models.sso_identity import SsoIdentity  # noqa: E402,F401 (registers model on Base.metadata)
 from models.user import User  # noqa: E402,F401 (registers model on Base.metadata)
