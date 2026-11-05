@@ -32,16 +32,17 @@ Nada disto anda sem uma resposta. A ordem é a de quem destrava mais coisa.
 
 Em ordem sugerida:
 
-1. **Fechar a `homolog` para enviar.** Antes do push: simulação de CI em containers Linux (com Postgres, que cobre a trava `with_for_update` e o índice único do Pix, hoje só conferidos na migration) e auditoria de segredos. `.github/workflows/tests.yml` mudou (`PIX_SECRET_KEY`): pede revisão. O PR `homolog` → `main` só com o João pedindo ou autorizando.
+1. **Enviar a `homolog`.** A simulação de CI em containers Linux (Python 3.11, Postgres 16 com as migrations, build do front e E2E) e a auditoria de segredos passaram em 06/11/2026. Falta só a **revisão de `.github/workflows/tests.yml`** (só ganhou a `PIX_SECRET_KEY` de teste) e o seu pedido de push. O PR `homolog` → `main` só com o João pedindo ou autorizando.
 2. ~~**PF-57: recorrência em Contas a pagar**~~ entregue em 06/11/2026 ([baixas-recorrencia-e-anexos](../specs/baixas-recorrencia-e-anexos.md)).
 3. **Fechar as pontas do PF-56 que não dependem do Connect:**
    - ~~**Despachante em segundo plano**~~, ~~**sino de avisos**~~ e ~~**tela de Divergências**~~ entregues em 06/11/2026 (`PAYMENT_DISPATCH_SECONDS` liga o despachante).
    - ~~**Baixa por pessoa dentro do lançamento**~~ entregue em 06/11/2026.
 4. **Cliente HTTP do Connect:** a parte de leitura (token, projetos, itens a pagar, entrevistadores) está feita e testada contra respostas no formato do Connect; falta **ligar numa conta de serviço real** (`CONNECT_BASE_URL`, `CONNECT_CLIENT_ID`, `CONNECT_CLIENT_SECRET`) e conferir contra o Connect no ar. Faltam as chamadas `pix-key-matches` e `payments`, que dependem das entregas 1 e 2 do Connect.
 5. **Planilha de pagamento ao banco** ([pagamentos-a-pagar](../specs/pagamentos-a-pagar.md)): depende da entrega 1 do Connect (`payment-data`), com cada acesso à chave completa auditado.
-6. **Próximos módulos do [roadmap](roadmap.md):** Contas a receber, Notas e RPA e Conferência bancária (hoje "Em breve" no menu), depois Relatórios.
+6. **Próximo módulo: Contas a receber** ([contas-a-receber](../specs/contas-a-receber.md)), depois Notas e RPA e Conferência bancária (hoje "Em breve" no menu) e os Relatórios.
 7. **Débitos pequenos:**
    - ~~corrigir o handoff/07 §7~~ feito em 06/11/2026;
+   - ~~cache `.next` separado para o E2E~~ feito em 06/11/2026 (`NEXT_DIST_DIR`);
    - subir o FastAPI em PR próprio, combinado com o Connect (PF-52);
    - mover as subtarefas PF-31/32 e PF-34/35 no quadro, e arrastar PF-25/26/27 ao backlog.
 
