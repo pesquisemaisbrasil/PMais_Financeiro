@@ -12,6 +12,7 @@ O que o Financeiro guarda para a pessoa entrar e manter a sessão. Os dados de C
 | Controle do TOTP | `users.totpLastUsedStep`, `mfaFailedAttempts`, `mfaLockedUntil`, `mfaEnabledAt` | Números e datas | Impedir código repetido e adivinhação | Enquanto a conta existir |
 | Códigos de recuperação | `mfa_recovery_codes.codeHash`, `usedAt` | Só o hash; o código aparece uma vez | Entrar se o autenticador for perdido | Até o uso, ou até o MFA ser refeito |
 | Tentativas de login | `login_events` | HMAC do e-mail digitado (não o e-mail), IP **mascarado**, user-agent, motivo, data. Nunca a senha | Limitar tentativas e auditar acessos | **6 meses** (mínimo do Marco Civil, art. 15) |
+| Identificador da pessoa no Google ou na Microsoft | `sso_identities.provider`, `subject` | Em claro (Google: `sub`; Microsoft: `tid:oid`). Não é e-mail nem documento | Achar a conta mesmo se o e-mail mudar ou for reaproveitado | Some junto com a conta |
 | Sessões | `refresh_tokens` | Hash do token, família, validade, se veio do SSO | Manter a pessoa logada e derrubar sessão roubada | **30 dias depois de expirar ou ser revogada** |
 | Último acesso | `users.lastSignedInAt` | Data | Mostrar na administração | Enquanto a conta existir |
 
@@ -20,7 +21,7 @@ O que o Financeiro guarda para a pessoa entrar e manter a sessão. Os dados de C
 - **CPF.** Nunca ([ADR 0004](../adr/0004-cpf-de-usuario-fora-do-financeiro.md)).
 - **A senha, o e-mail digitado nas tentativas e o IP completo.**
 - **O código TOTP e a chave do autenticador em claro.**
-- **Dados da conta Google ou Microsoft** além do e-mail confirmado no momento do login. O identificador fixo do provedor (`sub`, ou `oid` e `tid`) entra com o PF-49, e este inventário será atualizado no mesmo PR.
+- **Dados da conta Google ou Microsoft** além do identificador fixo acima. O e-mail do provedor só é usado no momento do login e não é copiado.
 
 ## Hoje o banco só cresce
 

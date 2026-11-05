@@ -8,6 +8,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - **SSO Google ou Microsoft** como alternativa à senha. Quem entra assim confirma no próprio provedor e não passa pela etapa de código do Financeiro. Por isso, a verificação em duas etapas precisa estar exigida nas contas da empresa, pelo administrador do Google e da Microsoft.
   - `GET /auth/sso/{google|microsoft}/start` leva ao provedor, e `GET /auth/sso/{google|microsoft}/callback` confere a volta e abre a sessão;
   - só entra quem já tem conta ativa no Financeiro: o SSO nunca cria conta;
+  - a conta é achada pelo **identificador fixo** da pessoa no provedor (`sub` no Google; `tid` + `oid` na Microsoft), guardado em `sso_identities` no primeiro login. O e-mail só liga a conta nesse primeiro login: depois, e-mail trocado no provedor não muda a conta, e outra pessoa com o e-mail antigo não entra;
   - a Microsoft fica limitada à empresa (`MICROSOFT_TENANT_ID`), e o Google exige e-mail verificado;
   - sem as chaves do provedor, o botão continua na tela e avisa que ainda não está disponível.
 - **Não há cadastro público:** a conta nasce com `backend/scripts/create_user.py` até existir a tela de usuários.
@@ -109,3 +110,4 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - 2026-11-03: SSO entregue, com os botões na tela de login. A sessão guarda que veio do provedor (`refresh_tokens.viaSso`), e só ela dispensa o TOTP. Falta definir a reautenticação de quem entra por SSO nas ações críticas, que ainda não existem. O login real depende de registrar o app no Google e na Microsoft.
 - 2026-10-21: segregação de funções (quem envia o lote não confirma a baixa acima de um valor) fica como pergunta aberta Q8 até o PO definir o valor.
 - 2026-11-05: PF-52. O `starlette` 0.48 não limita formulário urlencoded (PYSEC-2026-249). Enquanto o FastAPI não sobe, qualquer pedido em `/auth/*` com corpo acima de 16 KB recebe 413 ("Pedido grande demais"), contado nos bytes recebidos e não só no `Content-Length`. O `--ignore-vuln` do `security.yml` continua até a atualização do FastAPI (feita em PR próprio, combinada com o Connect).
+- 2026-11-05: PF-49. Primeiro login por SSO liga a conta ao identificador fixo pelo e-mail; contas já cadastradas se ligam sozinhas no próximo login. Se a conta já está ligada a outra pessoa do mesmo provedor, o login é recusado como "sem conta" (e-mail reaproveitado). Para trocar a pessoa de uma conta, hoje é preciso apagar a linha em `sso_identities`; a tela de administração vem com a entrega de usuários.

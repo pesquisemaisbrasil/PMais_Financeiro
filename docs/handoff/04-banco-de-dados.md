@@ -256,6 +256,8 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **`users`**, **`refresh_tokens`**, **`password_reset_tokens`**: copie os models do Connect sem o `cpfHash` (login por e-mail, spec acesso-e-auditoria; `passwordHash` bcrypt, `role`, `status`). Papéis: `financeiro`, `admin`. Sem chave Pix, sem endereço, sem `encryptedPayload`.
 
+**`sso_identities`** (PF-49): `user_id` (CASCADE), `provider` (`google`|`microsoft`), `subject` (Google: `sub`; Microsoft: `tid:oid`), único por `provider` + `subject`. Liga a conta ao identificador fixo da pessoa no provedor, no primeiro login por SSO.
+
 **`project_refs`**: espelho mínimo de projeto.
 
 | Coluna | Tipo | Motivo |
