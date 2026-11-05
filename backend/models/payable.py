@@ -24,6 +24,26 @@ from models.reference import (
 )
 
 
+class PayableSeries(Base):
+    """Série de ocorrências (conta que se repete todo mês, toda semana ou em parcelas).
+    Cada ocorrência é um título normal ligado à série; a série só guarda como ela nasceu."""
+
+    __tablename__ = "payable_series"
+
+    id = Column(Integer, primary_key=True, index=True)
+    # mensal | semanal | parcelado
+    kind = Column(String(20), nullable=False)
+    # total de ocorrências, a primeira incluída
+    count = Column(Integer, nullable=False)
+    startDate = Column(Date, nullable=False)
+    # Valor estimado (luz, por exemplo): cada ocorrência é trocada pelo real, uma de cada vez.
+    estimated = Column(Boolean, nullable=False, default=False, server_default="false")
+    created_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class Payable(Base):
     """Título de Contas a pagar, o único lugar onde se paga (kickoff de 03/11, K10).
 
@@ -80,6 +100,11 @@ class Payable(Base):
     replaced_by_id = Column(
         Integer, ForeignKey("payables.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Série de que faz parte (nº 1 a `count`). Nulo em conta avulsa.
+    series_id = Column(
+        Integer, ForeignKey("payable_series.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    seriesIndex = Column(Integer, nullable=True)
     canceledAt = Column(DateTime(timezone=True), nullable=True)
     deletedAt = Column(DateTime(timezone=True), nullable=True, index=True)
     created_by_user_id = Column(
@@ -96,6 +121,7 @@ class Payable(Base):
     category = relationship(ExpenseCategory)
     payment_method = relationship(PaymentMethod)
     supplier = relationship(Supplier)
+    series = relationship(PayableSeries, lazy="joined")
     replaced_provisions = relationship("Payable", foreign_keys=[replaced_by_id])
     allocations = relationship(
         "PayableAllocation", cascade="all, delete-orphan", order_by="PayableAllocation.id"

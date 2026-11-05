@@ -18,7 +18,7 @@ from models.mfa_recovery_code import (  # noqa: E402,F401 (registers model on Ba
     MfaRecoveryCode,
 )
 from models.notification import Notification  # noqa: E402,F401 (registers model on Base.metadata)
-from models.payable import Payable  # noqa: E402,F401 (registers model on Base.metadata)
+from models.payable import Payable, PayableSeries  # noqa: E402,F401 (registers model on Base.metadata)
 from models.project_ref import ProjectRef  # noqa: E402,F401 (registers model on Base.metadata)
 from models.receipt import (  # noqa: E402,F401 (registers model on Base.metadata)
     PaymentReceipt,

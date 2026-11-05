@@ -260,6 +260,17 @@ def row(payable: Payable, on: date, item_count: int) -> dict[str, Any]:
         "replaces": (
             payable.replaced_provisions[0].amount if payable.replaced_provisions else None
         ),
+        "series": (
+            {
+                "id": payable.series.id,
+                "index": payable.seriesIndex,
+                "count": payable.series.count,
+                "kind": payable.series.kind,
+                "estimated": payable.series.estimated,
+            }
+            if payable.series
+            else None
+        ),
     }
 
 
@@ -641,6 +652,13 @@ def check_classification(
 
 
 def create(db: Session, data: PayableCreate, user: User) -> Payable:
+    payable = new_payable(db, data, user)
+    db.commit()
+    return payable
+
+
+def new_payable(db: Session, data: PayableCreate, user: User) -> Payable:
+    """Valida e grava o título na transação aberta, sem commit: quem chama decide quando fechar."""
     if data.supplierId is not None:
         _active(db, Supplier, data.supplierId, "Fornecedor")
     elif data.type == "real":
@@ -692,12 +710,16 @@ def create(db: Session, data: PayableCreate, user: User) -> Payable:
         f"Lançada: {payable.description} · {format_brl(payable.amount)} · "
         f"vence {format_date_br(payable.dueDate)}",
     )
-    db.commit()
     return payable
 
 
 def update(db: Session, payable_id: int, data: PayableUpdate, user: User) -> None:
-    payable = _get(db, payable_id, lock=True)
+    apply_update(db, _get(db, payable_id, lock=True), data, user)
+    db.commit()
+
+
+def apply_update(db: Session, payable: Payable, data: PayableUpdate, user: User) -> None:
+    """Altera valor, vencimento e descrição na transação aberta, sem commit."""
     if payable.canceledAt is not None:
         raise PayableConflict("Conta cancelada não pode ser alterada")
     if payable.replaced_by_id is not None:
@@ -730,7 +752,6 @@ def update(db: Session, payable_id: int, data: PayableUpdate, user: User) -> Non
         payable.description = data.description
     if changes:
         audit(db, payable, user, "Alterada: " + "; ".join(changes))
-    db.commit()
 
 
 def _check_payable(payable: Payable) -> None:
@@ -882,7 +903,12 @@ def reverse_payment(
 
 
 def cancel(db: Session, payable_id: int, reason: str, user: User) -> None:
-    payable = _get(db, payable_id, lock=True)
+    apply_cancel(db, _get(db, payable_id, lock=True), reason, user)
+    db.commit()
+
+
+def apply_cancel(db: Session, payable: Payable, reason: str, user: User) -> None:
+    """Cancela na transação aberta, sem commit."""
     if payable.canceledAt is not None:
         raise PayableConflict("Essa conta já está cancelada")
     if payable.replaced_by_id is not None:
@@ -894,7 +920,6 @@ def cancel(db: Session, payable_id: int, reason: str, user: User) -> None:
     payable.canceledAt = datetime.now(UTC)
     audit(db, payable, user, f"Cancelada: {reason}")
     _reopen_provisions(db, payable, user)
-    db.commit()
 
 
 def get_open_provision(db: Session, payable_id: int) -> Payable:

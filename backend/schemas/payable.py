@@ -22,6 +22,7 @@ SituationFilter = Literal[
     "pago", "parcial", "vencido", "hoje", "a_vencer", "devolvido", "cancelado", "substituido"
 ]
 KindFilter = Literal["real", "provisao"]
+RecurrenceKind = Literal["mensal", "semanal", "parcelado"]
 
 
 class AllocationIn(BaseModel):
@@ -133,6 +134,14 @@ class AllocationOut(BaseModel):
     amount: Decimal
 
 
+class SeriesInfo(BaseModel):
+    id: int
+    index: int
+    count: int
+    kind: RecurrenceKind
+    estimated: bool
+
+
 class PayableRow(BaseModel):
     id: int
     type: str
@@ -157,6 +166,8 @@ class PayableRow(BaseModel):
     canPayDirectly: bool
     canReplace: bool
     replaces: Decimal | None
+    # nulo em conta avulsa
+    series: SeriesInfo | None = None
 
 
 class ValueCount(BaseModel):
@@ -356,3 +367,61 @@ class ImportResult(BaseModel):
     count: int
     items: int
     total: Decimal
+
+
+# ---- Recorrência ----
+
+SeriesScope = Literal["only", "following", "open"]
+
+
+class OccurrenceEdit(BaseModel):
+    """Ajuste de uma linha da tabela simulada, antes de salvar."""
+
+    index: int = Field(ge=1)
+    dueDate: date | None = None
+    amount: Money | None = None
+
+
+class RecurrenceIn(BaseModel):
+    kind: RecurrenceKind
+    # total de ocorrências, a primeira incluída
+    count: int = Field(ge=2, le=60)
+    estimated: bool = False
+    occurrences: list[OccurrenceEdit] | None = None
+
+
+class RecurringCreate(PayableCreate):
+    recurrence: RecurrenceIn
+
+
+class SimulateIn(BaseModel):
+    kind: RecurrenceKind
+    startDate: date
+    count: int = Field(ge=2, le=60)
+    amount: Money
+
+
+class OccurrenceOut(BaseModel):
+    index: int
+    dueDate: date
+    amount: Decimal
+
+
+class SeriesEdit(BaseModel):
+    scope: SeriesScope
+    amount: Money | None = None
+    description: ShortText | None = None
+
+
+class SeriesCancel(BaseModel):
+    scope: Literal["following", "open"]
+    reason: Reason
+
+
+class SeriesCreated(BaseModel):
+    seriesId: int
+    ids: list[int]
+
+
+class SeriesResult(BaseModel):
+    count: int

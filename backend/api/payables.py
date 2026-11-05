@@ -34,6 +34,7 @@ from schemas.payable import (
     ImportResult,
     Indicator,
     KindFilter,
+    OccurrenceOut,
     PayableCreate,
     PayableDetail,
     PayableList,
@@ -43,14 +44,20 @@ from schemas.payable import (
     PeriodMode,
     ProvisionReplace,
     ReasonIn,
+    RecurringCreate,
     Reference,
     ReplacementCandidate,
+    SeriesCancel,
+    SeriesCreated,
+    SeriesEdit,
+    SeriesResult,
+    SimulateIn,
     SituationFilter,
     SortColumn,
     Tab,
 )
 from services import payable as payable_service
-from services import payable_import
+from services import payable_import, recurrence
 from services.auth import get_current_user
 
 router = APIRouter(tags=["contas a pagar"])
@@ -396,6 +403,64 @@ def cancel_payable(
 ) -> dict[str, Any]:
     _in_transaction(db, lambda: payable_service.cancel(db, payable_id, data.reason, user))
     return payable_service.detail(db, payable_id)
+
+
+@router.post(
+    "/payables/recurrence/simulate",
+    response_model=list[OccurrenceOut],
+    description="Mostra as ocorrências de uma série, sem gravar nada",
+)
+@limiter.limit(READ_LIMIT)
+def simulate_recurrence(request: Request, data: SimulateIn, _: FinanceUser) -> list[dict[str, Any]]:
+    return [
+        {"index": o.index, "dueDate": o.dueDate, "amount": o.amount}
+        for o in recurrence.simulate(data.kind, data.startDate, data.count, data.amount)
+    ]
+
+
+@router.post(
+    "/payables/recurrence",
+    response_model=SeriesCreated,
+    status_code=status.HTTP_201_CREATED,
+    description="Cria a série: uma conta por ocorrência, todas ou nenhuma",
+)
+@limiter.limit(WRITE_LIMIT)
+def create_series(
+    request: Request, data: RecurringCreate, db: DbSession, user: FinanceUser
+) -> dict[str, Any]:
+    series, created = _in_transaction(
+        db,
+        lambda: recurrence.create_series(
+            db, PayableCreate(**data.model_dump(exclude={"recurrence"})), data.recurrence, user
+        ),
+    )
+    return {"seriesId": series.id, "ids": [p.id for p in created]}
+
+
+@router.patch(
+    "/payables/{payable_id}/series",
+    response_model=SeriesResult,
+    description="Muda valor ou descrição de só esta, esta e as seguintes ou todas em aberto",
+)
+@limiter.limit(WRITE_LIMIT)
+def edit_series(
+    request: Request, payable_id: int, data: SeriesEdit, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _in_transaction(db, lambda: recurrence.edit_series(db, payable_id, data, user))
+    return {"count": count}
+
+
+@router.post(
+    "/payables/{payable_id}/series/cancel",
+    response_model=SeriesResult,
+    description="Cancela esta e as seguintes, ou todas em aberto; o que já foi pago continua",
+)
+@limiter.limit(WRITE_LIMIT)
+def cancel_series(
+    request: Request, payable_id: int, data: SeriesCancel, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _in_transaction(db, lambda: recurrence.cancel_series(db, payable_id, data, user))
+    return {"count": count}
 
 
 @router.post(
