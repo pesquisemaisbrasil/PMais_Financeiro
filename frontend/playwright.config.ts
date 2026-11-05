@@ -82,7 +82,8 @@ export default defineConfig({
         : `npx next dev --port ${FRONTEND_PORT}`,
       cwd: __dirname,
       url: `${FRONTEND_URL}/login`,
-      env: { NEXT_PUBLIC_API_URL: API_URL },
+      // Fora da CI, outra pasta de build, para não brigar com o `next dev` da porta 3010.
+      env: { NEXT_PUBLIC_API_URL: API_URL, ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }) },
       reuseExistingServer: false,
       timeout: 180_000,
       stdout: "ignore",
