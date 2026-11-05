@@ -74,6 +74,13 @@ test("enviar o PDF de comprovantes, conferir e confirmar a baixa", async ({ page
 
   // O mesmo PDF de novo: o Pix já foi pago e nada é pago outra vez
   await dialog.getByRole("button", { name: "Fechar" }).click();
+
+  // No lançamento, só a pessoa que recebeu mostra o dia do Pix; as outras continuam a pagar
+  await page.getByRole("row", { name: /4 entrevistadores/ }).getByRole("button", { name: "Mostrar os itens" }).click();
+  await expect(page.getByRole("row", { name: /Sandra Ribeiro/ }).last()).toContainText("Paga em 03/02/2026");
+  await expect(page.getByRole("row", { name: /Marcos Lima/ }).last()).toContainText("Baixa parcial do lançamento");
+  await page.getByRole("button", { name: "Esconder os itens" }).click();
+
   await page.getByRole("row", { name: /4 entrevistadores/ }).getByRole("button", { name: "Enviar comprovantes" }).click();
   await choose(page, "Projeto *", "Pesquisa de mobilidade urbana");
   await page.getByRole("dialog").getByLabel("PDF de comprovantes *").setInputFiles({

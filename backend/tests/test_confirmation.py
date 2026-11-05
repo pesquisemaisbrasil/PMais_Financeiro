@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from models.connect_payable_item import ConnectPayableItem
 from models.notification import Notification
-from models.payable import Payable, PayableEvent, PayablePayment
+from models.payable import Payable, PayableEvent, PayableItem, PayablePayment
 from models.project_ref import ProjectRef
 from models.receipt import PaymentReceipt, PaymentRequest, ReceiptAllocation, ReceiptBatch
 from models.reference import (
@@ -680,3 +680,64 @@ def test_a_failure_while_warning_never_loses_the_receipts_already_read(
     assert response.status_code == 200
     assert db_session.query(PaymentReceipt).count() == 1
     assert db_session.get(ReceiptBatch, batch).status == "pronto"  # type: ignore[union-attr]
+
+
+def add_people(db: Session, payable: Payable, *people: tuple[int | None, str]) -> list[PayableItem]:
+    items = [
+        PayableItem(
+            payable_id=payable.id,
+            name=f"Pessoa {n}",
+            documentType="RPA",
+            amount=Decimal(amount),
+            connect_interviewer_id=person,
+        )
+        for n, (person, amount) in enumerate(people, start=1)
+    ]
+    db.add_all(items)
+    db.commit()
+    return items
+
+
+def test_the_people_of_the_payable_show_who_was_paid_and_when(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    auth: dict[str, str],
+    connect: FakeConnect,
+    payable_world: dict[str, object],
+) -> None:
+    payable: Payable = payable_world["payable"]  # type: ignore[assignment]
+    account: BankAccount = payable_world["account"]  # type: ignore[assignment]
+    method: PaymentMethod = payable_world["method"]  # type: ignore[assignment]
+    # a pessoa 87 tem duas linhas de 20 e uma de 30; a 91 não recebeu Pix; uma não é do Connect
+    paid_two, paid_one_more, partial, other, outsider = add_people(
+        db_session,
+        payable,
+        (87, "20.00"),
+        (87, "20.00"),
+        (87, "30.00"),
+        (91, "20.00"),
+        (None, "20.00"),
+    )
+    add_items(db_session, project, "20.00", "20.00")
+    batch = open_linked(client, project, auth, payable)
+    send(
+        client,
+        project,
+        auth,
+        batch,
+        pdf(
+            text(IN_PROJECT, "20,00", "E1", day="02/02/2026"),
+            text(IN_PROJECT, "20,00", "E2", day="03/02/2026"),
+        ),
+    )
+
+    confirm(client, project, auth, batch, bankAccountId=account.id, paymentMethodId=method.id)
+
+    for item in (paid_two, paid_one_more, partial, other, outsider):
+        db_session.refresh(item)
+    # os dois Pix (40) pagam as duas primeiras de 20, com o dia do último Pix; a de 30 fica a pagar
+    assert (paid_two.paidOn, paid_one_more.paidOn) == (date(2026, 2, 3), date(2026, 2, 3))
+    assert (partial.paidOn, other.paidOn, outsider.paidOn) == (None, None, None)
+    shown = client.get(f"/payables/{payable.id}", headers=auth).json()["items"]
+    assert [i["paidOn"] for i in shown] == ["2026-02-03", "2026-02-03", None, None, None]
