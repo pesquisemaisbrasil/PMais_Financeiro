@@ -26,3 +26,15 @@ O que o Financeiro guarda para a pessoa entrar e manter a sessão. Os dados de C
 ## Hoje o banco só cresce
 
 Nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza segue o prazo que o DPO decidir (Q26). Enquanto isso, o crescimento é pequeno (duas pessoas usando todo dia).
+
+## Comprovantes Pix (PF-56)
+
+| Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |
+|---|---|---|---|---|
+| Nome do recebedor lido no comprovante | `payment_receipts.payeeNameEncrypted` | Cifrado (AES-256-GCM). Aparece na tela só quando a chave não casa com ninguém | Descobrir de quem é um Pix de chave desconhecida | A definir com o DPO (Q5, Q19) |
+| Chave Pix do recebedor | `payment_receipts.payeeKeyHash`, `payeeKeyMasked` | Só o hash (HMAC) e a máscara (`mar***@exemplo.com`). A chave inteira nunca é gravada | Casar comprovante com a pessoa e mostrar sem expor | A definir com o DPO |
+| Valor, data e ID da transação (`e2eId`) | `payment_receipts.amount`, `paidOn`, `e2eId` | Em claro | Conciliar a baixa e impedir pagar o mesmo Pix duas vezes | A definir com o DPO |
+| Quem recebeu (id da pessoa no Connect) | `payment_receipts.connect_interviewer_id`, `connect_payable_items.connect_interviewer_id` | Número, sem nome | Ligar a baixa à pessoa sem copiar o cadastro dela | A definir com o DPO |
+
+**O que o comprovante não guarda:** o PDF (lido em memória e descartado), o CPF do recebedor, agência e conta, o bloco do pagador, o código de autenticação e o texto bruto. Nada disso vai para log.
+

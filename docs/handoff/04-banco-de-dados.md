@@ -269,7 +269,7 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 É a linha travada com `with_for_update()` na confirmação de lote (papel que `projects` tem hoje em `_lock_batch`).
 
-**`payable_items`**: espelho de entrevista a pagar. Sem nome nem chave Pix.
+**`payable_items`** (no código: **`connect_payable_items`**, porque `payable_items` já é das pessoas de um lançamento em Contas a pagar): espelho de entrevista a pagar. Sem nome nem chave Pix.
 
 | Coluna | Tipo | Motivo |
 |---|---|---|

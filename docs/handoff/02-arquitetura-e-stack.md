@@ -190,6 +190,7 @@ Segredo novo entra em `core/config.py` e no `.env.example` (com valor `change-me
 | `REFRESH_TOKEN_EXPIRE_DAYS` | não | `7` | |
 | `PIX_SECRET_KEY` | sim | — | HMAC da chave Pix lida no comprovante (detectar repetido). **Própria do Financeiro, nunca a do Connect.** Para saber de quem é a chave, o Financeiro pergunta ao Connect pela rota `pix-key-matches` (ver 07). |
 | `ENCRYPTION_KEY` | sim | — | base64 de 32 bytes, AES-256-GCM (envelope do backend). Própria do Financeiro |
+| `PIX_SECRET_KEY` | sim | — | HMAC da chave Pix (mínimo 32 caracteres). Permanente: trocar invalida os hashes gravados. Própria do Financeiro |
 | `CORS_ORIGINS` | não | `http://localhost:3000` | só o domínio do front do Financeiro |
 | `ENVIRONMENT` | não | `development` | `production` em produção |
 | `RATE_LIMIT_ENABLED` | não | `true` | só os testes de tela desligam |
