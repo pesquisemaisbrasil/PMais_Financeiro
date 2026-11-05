@@ -28,6 +28,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q21 | Provisão conta em **Hoje** e **Vencidos**, e no aviso do Início? Conta parcial que vence hoje mostra "Vence hoje" ou "Parcial"? | Financeiro | Como no protótipo: conta, e o prazo prevalece | revisão de 04/11 |
 | Q24 | As datas do lançamento precisam seguir a ordem **emissão ≤ competência ≤ vencimento**? Validar (recusa), só avisar ou deixar livre? | Financeiro (Vivi) | Livre: o sistema não valida a ordem | PF-18, `requisitos-do-prototipo-manus.md` §1 item 4, 05/11/2026 |
 | Q25 | Ao cadastrar um fornecedor com **nome parecido** a um que já existe, o sistema só avisa ou bloqueia? | Financeiro (Vivi) | Só impede o mesmo CNPJ ativo; o nome repetido passa sem aviso | PF-18, `requisitos-do-prototipo-manus.md` §1 item 5, 05/11/2026 |
+| Q26 | Por quanto tempo guardar as **tentativas de login** (`login_events`) e as **sessões** (`refresh_tokens`)? | DPO | Guarda sem limite: nada apaga. Proposta: 6 meses (Marco Civil, art. 15) e 30 dias depois de expirar |
 
 ## Módulos 2 a 7
 
