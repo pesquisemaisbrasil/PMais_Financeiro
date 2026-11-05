@@ -54,6 +54,7 @@ WITH_MFA = [
     "roubo@e2e.invalid",
     "contas@e2e.invalid",
     "comprovantes@e2e.invalid",
+    "recorrencia@e2e.invalid",
 ]
 
 
