@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 os.environ.setdefault("SECRET_KEY", "test-secret-key-com-pelo-menos-32-caracteres")
 os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
 os.environ.setdefault("ENCRYPTION_KEY", base64.b64encode(b"0" * 32).decode())
+os.environ.setdefault("PIX_SECRET_KEY", "test-pix-secret-key-com-pelo-menos-32-caracteres")
 # o TestClient fala http: com Secure, o cookie não voltaria (tem teste próprio do atributo)
 os.environ.setdefault("REFRESH_COOKIE_SECURE", "false")
 # Google e Microsoft sempre simulados, mesmo que o backend/.env da máquina tenha as chaves.
@@ -32,6 +33,7 @@ from main import app  # noqa: E402
 from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402,F401
 from models.payable import Payable  # noqa: E402,F401
+from models.receipt import ReceiptBatch  # noqa: E402,F401
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
 

@@ -29,6 +29,7 @@ jobs:
         env:
           SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
           ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          PIX_SECRET_KEY: pix-ci-chave-ficticia-com-mais-de-32-caracteres
           DATABASE_URL: "sqlite:///:memory:"
         run: pytest -q --cov=. --cov-report=term-missing --cov-report=xml --cov-fail-under=80
 
@@ -63,6 +64,7 @@ jobs:
     env:
       SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
       ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      PIX_SECRET_KEY: pix-ci-chave-ficticia-com-mais-de-32-caracteres
       DATABASE_URL: postgresql://financeiro_app:troque-local@localhost:5432/financeiro
       MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:troque-local@localhost:5432/financeiro
     steps:

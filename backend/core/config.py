@@ -22,6 +22,11 @@ ENCRYPTION_KEY = os.environ["ENCRYPTION_KEY"]
 if len(base64.b64decode(ENCRYPTION_KEY)) != 32:
     raise ValueError("ENCRYPTION_KEY precisa decodificar para 32 bytes (AES-256)")
 
+# HMAC da chave Pix (core/pix.py: hash_pix). Permanente: trocar invalida os hashes já gravados.
+PIX_SECRET_KEY = os.environ["PIX_SECRET_KEY"]
+if len(PIX_SECRET_KEY) < 32:
+    raise ValueError("PIX_SECRET_KEY precisa ter pelo menos 32 caracteres")
+
 DATABASE_URL = os.environ["DATABASE_URL"]
 # Role dona das tabelas, usada só pelo alembic/env.py.
 MIGRATION_DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL") or DATABASE_URL

@@ -6,7 +6,11 @@ para que formas equivalentes virem o mesmo valor. Mudar esta regra muda os hashe
 Connect guarda: só com combinação entre os dois sistemas.
 """
 
+import hashlib
+import hmac
 import re
+
+from core.config import PIX_SECRET_KEY
 
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
@@ -65,3 +69,8 @@ def mask_pix_key(normalized: str) -> str:
     if len(normalized) <= 5:
         return "***"
     return f"{normalized[:3]}***{normalized[-2:]}"
+
+
+def hash_pix(normalized: str) -> str:
+    """HMAC-SHA256 da chave já normalizada: serve para casar e para nunca guardar a chave."""
+    return hmac.new(PIX_SECRET_KEY.encode(), normalized.encode(), hashlib.sha256).hexdigest()
