@@ -27,7 +27,7 @@ const backendEnv = {
   DATABASE_URL: "sqlite:///./e2e.db",
   SECRET_KEY: "e2e-secret-key-com-pelo-menos-32-caracteres", // gitleaks:allow
   ENCRYPTION_KEY: Buffer.alloc(32, "e").toString("base64"),
-  PIX_SECRET_KEY: "pix-e2e-chave-ficticia-com-mais-de-32-caracteres",
+  PIX_SECRET_KEY: "pix-e2e-chave-ficticia-com-mais-de-32-caracteres", // gitleaks:allow
   ENVIRONMENT: "development",
   // Connect de mentira (dados fictícios): o de verdade nunca entra nos testes.
   CONNECT_MODE: "simulated",
