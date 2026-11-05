@@ -102,6 +102,22 @@ Em **Cadastros**, no menu:
 3. Um cadastro com lançamento não mostra **Excluir**, só **Inativar**. Inativado, ele some da **Nova conta a pagar** e continua na lista de contas.
 4. Em **Projetos (Connect)**, marque o tipo, o incentivo e o prazo. Volte ao **Importar planilha**: o projeto passa a calcular o cronograma.
 
+### Comprovantes e baixa (PF-56)
+
+Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Connect, ponha `CONNECT_MODE=simulated` no `backend/.env` (só fora de produção) e reinicie a API:
+
+1. Em **Contas a pagar**, a linha "Do Connect" (4 entrevistadores) tem o botão **Enviar comprovantes**; as outras contas não têm.
+2. No diálogo, escolha o projeto e o PDF de comprovantes do banco (Comprovante de Transferência). Sem projeto ou sem arquivo, nada é enviado.
+3. O PDF sobe em partes, com a barra de progresso, e a conferência abre em abas: **Batem**, **Divergentes**, **Fora do projeto**, **Chave não cadastrada**, **Erros** e **Descartados**.
+4. A chave aparece mascarada (`mar***@exemplo.com`) e nunca inteira. O nome lido do comprovante só aparece para chave que ninguém tem.
+5. Descarte um comprovante e restaure: ele sai e volta da conferência.
+6. Escolha a conta e a forma de pagamento (Pix já vem escolhida). Quem tem autenticador digita o código. Código errado: "Código de verificação inválido", e nada é pago.
+7. **Confirmar baixa**: o resumo mostra os Pix pagos, cada linha vira "Baixa aplicada", e o lançamento passa a mostrar o saldo menor.
+8. Envie o mesmo PDF de novo: os Pix já pagos caem em **Erros** e nada é pago outra vez.
+9. Com o Connect fora do ar na hora de confirmar, a baixa fica "Aguardando o Connect" e `python scripts/dispatch_payments.py` (em `backend/`) reenvia depois, sem pagar duas vezes.
+
+Ainda não existe: a baixa por pessoa dentro do lançamento e o sino de avisos. A baixa real depende das entregas 1 e 2 do Connect ([entregas-do-connect](../specs/entregas-do-connect.md)).
+
 ### Login com MFA, Google e Microsoft
 
 Com o sistema rodando ([README](../../README.md#como-rodar)):

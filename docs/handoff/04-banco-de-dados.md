@@ -323,6 +323,10 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 | `amount` | Numeric(10,2) | valor do item na hora (soma = valor do Pix, regra do valor exato) |
 | `connectAckAt` | DateTime(tz), nullable | quando o Connect confirmou a baixa |
 
+**`payment_requests`** (no código, no lugar do `outbox_events` para a baixa): um pedido de baixa ao Connect por comprovante pago. `receipt_id` (RESTRICT, único), `paymentRef` (único, `fin-pay-NNNNNN`, é o `Idempotency-Key`), `status` (`pendente_envio → enviada → aplicada | recusada`), `attempts`, `lastError` (só o código do erro), `sentAt`, `appliedAt`. `receipt_batches.payable_id` (RESTRICT, nulo) liga o lote ao lançamento de onde o PDF foi enviado.
+
+**`notifications`**: avisos dentro do sistema. `user_id` (CASCADE), `type`, `title`, `body`, `link`, `readAt`. Só texto de tela, sem dado pessoal de entrevistador.
+
 **`outbox_events`**: eventos para o Connect, no padrão de `notification_deliveries`.
 
 | Coluna | Tipo | Motivo |
