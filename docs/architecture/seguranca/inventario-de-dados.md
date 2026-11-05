@@ -36,5 +36,7 @@ Nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza segue o praz
 | Valor, data e ID da transação (`e2eId`) | `payment_receipts.amount`, `paidOn`, `e2eId` | Em claro | Conciliar a baixa e impedir pagar o mesmo Pix duas vezes | A definir com o DPO |
 | Quem recebeu (id da pessoa no Connect) | `payment_receipts.connect_interviewer_id`, `connect_payable_items.connect_interviewer_id` | Número, sem nome | Ligar a baixa à pessoa sem copiar o cadastro dela | A definir com o DPO |
 
+| Dia em que a pessoa foi paga no lançamento | `payable_items.paidOn`, `connect_interviewer_id` | Data e número, sem nome nem chave | Mostrar quem já foi paga em cada lançamento | A definir com o DPO |
+
 **O que o comprovante não guarda:** o PDF (lido em memória e descartado), o CPF do recebedor, agência e conta, o bloco do pagador, o código de autenticação e o texto bruto. Nada disso vai para log.
 

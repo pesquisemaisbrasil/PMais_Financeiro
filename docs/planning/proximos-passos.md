@@ -37,7 +37,7 @@ Em ordem sugerida:
 3. **Fechar as pontas do PF-56 que não dependem do Connect:**
    - **Despachante em segundo plano** para reenviar baixas que esperam o Connect. Hoje o reenvio é manual (`python scripts/dispatch_payments.py`) ou na próxima confirmação.
    - **Sino de avisos** na barra (a API `/notifications` já existe) e uma **tela de Divergências** (a rota `/divergences` já existe).
-   - **Baixa por pessoa dentro do lançamento:** exige guardar o id do Connect em cada pessoa do lançamento de origem `connect`.
+   - ~~**Baixa por pessoa dentro do lançamento**~~ entregue em 06/11/2026.
 4. **Importar projetos e itens do Connect** de verdade, quando a entrega 1 existir: trocar o `UnavailableConnect` por um cliente HTTP em `services/connect_gateway.py`, com token de serviço, timeout e HTTPS. A interface, o espelho (`project_refs`, `connect_payable_items`) e os testes já estão prontos.
 5. **Planilha de pagamento ao banco** ([pagamentos-a-pagar](../specs/pagamentos-a-pagar.md)): depende da entrega 1 do Connect (`payment-data`), com cada acesso à chave completa auditado.
 6. **Próximos módulos do [roadmap](roadmap.md):** Contas a receber, Notas e RPA e Conferência bancária (hoje "Em breve" no menu), depois Relatórios.
