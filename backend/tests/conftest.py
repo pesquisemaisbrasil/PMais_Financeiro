@@ -40,6 +40,7 @@ from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402,F401
 from models.payable import Payable  # noqa: E402,F401
 from models.receipt import ReceiptBatch  # noqa: E402,F401
+from models.receivable import Receivable  # noqa: E402,F401
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
 
