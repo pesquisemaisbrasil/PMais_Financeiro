@@ -35,8 +35,7 @@ Em ordem sugerida:
 1. **Fechar a `homolog` para enviar.** Antes do push: simulação de CI em containers Linux (com Postgres, que cobre a trava `with_for_update` e o índice único do Pix, hoje só conferidos na migration) e auditoria de segredos. `.github/workflows/tests.yml` mudou (`PIX_SECRET_KEY`): pede revisão. O PR `homolog` → `main` só com o João pedindo ou autorizando.
 2. ~~**PF-57: recorrência em Contas a pagar**~~ entregue em 06/11/2026 ([baixas-recorrencia-e-anexos](../specs/baixas-recorrencia-e-anexos.md)).
 3. **Fechar as pontas do PF-56 que não dependem do Connect:**
-   - **Despachante em segundo plano** para reenviar baixas que esperam o Connect. Hoje o reenvio é manual (`python scripts/dispatch_payments.py`) ou na próxima confirmação.
-   - **Sino de avisos** na barra (a API `/notifications` já existe) e uma **tela de Divergências** (a rota `/divergences` já existe).
+   - ~~**Despachante em segundo plano**~~, ~~**sino de avisos**~~ e ~~**tela de Divergências**~~ entregues em 06/11/2026 (`PAYMENT_DISPATCH_SECONDS` liga o despachante).
    - ~~**Baixa por pessoa dentro do lançamento**~~ entregue em 06/11/2026.
 4. **Importar projetos e itens do Connect** de verdade, quando a entrega 1 existir: trocar o `UnavailableConnect` por um cliente HTTP em `services/connect_gateway.py`, com token de serviço, timeout e HTTPS. A interface, o espelho (`project_refs`, `connect_payable_items`) e os testes já estão prontos.
 5. **Planilha de pagamento ao banco** ([pagamentos-a-pagar](../specs/pagamentos-a-pagar.md)): depende da entrega 1 do Connect (`payment-data`), com cada acesso à chave completa auditado.

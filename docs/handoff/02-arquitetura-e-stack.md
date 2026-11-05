@@ -189,6 +189,7 @@ Segredo novo entra em `core/config.py` e no `.env.example` (com valor `change-me
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | não | `15` | |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | não | `7` | |
 | `PIX_SECRET_KEY` | sim | — | HMAC da chave Pix lida no comprovante (detectar repetido). **Própria do Financeiro, nunca a do Connect.** Para saber de quem é a chave, o Financeiro pergunta ao Connect pela rota `pix-key-matches` (ver 07). |
+| `PAYMENT_DISPATCH_SECONDS` | não | `0` | Segundos entre as tentativas de reenviar ao Connect as baixas que ficaram esperando. 0 desliga o despachante (o `scripts/dispatch_payments.py` faz o mesmo na mão) |
 | `CONNECT_MODE` | não | `off` | `simulated` liga o Connect de mentira (dados fictícios), só fora de produção: para o E2E e para ver a tela sem o Connect |
 | `ENCRYPTION_KEY` | sim | — | base64 de 32 bytes, AES-256-GCM (envelope do backend). Própria do Financeiro |
 | `PIX_SECRET_KEY` | sim | — | HMAC da chave Pix (mínimo 32 caracteres). Permanente: trocar invalida os hashes gravados. Própria do Financeiro |

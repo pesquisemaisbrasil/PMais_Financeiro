@@ -114,9 +114,12 @@ Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Conne
 6. Escolha a conta e a forma de pagamento (Pix já vem escolhida). Quem tem autenticador digita o código. Código errado: "Código de verificação inválido", e nada é pago.
 7. **Confirmar baixa**: o resumo mostra os Pix pagos, cada linha vira "Baixa aplicada", e o lançamento passa a mostrar o saldo menor.
 8. Envie o mesmo PDF de novo: os Pix já pagos caem em **Erros** e nada é pago outra vez.
-9. Com o Connect fora do ar na hora de confirmar, a baixa fica "Aguardando o Connect" e `python scripts/dispatch_payments.py` (em `backend/`) reenvia depois, sem pagar duas vezes.
+9. Com o Connect fora do ar na hora de confirmar, a baixa fica "Aguardando o Connect". Ela é reenviada sozinha se `PAYMENT_DISPATCH_SECONDS` estiver ligado, ou com `python scripts/dispatch_payments.py` (em `backend/`), sem pagar duas vezes.
+10. No lançamento do Connect, abra a lista de pessoas: quem foi paga mostra "Paga em dd/mm/aaaa"; as outras seguem a pagar.
+11. O **sino** ao lado do seu nome mostra os avisos (comprovante de pessoa fora do projeto, baixa recusada). Clicar leva para a tela certa e marca como lido.
+12. **Financeiro > Divergências** lista as baixas que o Connect recusou, com o motivo.
 
-Ainda não existe: a baixa por pessoa dentro do lançamento e o sino de avisos. A baixa real depende das entregas 1 e 2 do Connect ([entregas-do-connect](../specs/entregas-do-connect.md)).
+A baixa real depende das entregas 1 e 2 do Connect ([entregas-do-connect](../specs/entregas-do-connect.md)).
 
 ### Repetir uma conta (PF-57)
 
