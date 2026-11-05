@@ -1,7 +1,8 @@
 "use client";
 
 import { Archive, ArchiveRestore, BookUser, Pencil, Plus, Search, Trash2, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { SearchSelect } from "@/components/SearchSelect";
@@ -335,8 +336,22 @@ function incentiveLabel(project: Project): string {
     : "Sem incentivo";
 }
 
+/** O tipo de cadastro vem do endereço (?aba=), escolhido no menu lateral. Trocar de tipo recria a tela. */
 export default function RecordsPage() {
-  const [tab, setTab] = useState<TabId>("suppliers");
+  return (
+    <Suspense>
+      <RecordsByUrl />
+    </Suspense>
+  );
+}
+
+function RecordsByUrl() {
+  const aba = useSearchParams().get("aba");
+  const tab = TABS.find((option) => option.id === aba)?.id ?? "suppliers";
+  return <Records key={tab} tab={tab} />;
+}
+
+function Records({ tab }: { tab: TabId }) {
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
@@ -388,13 +403,6 @@ export default function RecordsPage() {
   const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  function changeTab(next: TabId) {
-    setRows(null);
-    setTab(next);
-    setTerm("");
-    setPage(1);
-  }
-
   async function toggleActive(record: RecordRow) {
     if (tab === "projects") return;
     try {
@@ -424,25 +432,6 @@ export default function RecordsPage() {
           )
         }
       />
-
-      <div className="mb-4 inline-flex flex-wrap gap-0.5 rounded-[10px] bg-[#f1f5f9] p-[3px]" role="tablist" aria-label="Tipo de cadastro">
-        {TABS.map((option) => (
-          <Button
-            key={option.id}
-            role="tab"
-            aria-selected={tab === option.id}
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-7 rounded-lg px-3 text-[13px] font-semibold text-muted-foreground",
-              tab === option.id && "bg-card text-brand-cinza-escuro shadow-sm hover:bg-card"
-            )}
-            onClick={() => changeTab(option.id)}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
 
       {error && (
         <div className="mb-4">

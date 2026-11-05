@@ -31,7 +31,12 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   const total = page.getByRole("button", { name: /^Total/ });
   await expect(total).toContainText("R$ 6.310,00");
   await expect(total).toContainText("5 contas");
-  await expect(page.getByRole("tab", { name: /Do Connect/ })).toContainText("1");
+  // O grupo de lançamentos fica dentro de Filtros, com a contagem de cada um
+  await page.getByRole("button", { name: /^Filtros/ }).click();
+  await page.getByRole("combobox", { name: "Grupo de lançamentos" }).click();
+  await expect(page.getByRole("option", { name: /Do Connect/ })).toContainText("(1)");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /^Ver \d+ contas?$/ }).click();
 
   // Lançamento agrupado abre as pessoas na própria linha
   await page.getByRole("row", { name: /4 entrevistadores/ }).getByRole("button", { name: "Mostrar os itens" }).click();
@@ -246,7 +251,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(importer).not.toContainText("pessoa-a@exemplo.invalid");
   await importer.getByRole("button", { name: "Criar 2 lançamentos com 2 itens" }).click();
   await expect(page.getByText(/2 lançamentos criados, 2 itens/)).toBeVisible();
-  await expect(page.getByRole("tab", { name: /Planilhas e agrupados/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: /^Filtros/ })).toContainText("1");
   await expect(page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ })).toHaveCount(2);
   // Cada pessoa mostra o dia da pesquisa e como está de pagamento
   await page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ }).first().getByRole("button", { name: "Mostrar os itens" }).click();
@@ -265,7 +270,8 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.keyboard.press("Escape");
 
   // Cadastros: fornecedor com CNPJ conferido, e cadastro em uso só é inativado
-  await page.getByRole("link", { name: "Cadastros" }).click();
+  await page.getByRole("button", { name: "Cadastros" }).click();
+  await page.getByRole("link", { name: "Fornecedores" }).click();
   await expect(page.getByRole("heading", { name: "Cadastros" })).toBeVisible();
   await page.getByRole("button", { name: "Novo fornecedor" }).click();
   const supplier = page.getByRole("dialog");
@@ -287,7 +293,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(created).toHaveCount(0);
 
   // O projeto vem do Connect: aqui só se marca o tipo e o incentivo
-  await page.getByRole("tab", { name: "Projetos (Connect)" }).click();
+  await page.getByRole("link", { name: "Projetos" }).click();
   const project = page.getByRole("row", { name: /PRJ-1790/ });
   await expect(project).toContainText("Sem incentivo");
   await project.getByRole("button", { name: "Editar tipo e incentivo" }).click();
@@ -300,13 +306,13 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
 
   // O menu recolhe, continua navegável e lembra da escolha
   await page.getByRole("button", { name: "Recolher menu" }).click();
-  await expect(page.getByText("Visão geral")).toBeHidden();
+  await expect(page.getByRole("link", { name: "Fornecedores" })).toBeHidden();
   await page.reload();
   await expect(page.getByRole("button", { name: "Expandir menu" })).toBeVisible();
   await page.getByRole("link", { name: "Início" }).click();
   await expect(page.getByRole("heading", { name: /^(Bom dia|Boa tarde|Boa noite), / })).toBeVisible();
   await page.getByRole("button", { name: "Expandir menu" }).click();
-  await expect(page.getByText("Visão geral")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Fornecedores" })).toBeVisible();
 
   expect(blocked).toEqual([]);
 });

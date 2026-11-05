@@ -558,8 +558,9 @@ function PayablesContent() {
     }
   }
 
-  // Só os filtros da gaveta: busca, indicador e aba ficam à vista e se explicam sozinhos.
-  const drawerFilters = Object.values(filters).filter(Boolean).length + (dateField !== "vencimento" ? 1 : 0);
+  // Só os filtros da gaveta: busca e indicador ficam à vista e se explicam sozinhos.
+  const drawerFilters =
+    Object.values(filters).filter(Boolean).length + (dateField !== "vencimento" ? 1 : 0) + (tab !== "todas" ? 1 : 0);
   const activeFilters =
     Object.values(filters).filter(Boolean).length +
     (dateField !== "vencimento" ? 1 : 0) +
@@ -604,26 +605,6 @@ function PayablesContent() {
           />
         </div>
       )}
-
-      <div className="mb-5 inline-flex flex-wrap gap-0.5 rounded-[10px] bg-[#f1f5f9] p-[3px]" role="tablist" aria-label="Tipo de lançamento">
-        {TABS.map((option) => (
-          <Button
-            key={option.id}
-            role="tab"
-            aria-selected={tab === option.id}
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-7 gap-1.5 rounded-lg px-3 text-[13px] font-semibold text-muted-foreground",
-              tab === option.id && "bg-card text-brand-cinza-escuro shadow-sm hover:bg-card"
-            )}
-            onClick={() => resetPageAnd(() => setTab(option.id))}
-          >
-            {option.label}
-            <span className="rounded-full bg-brand-cinza-claro px-1.5 text-[11px]">{data?.tabs[option.id] ?? 0}</span>
-          </Button>
-        ))}
-      </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {INDICATORS.map((option) => {
@@ -1040,6 +1021,16 @@ function PayablesContent() {
             <SheetDescription>A lista muda enquanto você escolhe.</SheetDescription>
           </SheetHeader>
           <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
+          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+            Grupo de lançamentos
+            <SearchSelect
+              ariaLabel="Grupo de lançamentos"
+              value={tab}
+              options={TABS.map((option) => ({ id: option.id, label: `${option.label} (${data?.tabs[option.id] ?? 0})` }))}
+              onChange={(value) => resetPageAnd(() => setTab(value as Tab))}
+              className="h-8 bg-card text-[13px] text-foreground"
+            />
+          </label>
           <FilterSelect
             label="Fornecedor"
             value={filters.supplier ?? ""}
@@ -1113,6 +1104,7 @@ function PayablesContent() {
                 resetPageAnd(() => {
                   setFilters({});
                   setDateField("vencimento");
+                  setTab("todas");
                 })
               }
             >

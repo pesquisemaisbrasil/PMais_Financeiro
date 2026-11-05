@@ -1,26 +1,81 @@
 "use client";
 
-import { BookUser, ArrowUpRight, House, LogOut, PanelLeftClose, PanelLeftOpen, type LucideIcon } from "lucide-react";
+import {
+  BookUser,
+  ChartColumn,
+  ChevronDown,
+  House,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getHome } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { PAYABLES_CHANGED } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
-const GROUPS: {
-  title: string;
-  links: { href: string; label: string; icon: LucideIcon; counted: boolean }[];
-}[] = [
-  { title: "Visão geral", links: [{ href: "/", label: "Início", icon: House, counted: false }] },
-  { title: "Dia a dia", links: [{ href: "/contas-a-pagar", label: "Contas a pagar", icon: ArrowUpRight, counted: true }] },
-  { title: "Configuração", links: [{ href: "/cadastros", label: "Cadastros", icon: BookUser, counted: false }] },
+type Leaf = {
+  label: string;
+  /** Sem endereço = tela que ainda não existe: aparece como "Em breve", sem link. */
+  href?: string;
+  counted?: boolean;
+};
+type Entry = { id: string; label: string; icon: LucideIcon; href?: string; children?: Leaf[] };
+
+const NAV: Entry[] = [
+  { id: "inicio", label: "Início", icon: House, href: "/" },
+  {
+    id: "financeiro",
+    label: "Financeiro",
+    icon: Wallet,
+    children: [
+      { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
+      { label: "Contas a receber" },
+      { label: "Notas e RPA" },
+      { label: "Conferência bancária" },
+    ],
+  },
+  {
+    id: "relatorios",
+    label: "Relatórios",
+    icon: ChartColumn,
+    children: [
+      { label: "Fluxo de caixa" },
+      { label: "DRE" },
+      { label: "Resultado por projeto" },
+      { label: "Extrato × despesas" },
+    ],
+  },
+  {
+    id: "cadastros",
+    label: "Cadastros",
+    icon: BookUser,
+    children: [
+      { href: "/cadastros?aba=suppliers", label: "Fornecedores" },
+      { href: "/cadastros?aba=projects", label: "Projetos" },
+      { href: "/cadastros?aba=categories", label: "Plano de contas" },
+      { href: "/cadastros?aba=companies", label: "Empresas" },
+      { href: "/cadastros?aba=units", label: "Unidades" },
+      { href: "/cadastros?aba=costCenters", label: "Centros de custo" },
+      { href: "/cadastros?aba=bankAccounts", label: "Contas bancárias" },
+      { href: "/cadastros?aba=paymentMethods", label: "Formas de pagamento" },
+    ],
+  },
 ];
+
+const ROW = "relative flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-[9px] text-sm font-medium";
+const ROW_ACTIVE = "bg-brand-azul-deep text-white shadow-sm";
+const ROW_IDLE = "text-brand-cinza-escuro/75 hover:bg-muted hover:text-brand-cinza-escuro";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -37,6 +92,14 @@ function readCollapsed(): boolean {
   }
 }
 
+/** A aba do Cadastros vem do endereço (?aba=); sem ela, vale a primeira. */
+function isActive(href: string | undefined, pathname: string, aba: string | null): boolean {
+  if (!href) return false;
+  const [path, query] = href.split("?");
+  if (pathname !== path) return false;
+  return !query || (aba ?? "suppliers") === new URLSearchParams(query).get("aba");
+}
+
 /** Menu recolhido só tem o ícone: o nome aparece ao passar o mouse e ao focar pelo teclado. */
 function Hint({ show, label, children }: { show: boolean; label: string; children: React.ReactElement }) {
   if (!show) return children;
@@ -51,9 +114,15 @@ function Hint({ show, label, children }: { show: boolean; label: string; childre
 export function Sidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const aba = useSearchParams().get("aba");
   const [badge, setBadge] = useState(0);
   // Só existe depois do login, sempre no navegador: ler aqui não diverge do servidor.
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  // Começa com o grupo da tela atual aberto; na primeira visita, o Financeiro.
+  const [open, setOpen] = useState<string[]>(() => {
+    const current = NAV.find((entry) => entry.children?.some((leaf) => isActive(leaf.href, pathname, aba)));
+    return [current?.id ?? "financeiro"];
+  });
 
   useEffect(() => {
     function load() {
@@ -69,14 +138,23 @@ export function Sidebar() {
     return () => window.removeEventListener(PAYABLES_CHANGED, load);
   }, []);
 
-  function toggle() {
-    const next = !collapsed;
+  function setCollapsedTo(next: boolean) {
     setCollapsed(next);
     try {
       localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
     } catch {
       // sem armazenamento o menu só não lembra da escolha
     }
+  }
+
+  /** Menu recolhido: clicar num grupo expande o menu já com o grupo aberto. */
+  function clickGroup(id: string) {
+    if (collapsed) {
+      setCollapsedTo(false);
+      setOpen((ids) => (ids.includes(id) ? ids : [...ids, id]));
+      return;
+    }
+    setOpen((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
 
   if (!user) return null;
@@ -115,7 +193,7 @@ export function Sidebar() {
             aria-label={toggleLabel}
             aria-expanded={!collapsed}
             className={cn("hidden text-white hover:bg-white/15 hover:text-white md:inline-flex", !collapsed && "ml-auto")}
-            onClick={toggle}
+            onClick={() => setCollapsedTo(!collapsed)}
           >
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </Button>
@@ -126,53 +204,102 @@ export function Sidebar() {
         className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3.5", collapsed && "md:px-2")}
         aria-label="Menu principal"
       >
-        {GROUPS.map((group) => (
-          <div key={group.title} className="flex flex-col gap-0.5">
-            <p
-              className={cn(
-                "px-3 pb-1 pt-3 text-[11px] uppercase tracking-[.06em] text-muted-foreground",
-                collapsed && "md:hidden"
-              )}
-            >
-              {group.title}
-            </p>
-            {group.links.map((link) => {
-              const active = pathname === link.href;
-              const Icon = link.icon;
-              return (
-                <Hint key={link.href} show={collapsed} label={link.label}>
-                  <Link
-                    href={link.href}
-                    aria-label={link.label}
-                    aria-current={active ? "page" : undefined}
+        {NAV.map((entry) => {
+          const Icon = entry.icon;
+          if (!entry.children) {
+            const active = isActive(entry.href, pathname, aba);
+            return (
+              <Hint key={entry.id} show={collapsed} label={entry.label}>
+                <Link
+                  href={entry.href ?? "/"}
+                  aria-label={entry.label}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(ROW, collapsed && "md:justify-center md:px-0", active ? ROW_ACTIVE : ROW_IDLE)}
+                >
+                  <Icon size={16} strokeWidth={2} />
+                  <span className={cn(collapsed && "md:hidden")}>{entry.label}</span>
+                </Link>
+              </Hint>
+            );
+          }
+          const expanded = open.includes(entry.id) && !collapsed;
+          const hasCurrent = entry.children.some((leaf) => isActive(leaf.href, pathname, aba));
+          const pending = !expanded && !collapsed && badge > 0 && entry.children.some((leaf) => leaf.counted);
+          return (
+            <Collapsible key={entry.id} open={expanded} onOpenChange={() => clickGroup(entry.id)}>
+              <Hint show={collapsed} label={entry.label}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    aria-label={entry.label}
                     className={cn(
-                      "relative flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-[9px] text-sm font-medium",
+                      ROW,
+                      "h-auto w-full justify-start hover:bg-muted",
                       collapsed && "md:justify-center md:px-0",
-                      active
-                        ? "bg-brand-azul-deep text-white shadow-sm"
-                        : "text-brand-cinza-escuro/75 hover:bg-muted hover:text-brand-cinza-escuro"
+                      hasCurrent ? "text-brand-azul-deep" : "text-brand-cinza-escuro/75 hover:text-brand-cinza-escuro"
                     )}
                   >
                     <Icon size={16} strokeWidth={2} />
-                    <span className={cn(collapsed && "md:hidden")}>{link.label}</span>
-                    {link.counted && badge > 0 && (
+                    <span className={cn(collapsed && "md:hidden")}>{entry.label}</span>
+                    {pending && (
                       <span
                         title={badge === 1 ? "1 pendência" : `${badge} pendências`}
-                        className={cn(
-                          "ml-auto rounded-full px-[7px] text-[11px] font-bold leading-[18px]",
-                          collapsed && "md:absolute md:-right-0.5 md:-top-0.5 md:ml-0 md:px-[5px] md:leading-4",
-                          active && !collapsed ? "bg-white/25 text-white" : "bg-[#fef3c7] text-[#b45309]"
-                        )}
-                      >
-                        {badge}
-                      </span>
+                        className="ml-auto size-2 rounded-full bg-[#f59e0b]"
+                      />
                     )}
-                  </Link>
-                </Hint>
-              );
-            })}
-          </div>
-        ))}
+                    <ChevronDown
+                      size={14}
+                      className={cn(
+                        pending ? "ml-1" : "ml-auto",
+                        "transition-transform",
+                        expanded && "rotate-180",
+                        collapsed && "md:hidden"
+                      )}
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+              </Hint>
+              <CollapsibleContent className="flex flex-col gap-0.5 pb-1 pt-0.5">
+                {entry.children.map((leaf) => {
+                  if (!leaf.href) {
+                    return (
+                      <span
+                        key={leaf.label}
+                        aria-disabled="true"
+                        className="flex items-center gap-2.5 whitespace-nowrap rounded-2xl py-[7px] pl-9 pr-2 text-[13px] text-muted-foreground/70"
+                      >
+                        {leaf.label}
+                        <span className="ml-auto rounded-full bg-muted px-1.5 text-[10px] leading-4">Em breve</span>
+                      </span>
+                    );
+                  }
+                  const active = isActive(leaf.href, pathname, aba);
+                  return (
+                    <Link
+                      key={leaf.href}
+                      href={leaf.href}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(ROW, "py-[7px] pl-9 text-[13px]", active ? ROW_ACTIVE : ROW_IDLE)}
+                    >
+                      {leaf.label}
+                      {leaf.counted && badge > 0 && (
+                        <span
+                          title={badge === 1 ? "1 pendência" : `${badge} pendências`}
+                          className={cn(
+                            "ml-auto rounded-full px-[7px] text-[11px] font-bold leading-[18px]",
+                            active ? "bg-white/25 text-white" : "bg-[#fef3c7] text-[#b45309]"
+                          )}
+                        >
+                          {badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </CollapsibleContent>
+            </Collapsible>
+          );
+        })}
       </nav>
 
       <div className={cn("border-t border-border p-3", collapsed && "md:px-2")}>
