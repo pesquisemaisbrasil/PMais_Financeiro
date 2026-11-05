@@ -9,6 +9,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // pasta de build do E2E local (next.config.ts, NEXT_DIST_DIR)
+    ".next-e2e/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
