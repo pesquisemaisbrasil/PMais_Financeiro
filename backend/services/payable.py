@@ -572,6 +572,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "invoiceDate": i.invoiceDate,
                 "grossAmount": i.grossAmount,
                 "surveyDate": i.surveyDate,
+                "paidOn": i.paidOn,
             }
             for i in payable.items
         ],

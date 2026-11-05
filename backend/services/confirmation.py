@@ -6,7 +6,7 @@ lançamento, as baixas dele. Só depois da transação os pedidos vão ao Connec
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from core.text import format_brl
 from models.connect_payable_item import ConnectPayableItem
-from models.payable import PayablePayment
+from models.payable import Payable, PayableItem, PayablePayment
 from models.project_ref import ProjectRef
 from models.receipt import PaymentReceipt, PaymentRequest, ReceiptAllocation, ReceiptBatch
 from models.reference import PaymentMethod
@@ -30,6 +30,36 @@ ZERO = Decimal("0")
 
 class ConfirmConflict(Exception):
     """Outro envio pagou um dos Pix no mesmo instante."""
+
+
+def _mark_people_paid(db: Session, payable: Payable, paid: list[PaymentReceipt]) -> None:
+    """Quem do lançamento foi pago pelos Pix desta confirmação. O valor de cada Pix vai
+    consumindo as pessoas, da mais antiga à mais nova; a que não fecha fica a pagar."""
+    totals: dict[int, Decimal] = {}
+    days: dict[int, date] = {}
+    for receipt in paid:
+        person = receipt.connect_interviewer_id
+        if person is None:
+            continue
+        totals[person] = totals.get(person, ZERO) + Decimal(receipt.amount or 0)
+        day = receipt.paidOn or payable_service.today()
+        days[person] = max(days.get(person, day), day)
+    for person, total in totals.items():
+        items = (
+            db.query(PayableItem)
+            .filter(
+                PayableItem.payable_id == payable.id,
+                PayableItem.connect_interviewer_id == person,
+                PayableItem.paidOn.is_(None),
+            )
+            .order_by(PayableItem.id)
+            .all()
+        )
+        for item in items:
+            if total < Decimal(item.amount):
+                break
+            item.paidOn = days[person]
+            total -= Decimal(item.amount)
 
 
 def _payable_payments(
@@ -69,6 +99,7 @@ def _payable_payments(
                 created_by_user_id=user.id,
             )
         )
+    _mark_people_paid(db, payable, paid)
     payable_service.audit(
         db,
         payable,

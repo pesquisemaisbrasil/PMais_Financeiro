@@ -36,6 +36,7 @@ from models.connect_payable_item import ConnectPayableItem  # noqa: E402
 from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402
 from models.notification import Notification  # noqa: E402,F401
+from models.payable import PayableItem  # noqa: E402
 from models.project_ref import ProjectRef  # noqa: E402
 from models.receipt import PaymentRequest, ReceiptBatch  # noqa: E402,F401
 from models.refresh_token import RefreshToken  # noqa: E402,F401
@@ -79,6 +80,15 @@ def seed_receipts(db) -> None:  # type: ignore[no-untyped-def]
         )
 
 
+def link_connect_people(db) -> None:  # type: ignore[no-untyped-def]
+    """No lançamento do Connect, a Sandra é a pessoa 87 do Connect e fica com R$ 40, o valor dos
+    dois Pix do PDF do teste; o Marcos passa para R$ 280, e o total do lançamento não muda."""
+    sandra = db.query(PayableItem).filter(PayableItem.name.like("Sandra%")).one()
+    marcos = db.query(PayableItem).filter(PayableItem.name.like("Marcos%")).one()
+    sandra.amount, marcos.amount = Decimal("40.00"), Decimal("280.00")
+    sandra.connect_interviewer_id = 87
+
+
 def main() -> None:
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
@@ -96,6 +106,7 @@ def main() -> None:
             db.add(MfaRecoveryCode(user_id=user.id, codeHash=hash_token(RECOVERY_CODE)))
         seed_payables(db)
         seed_receipts(db)
+        link_connect_people(db)
         db.commit()
     finally:
         db.close()

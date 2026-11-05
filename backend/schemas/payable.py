@@ -200,6 +200,7 @@ class PayableItemOut(BaseModel):
     invoiceDate: date | None
     grossAmount: Decimal | None
     surveyDate: date | None
+    paidOn: date | None
 
 
 class PaymentOut(BaseModel):

@@ -169,6 +169,11 @@ class PayableItem(Base):
     surveyDate = Column(Date, nullable=True)
     # Recebida | Pendente. NF pendente é só aviso e não bloqueia o pagamento (decisão de 28/10).
     invoiceStatus = Column(String(20), nullable=True)
+    # Entrevistador do Connect (sem FK: a tabela está em outro banco). Liga a pessoa ao Pix do
+    # comprovante, para a baixa dizer quem já foi paga.
+    connect_interviewer_id = Column(Integer, nullable=True, index=True)
+    # Dia do Pix que pagou esta pessoa.
+    paidOn = Column(Date, nullable=True)
 
 
 class PayablePayment(Base):
