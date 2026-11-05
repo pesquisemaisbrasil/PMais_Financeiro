@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { signIn } from "./fixtures";
 
@@ -110,4 +111,73 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   // O cliente é um cadastro, com CNPJ e sem CPF
   await page.goto("/cadastros?aba=customers");
   await expect(page.getByRole("row", { name: /Alfa Pesquisas Ltda/ })).toContainText("11.222.333/0001-81");
+});
+
+test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a série e exportar", async ({ page }) => {
+  await signIn(page, "receber3@e2e.invalid");
+  await page.goto("/contas-a-receber");
+  await page.getByRole("button", { name: "Nova conta a receber" }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Vencimento *").fill("2027-01-15");
+  await form.getByLabel("Valor bruto (R$) *").fill("1.000,00");
+  await form.getByLabel("Abatimentos (R$)").fill("100,00");
+  await choose(page, "Cliente *", /Beta/);
+  await choose(page, "Projeto *", /PRJ-1804/);
+  await choose(page, "Conta de receita *", /Receita de pesquisa/);
+  await form.getByLabel("Descrição *").fill("Receita parcelada de teste");
+  await choose(page, "Empresa *", "PPlus");
+  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Centro de custo *", "Administrativo");
+
+  // Parcelar exige conferir a tabela antes de salvar
+  await form.getByLabel("Repetir esta conta").check();
+  await choose(page, "Como se repete", /Parcelado/);
+  await form.getByLabel("Quantas vezes").fill("3");
+  await form.getByRole("button", { name: "Lançar conta" }).click();
+  await expect(form.getByText("Clique em Simular para conferir as parcelas antes de salvar.")).toBeVisible();
+  await form.getByRole("button", { name: "Simular" }).click();
+  await expect(form.getByLabel("Valor da ocorrência 1")).toHaveValue("333.33");
+  await expect(form.getByLabel("Valor da ocorrência 3")).toHaveValue("333.34");
+
+  // Parcelas que não somam o título são recusadas, sem criar nada
+  await form.getByLabel("Valor da ocorrência 1").fill("300.00");
+  await form.getByRole("button", { name: "Lançar conta" }).click();
+  await expect(form.getByText(/As parcelas somam R\$\s966,67, mas o título é de R\$\s1\.000,00/)).toBeVisible();
+
+  // 30% na aprovação e o resto nas demais: a soma fecha com o título
+  await form.getByLabel("Valor da ocorrência 1").fill("300.00");
+  await form.getByLabel("Valor da ocorrência 2").fill("350.00");
+  await form.getByLabel("Valor da ocorrência 3").fill("350.00");
+  await form.getByRole("button", { name: "Lançar conta" }).click();
+  await expect(page.getByText(/3 títulos lançados, o primeiro vence em 15\/01\/2027/)).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Tudo" }).click();
+  await page.getByLabel("Buscar título, cliente ou contrato").fill("parcelada de teste");
+  await expect(page.getByRole("row", { name: /Receita parcelada de teste/ })).toHaveCount(3);
+  await expect(page.getByRole("row", { name: /1\/3/ })).toContainText("R$ 300,00");
+  await expect(page.getByRole("row", { name: /3\/3/ })).toContainText("R$ 350,00");
+
+  // Alterar "esta e as seguintes" a partir da 2ª
+  await page.getByRole("row", { name: /2\/3/ }).getByRole("button", { name: "Alterar ou cancelar a série" }).click();
+  const series = page.getByRole("dialog");
+  await series.getByLabel("Esta e as seguintes").check();
+  await series.getByLabel("Nova descrição").fill("Receita renegociada");
+  await series.getByRole("button", { name: "Alterar títulos" }).click();
+  await expect(page.getByText(/2 títulos alterados. O que já foi recebido não muda./)).toBeVisible();
+  // a busca antiga não acha mais os alterados: busca pela palavra que as duas descrições têm
+  await page.getByLabel("Buscar título, cliente ou contrato").fill("receita");
+  await expect(page.getByRole("row", { name: /Receita parcelada de teste/ })).toHaveCount(1);
+  await expect(page.getByRole("row", { name: /Receita renegociada/ })).toHaveCount(2);
+
+  // Exportar leva os filtros e a busca na primeira linha
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exportar" }).click();
+  const download = await downloading;
+  expect(download.suggestedFilename()).toMatch(/^contas-a-receber-.*\.csv$/);
+  const csv = await readFile((await download.path()) as string, "utf8");
+  expect(csv).toContain("Contas a receber · todo o período por vencimento · Total");
+  expect(csv).toContain("busca: receita");
+  // uma linha por título dos três da série, e mais nenhum
+  expect(csv.split("\r\n").filter((line) => /Receita (parcelada|renegociada)/.test(line)).length).toBe(3);
 });
