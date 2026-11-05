@@ -12,6 +12,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from api.auth import RATE_LIMITED_DETAIL
 from api.auth import router as auth_router
 from api.batches import router as batches_router
+from api.batches import shared as batches_shared_router
 from api.health import router as health_router
 from api.payables import router as payables_router
 from api.records import router as records_router
@@ -115,4 +116,5 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(payables_router)
 app.include_router(batches_router)
+app.include_router(batches_shared_router)
 app.include_router(records_router)

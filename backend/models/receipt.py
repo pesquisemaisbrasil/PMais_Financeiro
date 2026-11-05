@@ -24,6 +24,10 @@ class ReceiptBatch(Base):
     project_ref_id = Column(
         Integer, ForeignKey("project_refs.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    # Lançamento de Contas a pagar de onde o PDF foi enviado: é nele que a baixa aparece.
+    payable_id = Column(
+        Integer, ForeignKey("payables.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     # o lote sobrevive à conta de quem enviou ou confirmou
     uploaded_by_user_id = Column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
@@ -116,4 +120,31 @@ class ReceiptAllocation(Base):
     amount = Column(Numeric(10, 2), nullable=False)
     # quando o Connect confirmou a baixa
     connectAckAt = Column(DateTime(timezone=True), nullable=True)
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PaymentRequest(Base):
+    """Pedido de baixa ao Connect, um por Pix. O Financeiro grava o pedido na confirmação e
+    só depois fala com o Connect, fora da transação, com `paymentRef` como Idempotency-Key.
+
+    pendente_envio → enviada → aplicada (o Connect confirmou)
+                            → recusada (vai para Divergências, nunca é corrigida sozinha)
+    """
+
+    __tablename__ = "payment_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receipt_id = Column(
+        Integer,
+        ForeignKey("payment_receipts.id", ondelete="RESTRICT"),
+        nullable=False,
+        unique=True,
+    )
+    paymentRef = Column(String(64), nullable=False, unique=True)
+    status = Column(String(20), nullable=False, default="pendente_envio", index=True)
+    attempts = Column(Integer, nullable=False, default=0)
+    # só o código do erro (already_paid, duplicate_e2e, amount_mismatch...), nunca dado pessoal
+    lastError = Column(String(255), nullable=True)
+    sentAt = Column(DateTime(timezone=True), nullable=True)
+    appliedAt = Column(DateTime(timezone=True), nullable=True)
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -12,6 +12,8 @@ ReconcileStatus = Literal["bate", "pago_a_mais", "nao_fecha"]
 
 class BatchCreate(BaseModel):
     parts: Annotated[int, Field(ge=1, le=10000)]
+    # lançamento de Contas a pagar de onde o PDF é enviado
+    payableId: int | None = None
 
 
 class DiscardIn(BaseModel):
@@ -60,8 +62,55 @@ class ReceiptItem(BaseModel):
     reconcileStatus: ReconcileStatus | None
     itemsToPay: int
     message: str | None
+    # só depois de confirmar
+    payment: Literal["aguardando_connect", "aplicada", "recusada"] | None = None
+    paymentMessage: str | None = None
 
 
 class BatchDetail(BatchProgress):
     receipts: list[ReceiptItem]
     partErrors: list[PartError]
+
+
+class ConfirmIn(BaseModel):
+    # código do autenticador de quem confirma; obrigatório para quem tem MFA cadastrado
+    code: str | None = None
+    # só quando o PDF veio de um lançamento: de onde saiu o dinheiro e como
+    bankAccountId: int | None = None
+    paymentMethodId: int | None = None
+
+
+class ConfirmResult(BaseModel):
+    paidReceipts: int
+    paidItems: int
+    paidTotal: Decimal
+    awaitingConnect: int
+    refused: int
+
+
+class DivergenceItem(BaseModel):
+    paymentRef: str
+    batchId: int
+    receiptId: int
+    page: int
+    keyMasked: str | None
+    amount: Decimal | None
+    paidOn: date | None
+    code: str | None
+    message: str
+
+
+class ProjectOut(BaseModel):
+    id: int
+    connectProjectId: int
+    title: str
+
+
+class NotificationOut(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: str | None
+    link: str | None
+    readAt: datetime | None
+    createdAt: datetime

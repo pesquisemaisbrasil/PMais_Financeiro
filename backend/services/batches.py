@@ -4,6 +4,7 @@
 O PDF é lido em memória e descartado: nada dele vai para disco, banco ou log.
 """
 
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -14,11 +15,23 @@ from sqlalchemy.orm import Session
 from core.crypto import decrypt_payload, encrypt_payload
 from core.pix import hash_pix, mask_pix_key, normalize_pix_key
 from models.connect_payable_item import ConnectPayableItem
+from models.notification import Notification
+from models.payable import Payable
 from models.project_ref import ProjectRef
-from models.receipt import PaymentReceipt, ReceiptBatch, ReceiptBatchPart
-from services.connect_gateway import ConnectGateway
+from models.receipt import (
+    PaymentReceipt,
+    PaymentRequest,
+    ReceiptAllocation,
+    ReceiptBatch,
+    ReceiptBatchPart,
+)
+from models.user import User
+from services.connect_gateway import ConnectGateway, ConnectUnavailable
+from services.payments import PENDING, REFUSED, SENT, refusal_message
 from services.receipt_parser import ParsedReceipt, extract_pdf_pages, parse_receipts
 from services.reconciliation import PendingReceipt, QueueItem, reconcile
+
+logger = logging.getLogger(__name__)
 
 GROUP_IN_PROJECT = "no_projeto"
 GROUP_OUT_OF_PROJECT = "fora_do_projeto"
@@ -50,6 +63,14 @@ class PartOutOfRange(Exception):
     pass
 
 
+class PartsMissing(Exception):
+    pass
+
+
+class PayableNotFound(Exception):
+    pass
+
+
 def get_project(db: Session, project_id: int) -> ProjectRef:
     project = db.get(ProjectRef, project_id)
     if project is None:
@@ -68,10 +89,17 @@ def get_batch(db: Session, project_id: int, batch_id: int) -> ReceiptBatch:
     return batch
 
 
-def create_batch(db: Session, project_id: int, parts: int, user_id: int) -> ReceiptBatch:
+def create_batch(
+    db: Session, project_id: int, parts: int, user_id: int, payable_id: int | None = None
+) -> ReceiptBatch:
     get_project(db, project_id)
+    if payable_id is not None and db.get(Payable, payable_id) is None:
+        raise PayableNotFound
     batch = ReceiptBatch(
-        project_ref_id=project_id, partsExpected=parts, uploaded_by_user_id=user_id
+        project_ref_id=project_id,
+        partsExpected=parts,
+        uploaded_by_user_id=user_id,
+        payable_id=payable_id,
     )
     db.add(batch)
     db.commit()
@@ -237,6 +265,7 @@ def process_part(
     parts_done = db.query(ReceiptBatchPart).filter(ReceiptBatchPart.batch_id == batch.id).count()
     if parts_done >= batch.partsExpected and batch.status == "enviando":
         batch.status = "pronto"
+        notify_out_of_project(db, batch)
     db.commit()
     db.refresh(part)
     return part
@@ -248,6 +277,48 @@ def _find_part(db: Session, batch_id: int, part_index: int) -> ReceiptBatchPart 
         .filter(ReceiptBatchPart.batch_id == batch_id, ReceiptBatchPart.partIndex == part_index)
         .first()
     )
+
+
+def _payment_state(request: PaymentRequest | None) -> str | None:
+    if request is None:
+        return None
+    return {PENDING: "aguardando_connect", SENT: "aguardando_connect"}.get(
+        request.status, request.status
+    )
+
+
+def notify_out_of_project(db: Session, batch: ReceiptBatch) -> None:
+    """`receipt_out_of_project`: o lote ficou pronto com gente fora do projeto. Avisa admin e
+    financeiro. Falha ao avisar nunca derruba o envio."""
+    try:
+        count = (
+            db.query(PaymentReceipt)
+            .filter(
+                PaymentReceipt.batch_id == batch.id,
+                PaymentReceipt.group.in_([GROUP_OUT_OF_PROJECT, GROUP_UNKNOWN_KEY]),
+            )
+            .count()
+        )
+        if not count:
+            return
+        project = db.get(ProjectRef, batch.project_ref_id)
+        title = project.title if project else ""
+        plural = "s" if count != 1 else ""
+        users = db.query(User).filter(
+            User.status == "active", User.role.in_(["admin", "financeiro"])
+        )
+        for user in users:
+            db.add(
+                Notification(
+                    user_id=user.id,
+                    type="receipt_out_of_project",
+                    title=f"{count} comprovante{plural} de pessoa{plural} fora do projeto {title}",
+                    body="Confira no envio de comprovantes quem recebeu sem estar na equipe.",
+                    link=f"/contas-a-pagar?comprovantes={batch.id}",
+                )
+            )
+    except Exception:
+        logger.exception("Falha ao avisar comprovantes fora do projeto (lote %s)", batch.id)
 
 
 # --- Conferência -------------------------------------------------------------
@@ -263,6 +334,8 @@ def _queues(db: Session, project_id: int, interviewer_ids: set[int]) -> dict[int
             ConnectPayableItem.project_ref_id == project_id,
             ConnectPayableItem.connect_interviewer_id.in_(interviewer_ids),
             ConnectPayableItem.status == "a_pagar",
+            # já alocado a um Pix (a baixa espera o Connect): não entra em outra conta
+            ConnectPayableItem.id.notin_(db.query(ReceiptAllocation.payable_item_id)),
         )
         .order_by(ConnectPayableItem.launchedAt, ConnectPayableItem.connect_interview_id)
         .all()
@@ -312,7 +385,19 @@ def batch_progress(db: Session, batch: ReceiptBatch) -> dict:  # type: ignore[ty
     }
 
 
-def get_batch_detail(db: Session, batch: ReceiptBatch) -> dict:  # type: ignore[type-arg]
+def _names(connect: ConnectGateway | None, ids: set[int]) -> dict[int, str]:
+    """Nome de quem é do projeto vem do Connect, na hora. Sem Connect a tela segue sem nome."""
+    if connect is None or not ids:
+        return {}
+    try:
+        return connect.interviewer_names(sorted(ids))
+    except ConnectUnavailable:
+        return {}
+
+
+def get_batch_detail(
+    db: Session, batch: ReceiptBatch, connect: ConnectGateway | None = None
+) -> dict:  # type: ignore[type-arg]
     receipts = (
         db.query(PaymentReceipt)
         .filter(PaymentReceipt.batch_id == batch.id)
@@ -327,14 +412,27 @@ def get_batch_detail(db: Session, batch: ReceiptBatch) -> dict:  # type: ignore[
         .order_by(ReceiptBatchPart.partIndex)
         .all()
     ]
+    requests = {
+        r.receipt_id: r
+        for r in db.query(PaymentRequest)
+        .filter(PaymentRequest.receipt_id.in_([r.id for r in receipts] or [0]))
+        .all()
+    }
+    names = _names(
+        connect,
+        {r.connect_interviewer_id for r in receipts if r.group == GROUP_IN_PROJECT} - {None},
+    )
     items = []
     for receipt in receipts:
         rec = reconciliation.get(receipt.id)
-        # o nome lido só aparece quando a chave não casa com ninguém: é o único jeito de o
-        # financeiro descobrir de quem é o pagamento
+        request = requests.get(receipt.id)
+        # o nome lido do comprovante só aparece quando a chave não casa com ninguém: é o único
+        # jeito de o financeiro descobrir de quem é o pagamento. Quem é do projeto vem do Connect.
         name = (
             decrypt_payload(receipt.payeeNameEncrypted, ENCRYPTION_CONTEXT)
             if receipt.group == GROUP_UNKNOWN_KEY and receipt.payeeNameEncrypted
+            else names.get(receipt.connect_interviewer_id or 0)
+            if receipt.group == GROUP_IN_PROJECT
             else None
         )
         items.append(
@@ -352,6 +450,10 @@ def get_batch_detail(db: Session, batch: ReceiptBatch) -> dict:  # type: ignore[
                 "reconcileStatus": rec.status if rec else None,
                 "itemsToPay": len(rec.item_ids) if rec else 0,
                 "message": rec.message if rec else None,
+                "payment": _payment_state(request),
+                "paymentMessage": refusal_message(request.lastError)
+                if request and request.status == REFUSED
+                else None,
             }
         )
     return {**batch_progress(db, batch), "receipts": items, "partErrors": part_errors}
