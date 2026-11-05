@@ -14,6 +14,7 @@ from api.auth import router as auth_router
 from api.health import router as health_router
 from api.payables import router as payables_router
 from api.records import router as records_router
+from core.body_limit import AuthBodyLimit
 from core.config import CORS_ORIGINS, ENVIRONMENT
 from core.limiter import limiter
 from core.logging_config import setup_logging
@@ -44,6 +45,7 @@ def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> Response:
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)  # type: ignore[arg-type]
 app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(AuthBodyLimit)
 
 app.add_middleware(
     CORSMiddleware,

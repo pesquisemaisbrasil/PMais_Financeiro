@@ -1,5 +1,5 @@
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -412,3 +412,34 @@ def test_weak_passwords_are_refused(weak: str) -> None:
 
 def test_strong_password_is_accepted() -> None:
     assert validate_password_strength(PASSWORD) == PASSWORD
+
+
+def test_formulario_enorme_no_login_e_recusado(client: TestClient) -> None:
+    # PYSEC-2026-249: o corpo grande é cortado antes de virar formulário em memória
+    declarado = client.post(
+        "/auth/token",
+        content=b"username=a&password=" + b"x" * 40_000,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert declarado.status_code == 413
+    assert declarado.json() == {"detail": "Pedido grande demais"}
+
+    def em_pedacos() -> Iterator[bytes]:
+        yield b"username=a&password="
+        for _ in range(5):
+            yield b"x" * 8_000
+
+    sem_tamanho = client.post(
+        "/auth/token",
+        content=em_pedacos(),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert sem_tamanho.status_code == 413
+
+
+def test_login_normal_continua_funcionando_com_o_limite(
+    client: TestClient, make_user: Callable[..., User]
+) -> None:
+    make_user(email="ok@exemplo.com")
+    resposta = client.post("/auth/token", data={"username": "ok@exemplo.com", "password": PASSWORD})
+    assert resposta.status_code == 200
