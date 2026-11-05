@@ -9,7 +9,14 @@ from core.limiter import limiter
 from core.permissions import require_finance
 from db.connection import get_db
 from models.user import User
-from schemas.payable import PeriodMode, ReasonIn
+from schemas.payable import (
+    PeriodMode,
+    ReasonIn,
+    SeriesCancel,
+    SeriesCreated,
+    SeriesEdit,
+    SeriesResult,
+)
 from schemas.receivable import (
     DelinquentCustomer,
     ReceiptCreate,
@@ -22,9 +29,11 @@ from schemas.receivable import (
     ReceivableSituation,
     ReceivableSort,
     ReceivableUpdate,
+    RecurringReceivableCreate,
 )
 from services import payable as payable_service
 from services import receivable as receivable_service
+from services import receivable_series
 from services.auth import get_current_user
 
 router = APIRouter(tags=["contas a receber"])
@@ -141,6 +150,68 @@ def list_receivables(
 @limiter.limit(READ_LIMIT)
 def delinquency(request: Request, db: DbSession, _: FinanceUser) -> list[dict[str, Any]]:
     return receivable_service.delinquency(db)
+
+
+@router.get(
+    "/receivables/export",
+    response_class=Response,
+    description="Os títulos dos filtros em CSV, com os filtros na primeira linha",
+)
+@limiter.limit(READ_LIMIT)
+def export_receivables(request: Request, db: DbSession, _: FinanceUser, params: Params) -> Response:
+    return Response(
+        receivable_service.export_csv(db, **params.values),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="contas-a-receber.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post(
+    "/receivables/recurrence",
+    response_model=SeriesCreated,
+    status_code=status.HTTP_201_CREATED,
+    description="Parcela ou repete a receita: um título por ocorrência, todos ou nenhum",
+)
+@limiter.limit(WRITE_LIMIT)
+def create_series(
+    request: Request, data: RecurringReceivableCreate, db: DbSession, user: FinanceUser
+) -> dict[str, Any]:
+    series, created = _handle(
+        db,
+        lambda: receivable_series.create_series(
+            db, ReceivableCreate(**data.model_dump(exclude={"recurrence"})), data.recurrence, user
+        ),
+    )
+    return {"seriesId": series.id, "ids": [r.id for r in created]}
+
+
+@router.patch(
+    "/receivables/{receivable_id}/series",
+    response_model=SeriesResult,
+    description="Muda valor ou descrição de só este, este e os seguintes ou todos em aberto",
+)
+@limiter.limit(WRITE_LIMIT)
+def edit_series(
+    request: Request, receivable_id: int, data: SeriesEdit, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _handle(db, lambda: receivable_series.edit_series(db, receivable_id, data, user))
+    return {"count": count}
+
+
+@router.post(
+    "/receivables/{receivable_id}/series/cancel",
+    response_model=SeriesResult,
+    description="Cancela este e os seguintes, ou todos em aberto; quem já recebeu continua",
+)
+@limiter.limit(WRITE_LIMIT)
+def cancel_series(
+    request: Request, receivable_id: int, data: SeriesCancel, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _handle(db, lambda: receivable_series.cancel_series(db, receivable_id, data, user))
+    return {"count": count}
 
 
 @router.post(

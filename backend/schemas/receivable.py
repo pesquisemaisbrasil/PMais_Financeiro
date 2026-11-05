@@ -8,6 +8,8 @@ from schemas.payable import (
     EventOut,
     Money,
     OptionalMoney,
+    RecurrenceIn,
+    SeriesInfo,
     ShortText,
     ValueCount,
 )
@@ -46,6 +48,10 @@ class ReceivableCreate(BaseModel):
     amount: Money
     withheld: OptionalMoney = Decimal("0")
     notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+
+
+class RecurringReceivableCreate(ReceivableCreate):
+    recurrence: RecurrenceIn
 
 
 class ReceivableUpdate(BaseModel):
@@ -89,6 +95,8 @@ class ReceivableRow(BaseModel):
     # Só título vencido: dias corridos desde o dia seguinte ao vencimento
     daysLate: int | None
     canReceive: bool
+    # nulo em título avulso
+    series: SeriesInfo | None = None
 
 
 class ReceivableList(BaseModel):

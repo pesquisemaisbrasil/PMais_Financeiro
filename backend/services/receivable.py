@@ -6,6 +6,8 @@ Os erros de regra reaproveitam `PayableConflict` (409) e `PayableInvalid` (422),
 traduz.
 """
 
+import csv
+import io
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -14,7 +16,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, selectinload
 
-from core.text import format_brl, format_date_br
+from core.text import format_brl, format_brl_plain, format_date_br
 from models.receivable import Receivable, ReceivableEvent, ReceivablePayment
 from models.reference import (
     BankAccount,
@@ -165,6 +167,17 @@ def row(receivable: Receivable, on: date) -> dict[str, Any]:
         "pending": pending_amount(receivable),
         "daysLate": days_late(receivable, on),
         "canReceive": pending_amount(receivable) > 0,
+        "series": (
+            {
+                "id": receivable.series.id,
+                "index": receivable.seriesIndex,
+                "count": receivable.series.count,
+                "kind": receivable.series.kind,
+                "estimated": receivable.series.estimated,
+            }
+            if receivable.series
+            else None
+        ),
     }
 
 
@@ -316,6 +329,144 @@ def delinquency(db: Session) -> list[dict[str, Any]]:
     return result
 
 
+SITUATION_NAMES = {
+    "recebido": "Recebida",
+    "parcial": "Parcial",
+    "vencido": "Vencida",
+    "hoje": "Vence hoje",
+    "a_vencer": "A vencer",
+    "cancelado": "Cancelada",
+}
+INDICATOR_NAMES = {
+    "total": "Total",
+    "recebidos": "Recebidos",
+    "pendentes": "Pendentes",
+    "vencidos": "Vencidos",
+    "hoje": "Hoje",
+    "avencer": "A vencer",
+    "cancelados": "Canceladas",
+}
+DATE_FIELD_NAMES = {
+    "vencimento": "vencimento",
+    "competencia": "competência",
+    "recebimento": "recebimento",
+}
+
+
+def _csv_cell(value: str) -> str:
+    """Célula que começa com = + - @ vira texto, para a planilha não executar fórmula."""
+    return f"'{value}" if value[:1] in ("=", "+", "-", "@") else value
+
+
+def _filter_names(db: Session, filters: dict[str, Any]) -> list[str]:
+    named: list[tuple[str, type[Any], str]] = [
+        ("customer", Customer, "cliente"),
+        ("project", Project, "projeto"),
+        ("category", ExpenseCategory, "conta de receita"),
+        ("company", Company, "empresa"),
+        ("unit", BusinessUnit, "unidade"),
+        ("costCenter", CostCenter, "centro de custo"),
+    ]
+    names = []
+    for key, model, label in named:
+        if filters.get(key):
+            record = db.get(model, filters[key])
+            shown = getattr(record, "name", None) or getattr(record, "code", "—")
+            names.append(f"{label}={shown}")
+    if filters.get("situation"):
+        names.append(f"situação={SITUATION_NAMES[filters['situation']]}")
+    return names
+
+
+def export_csv(
+    db: Session,
+    *,
+    mode: str,
+    ref: date | None,
+    custom_range: tuple[date, date] | None = None,
+    date_field: str = "vencimento",
+    indicator: str,
+    filters: dict[str, Any],
+    search: str | None,
+    sort: str,
+    descending: bool,
+) -> str:
+    """Tudo o que os filtros trazem, sem paginar, com os filtros na primeira linha."""
+    on, start, end, receivables = _filtered(
+        db,
+        mode=mode,
+        ref=ref,
+        custom_range=custom_range,
+        date_field=date_field,
+        filters=filters,
+        search=search,
+    )
+    selected = [r for r in receivables if INDICATORS[indicator](r, on)]
+    selected.sort(key=_sort_key(sort, on), reverse=descending)
+
+    period = (
+        f"{format_date_br(start)} a {format_date_br(end)}" if start and end else "todo o período"
+    )
+    header = [
+        f"Contas a receber · {period} por {DATE_FIELD_NAMES[date_field]}",
+        INDICATOR_NAMES[indicator],
+        "filtros: " + (", ".join(_filter_names(db, filters)) or "nenhum"),
+    ]
+    if (search or "").strip():
+        header.append(f"busca: {search}")
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
+    writer.writerow([_csv_cell(" · ".join(header))])
+    writer.writerow(
+        [
+            "Vencimento",
+            "Cliente",
+            "Descrição",
+            "Contrato",
+            "Documento",
+            "Projeto",
+            "Conta de receita",
+            "Empresa",
+            "Situação",
+            "Dias de atraso",
+            "Bruto",
+            "Abatimentos",
+            "Líquido",
+            "Recebido",
+            "Pendente",
+        ]
+    )
+    for r in selected:
+        document = (
+            f"{r.documentType} {r.documentNumber or ''}".strip()
+            if r.documentType != "Sem documento"
+            else r.documentType
+        )
+        late = days_late(r, on)
+        writer.writerow(
+            [
+                format_date_br(r.dueDate),
+                _csv_cell(r.customer.name),
+                _csv_cell(r.description),
+                _csv_cell(r.contract or ""),
+                _csv_cell(document),
+                f"PRJ-{r.project.code}",
+                _csv_cell(r.category.name),
+                _csv_cell(r.company.name),
+                SITUATION_NAMES[situation(r, on)],
+                "" if late is None else late,
+                format_brl_plain(r.amount),
+                format_brl_plain(r.withheld),
+                format_brl_plain(net_amount(r)),
+                format_brl_plain(received_amount(r)),
+                format_brl_plain(pending_amount(r)),
+            ]
+        )
+    # BOM: o Excel só lê os acentos com ele.
+    return "\ufeff" + output.getvalue()
+
+
 # ---- Detalhe ----
 
 
@@ -390,6 +541,13 @@ def _check_project(db: Session, project_id: int | None) -> Project:
 
 
 def create(db: Session, data: ReceivableCreate, user: User) -> Receivable:
+    receivable = new_receivable(db, data, user)
+    db.commit()
+    return receivable
+
+
+def new_receivable(db: Session, data: ReceivableCreate, user: User) -> Receivable:
+    """Valida e grava o título na transação aberta, sem commit: quem chama decide quando fechar."""
     _check_project(db, data.projectId)
     _active(db, Customer, data.customerId, "Cliente")
     category = _active(db, ExpenseCategory, data.categoryId, "Conta")
@@ -433,12 +591,16 @@ def create(db: Session, data: ReceivableCreate, user: User) -> Receivable:
         f"Lançada: {receivable.description} · {format_brl(net_amount(receivable))} líquido · "
         f"vence {format_date_br(receivable.dueDate)}",
     )
-    db.commit()
     return receivable
 
 
 def update(db: Session, receivable_id: int, data: ReceivableUpdate, user: User) -> None:
-    receivable = _get(db, receivable_id, lock=True)
+    apply_update(db, _get(db, receivable_id, lock=True), data, user)
+    db.commit()
+
+
+def apply_update(db: Session, receivable: Receivable, data: ReceivableUpdate, user: User) -> None:
+    """Altera valor, abatimentos, vencimento e descrição na transação aberta, sem commit."""
     if receivable.canceledAt is not None:
         raise PayableConflict("Título cancelado não pode ser alterado")
     _check_amounts(data.amount, data.withheld)
@@ -464,7 +626,6 @@ def update(db: Session, receivable_id: int, data: ReceivableUpdate, user: User) 
         receivable.description = data.description
     if changes:
         audit(db, receivable, user, "Alterada: " + "; ".join(changes))
-    db.commit()
 
 
 def _bank_account(db: Session, account_id: int, company_id: int) -> BankAccount:
@@ -571,14 +732,18 @@ def reverse(
 
 
 def cancel(db: Session, receivable_id: int, reason: str, user: User) -> None:
-    receivable = _get(db, receivable_id, lock=True)
+    apply_cancel(db, _get(db, receivable_id, lock=True), reason, user)
+    db.commit()
+
+
+def apply_cancel(db: Session, receivable: Receivable, reason: str, user: User) -> None:
+    """Cancela na transação aberta, sem commit."""
     if receivable.canceledAt is not None:
         raise PayableConflict("Esse título já está cancelado")
     if received_amount(receivable) > 0:
         raise PayableConflict("Esse título tem recebimentos — estorne antes de cancelar")
     receivable.canceledAt = datetime.now(UTC)
     audit(db, receivable, user, f"Cancelado: {reason}")
-    db.commit()
 
 
 def delete(db: Session, receivable_id: int, user: User) -> None:

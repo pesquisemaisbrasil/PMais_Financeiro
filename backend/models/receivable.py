@@ -11,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from db.connection import Base
+from models.payable import PayableSeries
 from models.reference import (
     BankAccount,
     BusinessUnit,
@@ -66,6 +67,11 @@ class Receivable(Base):
     issueDate = Column(Date, nullable=False)
     dueDate = Column(Date, nullable=False, index=True)
     competence = Column(String(7), nullable=False)  # AAAA-MM
+    # Série de que faz parte (parcelas ou recorrência), nº 1 a `count`. Nulo em título avulso.
+    series_id = Column(
+        Integer, ForeignKey("payable_series.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    seriesIndex = Column(Integer, nullable=True)
     # Bruto. O líquido a receber é `amount - withheld` (abatimentos lançados junto da NF).
     amount = Column(Numeric(12, 2), nullable=False)
     withheld = Column(Numeric(12, 2), nullable=False, default=0, server_default="0")
@@ -80,6 +86,7 @@ class Receivable(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
+    series = relationship(PayableSeries, lazy="joined")
     customer = relationship(Customer)
     project = relationship(Project)
     company = relationship(Company)
