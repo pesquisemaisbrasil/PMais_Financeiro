@@ -117,7 +117,7 @@ async function fetchWithAuth(path: string, options: RequestInit = {}, retried = 
   return response;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetchWithAuth(path, options);
   return (await response.json()) as T;
 }
@@ -134,6 +134,7 @@ export interface UserPublic {
   name: string;
   email: string;
   role: string;
+  mfaEnabled: boolean;
 }
 
 export interface MfaChallenge {
@@ -214,12 +215,22 @@ export function getMe(): Promise<UserPublic> {
 
 // ---- Contas a pagar ----
 
-function send<T>(path: string, method: string, body: unknown): Promise<T> {
+export function send<T>(path: string, method: string, body: unknown): Promise<T> {
   return request<T>(path, {
     method,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+/** Envio de arquivo (multipart): o navegador define o Content-Type com o limite. */
+export function upload<T>(path: string, method: string, form: FormData): Promise<T> {
+  return request<T>(path, { method, body: form });
+}
+
+/** DELETE que responde 204, sem corpo. */
+export async function remove(path: string): Promise<void> {
+  await fetchWithAuth(path, { method: "DELETE" });
 }
 
 export function getHome(): Promise<HomeSummary> {

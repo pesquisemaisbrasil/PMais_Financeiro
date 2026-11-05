@@ -16,6 +16,7 @@ import {
   Eye,
   FileUp,
   Plus,
+  Receipt,
   Replace,
   Search,
   SlidersHorizontal,
@@ -71,6 +72,7 @@ import {
   ReplaceProvisionDialog,
 } from "./dialogs";
 import { ImportDialog } from "./import-dialog";
+import { ReceiptsDialog } from "./receipts-dialog";
 
 const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean; fixed?: boolean }[] = [
   { id: "vencimento", label: "Vencimento", sort: "vencimento", fixed: true },
@@ -358,6 +360,7 @@ function PayablesContent() {
 
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<PayableRow | null>(null);
+  const [sendingReceipts, setSendingReceipts] = useState<PayableRow | null>(null);
   const [batchPaying, setBatchPaying] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
@@ -858,6 +861,13 @@ function PayablesContent() {
                           {row.canPayDirectly && (
                             <IconButton icon={Check} label="Dar baixa" onClick={() => setPaying(row)} />
                           )}
+                          {row.origin === "connect" && row.type === "real" && Number(row.pending) > 0 && (
+                            <IconButton
+                              icon={Receipt}
+                              label="Enviar comprovantes"
+                              onClick={() => setSendingReceipts(row)}
+                            />
+                          )}
                           {row.canReplace && (
                             <IconButton icon={Replace} label="Substituir pelo valor real" onClick={() => setReplacing(row)} />
                           )}
@@ -953,6 +963,14 @@ function PayablesContent() {
             );
             changed();
           }}
+        />
+      )}
+      {sendingReceipts && reference && (
+        <ReceiptsDialog
+          payable={sendingReceipts}
+          reference={reference}
+          onClose={() => setSendingReceipts(null)}
+          onDone={changed}
         />
       )}
       {batchPaying && reference && data && (

@@ -29,6 +29,8 @@ const backendEnv = {
   ENCRYPTION_KEY: Buffer.alloc(32, "e").toString("base64"),
   PIX_SECRET_KEY: "pix-e2e-chave-ficticia-com-mais-de-32-caracteres",
   ENVIRONMENT: "development",
+  // Connect de mentira (dados fictícios): o de verdade nunca entra nos testes.
+  CONNECT_MODE: "simulated",
   CORS_ORIGINS: FRONTEND_URL,
   FRONTEND_URL,
   API_PUBLIC_URL: API_URL,
