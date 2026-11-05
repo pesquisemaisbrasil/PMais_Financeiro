@@ -1,7 +1,9 @@
 # Só para rodar localmente. As senhas daqui valem apenas nesta máquina.
 # Portas diferentes das do Connect (5432, 8000 e 3000), para subir junto com ele.
-# shortcut: sem armazenamento de arquivos, porque o MinIO foi arquivado e as imagens oficiais
-# saíram do ar; entra quando o substituto for decidido, antes do primeiro upload.
+# MinIO: a imagem oficial saiu do ar (projeto arquivado), então usamos o build mantido pela Chainguard,
+# fixo pelo digest (ADR 0010). Troque o digest de propósito, nunca com "latest".
+# shortcut: só o administrador do MinIO deste compose (que já é separado do do Connect) e um bucket;
+# o usuário restrito ao bucket entra junto com o primeiro upload.
 services:
   db:
     image: postgres:16
@@ -19,6 +21,30 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:3c60a2a8c4d33409a9bc7a623a7fcbfb4605adc3d89422d2f53b3f673a6e5597
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: financeiro-admin
+      MINIO_ROOT_PASSWORD: "troque-local-minio"
+    ports: ["127.0.0.1:9010:9000", "127.0.0.1:9011:9001"]
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: cgr.dev/chainguard/minio-client@sha256:1dccd2a6fd59914a98ac2d9dad95e552c91243cb0bd7242aaa224802df4b3432
+    environment:
+      MC_HOST_local: http://financeiro-admin:troque-local-minio@minio:9000
+    command: ["mb", "--ignore-existing", "local/financeiro-arquivos"]
+    depends_on:
+      minio: { condition: service_healthy }
+    restart: "no"
 
   api:
     build: ./backend
@@ -52,3 +78,4 @@ services:
 
 volumes:
   pgdata:
+  miniodata:

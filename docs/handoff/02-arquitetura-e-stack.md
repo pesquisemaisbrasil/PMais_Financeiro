@@ -63,7 +63,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | Peça | Versão |
 |---|---|
 | PostgreSQL | **16** (`postgres:16`) |
-| MinIO | `quay.io/minio/minio:latest` no Connect. No Financeiro, **fixe a tag** (o `latest` é dívida do Connect) |
+| MinIO | A imagem oficial `quay.io/minio/minio` saiu do ar. No Financeiro: `cgr.dev/chainguard/minio` fixo por digest, ver [ADR 0010](../architecture/adr/0010-minio-pelo-build-da-chainguard.md) |
 | Docker Compose | arquivo `docker-compose.yml` sem `version:` (Compose v2) |
 
 ### Frontend (de `frontend/package.json` do Connect)
