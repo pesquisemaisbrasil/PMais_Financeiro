@@ -37,12 +37,11 @@ Em ordem sugerida:
 3. **Fechar as pontas do PF-56 que não dependem do Connect:**
    - ~~**Despachante em segundo plano**~~, ~~**sino de avisos**~~ e ~~**tela de Divergências**~~ entregues em 06/11/2026 (`PAYMENT_DISPATCH_SECONDS` liga o despachante).
    - ~~**Baixa por pessoa dentro do lançamento**~~ entregue em 06/11/2026.
-4. **Importar projetos e itens do Connect** de verdade, quando a entrega 1 existir: trocar o `UnavailableConnect` por um cliente HTTP em `services/connect_gateway.py`, com token de serviço, timeout e HTTPS. A interface, o espelho (`project_refs`, `connect_payable_items`) e os testes já estão prontos.
+4. **Cliente HTTP do Connect:** a parte de leitura (token, projetos, itens a pagar, entrevistadores) está feita e testada contra respostas no formato do Connect; falta **ligar numa conta de serviço real** (`CONNECT_BASE_URL`, `CONNECT_CLIENT_ID`, `CONNECT_CLIENT_SECRET`) e conferir contra o Connect no ar. Faltam as chamadas `pix-key-matches` e `payments`, que dependem das entregas 1 e 2 do Connect.
 5. **Planilha de pagamento ao banco** ([pagamentos-a-pagar](../specs/pagamentos-a-pagar.md)): depende da entrega 1 do Connect (`payment-data`), com cada acesso à chave completa auditado.
 6. **Próximos módulos do [roadmap](roadmap.md):** Contas a receber, Notas e RPA e Conferência bancária (hoje "Em breve" no menu), depois Relatórios.
 7. **Débitos pequenos:**
-   - corrigir o handoff/07 §7, que diz que os itens do orçamento "entram quando existirem" (a API já os entrega);
-   - cache `.next` separado para o E2E (rodar o E2E hoje contamina o servidor de dev);
+   - ~~corrigir o handoff/07 §7~~ feito em 06/11/2026;
    - subir o FastAPI em PR próprio, combinado com o Connect (PF-52);
    - mover as subtarefas PF-31/32 e PF-34/35 no quadro, e arrastar PF-25/26/27 ao backlog.
 
