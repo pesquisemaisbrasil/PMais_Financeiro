@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
+  Ban,
   Barcode,
   Check,
   CheckCheck,
@@ -17,6 +18,7 @@ import {
   FileUp,
   Plus,
   Receipt,
+  Repeat,
   Replace,
   Search,
   SlidersHorizontal,
@@ -27,7 +29,7 @@ import {
 import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH } from "@/components/finance";
+import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
@@ -48,6 +50,7 @@ import {
   plural,
   replacedMessage,
   replacesNote,
+  seriesLabel,
   type DateField,
   type Indicator,
   type PayableDetail,
@@ -73,6 +76,7 @@ import {
 } from "./dialogs";
 import { ImportDialog } from "./import-dialog";
 import { ReceiptsDialog } from "./receipts-dialog";
+import { SeriesDialog } from "./series-dialog";
 
 const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean; fixed?: boolean }[] = [
   { id: "vencimento", label: "Vencimento", sort: "vencimento", fixed: true },
@@ -228,6 +232,11 @@ function PayeeCell({
   const detail = (
     <>
       <span className="font-medium text-brand-cinza-escuro">{row.payee}</span> <OriginTag origin={row.origin} />
+      {row.series && (
+        <Tag color="cinza" icon={Repeat}>
+          {seriesLabel(row.series)}
+        </Tag>
+      )}
       <span className="block text-xs font-normal text-muted-foreground">
         {row.description}
         {row.itemCount > 0 && ` · ${plural(row.itemCount, "pessoa", "pessoas")}`}
@@ -361,6 +370,7 @@ function PayablesContent() {
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<PayableRow | null>(null);
   const [sendingReceipts, setSendingReceipts] = useState<PayableRow | null>(null);
+  const [seriesAction, setSeriesAction] = useState<{ row: PayableRow; mode: "edit" | "cancel" } | null>(null);
   const [batchPaying, setBatchPaying] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reclassifying, setReclassifying] = useState(false);
@@ -861,6 +871,20 @@ function PayablesContent() {
                           {row.canPayDirectly && (
                             <IconButton icon={Check} label="Dar baixa" onClick={() => setPaying(row)} />
                           )}
+                          {row.series && (
+                            <IconButton
+                              icon={Repeat}
+                              label="Alterar ou cancelar a série"
+                              onClick={() => setSeriesAction({ row, mode: "edit" })}
+                            />
+                          )}
+                          {row.series && (
+                            <IconButton
+                              icon={Ban}
+                              label="Cancelar as contas da série"
+                              onClick={() => setSeriesAction({ row, mode: "cancel" })}
+                            />
+                          )}
                           {row.origin === "connect" && row.type === "real" && Number(row.pending) > 0 && (
                             <IconButton
                               icon={Receipt}
@@ -941,9 +965,13 @@ function PayablesContent() {
           reference={reference}
           today={data.today}
           onClose={() => setCreating(false)}
-          onDone={(payable) => {
+          onDone={(payable, seriesCount) => {
             setCreating(false);
-            toast.success(`Conta lançada: ${brl(payable.amount)}, vence em ${formatDate(payable.dueDate)}.`);
+            toast.success(
+              seriesCount
+                ? `${seriesCount} contas lançadas, a primeira vence em ${formatDate(payable.dueDate)}.`
+                : `Conta lançada: ${brl(payable.amount)}, vence em ${formatDate(payable.dueDate)}.`
+            );
             changed();
           }}
         />
@@ -961,6 +989,18 @@ function PayablesContent() {
                 ? `Baixa parcial feita. Ainda faltam ${brl(payable.pending)}.`
                 : `Conta paga: ${payable.description}.`
             );
+            changed();
+          }}
+        />
+      )}
+      {seriesAction && (
+        <SeriesDialog
+          row={seriesAction.row}
+          mode={seriesAction.mode}
+          onClose={() => setSeriesAction(null)}
+          onDone={(message) => {
+            setSeriesAction(null);
+            toast.success(message);
             changed();
           }}
         />

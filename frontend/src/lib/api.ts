@@ -11,6 +11,7 @@ import type {
   ReplacementCandidate,
   ImportPreview,
   ImportResult,
+  Occurrence,
   Project,
   RecordKind,
   RecordRow
@@ -295,6 +296,22 @@ export function getPayable(id: number): Promise<PayableDetail> {
 
 export function createPayable(body: unknown): Promise<PayableDetail> {
   return send<PayableDetail>("/payables", "POST", body);
+}
+
+export function simulateRecurrence(body: unknown): Promise<Occurrence[]> {
+  return send<Occurrence[]>("/payables/recurrence/simulate", "POST", body);
+}
+
+export function createSeries(body: unknown): Promise<{ seriesId: number; ids: number[] }> {
+  return send<{ seriesId: number; ids: number[] }>("/payables/recurrence", "POST", body);
+}
+
+export function editSeries(id: number, body: unknown): Promise<{ count: number }> {
+  return send<{ count: number }>(`/payables/${id}/series`, "PATCH", body);
+}
+
+export function cancelSeries(id: number, body: unknown): Promise<{ count: number }> {
+  return send<{ count: number }>(`/payables/${id}/series/cancel`, "POST", body);
 }
 
 export function updatePayable(id: number, body: unknown): Promise<PayableDetail> {

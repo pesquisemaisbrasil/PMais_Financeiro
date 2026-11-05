@@ -23,10 +23,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "./recurrence-fields";
 import {
   ApiError,
   cancelPayable,
   createPayable,
+  createSeries,
   deleteBatch,
   duplicateBatch,
   getPayable,
@@ -44,6 +46,7 @@ import {
   formatDate,
   inssAmount,
   itemPaymentLabel,
+  occurrenceEdits,
   parseAllocations,
   parseMoney,
   plural,
@@ -73,10 +76,11 @@ export function NewPayableDialog({
   reference: Reference;
   today: string;
   onClose: () => void;
-  onDone: (payable: PayableDetail) => void;
+  onDone: (payable: PayableDetail, seriesCount?: number) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [recurrence, setRecurrence] = useState<RecurrenceState>(NO_RECURRENCE);
   const [form, setForm] = useState({
     issueDate: today,
     dueDate: addDays(today, 7),
@@ -144,8 +148,11 @@ export function NewPayableDialog({
     } else if (form.projectId) {
       allocations = [{ projectId: Number(form.projectId), amount }];
     }
-    await run(async () => {
-      const payable = await createPayable({
+    if (recurrence.repeat && form.isProvision) return setLocalError("Provisão não se repete.");
+    if (recurrence.repeat && !recurrence.rows) {
+      return setLocalError("Clique em Simular para conferir as ocorrências antes de salvar.");
+    }
+    const body = {
         type: form.isProvision ? "provisao" : "real",
         issueDate: form.issueDate,
         dueDate: form.dueDate,
@@ -166,8 +173,22 @@ export function NewPayableDialog({
         docsReceivedOn: form.docsReceivedOn || null,
         isTransfer: form.isTransfer,
         notes: form.notes.trim() || null,
-      });
-      onDone(payable);
+    };
+    await run(async () => {
+      if (recurrence.repeat && recurrence.rows && recurrence.simulated) {
+        const { ids } = await createSeries({
+          ...body,
+          recurrence: {
+            kind: recurrence.kind,
+            count: Number(recurrence.count),
+            estimated: recurrence.estimated,
+            occurrences: occurrenceEdits(recurrence.simulated, recurrence.rows),
+          },
+        });
+        onDone(await getPayable(ids[0]), ids.length);
+        return;
+      }
+      onDone(await createPayable(body));
     });
   }
 
@@ -291,6 +312,14 @@ export function NewPayableDialog({
                 {...input("allocationText")}
               />
             </Field>
+            <RecurrenceFields
+              value={recurrence}
+              onChange={setRecurrence}
+              dueDate={form.dueDate}
+              amount={parseMoney(form.amount)}
+              disabled={submitting}
+              onError={setLocalError}
+            />
             <details className="rounded-xl border border-border px-3.5 py-2.5">
               <summary className="cursor-pointer text-[13px] font-semibold">
                 Mais informações (documento, código de barras, competência…)

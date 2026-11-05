@@ -40,6 +40,50 @@ export interface Allocation {
   amount: string;
 }
 
+export type RecurrenceKind = "mensal" | "semanal" | "parcelado";
+export type SeriesScope = "only" | "following" | "open";
+
+export interface SeriesInfo {
+  id: number;
+  index: number;
+  count: number;
+  kind: RecurrenceKind;
+  estimated: boolean;
+}
+
+export interface Occurrence {
+  index: number;
+  dueDate: string;
+  amount: string;
+}
+
+export const RECURRENCE_KINDS: { id: RecurrenceKind; label: string }[] = [
+  { id: "mensal", label: "Todo mês" },
+  { id: "semanal", label: "Toda semana" },
+  { id: "parcelado", label: "Parcelado (divide o valor)" },
+];
+
+export const SERIES_SCOPES: { id: SeriesScope; label: string; hint: string }[] = [
+  { id: "only", label: "Só esta", hint: "As outras ocorrências ficam como estão." },
+  { id: "following", label: "Esta e as seguintes", hint: "Muda a partir desta, só o que está em aberto." },
+  { id: "open", label: "Todas em aberto", hint: "Muda a série inteira, menos o que já tem baixa." },
+];
+
+/** Só as linhas que a pessoa mexeu na tabela simulada: é o que o servidor precisa receber. */
+export function occurrenceEdits(simulated: Occurrence[], edited: Occurrence[]) {
+  return edited.flatMap((row, i) => {
+    const before = simulated[i];
+    const dueDate = row.dueDate !== before.dueDate ? row.dueDate : undefined;
+    const amount = Number(row.amount) !== Number(before.amount) ? row.amount : undefined;
+    return dueDate || amount ? [{ index: row.index, dueDate, amount }] : [];
+  });
+}
+
+/** "3/12", ou "3/12 · estimada" para conta de valor variável. */
+export function seriesLabel(series: SeriesInfo): string {
+  return `${series.index}/${series.count}${series.estimated ? " · estimada" : ""}`;
+}
+
 export interface PayableRow {
   id: number;
   type: string;
@@ -64,6 +108,7 @@ export interface PayableRow {
   canPayDirectly: boolean;
   canReplace: boolean;
   replaces: string | null;
+  series: SeriesInfo | null;
 }
 
 export interface ReplacementCandidate {

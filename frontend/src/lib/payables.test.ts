@@ -8,6 +8,8 @@ import {
   isoFromDate,
   monthRange,
   nextRange,
+  occurrenceEdits,
+  seriesLabel,
   parseAllocations,
   parseMoney,
   periodLabel,
@@ -241,5 +243,39 @@ describe("detalhes de cada pessoa", () => {
   it("calcula o INSS pelo bruto e pelo líquido, sem erro de centavos", () => {
     expect(inssAmount("1000.00", "890.00")).toBe("110.00");
     expect(inssAmount("0.30", "0.27")).toBe("0.03");
+  });
+});
+
+describe("recorrência", () => {
+  const simulated = [
+    { index: 1, dueDate: "2027-02-01", amount: "150.00" },
+    { index: 2, dueDate: "2027-03-01", amount: "150.00" },
+    { index: 3, dueDate: "2027-03-31", amount: "150.00" },
+  ];
+
+  it("manda só as linhas que a pessoa mexeu na tabela", () => {
+    const edited = [
+      simulated[0],
+      { ...simulated[1], amount: "163.40" },
+      { ...simulated[2], dueDate: "2027-04-05" },
+    ];
+    expect(occurrenceEdits(simulated, edited)).toEqual([
+      { index: 2, dueDate: undefined, amount: "163.40" },
+      { index: 3, dueDate: "2027-04-05", amount: undefined },
+    ]);
+  });
+
+  it("não manda nada quando a tabela ficou como o servidor simulou", () => {
+    expect(occurrenceEdits(simulated, simulated)).toEqual([]);
+  });
+
+  it("trata 150 e 150.00 como o mesmo valor", () => {
+    expect(occurrenceEdits(simulated, [{ ...simulated[0], amount: "150" }, simulated[1], simulated[2]])).toEqual([]);
+  });
+
+  it("escreve o número da ocorrência na série", () => {
+    const base = { id: 1, index: 3, count: 12, kind: "mensal" as const, estimated: false };
+    expect(seriesLabel(base)).toBe("3/12");
+    expect(seriesLabel({ ...base, estimated: true })).toBe("3/12 · estimada");
   });
 });
