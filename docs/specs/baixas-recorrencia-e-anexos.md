@@ -71,20 +71,31 @@ Contrato das três abas compartilhadas por contas a pagar e a receber: **Baixas*
 
 - [ ] Um título de R$ 1.000 com baixa de R$ 400 fica `parcial`, com pendente R$ 600; segunda baixa de R$ 600 deixa `pago`.
 - [ ] Estornar a baixa de R$ 600 volta o pendente para R$ 600, e as duas linhas ficam visíveis.
-- [ ] Simular 6 meses a partir de 31/01 gera vencimentos 31/01, 28/02 (ou 29), 31/03, 30/04, 31/05 e 30/06 (ajustados para dia útil).
-- [ ] Mudar o valor da 3ª parcela com "só esta" mantém a 4ª–6ª; com "esta e as seguintes" muda a 3ª–6ª em aberto.
+- [x] Simular 6 meses a partir de 31/01 gera vencimentos 31/01, 28/02 (ou 29), 31/03, 30/04, 31/05 e 30/06 (ajustados para dia útil).
+- [x] Mudar o valor da 3ª parcela com "só esta" mantém a 4ª–6ª; com "esta e as seguintes" muda a 3ª–6ª em aberto.
 - [ ] Incluir, renomear, baixar e excluir um comprovante deixa as 4 operações na trilha.
 - [ ] Enviar um .exe renomeado para .pdf é recusado.
 - [ ] Um Pix devolvido em 15/10 e pago de novo em 16/10 deixa o título com as duas baixas e a devolução; o relatório por data de baixa mostra a saída em 16/10.
-- [ ] Uma conta de luz estimada em R$ 150 por 12 meses tem a ocorrência de outubro substituída por R$ 163,40, e as de novembro em diante continuam R$ 150.
+- [x] Uma conta de luz estimada em R$ 150 por 12 meses tem a ocorrência de outubro substituída por R$ 163,40, e as de novembro em diante continuam R$ 150.
 - [ ] Baixa em lote de 5 títulos grava 5 baixas iguais em data e conta.
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- Recorrência (PF-57): `backend/services/recurrence.py`, `backend/models/payable.py` (`PayableSeries`), rotas em `backend/api/payables.py` (`/payables/recurrence`, `/payables/{id}/series`), tela em `frontend/src/app/(app)/contas-a-pagar/recurrence-fields.tsx` e `series-dialog.tsx`. Testes: `backend/tests/test_recurrence.py`, `frontend/e2e/recorrencia.spec.ts`.
+- Baixas e anexos: a criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
 
 Origem do requisito:
 
 - [Reunião 21/10 6:27, 8:15–9:52, 11:45, 19:27–20:15, 47:29]: anexos, baixa em lote, voltas, recorrência estimada.
 - [SGE4B §5.2, §5.3, §5.4, §10 CT-03–CT-06].
 - [Connect: financeiro] regra 5 (o PDF de Pix não é guardado).
+
+## Ajustes
+
+- 2026-11-06 (PF-57, recorrência entregue em Contas a pagar): **mensal**, **semanal** e **parcelado**, de 2 a 60 ocorrências (a primeira incluída), com a tabela simulada editável antes de salvar. Cada ocorrência é um título normal ligado à série (`payable_series`, `payables.series_id` e `seriesIndex`). A criação é tudo ou nada.
+- 2026-11-06: o dia vem sempre da **data inicial** (31/01 dá 28/02 e volta a 31/03), e só depois o vencimento vai para o **próximo dia útil** (a regra "a validar: ou anterior?" ficou com o próximo, como a spec diz; mudar é uma linha em `services/recurrence.py`). Feriado nacional entra na conta (Proclamação da República, 15/11, vai para o dia 16).
+- 2026-11-06: parcelado divide também o rateio entre projetos, com a diferença de arredondamento no último projeto. Só a primeira ocorrência leva nota, boleto e competência informados: as demais ficam "Sem documento", porque nota e boleto são de cada mês.
+- 2026-11-06: **editar a série** muda valor e descrição ("só esta", "esta e as seguintes", "todas em aberto"); o vencimento de uma ocorrência continua sendo mudado nela mesma. **Cancelar a série** vale para "esta e as seguintes" ou "todas em aberto" (cancelar só uma é o cancelamento normal da conta). Ocorrência paga, parcialmente paga ou já cancelada nunca é alterada pela série: fica de fora, e se a ocorrência escolhida em "só esta" já foi paga, a resposta é 409 ("Ocorrências pagas não são alteradas pela série").
+- 2026-11-06: **recorrência estimada** (luz): marca a série como estimada; "só esta" troca uma ocorrência pelo valor real sem mexer nas seguintes. Provisão não tem série (422).
+- 2026-11-06: ficou de fora desta entrega: estender uma série (acrescentar ocorrências depois) e a baixa em lote por série.
+

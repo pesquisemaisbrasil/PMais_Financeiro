@@ -118,6 +118,18 @@ Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Conne
 
 Ainda não existe: a baixa por pessoa dentro do lançamento e o sino de avisos. A baixa real depende das entregas 1 e 2 do Connect ([entregas-do-connect](../specs/entregas-do-connect.md)).
 
+### Repetir uma conta (PF-57)
+
+Em **Contas a pagar**, com o sistema rodando:
+
+1. **Nova conta a pagar**, preencha como sempre e marque **Repetir esta conta**. Escolha "Todo mês", "Toda semana" ou "Parcelado" e quantas vezes (com a primeira).
+2. Sem clicar em **Simular**, o botão de lançar avisa que falta conferir as ocorrências.
+3. **Simular** mostra a tabela. Dia que não existe no mês vira o último dia, e fim de semana ou feriado vai para o próximo dia útil. Mude uma data ou um valor na própria tabela, se precisar.
+4. **Lançar conta** cria todas de uma vez. Cada linha ganha a marca da série (por exemplo `2/3`).
+5. No botão de série da linha, **Alterar**: "só esta", "esta e as seguintes" ou "todas em aberto", com novo valor ou descrição. Uma conta de luz estimada em R$ 150 pode ter só a de outubro trocada por R$ 163,40.
+6. **Cancelar as contas da série** pede o motivo. O que já foi pago continua como está.
+7. Em "Parcelado", o valor é dividido (a diferença de centavos vai na última parcela) e o rateio entre projetos acompanha.
+
 ### Login com MFA, Google e Microsoft
 
 Com o sistema rodando ([README](../../README.md#como-rodar)):

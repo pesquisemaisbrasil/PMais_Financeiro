@@ -10,7 +10,7 @@
 | Identificador fixo do SSO (PF-49) | Entregue |
 | Inventário de dados e ROPA do login (PF-55) | Escritos; falta o DPO definir o prazo de guarda (Q26) |
 | Corpo grande em `/auth` (PF-52) | Mitigado com limite de 16 KB; falta subir o FastAPI para fechar o alerta do `pip-audit` |
-| Início e Contas a pagar | Entregue: lista, filtros, importar planilha, detalhes por pessoa, menu lateral em 4 seções |
+| Início e Contas a pagar | Entregue: lista, filtros, importar planilha, detalhes por pessoa, menu lateral em 4 seções e recorrência (PF-57) |
 | Comprovantes e baixa (PF-56) | **Entregue** com o Connect simulado ([spec](../specs/comprovantes-e-baixa.md), [como testar](roadmap.md)) |
 | Cadastros | Entregue |
 
@@ -33,7 +33,7 @@ Nada disto anda sem uma resposta. A ordem é a de quem destrava mais coisa.
 Em ordem sugerida:
 
 1. **Fechar a `homolog` para enviar.** Antes do push: simulação de CI em containers Linux (com Postgres, que cobre a trava `with_for_update` e o índice único do Pix, hoje só conferidos na migration) e auditoria de segredos. `.github/workflows/tests.yml` mudou (`PIX_SECRET_KEY`): pede revisão. O PR `homolog` → `main` só com o João pedindo ou autorizando.
-2. **PF-57: recorrência em Contas a pagar** ([baixas-recorrencia-e-anexos](../specs/baixas-recorrencia-e-anexos.md)). É a próxima funcionalidade grande que não depende do Connect.
+2. ~~**PF-57: recorrência em Contas a pagar**~~ entregue em 06/11/2026 ([baixas-recorrencia-e-anexos](../specs/baixas-recorrencia-e-anexos.md)).
 3. **Fechar as pontas do PF-56 que não dependem do Connect:**
    - **Despachante em segundo plano** para reenviar baixas que esperam o Connect. Hoje o reenvio é manual (`python scripts/dispatch_payments.py`) ou na próxima confirmação.
    - **Sino de avisos** na barra (a API `/notifications` já existe) e uma **tela de Divergências** (a rota `/divergences` já existe).
