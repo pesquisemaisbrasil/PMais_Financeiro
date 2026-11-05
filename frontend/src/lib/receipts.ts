@@ -1,5 +1,5 @@
 import { PDFDocument } from "pdf-lib";
-import { remove, request, send, upload } from "./api";
+import { postNoContent, remove, request, send, upload } from "./api";
 
 // ---- Tipos (iguais aos do backend: schemas/receipt.py) ----
 
@@ -55,6 +55,34 @@ export interface FinanceProject {
   id: number;
   connectProjectId: number;
   title: string;
+}
+
+export interface Notice {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface Divergence {
+  paymentRef: string;
+  projectId: number;
+  projectTitle: string;
+  batchId: number;
+  receiptId: number;
+  page: number;
+  keyMasked: string | null;
+  amount: string | null;
+  paidOn: string | null;
+  code: string | null;
+  message: string;
+}
+
+export function unreadCount(notices: Notice[]): number {
+  return notices.filter((notice) => !notice.readAt).length;
 }
 
 // ---- Abas da conferência ----
@@ -183,6 +211,18 @@ export async function splitPdf(
 // ---- API ----
 
 const base = (projectId: number) => `/projects/${projectId}/finance`;
+
+export function listNotices(): Promise<Notice[]> {
+  return request<Notice[]>("/notifications");
+}
+
+export function readNotice(id: number): Promise<void> {
+  return postNoContent(`/notifications/${id}/read`);
+}
+
+export function listDivergences(): Promise<Divergence[]> {
+  return request<Divergence[]>("/finance/divergences");
+}
 
 export function listFinanceProjects(): Promise<FinanceProject[]> {
   return request<FinanceProject[]>("/finance/projects");

@@ -5,6 +5,7 @@ import {
   planParts,
   splitPdf,
   tabOf,
+  unreadCount,
   totalToPayCents,
   UnreadablePdfError,
   type ReceiptRow,
@@ -108,5 +109,22 @@ describe("abas da conferência", () => {
       row({ id: 4, amount: "9.99", status: "pago" }),
     ];
     expect(totalToPayCents(rows)).toBe(2030);
+  });
+});
+
+describe("avisos", () => {
+  const notice = (id: number, readAt: string | null) => ({
+    id,
+    type: "receipt_out_of_project",
+    title: "t",
+    body: null,
+    link: null,
+    readAt,
+    createdAt: "2026-11-05T10:00:00Z",
+  });
+
+  it("conta só os que ainda não foram lidos", () => {
+    expect(unreadCount([notice(1, null), notice(2, "2026-11-05T11:00:00Z"), notice(3, null)])).toBe(2);
+    expect(unreadCount([])).toBe(0);
   });
 });

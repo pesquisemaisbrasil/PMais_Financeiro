@@ -1009,7 +1009,10 @@ function PayablesContent() {
         <ReceiptsDialog
           payable={sendingReceipts}
           reference={reference}
-          onClose={() => setSendingReceipts(null)}
+          onClose={() => {
+            setSendingReceipts(null);
+            changed();
+          }}
           onDone={changed}
         />
       )}

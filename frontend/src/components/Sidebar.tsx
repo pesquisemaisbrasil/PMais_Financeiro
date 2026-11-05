@@ -15,6 +15,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { NotificationsBell } from "@/components/NotificationsBell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -43,6 +44,7 @@ const NAV: Entry[] = [
       { label: "Contas a receber" },
       { label: "Notas e RPA" },
       { label: "Conferência bancária" },
+      { href: "/divergencias", label: "Divergências" },
     ],
   },
   {
@@ -315,6 +317,7 @@ export function Sidebar() {
             <p className="truncate text-[13px] font-semibold text-brand-cinza-escuro">{user.name}</p>
             <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role] ?? user.role}</p>
           </div>
+          <NotificationsBell />
         </div>
         <Hint show={collapsed} label="Sair">
           <Button

@@ -229,6 +229,11 @@ export function upload<T>(path: string, method: string, form: FormData): Promise
   return request<T>(path, { method, body: form });
 }
 
+/** POST que responde 204, sem corpo. */
+export async function postNoContent(path: string): Promise<void> {
+  await fetchWithAuth(path, { method: "POST" });
+}
+
 /** DELETE que responde 204, sem corpo. */
 export async function remove(path: string): Promise<void> {
   await fetchWithAuth(path, { method: "DELETE" });
