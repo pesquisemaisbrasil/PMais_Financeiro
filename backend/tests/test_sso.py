@@ -16,6 +16,7 @@ from core.config import FRONTEND_URL
 from core.limiter import limiter
 from models.login_event import LoginEvent
 from models.refresh_token import RefreshToken
+from models.sso_identity import SsoIdentity
 from models.user import User
 from services import sso
 from tests.test_auth import bearer, login
@@ -108,6 +109,7 @@ def microsoft_claims(params: dict[str, str], **overrides: Any) -> dict[str, Any]
         "iss": "https://microsoft.test/v2.0",
         "aud": MICROSOFT.client_id,
         "sub": "456",
+        "oid": "oid-da-ana",
         "iat": datetime.now(UTC),
         "exp": datetime.now(UTC) + timedelta(minutes=5),
         "nonce": params["nonce"],
@@ -289,6 +291,88 @@ def test_email_is_never_stored_in_the_event(
     callback(client, params)
     event = db_session.query(LoginEvent).one()
     assert EMAIL not in " ".join(str(v) for v in (event.reason, event.emailHash, event.userAgent))
+
+
+# ---- Identificador fixo (PF-49) ----
+
+
+def sso_login(
+    client: TestClient, provider_api: FakeProviderApi, provider: str = "google", **overrides: Any
+) -> Any:
+    client.cookies.clear()
+    params = start(client, provider)
+    make = google_claims if provider == "google" else microsoft_claims
+    provider_api.claims = make(params, **overrides)
+    return callback(client, params, provider)
+
+
+def test_first_login_saves_the_fixed_identifier(
+    client: TestClient,
+    db_session: Session,
+    make_user: Callable[..., User],
+    provider_api: FakeProviderApi,
+) -> None:
+    user = make_user()
+    sso_login(client, provider_api)
+    sso_login(client, provider_api, "microsoft")
+    saved = {(row.provider, row.subject) for row in db_session.query(SsoIdentity)}
+    assert saved == {("google", "123"), ("microsoft", f"{TENANT}:oid-da-ana")}
+    assert {row.user_id for row in db_session.query(SsoIdentity)} == {user.id}
+
+
+@pytest.mark.parametrize("provider", ["google", "microsoft"])
+def test_changing_the_email_at_the_provider_keeps_the_same_account(
+    client: TestClient,
+    make_user: Callable[..., User],
+    provider_api: FakeProviderApi,
+    provider: str,
+) -> None:
+    make_user(mfa=False)
+    assert sso_login(client, provider_api, provider).headers["location"] == f"{FRONTEND_URL}/"
+    new_email = {
+        "email": "ana.nova@pesquisemais.com.br",
+        "preferred_username": "ana.nova@pesquisemais.com.br",
+    }
+    again = sso_login(client, provider_api, provider, **new_email)
+    assert again.headers["location"] == f"{FRONTEND_URL}/"
+    assert "refresh_token" in client.cookies
+
+
+@pytest.mark.parametrize(
+    ("provider", "other_person"),
+    [("google", {"sub": "outra-pessoa"}), ("microsoft", {"oid": "outro-oid"})],
+)
+def test_someone_else_with_the_old_email_does_not_get_in(
+    client: TestClient,
+    db_session: Session,
+    make_user: Callable[..., User],
+    provider_api: FakeProviderApi,
+    provider: str,
+    other_person: dict[str, str],
+) -> None:
+    make_user(mfa=False)
+    sso_login(client, provider_api, provider)
+    denied = sso_login(client, provider_api, provider, **other_person)
+    assert_denied(denied, client, "sso_conta")
+    assert db_session.query(SsoIdentity).count() == 1
+
+
+def test_microsoft_without_a_fixed_identifier_is_refused(
+    client: TestClient, make_user: Callable[..., User], provider_api: FakeProviderApi
+) -> None:
+    make_user()
+    assert_denied(sso_login(client, provider_api, "microsoft", oid=None), client)
+
+
+def test_same_person_in_another_company_is_not_the_same_identifier(
+    client: TestClient,
+    db_session: Session,
+    make_user: Callable[..., User],
+    provider_api: FakeProviderApi,
+) -> None:
+    make_user()
+    sso_login(client, provider_api, "microsoft")
+    assert db_session.query(SsoIdentity).one().subject.startswith(f"{TENANT}:")
 
 
 # ---- Ataques e erros ----

@@ -262,7 +262,7 @@ def finish_sso(
 ) -> RedirectResponse:
     provider = _sso_provider(provider_name)
     try:
-        email = sso.complete_login(provider, code, state, sso_state)
+        identity = sso.complete_login(provider, code, state, sso_state)
     except sso.SsoError as exc:
         record_login_event(
             db, user_id=None, success=False, reason=f"sso_{exc.reason}", **_client_info(request)
@@ -270,7 +270,7 @@ def finish_sso(
         return _back_to_login("sso_falhou")
 
     # Sem criação de conta: só entra quem já foi cadastrado no Financeiro.
-    user = db.query(User).filter(User.email == normalize_email(email)).first()
+    user = sso.find_account(db, provider, identity)
     if user is None or user.status != "active":
         record_login_event(
             db,

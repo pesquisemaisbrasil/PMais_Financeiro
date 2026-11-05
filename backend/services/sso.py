@@ -1,7 +1,7 @@
 """Login por Google e Microsoft (OpenID Connect, fluxo de código com PKCE).
 
-O segundo fator é o do provedor. Só o e-mail confirmado por ele sai daqui: quem decide se a
-pessoa tem conta no Financeiro é a rota, e não há criação de conta.
+O segundo fator é o do provedor. Só a identidade confirmada por ele (identificador fixo e
+e-mail) sai daqui: não há criação de conta, e a conta é achada pelo identificador fixo.
 """
 
 import base64
@@ -15,6 +15,8 @@ from urllib.parse import urlencode
 import jwt
 import requests
 from jwt import PyJWKClient, PyJWTError
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from core.config import (
     ALGORITHM,
@@ -28,6 +30,9 @@ from core.config import (
     MICROSOFT_TENANT_ID,
     SECRET_KEY,
 )
+from models.sso_identity import SsoIdentity as SsoIdentityRow
+from models.user import User
+from services.auth import normalize_email
 
 STATE_LIFETIME = timedelta(minutes=10)
 STATE_TOKEN_TYPE = "sso_state"
@@ -172,7 +177,14 @@ def _signing_key(provider: Provider, id_token: str) -> Any:
     )
 
 
-def _validated_email(provider: Provider, id_token: str, nonce: str) -> str:
+@dataclass(frozen=True)
+class SsoIdentity:
+    # fixo no provedor; o e-mail só serve para achar a conta no primeiro login
+    subject: str
+    email: str
+
+
+def _validated_identity(provider: Provider, id_token: str, nonce: str) -> SsoIdentity:
     try:
         claims = jwt.decode(
             id_token,
@@ -191,22 +203,51 @@ def _validated_email(provider: Provider, id_token: str, nonce: str) -> str:
         if claims.get("tid") != provider.tenant_id:
             raise SsoError("wrong_tenant")
         email = claims.get("email") or claims.get("preferred_username")
+        # `sub` da Microsoft muda por aplicativo; `oid` + `tid` identificam a pessoa no diretório
+        if not claims.get("oid"):
+            raise SsoError("no_subject")
+        subject = f"{claims['tid']}:{claims['oid']}"
     else:
         # is True: o Google manda booleano, e um texto como "false" não pode passar
         if claims.get("email_verified") is not True:
             raise SsoError("email_not_verified")
         email = claims.get("email")
+        subject = str(claims["sub"])
     if not email or "@" not in str(email):
         raise SsoError("no_email")
-    return str(email)
+    return SsoIdentity(subject=subject, email=str(email))
 
 
 def complete_login(
     provider: Provider, code: str | None, state: str | None, state_cookie: str | None
-) -> str:
-    """Confere a volta do provedor e devolve o e-mail confirmado. Levanta SsoError se falhar."""
+) -> SsoIdentity:
+    """Confere a volta do provedor e devolve a identidade confirmada. Levanta SsoError se falhar."""
     saved = _read_state_cookie(provider, state_cookie, state)
     if not code:
         raise SsoError("provider_denied")
     id_token = _exchange_code(provider, code, str(saved["verifier"]))
-    return _validated_email(provider, id_token, str(saved["nonce"]))
+    return _validated_identity(provider, id_token, str(saved["nonce"]))
+
+
+def find_account(db: Session, provider: Provider, identity: SsoIdentity) -> User | None:
+    """Acha a conta pelo identificador fixo. O e-mail só vale no primeiro login da pessoa
+    naquele provedor: depois disso, e-mail trocado ou reaproveitado não abre conta nenhuma."""
+    known = (
+        db.query(SsoIdentityRow).filter_by(provider=provider.name, subject=identity.subject).first()
+    )
+    if known:
+        return db.get(User, known.user_id)
+
+    user = db.query(User).filter(User.email == normalize_email(identity.email)).first()
+    if user is None:
+        return None
+    # a conta já está ligada a outra pessoa deste provedor: o e-mail foi reaproveitado
+    if db.query(SsoIdentityRow).filter_by(user_id=user.id, provider=provider.name).first():
+        return None
+    db.add(SsoIdentityRow(user_id=user.id, provider=provider.name, subject=identity.subject))
+    try:
+        db.commit()
+    except IntegrityError:  # dois primeiros logins ao mesmo tempo: vale o que chegou antes
+        db.rollback()
+        return None
+    return user
