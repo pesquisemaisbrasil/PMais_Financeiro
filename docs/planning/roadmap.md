@@ -121,6 +121,17 @@ Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Conne
 
 A baixa real depende das entregas 1 e 2 do Connect ([entregas-do-connect](../specs/entregas-do-connect.md)).
 
+### Contas a receber (fatia 1)
+
+Com o sistema rodando. Em **Financeiro > Contas a receber**:
+
+1. Em **Cadastros > Plano de contas**, crie uma conta do tipo **Receita**; em **Cadastros > Clientes**, um cliente com CNPJ.
+2. **Nova conta a receber:** cliente, projeto, conta de receita, empresa, unidade, centro de custo, valor bruto e abatimentos. O líquido aparece enquanto você digita. Sem projeto, o sistema avisa "Informe o projeto da receita".
+3. Os seis cards (Total, Recebidos, Pendentes, Vencidos, Hoje e A vencer) abrem a lista já filtrada, com a mesma contagem e o mesmo total. O período e os **Filtros** (cliente, projeto, conta, empresa, unidade, centro de custo, situação e "período por") funcionam como no Contas a pagar.
+4. **Registrar recebimento** (botão da linha): data, valor, conta e forma. Menos que o saldo é recebimento parcial; mais que o saldo é recusado.
+5. **Ver detalhes:** resumo, recebimentos (com **Estornar**, que pede o motivo) e histórico. Dá para alterar, cancelar (sem recebimento) e excluir.
+6. **Inadimplência:** vencidos por cliente, com os dias de atraso e o total, e botão para abrir cada título.
+
 ### Repetir uma conta (PF-57)
 
 Em **Contas a pagar**, com o sistema rodando:

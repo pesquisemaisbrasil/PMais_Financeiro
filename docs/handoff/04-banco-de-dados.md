@@ -417,3 +417,5 @@ As credenciais do Financeiro **no Connect** ficam no `.env` (`CONNECT_CLIENT_ID`
 - [ ] Tabelas de auditoria sem `UPDATE`/`DELETE` para a role da app; planilha grava `pii_access_logs` por pessoa e `export_logs` por exportação.
 - [ ] Arquivo guardado só com envelope AES-GCM + SSE-KMS e linha em `stored_files`; download só pela API, com `file_access_logs`.
 - [ ] `outbox_events.idempotencyKey` e `inbound_events.eventId` únicos.
+
+**Contas a receber (código, fatia 1):** `customers` (apelido, nome, CNPJ único entre os ativos, contato; sem CPF), `receivables` (cliente, projeto único, empresa, unidade, centro de custo, conta de receita, contrato, documento, emissão, vencimento, competência, `amount` bruto e `withheld` abatimentos; `canceledAt` e `deletedAt` lógicos), `receivable_payments` (recebimento e estorno, `reverses_id` único, nunca apagado) e `receivable_events` (histórico). `expense_categories.kind` (`despesa` ou `receita`).

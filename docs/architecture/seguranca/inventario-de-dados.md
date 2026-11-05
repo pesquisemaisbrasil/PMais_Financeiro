@@ -40,3 +40,10 @@ Nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza segue o praz
 
 **O que o comprovante não guarda:** o PDF (lido em memória e descartado), o CPF do recebedor, agência e conta, o bloco do pagador, o código de autenticação e o texto bruto. Nada disso vai para log.
 
+## Cadastro de cliente e fornecedor (contas a pagar e a receber)
+
+| Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |
+|---|---|---|---|---|
+| CNPJ do cliente ou fornecedor | `customers.document`, `suppliers.document` | Só os 14 dígitos, em claro. CPF nunca é guardado | Identificar a empresa e impedir cadastro repetido | Enquanto o cadastro existir |
+| Contato (nome, telefone e e-mail) | `customers.contactName`, `phone`, `email` (e o mesmo em `suppliers`) | Em claro | Falar com a empresa sobre cobrança e pagamento | A definir com o DPO (Q5) |
+| Quem recebeu e quanto (título a receber) | `receivables`, `receivable_payments` | Cliente por id, valores, datas e conta bancária; sem dado pessoal além do contato acima | Controlar o que a empresa tem a receber | A definir com o DPO (Q5) |
