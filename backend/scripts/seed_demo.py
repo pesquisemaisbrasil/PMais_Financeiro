@@ -47,21 +47,37 @@ def main() -> None:
         db.close()
 
 
+def one(db, model, **fields):  # type: ignore[no-untyped-def]
+    """Reaproveita o cadastro que já existe (por código, apelido ou nome) e só cria o que falta."""
+    identity = (
+        ("code",)
+        if "code" in fields
+        else ("nickname",)
+        if "nickname" in fields
+        else ("company_id", "name")
+    )
+    row = db.query(model).filter_by(**{k: fields[k] for k in identity if k in fields}).first()
+    if row is None:
+        row = model(**fields)
+        db.add(row)
+        db.flush()
+    return row
+
+
 def seed(db) -> int:  # type: ignore[no-untyped-def]
     on = today()
 
-    pplus, mc = Company(name="PPlus"), Company(name="MC")
-    db.add_all([pplus, mc, Company(name="P Plus Log"), Company(name="Medtrek")])
-    db.flush()
-    consumo = BusinessUnit(company_id=pplus.id, name="Consumo SP")
-    cati = BusinessUnit(company_id=pplus.id, name="CATI Curitiba")
-    matriz = BusinessUnit(company_id=mc.id, name="Matriz")
-    db.add_all([consumo, cati, matriz])
-    campo, admin = CostCenter(name="Campo"), CostCenter(name="Administrativo")
-    tecnologia = CostCenter(name="Tecnologia")
-    db.add_all([campo, admin, tecnologia])
+    pplus, mc = (one(db, Company, name=name) for name in ("PPlus", "MC"))
+    for name in ("P Plus Log", "Medtrek"):
+        one(db, Company, name=name)
+    consumo = one(db, BusinessUnit, company_id=pplus.id, name="Consumo SP")
+    cati = one(db, BusinessUnit, company_id=pplus.id, name="CATI Curitiba")
+    matriz = one(db, BusinessUnit, company_id=mc.id, name="Matriz")
+    campo, admin, tecnologia = (
+        one(db, CostCenter, name=name) for name in ("Campo", "Administrativo", "Tecnologia")
+    )
     categories = {
-        code: ExpenseCategory(code=code, name=name)
+        code: one(db, ExpenseCategory, code=code, name=name)
         for code, name in [
             ("2.01", "Pessoal de campo"),
             ("2.02", "Incentivos"),
@@ -73,17 +89,13 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
             ("3.04", "Software"),
         ]
     }
-    db.add_all(categories.values())
-    pix, boleto = PaymentMethod(name="Pix"), PaymentMethod(name="Boleto")
-    db.add_all([pix, boleto, PaymentMethod(name="TED"), PaymentMethod(name="Cartão de crédito")])
-    db.add_all(
-        [
-            BankAccount(company_id=pplus.id, name="Itaú · PPlus"),
-            BankAccount(company_id=mc.id, name="Bradesco · MC"),
-        ]
-    )
+    pix, boleto = one(db, PaymentMethod, name="Pix"), one(db, PaymentMethod, name="Boleto")
+    for name in ("TED", "Cartão de crédito"):
+        one(db, PaymentMethod, name=name)
+    one(db, BankAccount, company_id=pplus.id, name="Itaú · PPlus")
+    one(db, BankAccount, company_id=mc.id, name="Bradesco · MC")
     suppliers = {
-        key: Supplier(nickname=nickname, name=name)
+        key: one(db, Supplier, nickname=nickname, name=name)
         for key, nickname, name in [
             ("batel", "Batel", "Imóveis Batel Administradora"),
             ("conecta", "Conecta", "Telefonia Conecta"),
@@ -94,17 +106,16 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
             ("nuvem", "Nuvem", "Software Nuvem Ltda"),
         ]
     }
-    db.add_all(suppliers.values())
-    p1804 = Project(
+    p1804 = one(
+        db,
+        Project,
         code="1804",
         title="Pesquisa de satisfação · varejo",
         projectType="Health",
         hasIncentive=True,
         incentiveDays=10,
     )
-    p1790 = Project(code="1790", title="Tracking de marca · CATI", projectType="CATI")
-    db.add_all([p1804, p1790])
-    db.flush()
+    p1790 = one(db, Project, code="1790", title="Tracking de marca · CATI", projectType="CATI")
 
     def payable(
         days: int,
