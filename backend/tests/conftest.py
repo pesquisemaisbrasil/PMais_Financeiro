@@ -16,8 +16,14 @@ for _key in (
     "MICROSOFT_CLIENT_ID",
     "MICROSOFT_CLIENT_SECRET",
     "MICROSOFT_TENANT_ID",
+    # o Connect de verdade e o despachante nunca entram nos testes, mesmo com o .env da máquina
+    "CONNECT_BASE_URL",
+    "CONNECT_CLIENT_ID",
+    "CONNECT_CLIENT_SECRET",
+    "CONNECT_MODE",
 ):
     os.environ[_key] = ""
+os.environ["PAYMENT_DISPATCH_SECONDS"] = "0"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

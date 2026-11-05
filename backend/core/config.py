@@ -37,6 +37,10 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 CONNECT_MODE = os.getenv("CONNECT_MODE", "off")
 # A cada quantos segundos a API reenvia ao Connect as baixas que ficaram esperando. 0 = desligado.
 PAYMENT_DISPATCH_SECONDS = int(os.getenv("PAYMENT_DISPATCH_SECONDS", "0"))
+# API de integração do P+ Connect. Sem a URL, o Connect fica "fora do ar" para o Financeiro.
+CONNECT_BASE_URL = os.getenv("CONNECT_BASE_URL", "")
+CONNECT_CLIENT_ID = os.getenv("CONNECT_CLIENT_ID", "")
+CONNECT_CLIENT_SECRET = os.getenv("CONNECT_CLIENT_SECRET", "")
 
 # Limite de requisições (slowapi, core/limiter.py). Ligado sempre em produção;
 # só os testes de tela (e2e) desligam, porque fazem vários logins por minuto.

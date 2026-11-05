@@ -12,7 +12,13 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Protocol
 
-from core.config import CONNECT_MODE, ENVIRONMENT
+from core.config import (
+    CONNECT_BASE_URL,
+    CONNECT_CLIENT_ID,
+    CONNECT_CLIENT_SECRET,
+    CONNECT_MODE,
+    ENVIRONMENT,
+)
 
 
 class ConnectUnavailable(Exception):
@@ -172,4 +178,24 @@ def get_connect() -> ConnectGateway:
     """Dependência das rotas. Os testes trocam por um Connect simulado."""
     if CONNECT_MODE == "simulated" and ENVIRONMENT != "production":
         return SimulatedConnect()
+    if CONNECT_BASE_URL and CONNECT_CLIENT_ID and CONNECT_CLIENT_SECRET:
+        return _http_connect()
     return UnavailableConnect()
+
+
+_http: ConnectGateway | None = None
+
+
+def _http_connect() -> ConnectGateway:
+    """Um cliente só para a API toda: ele guarda o token até perto de vencer."""
+    global _http
+    if _http is None:
+        from services.connect_http import HttpConnect
+
+        _http = HttpConnect(
+            CONNECT_BASE_URL,
+            CONNECT_CLIENT_ID,
+            CONNECT_CLIENT_SECRET,
+            production=ENVIRONMENT == "production",
+        )
+    return _http
