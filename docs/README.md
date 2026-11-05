@@ -8,7 +8,7 @@ Sistema financeiro da Pesquise+, separado do P+ Connect, que substitui o SGE4B, 
 |---|---|
 | Qualquer pessoa ou agente, antes de tudo | [specs/visao-geral](specs/visao-geral.md), depois [handoff/README](handoff/README.md) |
 | Vai montar o repositório ou escrever código | [handoff/](handoff/README.md), arquivos 02 a 10 |
-| Vai implementar um módulo | [planning/roadmap](planning/roadmap.md) e os specs do módulo em [specs/](specs/README.md) |
+| Vai implementar um módulo | [planning/roadmap](planning/roadmap.md), [planning/proximos-passos](planning/proximos-passos.md) e os specs do módulo em [specs/](specs/README.md) |
 | PO / direção | [planning/perguntas-abertas](planning/perguntas-abertas.md) e [specs/futuro/](specs/futuro/README.md) |
 
 Regras de trabalho, skills e revisores: [AGENTS.md](../AGENTS.md).
