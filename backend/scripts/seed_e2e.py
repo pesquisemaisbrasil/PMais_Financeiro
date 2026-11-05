@@ -11,7 +11,7 @@ de verdade.
 
 import os
 import sys
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -39,9 +39,19 @@ from models.notification import Notification  # noqa: E402,F401
 from models.payable import PayableItem  # noqa: E402
 from models.project_ref import ProjectRef  # noqa: E402
 from models.receipt import PaymentRequest, ReceiptBatch  # noqa: E402,F401
+from models.receivable import Receivable  # noqa: E402
+from models.reference import (  # noqa: E402
+    BusinessUnit,
+    Company,
+    CostCenter,
+    Customer,
+    ExpenseCategory,
+    Project,
+)
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
 from scripts.seed_demo import seed as seed_payables  # noqa: E402
+from services.payable import today  # noqa: E402
 
 PASSWORD = "E2e!Fictic1a"
 TOTP_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"  # gitleaks:allow
@@ -56,6 +66,8 @@ WITH_MFA = [
     "contas@e2e.invalid",
     "comprovantes@e2e.invalid",
     "recorrencia@e2e.invalid",
+    "receber@e2e.invalid",
+    "receber2@e2e.invalid",
 ]
 
 
@@ -89,6 +101,44 @@ def link_connect_people(db) -> None:  # type: ignore[no-untyped-def]
     sandra.connect_interviewer_id = 87
 
 
+def seed_receivables(db) -> None:  # type: ignore[no-untyped-def]
+    """Dois clientes e três títulos fictícios: dois da Alfa vencidos (um com abatimento) e um da
+    Beta a vencer. O plano de contas ganha a conta de receita que o Contas a receber usa."""
+    revenue = ExpenseCategory(code="1.01", name="Receita de pesquisa", kind="receita")
+    alfa = Customer(nickname="Alfa", name="Alfa Pesquisas Ltda", document="11222333000181")
+    beta = Customer(nickname="Beta", name="Beta Consultoria")
+    db.add_all([revenue, alfa, beta])
+    db.flush()
+    company = db.query(Company).filter_by(name="PPlus").one()
+    unit = db.query(BusinessUnit).filter_by(name="Consumo SP").one()
+    center = db.query(CostCenter).filter_by(name="Administrativo").one()
+    project = db.query(Project).filter_by(code="1804").one()
+    on = today()
+
+    def title(customer, description, days, amount, withheld="0.00"):  # type: ignore[no-untyped-def]
+        due = on + timedelta(days=days)
+        db.add(
+            Receivable(
+                customer_id=customer.id,
+                project_id=project.id,
+                company_id=company.id,
+                unit_id=unit.id,
+                cost_center_id=center.id,
+                category_id=revenue.id,
+                description=description,
+                issueDate=on - timedelta(days=40),
+                dueDate=due,
+                competence=due.strftime("%Y-%m"),
+                amount=Decimal(amount),
+                withheld=Decimal(withheld),
+            )
+        )
+
+    title(alfa, "Satisfação · 1ª parcela", -10, "1000.00", "100.00")
+    title(alfa, "Satisfação · 2ª parcela", -3, "500.00")
+    title(beta, "Tracking mensal", 10, "700.00")
+
+
 def main() -> None:
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
@@ -107,6 +157,7 @@ def main() -> None:
         seed_payables(db)
         seed_receipts(db)
         link_connect_people(db)
+        seed_receivables(db)
         db.commit()
     finally:
         db.close()
