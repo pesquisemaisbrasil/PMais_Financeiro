@@ -7,7 +7,7 @@ from typing import Any
 import pyotp
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from models.connect_payable_item import ConnectPayableItem
 from models.notification import Notification
@@ -741,3 +741,125 @@ def test_the_people_of_the_payable_show_who_was_paid_and_when(
     assert (partial.paidOn, other.paidOn, outsider.paidOn) == (None, None, None)
     shown = client.get(f"/payables/{payable.id}", headers=auth).json()["items"]
     assert [i["paidOn"] for i in shown] == ["2026-02-03", "2026-02-03", None, None, None]
+
+
+# ---- Despachante em segundo plano ----
+
+
+def waiting_request(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    auth: dict[str, str],
+    connect: FakeConnect,
+) -> PaymentRequest:
+    add_items(db_session, project, "20.00")
+    batch = open_batch(client, project, auth)
+    send(client, project, auth, batch, pdf(text(IN_PROJECT, "20,00", "E1")))
+    connect.payment_down = True
+    confirm(client, project, auth, batch)
+    connect.payment_down = False
+    request = db_session.query(PaymentRequest).one()
+    assert request.status == "pendente_envio"
+    return request
+
+
+def test_the_dispatcher_sends_what_was_waiting_for_the_connect(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    auth: dict[str, str],
+    connect: FakeConnect,
+) -> None:
+    from core.dispatcher import run_once
+
+    request = waiting_request(client, db_session, project, auth, connect)
+
+    own_session = sessionmaker(bind=db_session.get_bind())  # a rodada fecha a sessão que usa
+    assert run_once(connect, own_session) == 1
+    assert run_once(connect, own_session) == 0  # nada a reenviar, nada duplicado
+    db_session.refresh(request)
+    assert request.status == "aplicada"
+    assert len(connect.orders) == 1
+
+
+def test_a_failing_round_never_breaks_the_dispatcher(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    auth: dict[str, str],
+    connect: FakeConnect,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from core import dispatcher
+
+    waiting_request(client, db_session, project, auth, connect)
+
+    def broken(*args: object, **kwargs: object) -> int:
+        raise RuntimeError("falha inesperada")
+
+    monkeypatch.setattr(dispatcher.payments, "dispatch", broken)
+    assert dispatcher.run_once(connect, sessionmaker(bind=db_session.get_bind())) == 0
+
+
+def test_the_loop_runs_every_interval_and_stops_when_cancelled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    from core import dispatcher
+
+    calls: list[int] = []
+
+    def counting() -> int:
+        calls.append(1)
+        return 0
+
+    monkeypatch.setattr(dispatcher, "run_once", counting)
+
+    async def scenario() -> None:
+        task = asyncio.create_task(dispatcher.dispatch_loop(0.01))
+        await asyncio.sleep(0.15)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(scenario())
+    assert len(calls) >= 2
+
+
+def test_the_dispatcher_is_off_by_default() -> None:
+    from core import config
+
+    assert config.PAYMENT_DISPATCH_SECONDS == 0
+
+
+def test_a_refusal_warns_the_team_and_shows_in_the_list_of_all_projects(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    auth: dict[str, str],
+    connect: FakeConnect,
+) -> None:
+    add_items(db_session, project, "20.00")
+    batch = open_batch(client, project, auth)
+    send(client, project, auth, batch, pdf(text(IN_PROJECT, "20,00", "E1")))
+    connect.refuse = "already_paid"
+
+    confirm(client, project, auth, batch)
+
+    (notice,) = [n for n in client.get("/notifications", headers=auth).json()]
+    assert notice["type"] == "payment_refused"
+    assert notice["title"] == "O Connect recusou uma baixa"
+    assert notice["body"] == "O Connect já tinha essas entrevistas como pagas"
+    assert notice["link"] == "/divergencias"
+    (row,) = client.get("/finance/divergences", headers=auth).json()
+    assert (row["projectTitle"], row["code"], row["keyMasked"]) == (
+        "Pesquisa de mobilidade",
+        "already_paid",
+        "mar***@exemplo.com",
+    )
+    # sem login, nada de divergência
+    assert (
+        client.get("/finance/divergences", headers={"Authorization": "Bearer x"}).status_code == 401
+    )

@@ -91,4 +91,19 @@ test("enviar o PDF de comprovantes, conferir e confirmar a baixa", async ({ page
   await page.getByRole("dialog").getByRole("button", { name: "Ler comprovantes" }).click();
   await expect(page.getByRole("dialog").getByRole("tab", { name: "Erros (2)" })).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("tab", { name: "Batem (0)" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar envio" }).click();
+
+  // Sino: os dois envios tinham alguém fora do projeto, e o aviso leva para as contas
+  const bell = page.getByRole("button", { name: "Avisos, 2 não lidos" });
+  await expect(bell).toBeVisible();
+  await bell.click();
+  const title = "1 comprovante de pessoa fora do projeto Pesquisa de mobilidade urbana";
+  await expect(page.getByText(title)).toHaveCount(2);
+  await page.getByText(title).first().click();
+  await expect(page.getByRole("button", { name: "Avisos, 1 não lidos" })).toBeVisible();
+
+  // Divergências: nenhuma baixa foi recusada
+  await page.getByRole("link", { name: "Divergências" }).click();
+  await expect(page.getByRole("heading", { name: "Divergências" })).toBeVisible();
+  await expect(page.getByText("Nenhuma divergência. Toda baixa enviada ao Connect foi aceita.")).toBeVisible();
 });
