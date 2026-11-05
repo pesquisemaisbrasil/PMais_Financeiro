@@ -661,3 +661,22 @@ def test_projects_come_from_the_connect_and_are_listed_to_pick_one(
 
     connect.down = True
     assert client.post("/finance/connect/sync", headers=auth).status_code == 503
+
+
+def test_a_failure_while_warning_never_loses_the_receipts_already_read(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    make_user: Callable[..., User],
+    connect: FakeConnect,
+) -> None:
+    finance = make_user(email="fin@exemplo.com", mfa=False)
+    headers = {"Authorization": f"Bearer {create_access_token(finance.id, via_sso=True)}"}
+    Notification.__table__.drop(bind=db_session.get_bind())  # type: ignore[attr-defined]
+    batch = open_batch(client, project, headers)
+
+    response = send(client, project, headers, batch, pdf(text(OUT_OF_PROJECT, "20,00", "E2")))
+
+    assert response.status_code == 200
+    assert db_session.query(PaymentReceipt).count() == 1
+    assert db_session.get(ReceiptBatch, batch).status == "pronto"  # type: ignore[union-attr]

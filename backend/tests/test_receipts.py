@@ -501,3 +501,13 @@ def test_every_foreign_key_declares_ondelete() -> None:
     for table in Base.metadata.sorted_tables:
         for fk in table.foreign_keys:
             assert fk.ondelete, f"{table.name}.{fk.parent.name} sem ondelete"
+
+
+def test_me_tells_whether_the_user_has_mfa(
+    client: TestClient, make_user: Callable[..., User]
+) -> None:
+    with_mfa = make_user(email="com@exemplo.com")
+    without = make_user(email="sem@exemplo.com", mfa=False)
+    for user, expected in ((with_mfa, True), (without, False)):
+        headers = {"Authorization": f"Bearer {create_access_token(user.id, via_sso=True)}"}
+        assert client.get("/auth/me", headers=headers).json()["mfaEnabled"] is expected
