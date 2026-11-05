@@ -307,16 +307,20 @@ def notify_out_of_project(db: Session, batch: ReceiptBatch) -> None:
         users = db.query(User).filter(
             User.status == "active", User.role.in_(["admin", "financeiro"])
         )
-        for user in users:
-            db.add(
-                Notification(
-                    user_id=user.id,
-                    type="receipt_out_of_project",
-                    title=f"{count} comprovante{plural} de pessoa{plural} fora do projeto {title}",
-                    body="Confira no envio de comprovantes quem recebeu sem estar na equipe.",
-                    link=f"/contas-a-pagar?comprovantes={batch.id}",
+        # savepoint: se o aviso falhar, só ele é desfeito, nunca o comprovante já lido
+        with db.begin_nested():
+            for user in users:
+                db.add(
+                    Notification(
+                        user_id=user.id,
+                        type="receipt_out_of_project",
+                        title=(
+                            f"{count} comprovante{plural} de pessoa{plural} fora do projeto {title}"
+                        ),
+                        body="Confira no envio de comprovantes quem recebeu sem estar na equipe.",
+                        link=f"/contas-a-pagar?comprovantes={batch.id}",
+                    )
                 )
-            )
     except Exception:
         logger.exception("Falha ao avisar comprovantes fora do projeto (lote %s)", batch.id)
 

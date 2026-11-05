@@ -28,3 +28,7 @@ class User(Base):
     updatedAt = Column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+
+    @property
+    def mfaEnabled(self) -> bool:
+        return self.mfaEnabledAt is not None

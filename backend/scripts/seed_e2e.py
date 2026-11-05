@@ -11,7 +11,8 @@ de verdade.
 
 import os
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -31,8 +32,12 @@ sys.path.append(str(BACKEND_DIR))
 from core.crypto import encrypt_payload  # noqa: E402
 from core.security import hash_password, hash_token  # noqa: E402
 from db.connection import Base, SessionLocal, engine  # noqa: E402
+from models.connect_payable_item import ConnectPayableItem  # noqa: E402
 from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402
+from models.notification import Notification  # noqa: E402,F401
+from models.project_ref import ProjectRef  # noqa: E402
+from models.receipt import PaymentRequest, ReceiptBatch  # noqa: E402,F401
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
 from scripts.seed_demo import seed as seed_payables  # noqa: E402
@@ -48,7 +53,29 @@ WITH_MFA = [
     "recupera@e2e.invalid",
     "roubo@e2e.invalid",
     "contas@e2e.invalid",
+    "comprovantes@e2e.invalid",
 ]
+
+
+def seed_receipts(db) -> None:  # type: ignore[no-untyped-def]
+    """Projeto do Connect e duas entrevistas de R$ 20 da pessoa 87, que o Connect simulado
+    (services/connect_gateway.py: SimulatedConnect) conhece pela chave do PDF do teste."""
+    project = ProjectRef(connect_project_id=12, title="Pesquisa de mobilidade urbana")
+    db.add(project)
+    db.flush()
+    for number in (1, 2):
+        launched = datetime(2026, 1, number, tzinfo=UTC)
+        db.add(
+            ConnectPayableItem(
+                connect_interview_id=5500 + number,
+                project_ref_id=project.id,
+                connect_interviewer_id=87,
+                amount=Decimal("20.00"),
+                launchedAt=launched,
+                dueOn=date(2026, 2, number),
+                connectUpdatedAt=launched,
+            )
+        )
 
 
 def main() -> None:
@@ -67,6 +94,7 @@ def main() -> None:
             user.mfaEnabledAt = datetime.now(UTC)
             db.add(MfaRecoveryCode(user_id=user.id, codeHash=hash_token(RECOVERY_CODE)))
         seed_payables(db)
+        seed_receipts(db)
         db.commit()
     finally:
         db.close()

@@ -8,6 +8,8 @@ class UserPublic(BaseModel):
     name: str
     email: str
     role: str
+    # a tela pede o código do autenticador para confirmar baixa só de quem tem MFA
+    mfaEnabled: bool = False
 
 
 def validate_password_strength(value: str) -> str:
