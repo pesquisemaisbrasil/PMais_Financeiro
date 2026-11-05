@@ -143,6 +143,8 @@ export interface PayableItem {
   invoiceDate: string | null;
   grossAmount: string | null;
   surveyDate: string | null;
+  // dia do Pix que pagou esta pessoa (baixa por comprovante)
+  paidOn: string | null;
 }
 
 export interface Payment {
@@ -522,9 +524,12 @@ export function formatCnpj(document: string): string {
  * lançamento inteiro, e baixa parcial não diz quem já foi paga.
  */
 export function itemPaymentLabel(
-  payable: Pick<PayableDetail, "situation" | "paid" | "pending" | "payments">
+  payable: Pick<PayableDetail, "situation" | "paid" | "pending" | "payments">,
+  item?: Pick<PayableItem, "paidOn">
 ): string {
   if (payable.situation === "cancelado") return "Cancelada";
+  // a pessoa paga pelo comprovante sabe o próprio dia, mesmo com o lançamento em baixa parcial
+  if (item?.paidOn) return `Paga em ${formatDate(item.paidOn)}`;
   const paid = toCents(payable.paid);
   if (paid === 0) return "A pagar";
   if (toCents(payable.pending) > 0) return "Baixa parcial do lançamento";

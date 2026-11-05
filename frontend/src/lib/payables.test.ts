@@ -236,6 +236,13 @@ describe("detalhes de cada pessoa", () => {
     expect(itemPaymentLabel(paid)).toBe("Paga em 05/11/2026");
   });
 
+  it("a pessoa paga pelo comprovante mostra o próprio dia, mesmo em baixa parcial", () => {
+    const partial = { ...base, paid: "40.00", pending: "60.00" };
+    expect(itemPaymentLabel(partial, { paidOn: "2026-02-03" })).toBe("Paga em 03/02/2026");
+    expect(itemPaymentLabel(partial, { paidOn: null })).toBe("Baixa parcial do lançamento");
+    expect(itemPaymentLabel({ ...partial, situation: "cancelado" }, { paidOn: "2026-02-03" })).toBe("Cancelada");
+  });
+
   it("avisa que a baixa parcial não diz quem foi pago", () => {
     expect(itemPaymentLabel({ ...base, paid: "40.00", pending: "60.00" })).toBe("Baixa parcial do lançamento");
   });

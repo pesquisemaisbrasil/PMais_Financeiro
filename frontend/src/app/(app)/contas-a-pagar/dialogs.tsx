@@ -1026,7 +1026,6 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
   }, [payable.items, term]);
   // Só incentivo tem data da pesquisa: nas outras folhas a coluna ficaria vazia.
   const withSurvey = payable.items.some((item) => item.surveyDate);
-  const payment = itemPaymentLabel(payable);
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -1072,7 +1071,7 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
                       <span className="block text-xs text-muted-foreground">emitida em {formatDate(item.invoiceDate)}</span>
                     )}
                   </TableCell>
-                  <TableCell className={cn(TD, "text-muted-foreground")}>{payment}</TableCell>
+                  <TableCell className={cn(TD, "text-muted-foreground")}>{itemPaymentLabel(payable, item)}</TableCell>
                   <TableCell className={cn(TD, NUM, "font-bold")}>
                     {brl(item.amount)}
                     {item.grossAmount && (
