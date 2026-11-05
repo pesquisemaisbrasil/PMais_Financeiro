@@ -11,6 +11,7 @@ Contrato de comportamento de cada área do **Financeiro da Pesquise+**, sistema 
 | | [pagamentos-a-pagar](pagamentos-a-pagar.md) | Espelho dos itens a pagar, resumo, planilha de pagamentos, avisos |
 | | [comprovantes-e-baixa](comprovantes-e-baixa.md) | PDF de comprovantes, leitura, conciliação por soma exata, "Confirmar baixa" |
 | | [integracao-com-o-connect](integracao-com-o-connect.md) | Cliente da API, webhooks, sincronização, baixa, divergências |
+| | [entregas-do-connect](entregas-do-connect.md) | O que falta na API do Connect, em que ordem, com data e responsável (PF-6) |
 | **2. Cadastros, papéis e migração** | [cadastros-e-dimensoes](cadastros-e-dimensoes.md) | Empresas, unidades, centros de custo, categorias/plano de contas, DRE, clientes, fornecedores; migração das 11 bases do SGE4B |
 | | [papeis-e-escopo-ampliados](papeis-e-escopo-ampliados.md) | Novos papéis e escopo por empresa/projeto |
 | **3. Contas a pagar e a receber** | [contas-a-pagar](contas-a-pagar.md) | Lançamento, rateio por colagem, lançamento agrupado com itens, ações em lote, provisão |
