@@ -18,6 +18,7 @@ from api.payables import router as payables_router
 from api.records import router as records_router
 from core.body_limit import AuthBodyLimit
 from core.config import CORS_ORIGINS, ENVIRONMENT
+from core.dispatcher import lifespan
 from core.limiter import limiter
 from core.logging_config import setup_logging
 from core.net import mask_ip
@@ -27,6 +28,7 @@ access_logger = logging.getLogger("app.access")
 
 is_production = ENVIRONMENT == "production"
 app = FastAPI(
+    lifespan=lifespan,
     docs_url=None if is_production else "/docs",
     redoc_url=None if is_production else "/redoc",
     openapi_url=None if is_production else "/openapi.json",

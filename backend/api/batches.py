@@ -275,6 +275,16 @@ def list_divergences(
     return _handle(db, action)
 
 
+@shared.get(
+    "/finance/divergences",
+    response_model=list[DivergenceItem],
+    description="Baixas que o Connect recusou, de todos os projetos, as mais novas primeiro",
+)
+@limiter.limit("60/minute")
+def all_divergences(request: Request, db: DbSession, _: FinanceUser) -> list[dict[str, object]]:
+    return confirmation.divergences(db)
+
+
 def _projects(db: Session) -> list[dict[str, Any]]:
     rows = db.query(ProjectRef).order_by(ProjectRef.title).all()
     return [{"id": r.id, "connectProjectId": r.connect_project_id, "title": r.title} for r in rows]

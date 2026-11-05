@@ -35,6 +35,8 @@ MIGRATION_DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL") or DATABASE_URL
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 # "simulated" liga o Connect de mentira (services/connect_gateway.py), só fora de produção.
 CONNECT_MODE = os.getenv("CONNECT_MODE", "off")
+# A cada quantos segundos a API reenvia ao Connect as baixas que ficaram esperando. 0 = desligado.
+PAYMENT_DISPATCH_SECONDS = int(os.getenv("PAYMENT_DISPATCH_SECONDS", "0"))
 
 # Limite de requisições (slowapi, core/limiter.py). Ligado sempre em produção;
 # só os testes de tela (e2e) desligam, porque fazem vários logins por minuto.

@@ -15,7 +15,6 @@ from sqlalchemy.orm import Session
 from core.crypto import decrypt_payload, encrypt_payload
 from core.pix import hash_pix, mask_pix_key, normalize_pix_key
 from models.connect_payable_item import ConnectPayableItem
-from models.notification import Notification
 from models.payable import Payable
 from models.project_ref import ProjectRef
 from models.receipt import (
@@ -25,8 +24,8 @@ from models.receipt import (
     ReceiptBatch,
     ReceiptBatchPart,
 )
-from models.user import User
 from services.connect_gateway import ConnectGateway, ConnectUnavailable
+from services.notifications import notify_finance
 from services.payments import PENDING, REFUSED, SENT, refusal_message
 from services.receipt_parser import ParsedReceipt, extract_pdf_pages, parse_receipts
 from services.reconciliation import PendingReceipt, QueueItem, reconcile
@@ -289,40 +288,27 @@ def _payment_state(request: PaymentRequest | None) -> str | None:
 
 def notify_out_of_project(db: Session, batch: ReceiptBatch) -> None:
     """`receipt_out_of_project`: o lote ficou pronto com gente fora do projeto. Avisa admin e
-    financeiro. Falha ao avisar nunca derruba o envio."""
-    try:
-        count = (
-            db.query(PaymentReceipt)
-            .filter(
-                PaymentReceipt.batch_id == batch.id,
-                PaymentReceipt.group.in_([GROUP_OUT_OF_PROJECT, GROUP_UNKNOWN_KEY]),
-            )
-            .count()
+    financeiro."""
+    count = (
+        db.query(PaymentReceipt)
+        .filter(
+            PaymentReceipt.batch_id == batch.id,
+            PaymentReceipt.group.in_([GROUP_OUT_OF_PROJECT, GROUP_UNKNOWN_KEY]),
         )
-        if not count:
-            return
-        project = db.get(ProjectRef, batch.project_ref_id)
-        title = project.title if project else ""
-        plural = "s" if count != 1 else ""
-        users = db.query(User).filter(
-            User.status == "active", User.role.in_(["admin", "financeiro"])
-        )
-        # savepoint: se o aviso falhar, só ele é desfeito, nunca o comprovante já lido
-        with db.begin_nested():
-            for user in users:
-                db.add(
-                    Notification(
-                        user_id=user.id,
-                        type="receipt_out_of_project",
-                        title=(
-                            f"{count} comprovante{plural} de pessoa{plural} fora do projeto {title}"
-                        ),
-                        body="Confira no envio de comprovantes quem recebeu sem estar na equipe.",
-                        link=f"/contas-a-pagar?comprovantes={batch.id}",
-                    )
-                )
-    except Exception:
-        logger.exception("Falha ao avisar comprovantes fora do projeto (lote %s)", batch.id)
+        .count()
+    )
+    if not count:
+        return
+    project = db.get(ProjectRef, batch.project_ref_id)
+    plural = "s" if count != 1 else ""
+    notify_finance(
+        db,
+        "receipt_out_of_project",
+        f"{count} comprovante{plural} de pessoa{plural} fora do projeto "
+        f"{project.title if project else ''}",
+        "Confira no envio de comprovantes quem recebeu sem estar na equipe.",
+        "/contas-a-pagar",
+    )
 
 
 # --- Conferência -------------------------------------------------------------

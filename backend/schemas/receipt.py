@@ -90,6 +90,8 @@ class ConfirmResult(BaseModel):
 
 class DivergenceItem(BaseModel):
     paymentRef: str
+    projectId: int
+    projectTitle: str
     batchId: int
     receiptId: int
     page: int

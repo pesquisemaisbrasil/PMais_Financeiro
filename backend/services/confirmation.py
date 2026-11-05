@@ -220,22 +220,24 @@ def confirm_batch(
     }
 
 
-def divergences(db: Session, project_id: int) -> list[dict[str, object]]:
+def divergences(db: Session, project_id: int | None = None) -> list[dict[str, object]]:
     """Pedidos que o Connect recusou: ficam aqui para uma pessoa decidir. Nada é corrigido
     sozinho."""
-    rows = (
-        db.query(PaymentRequest, PaymentReceipt, ReceiptBatch)
+    query = (
+        db.query(PaymentRequest, PaymentReceipt, ReceiptBatch, ProjectRef)
         .join(PaymentReceipt, PaymentReceipt.id == PaymentRequest.receipt_id)
         .join(ReceiptBatch, ReceiptBatch.id == PaymentReceipt.batch_id)
-        .filter(
-            ReceiptBatch.project_ref_id == project_id, PaymentRequest.status == payments.REFUSED
-        )
-        .order_by(PaymentRequest.id)
-        .all()
+        .join(ProjectRef, ProjectRef.id == ReceiptBatch.project_ref_id)
+        .filter(PaymentRequest.status == payments.REFUSED)
     )
+    if project_id is not None:
+        query = query.filter(ReceiptBatch.project_ref_id == project_id)
+    rows = query.order_by(PaymentRequest.id.desc()).all()
     return [
         {
             "paymentRef": request.paymentRef,
+            "projectId": project.id,
+            "projectTitle": project.title,
             "batchId": batch.id,
             "receiptId": receipt.id,
             "page": receipt.page,
@@ -245,5 +247,5 @@ def divergences(db: Session, project_id: int) -> list[dict[str, object]]:
             "code": request.lastError,
             "message": payments.refusal_message(request.lastError),
         }
-        for request, receipt, batch in rows
+        for request, receipt, batch, project in rows
     ]

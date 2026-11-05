@@ -27,6 +27,7 @@ from services.connect_gateway import (
     PaymentApplied,
     PaymentOrder,
 )
+from services.notifications import notify_finance
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +110,13 @@ def _send(db: Session, connect: ConnectGateway, request: PaymentRequest) -> None
     except ConnectRefused as refused:
         request.status = REFUSED
         request.lastError = refused.code[:255]
+        notify_finance(
+            db,
+            "payment_refused",
+            "O Connect recusou uma baixa",
+            refusal_message(refused.code),
+            "/divergencias",
+        )
         db.commit()
         return
     except ConnectUnavailable:
