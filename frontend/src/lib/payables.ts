@@ -190,6 +190,10 @@ export interface PayableDetail extends PayableRow {
   docsReceivedOn: string | null;
   isTransfer: boolean;
   notes: string | null;
+  createdAt: string;
+  createdBy: string | null;
+  updatedAt: string;
+  updatedBy: string | null;
   items: PayableItem[];
   payments: Payment[];
   events: PayableEvent[];
@@ -349,6 +353,47 @@ export function parseMoney(text: string): string | null {
   if (!/^(\d{1,3}(\.\d{3})+|\d+)(,\d{1,2})?$/.test(clean)) return null;
   const [whole, cents = ""] = clean.replaceAll(".", "").split(",");
   return `${whole}.${cents.padEnd(2, "0")}`;
+}
+
+/** "2026-11" vira "11/2026". */
+export function formatCompetence(competence: string | null | undefined): string {
+  if (!competence) return "—";
+  const [year, month] = competence.split("-");
+  return `${month}/${year}`;
+}
+
+/** "06/11/2026 09:45:28", no horário de São Paulo. */
+export function formatDateTime(iso: string): string {
+  return new Date(iso)
+    .toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour12: false })
+    .replace(", ", " ");
+}
+
+/** Parte de cada projeto no valor da conta: "60,00%". */
+export function shareText(amount: string, total: string): string {
+  const whole = toCents(total);
+  const share = whole === 0 ? 0 : (toCents(amount) / whole) * 100;
+  return `${share.toFixed(2).replace(".", ",")}%`;
+}
+
+/** Valor da conta com o que as baixas somaram (juros e multa) ou tiraram (desconto). */
+export function settlement(payable: Pick<PayableDetail, "amount" | "payments">): {
+  gross: string;
+  surcharge: string;
+  discount: string;
+  net: string;
+} {
+  const live = payable.payments.filter((p) => p.kind === "pagamento" && !p.reversed);
+  const surcharge = live.reduce((sum, p) => sum + toCents(p.surcharge), 0);
+  const discount = live.reduce((sum, p) => sum + toCents(p.discount), 0);
+  const gross = toCents(payable.amount);
+  const text = (cents: number) => (cents / 100).toFixed(2);
+  return {
+    gross: text(gross),
+    surcharge: text(surcharge),
+    discount: text(discount),
+    net: text(gross + surcharge - discount),
+  };
 }
 
 /** Dinheiro em centavos inteiros: soma sem o erro de arredondamento do ponto flutuante. */

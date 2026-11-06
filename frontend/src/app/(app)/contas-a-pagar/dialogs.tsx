@@ -65,6 +65,7 @@ import {
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
+import { DetailFields } from "./detail-fields";
 import { DocumentsPanel } from "./documents-panel";
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
@@ -1098,15 +1099,6 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
   );
 }
 
-function Info({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-[13px] font-medium">{children}</dd>
-    </div>
-  );
-}
-
 const PAYMENT_KINDS: Record<Payment["kind"], string> = {
   pagamento: "Baixa",
   estorno: "Estorno",
@@ -1223,33 +1215,7 @@ export function DetailDialog({
                 <TabsTrigger value="historico">Histórico</TabsTrigger>
               </TabsList>
               <TabsContent value="detalhes" className="pt-3">
-                <dl className="grid gap-3 sm:grid-cols-3">
-                  <Info label="Valor">{brl(payable.amount)}</Info>
-                  <Info label="Pago">{brl(payable.paid)}</Info>
-                  <Info label="Pendente">{brl(payable.pending)}</Info>
-                  <Info label="Empresa">{payable.companyName}</Info>
-                  <Info label="Unidade">{payable.unitName}</Info>
-                  <Info label="Centro de custo">{payable.costCenterName}</Info>
-                  <Info label="Categoria">{payable.categoryName}</Info>
-                  <Info label="Forma">{payable.paymentMethodName}</Info>
-                  <Info label="Competência">{payable.competence ?? "—"}</Info>
-                  <Info label="Documento">
-                    {payable.documentType}
-                    {payable.documentNumber && ` ${payable.documentNumber}`}
-                  </Info>
-                  <Info label="Emissão">{formatDate(payable.documentDate)}</Info>
-                  <Info label="Documentação recebida">{formatDate(payable.docsReceivedOn)}</Info>
-                  <Info label="Projetos">
-                    {payable.allocations.length
-                      ? payable.allocations.map((a) => `PRJ-${a.code}: ${brl(a.amount)}`).join(", ")
-                      : "—"}
-                  </Info>
-                  {payable.isTransfer && <Info label="Transferência">Entre empresas do Grupo</Info>}
-                </dl>
-                {payable.barcode && (
-                  <p className="mt-3 break-all font-mono text-xs text-muted-foreground">{payable.barcode}</p>
-                )}
-                {payable.notes && <p className="mt-3 text-[13px]">{payable.notes}</p>}
+                <DetailFields payable={payable} />
               </TabsContent>
               <TabsContent value="baixas" className="pt-3">
                 {payable.payments.length ? (
