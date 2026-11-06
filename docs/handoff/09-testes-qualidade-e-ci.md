@@ -76,6 +76,7 @@ def make_user(db_session):
   ```
 - **SQLite ignora `FOR UPDATE`.** A trava real só roda no Postgres. No teste, prove a **releitura do estado** (ex.: `test_cancel_or_discard_with_stale_batch_does_not_undo_confirmation`) ou a SQL gerada com um listener `do_orm_execute`.
 - O Postgres entra no CI pelo job `migrations` (seção 6). Para o Financeiro, vale considerar rodar também a suíte de conciliação contra Postgres, já que a baixa depende de trava.
+- **Já existe um teste de trava em Postgres de verdade:** `backend/tests/test_concurrency_postgres.py` (PF-54) manda o mesmo código do MFA e o mesmo refresh token duas vezes ao mesmo tempo e exige um 200 e um 401. O primeiro pedido dorme com a trava segurada; o segundo chega 0,2 s depois. Ele só roda com `DATABASE_URL` de Postgres (nos testes comuns é pulado) e **falha se alguém apagar o `FOR UPDATE`** de `get_mfa_pending_user` ou de `_find_refresh_token`. Na máquina, passe a URL do Postgres local em `DATABASE_URL`, porque o conftest usa SQLite quando a variável falta. Pegadinha: as conexões são abertas antes da corrida, porque no Windows o `localhost` tenta IPv6 primeiro e os ~2 s de uma conexão nova comem a janela e deixam o teste verde sem a trava.
 
 **Cobertura mínima: 80%** (`--cov=. --cov-fail-under=80`), configurada no `pyproject.toml`:
 
@@ -328,7 +329,7 @@ Todos rodam em `pull_request` e em `push` para a `homolog` e para a `main`, com 
 | Workflow | Job | O que roda |
 |---|---|---|
 | `tests.yml` | `test` | pytest com cobertura ≥ 80% em SQLite; sobe `coverage.xml` como artefato |
-| `tests.yml` | `migrations` | Postgres 16 como serviço: `alembic upgrade head` → `alembic check` (drift models × migrations) → `downgrade -1` → `upgrade head` |
+| `tests.yml` | `migrations` | Postgres 16 como serviço: `alembic upgrade head` → `alembic check` (drift models × migrations) → `downgrade -1` → `upgrade head` → permissões da role da app → teste de pedidos simultâneos de login (`test_concurrency_postgres.py`) |
 | `lint.yml` | `lint` | `ruff check`, `ruff format --check`, `mypy` |
 | `frontend.yml` | `frontend` | `npm ci` → `next typegen` → `tsc --noEmit` → `lint` → `check:ui` → `npm test` → `build` |
 | `e2e.yml` | `e2e` | instala backend e frontend, Chromium do Playwright, `next typegen`, `npm run e2e` com `E2E_PYTHON=python`; sobe o relatório se falhar |
