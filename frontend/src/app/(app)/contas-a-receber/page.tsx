@@ -21,6 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { PeriodPicker } from "@/components/PeriodPicker";
+import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
 import { SeriesDialog } from "@/components/SeriesDialog";
 import { Button } from "@/components/ui/button";
@@ -86,8 +87,6 @@ const SITUATION_FILTER = (Object.keys(SITUATION_LABELS) as (keyof typeof SITUATI
   label: SITUATION_LABELS[id],
 }));
 
-const ALL = "todos";
-
 function IconButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
   return (
     <Tooltip>
@@ -101,25 +100,29 @@ function IconButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: s
   );
 }
 
+/** Cada filtro aceita mais de uma opção: o valor é o texto dos ids separados por vírgula. */
 function FilterSelect({
   label,
   value,
   options,
   onChange,
+  exclusiveIds,
 }: {
   label: string;
   value: string;
   options: { id: number | string; label: string }[];
   onChange: (value: string) => void;
+  exclusiveIds?: string[];
 }) {
   return (
     <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
       {label}
-      <SearchSelect
+      <MultiSearchSelect
         ariaLabel={label}
-        value={value || ALL}
-        options={[{ id: ALL, label: "Todos" }, ...options]}
-        onChange={(next) => onChange(next === ALL ? "" : next)}
+        value={value}
+        options={options}
+        onChange={onChange}
+        exclusiveIds={exclusiveIds}
         className="h-8 bg-card text-[13px] text-foreground"
       />
     </label>
@@ -754,6 +757,8 @@ export default function ReceivablesPage() {
               label="Situação"
               value={filters.situation ?? ""}
               options={SITUATION_FILTER}
+              // Título cancelado só aparece no indicador próprio, então "Cancelada" não combina
+              exclusiveIds={["cancelado"]}
               onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, situation: value })))}
             />
             <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">

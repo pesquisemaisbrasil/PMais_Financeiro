@@ -31,6 +31,7 @@ import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState }
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { PeriodPicker } from "@/components/PeriodPicker";
+import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -179,8 +180,6 @@ function savePrefs(prefs: { columns: string[]; density: Density }) {
   }
 }
 
-const ALL = "todos";
-
 function IconButton({
   icon: Icon,
   label,
@@ -204,6 +203,7 @@ function IconButton({
   );
 }
 
+/** Cada filtro aceita mais de uma opção: o valor é o texto dos ids separados por vírgula. */
 function FilterSelect({
   label,
   value,
@@ -218,11 +218,11 @@ function FilterSelect({
   return (
     <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
       {label}
-      <SearchSelect
+      <MultiSearchSelect
         ariaLabel={label}
-        value={value || ALL}
-        options={[{ id: ALL, label: "Todos" }, ...options]}
-        onChange={(next) => onChange(next === ALL ? "" : next)}
+        value={value}
+        options={options}
+        onChange={onChange}
         className="h-8 bg-card text-[13px] text-foreground"
       />
     </label>
