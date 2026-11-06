@@ -762,6 +762,49 @@ def test_delinquency_groups_overdue_titles_by_customer(
     ]
 
 
+def test_delinquency_splits_the_balance_into_late_bands_with_exact_limits(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # 1 e 30 dias; 31 e 60; 61 e 90; 91
+    for late, amount in ((1, "10.00"), (30, "20.00"), (31, "30.00"), (60, "40.00")):
+        create(client, auth, world, dueDate=days(-late), amount=amount)
+    for late, amount in ((61, "50.00"), (90, "60.00"), (91, "70.00")):
+        create(client, auth, world, dueDate=days(-late), amount=amount)
+
+    (row,) = client.get("/receivables/delinquency", headers=auth).json()
+
+    assert [(b["id"], b["count"], Decimal(str(b["total"]))) for b in row["bands"]] == [
+        ("1-30", 2, Decimal("30.00")),
+        ("31-60", 2, Decimal("70.00")),
+        ("61-90", 2, Decimal("110.00")),
+        ("90+", 1, Decimal("70.00")),
+    ]
+    assert {t["daysLate"]: t["band"] for t in row["titles"]} == {
+        91: "90+",
+        90: "61-90",
+        61: "61-90",
+        60: "31-60",
+        31: "31-60",
+        30: "1-30",
+        1: "1-30",
+    }
+    # as faixas somam o total do cliente
+    assert sum(Decimal(str(b["total"])) for b in row["bands"]) == Decimal(str(row["total"]))
+
+
+def test_empty_bands_still_come_back_in_order(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, dueDate=days(-3), amount="100.00")
+    (row,) = client.get("/receivables/delinquency", headers=auth).json()
+    assert [(b["id"], b["count"]) for b in row["bands"]] == [
+        ("1-30", 1),
+        ("31-60", 0),
+        ("61-90", 0),
+        ("90+", 0),
+    ]
+
+
 def test_a_partly_received_overdue_title_is_delinquent_only_for_the_balance(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
