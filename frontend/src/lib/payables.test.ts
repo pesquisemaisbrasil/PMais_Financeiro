@@ -29,7 +29,7 @@ import {
   type PayableDetail,
   formatCompetence,
   formatDateTime,
-  settlement,
+  paymentExtras,
   shareText,
 } from "./payables";
 
@@ -412,24 +412,17 @@ describe("detalhes da conta", () => {
   });
 
   it("soma juros e desconto só das baixas que valem, sem somar com ponto flutuante", () => {
-    const result = settlement({
-      amount: "1000.10",
-      payments: [
+    expect(
+      paymentExtras([
         payment("pagamento", false, "10.20", "0.00"),
-        payment("pagamento", false, "0.00", "5.05"),
+        payment("pagamento", false, "0.10", "5.05"),
         payment("pagamento", true, "99.00", "99.00"), // estornada: não conta
         payment("estorno", false, "50.00", "50.00"), // estorno em si: não conta
-      ],
-    });
-    expect(result).toEqual({ gross: "1000.10", surcharge: "10.20", discount: "5.05", net: "1005.25" });
+      ])
+    ).toEqual({ surcharge: "10.30", discount: "5.05" });
   });
 
-  it("sem baixa, o líquido é o próprio valor", () => {
-    expect(settlement({ amount: "52.50", payments: [] })).toEqual({
-      gross: "52.50",
-      surcharge: "0.00",
-      discount: "0.00",
-      net: "52.50",
-    });
+  it("sem baixa, não há juros nem desconto", () => {
+    expect(paymentExtras([])).toEqual({ surcharge: "0.00", discount: "0.00" });
   });
 });

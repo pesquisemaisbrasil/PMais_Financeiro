@@ -89,7 +89,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(form.getByText("Informe um valor maior que zero.")).toBeVisible();
   const today = await form.getByLabel("Data *").inputValue();
   await form.getByLabel("Vencimento *").fill(today);
-  await form.getByLabel("Valor (R$) *").fill("1.000,50");
+  await form.getByLabel("Valor bruto (R$) *").fill("1.000,50");
   await choose(page, "Fornecedor *", /Exata/);
   await choose(page, "Categoria *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Consultoria de teste");
@@ -455,4 +455,94 @@ test("Importar planilha com vários projetos: todos os da planilha, ou só os ma
   const created = page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ });
   await expect(created.filter({ hasText: "20/11/2026" })).toHaveCount(1);
   await expect(created.filter({ hasText: "27/11/2026" })).toHaveCount(1);
+});
+
+test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e editar", async ({ page }) => {
+  await signIn(page, "ajustes@e2e.invalid");
+  await page.goto("/contas-a-pagar");
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Tudo" }).click();
+
+  await page.getByRole("button", { name: "Nova conta a pagar" }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Vencimento *").fill("2027-03-15");
+  await form.getByLabel("Valor bruto (R$) *").fill("1.000,00");
+  await choose(page, "Fornecedor *", /Exata/);
+  await choose(page, "Categoria *", /Serviços de terceiros/);
+  await form.getByLabel("Descrição *").fill("Conta com ajustes");
+  await choose(page, "Empresa *", "PPlus");
+  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Centro de custo *", "Administrativo");
+  await choose(page, "Forma de pagamento *", "Pix");
+
+  // Cada botão abre a lista de lançamentos do tipo, e o total fica só para leitura
+  await expect(form.getByLabel("(+) Total de acréscimos")).toHaveValue(/0,00/);
+  await form.getByRole("button", { name: "Acréscimos" }).click();
+  const surcharges = page.getByRole("dialog", { name: "Acréscimos" });
+  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click(); // lista vazia: nada a conferir
+  await form.getByRole("button", { name: "Acréscimos" }).click();
+  await surcharges.getByLabel("Descrição da linha 1").fill("Multa por atraso");
+  await surcharges.getByLabel("Valor da linha 1").fill("abc");
+  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click();
+  await expect(surcharges.getByText('Informe o valor de "Multa por atraso", como 12,50.')).toBeVisible();
+  await surcharges.getByLabel("Valor da linha 1").fill("20,00");
+  await surcharges.getByRole("button", { name: "Adicionar linha" }).click();
+  await surcharges.getByLabel("Descrição da linha 2").fill("Juros");
+  await surcharges.getByLabel("Valor da linha 2").fill("5,00");
+  await expect(surcharges.getByText(/Total:\s*R\$\s25,00/)).toBeVisible();
+  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click();
+  await expect(form.getByLabel("(+) Total de acréscimos")).toHaveValue(/25,00/);
+
+  await form.getByRole("button", { name: "Descontos" }).click();
+  const discounts = page.getByRole("dialog", { name: "Descontos" });
+  await discounts.getByLabel("Descrição da linha 1").fill("Desconto combinado");
+  await discounts.getByLabel("Valor da linha 1").fill("50,00");
+  await discounts.getByRole("button", { name: "Salvar descontos" }).click();
+  await form.getByRole("button", { name: "Impostos" }).click();
+  const taxes = page.getByRole("dialog", { name: "Impostos" });
+  await taxes.getByLabel("Descrição da linha 1").fill("ISS retido");
+  await taxes.getByLabel("Valor da linha 1").fill("30,00");
+  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  // 1.000,00 + 25,00 − 50,00 − 30,00
+  await expect(form.getByText(/Valor líquido:\s*R\$\s945,00/)).toBeVisible();
+  await form.getByRole("button", { name: "Lançar conta" }).click();
+
+  // A lista mostra o líquido, e a conta aberta mostra o bruto, os três totais e as linhas
+  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("Conta com ajustes");
+  const row = page.getByRole("row", { name: /Conta com ajustes/ });
+  await expect(row).toContainText(/R\$\s945,00/);
+  await row.getByText("Conta com ajustes").first().click();
+  const opened = page.getByRole("dialog");
+  await expect(opened.getByText("Valor bruto:")).toBeVisible();
+  await expect(opened.getByText("Valor bruto:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s1\.000,00/);
+  await expect(opened.getByText("Valor líquido:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s945,00/);
+  await expect(opened.getByText(/Multa por atraso R\$\s20,00 · Juros R\$\s5,00/)).toBeVisible();
+  await expect(opened.getByText(/ISS retido R\$\s30,00/)).toBeVisible();
+
+  // Editar abre com o bruto (não o líquido) e as linhas já lançadas
+  await opened.getByRole("button", { name: "Editar conta" }).click();
+  await expect(opened.getByLabel("Valor bruto (R$)")).toHaveValue("1000,00");
+  await expect(opened.getByLabel("(−) Total de impostos")).toHaveValue(/30,00/);
+  // Desconto que zera o valor é barrado na hora
+  await opened.getByRole("button", { name: /Descontos/ }).click();
+  const editDiscounts = page.getByRole("dialog", { name: "Descontos" });
+  await editDiscounts.getByLabel("Valor da linha 1").fill("2.000,00");
+  await editDiscounts.getByRole("button", { name: "Salvar descontos" }).click();
+  await expect(opened.getByText(/valor líquido precisa ser maior que zero/).first()).toBeVisible();
+  await opened.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(opened.getByText(/valor líquido precisa ser maior que zero/).first()).toBeVisible();
+  // Volta o desconto e tira o imposto
+  await opened.getByRole("button", { name: /Descontos/ }).click();
+  await editDiscounts.getByLabel("Valor da linha 1").fill("50,00");
+  await editDiscounts.getByRole("button", { name: "Salvar descontos" }).click();
+  await opened.getByRole("button", { name: /Impostos/ }).click();
+  const editTaxes = page.getByRole("dialog", { name: "Impostos" });
+  await editTaxes.getByRole("button", { name: "Tirar a linha 1" }).click();
+  await editTaxes.getByRole("button", { name: "Salvar impostos" }).click();
+  await opened.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(page.getByText("Conta alterada.")).toBeVisible();
+  await opened.getByRole("tab", { name: "Histórico" }).click();
+  await expect(opened.getByText("Alterada: impostos R$ 30,00 → R$ 0,00")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("row", { name: /Conta com ajustes/ })).toContainText(/R\$\s975,00/);
 });

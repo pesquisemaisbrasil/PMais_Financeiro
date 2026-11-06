@@ -270,3 +270,12 @@ def test_monthly_repetition_repeats_the_lines_and_installments_refuse_them(
         422,
         "Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois",
     )
+
+
+def test_the_same_lines_in_another_kind_order_are_not_a_change(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world, amount="1000.00", adjustments=LINES)
+    before = len(detail(client, auth, created["id"])["events"])
+    assert edit(client, auth, created, adjustments=list(reversed(LINES))).status_code == 200
+    assert len(detail(client, auth, created["id"])["events"]) == before

@@ -70,6 +70,8 @@ WITH_MFA = [
     "receber2@e2e.invalid",
     "receber3@e2e.invalid",
     "importacao@e2e.invalid",
+    "ajustes@e2e.invalid",
+    "ajustes-receber@e2e.invalid",
 ]
 
 
