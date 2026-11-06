@@ -181,7 +181,7 @@ function Cell({ row, column }: { row: ReceivableRow; column: string }) {
           {brl(row.net)}
           {row.net !== row.amount && (
             <span className="block text-[11px] font-normal text-muted-foreground">
-              bruto {brl(row.amount)}
+              principal {brl(row.amount)}
             </span>
           )}
         </TableCell>

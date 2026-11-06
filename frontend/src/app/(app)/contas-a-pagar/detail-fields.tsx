@@ -102,7 +102,7 @@ export function DetailFields({ payable }: { payable: PayableDetail }) {
       </Group>
 
       <Group>
-        <Row label="Valor bruto">{brl(payable.grossAmount)}</Row>
+        <Row label="Valor principal">{brl(payable.grossAmount)}</Row>
         <Row label="(+) Acréscimos">
           {brl(totals.acrescimo)}
           <AdjustmentLines items={lines("acrescimo")} />

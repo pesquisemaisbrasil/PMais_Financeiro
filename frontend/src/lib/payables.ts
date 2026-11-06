@@ -99,7 +99,7 @@ export interface PayableRow {
   costCenterName: string;
   paymentMethodName: string;
   companyName: string;
-  // o valor líquido: o que de fato se paga. O bruto vem em grossAmount
+  // o valor líquido: o que de fato se paga. O valor principal vem em grossAmount
   amount: string;
   grossAmount: string;
   paid: string;

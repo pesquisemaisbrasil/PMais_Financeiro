@@ -23,8 +23,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { AdjustmentsField } from "@/components/AdjustmentsField";
 import { ProjectSplit } from "@/components/ProjectSplit";
+import { ValuesCard } from "@/components/ValuesCard";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import {
   ApiError,
@@ -230,18 +230,14 @@ export function NewPayableDialog({
                 <AlertDescription>Ainda faltam cadastros: {missingRecords.join(", ")}.</AlertDescription>
               </Alert>
             )}
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Data *" id="p-data">
                 <Input id="p-data" type="date" {...input("issueDate")} />
               </Field>
               <Field label="Vencimento *" id="p-venc">
                 <Input id="p-venc" type="date" {...input("dueDate")} />
               </Field>
-              <Field label="Valor bruto (R$) *" id="p-valor">
-                <Input id="p-valor" inputMode="decimal" placeholder="0,00" autoFocus {...input("amount")} />
-              </Field>
             </div>
-            <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />
             <div className="flex items-center gap-2 text-xs">
               <Checkbox
                 id="p-prov"
@@ -314,7 +310,7 @@ export function NewPayableDialog({
               <Field
                 label="Projeto"
                 id="p-proj"
-                hint={split.length ? "Vale a divisão abaixo." : "Ou divida entre projetos logo abaixo."}
+                hint={split.length ? "Vale a divisão abaixo." : "Ou divida entre projetos mais abaixo."}
               >
                 <Choice
                   id="p-proj"
@@ -329,6 +325,14 @@ export function NewPayableDialog({
                 />
               </Field>
             </div>
+            <ValuesCard
+              grossId="p-valor"
+              grossLabel="Valor principal (R$) *"
+              gross={form.amount}
+              onGrossChange={set("amount")}
+              drafts={adjustments}
+              onChange={setAdjustments}
+            />
             <ProjectSplit
               rows={split}
               onChange={setSplit}
@@ -1439,10 +1443,7 @@ function EditForm({
       <Field label="Descrição" id="e-desc">
         <Input id="e-desc" maxLength={255} {...input("description")} />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Valor bruto (R$)" id="e-valor">
-          <Input id="e-valor" inputMode="decimal" {...input("amount")} />
-        </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Vencimento" id="e-venc">
           <Input id="e-venc" type="date" {...input("dueDate")} />
         </Field>
@@ -1450,7 +1451,6 @@ function EditForm({
           <Input id="e-comp" type="month" {...input("competence")} />
         </Field>
       </div>
-      {editSupplier && <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />}
       <div className="grid gap-3 sm:grid-cols-2">
         {editSupplier && (
           <Field label="Fornecedor" id="e-forn">
@@ -1487,6 +1487,23 @@ function EditForm({
           />
         </Field>
       </div>
+      {editSupplier ? (
+        <ValuesCard
+          grossId="e-valor"
+          grossLabel="Valor principal (R$)"
+          gross={form.amount}
+          onGrossChange={set("amount")}
+          drafts={adjustments}
+          onChange={setAdjustments}
+        />
+      ) : (
+        // lançamento com pessoas: o valor é a soma delas, e não tem acréscimos, descontos nem impostos
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Valor principal (R$)" id="e-valor">
+            <Input id="e-valor" inputMode="decimal" {...input("amount")} />
+          </Field>
+        </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Documento" id="e-doc">
           <Choice

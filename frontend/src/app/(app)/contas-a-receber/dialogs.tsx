@@ -2,9 +2,9 @@
 
 import { Undo2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { AdjustmentsField } from "@/components/AdjustmentsField";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
+import { ValuesCard } from "@/components/ValuesCard";
 import { ErrorBox, Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -232,10 +232,6 @@ export function NewReceivableDialog({
             <Field label="Descrição *" id="r-desc">
               <Input id="r-desc" placeholder="Ex.: Pesquisa de satisfação · 1ª parcela" {...input("description")} />
             </Field>
-            <Field label="Valor bruto (R$) *" id="r-valor">
-              <Input id="r-valor" inputMode="decimal" placeholder="0,00" autoFocus {...input("amount")} />
-            </Field>
-            <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Emissão *" id="r-emi">
                 <Input id="r-emi" type="date" {...input("issueDate")} />
@@ -289,6 +285,14 @@ export function NewReceivableDialog({
                 />
               </Field>
             </div>
+            <ValuesCard
+              grossId="r-valor"
+              grossLabel="Valor principal (R$) *"
+              gross={form.amount}
+              onGrossChange={set("amount")}
+              drafts={adjustments}
+              onChange={setAdjustments}
+            />
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Documento" id="r-doc">
                 <Choice
@@ -604,15 +608,17 @@ function EditDialog({
             <Field label="Descrição *" id="ed-desc">
               <Input id="ed-desc" {...input("description")} />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Valor bruto (R$) *" id="ed-valor">
-                <Input id="ed-valor" inputMode="decimal" {...input("amount")} />
-              </Field>
-              <Field label="Vencimento *" id="ed-venc">
-                <Input id="ed-venc" type="date" {...input("dueDate")} />
-              </Field>
-            </div>
-            <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />
+            <Field label="Vencimento *" id="ed-venc">
+              <Input id="ed-venc" type="date" {...input("dueDate")} />
+            </Field>
+            <ValuesCard
+              grossId="ed-valor"
+              grossLabel="Valor principal (R$) *"
+              gross={form.amount}
+              onGrossChange={(value) => setForm((current) => ({ ...current, amount: value }))}
+              drafts={adjustments}
+              onChange={setAdjustments}
+            />
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
@@ -697,7 +703,7 @@ export function DetailDialog({
               </div>
               <dl className="grid gap-x-6 gap-y-2.5 text-[13px] sm:grid-cols-2">
                 {[
-                  ["Valor bruto", brl(detail.amount)],
+                  ["Valor principal", brl(detail.amount)],
                   ["(+) Acréscimos", brl(adjustmentTotals(detail.adjustments).acrescimo)],
                   ["(−) Descontos", brl(adjustmentTotals(detail.adjustments).desconto)],
                   ["(−) Impostos", brl(adjustmentTotals(detail.adjustments).imposto)],

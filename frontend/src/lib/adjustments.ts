@@ -79,7 +79,7 @@ export function draftCents(drafts: AdjustmentDraft[], kind: AdjustmentKind): num
     }, 0);
 }
 
-/** O líquido ("940.00") a partir do bruto digitado, ou null se o bruto ainda não é um valor. */
+/** O líquido ("940.00") a partir do valor principal digitado, ou null se ele ainda não é um valor. */
 export function netText(gross: string, drafts: AdjustmentDraft[]): string | null {
   const value = parseMoney(gross);
   if (!value) return null;
