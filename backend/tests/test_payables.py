@@ -1,4 +1,6 @@
+import base64
 import io
+import os
 import zipfile
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
@@ -10,7 +12,9 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook, load_workbook
 from sqlalchemy.orm import Session
 
-from models.payable import Payable, PayableEvent, PayableItem, PayablePayment
+from core import config, file_vault
+from core.file_vault import MemoryFileStore
+from models.payable import Payable, PayableAttachment, PayableEvent, PayableItem, PayablePayment
 from models.reference import (
     BankAccount,
     BusinessUnit,
@@ -22,6 +26,7 @@ from models.reference import (
     Supplier,
 )
 from models.user import User
+from services import attachments
 from services.auth import create_access_token
 from services.payable import period_range, today
 
@@ -136,6 +141,9 @@ def create(
         ("post", "/payables/1/cancel"),
         ("post", "/payables/1/payments"),
         ("post", "/payables/1/payments/1/reverse"),
+        ("post", "/payables/1/attachments"),
+        ("get", "/payables/1/attachments/1/download"),
+        ("post", "/payables/1/attachments/1/remove"),
     ],
 )
 def test_every_route_requires_a_session(client: TestClient, method: str, path: str) -> None:
@@ -162,6 +170,9 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables/1/cancel"),
         ("post", "/payables/1/payments"),
         ("post", "/payables/1/payments/1/reverse"),
+        ("post", "/payables/1/attachments"),
+        ("get", "/payables/1/attachments/1/download"),
+        ("post", "/payables/1/attachments/1/remove"),
     ],
 )
 def test_role_without_finance_access_is_refused(
@@ -2554,3 +2565,268 @@ def test_duplicate_keeps_the_rpa_gross_but_not_the_month_details(
     assert items["Ana Ribeiro"]["invoiceDate"] is None
     assert items["Ana Ribeiro"]["invoiceStatus"] == "Pendente"
     assert items["Ana Ribeiro"]["surveyDate"] is None
+
+
+# ---- Anexos ----
+
+PDF = b"%PDF-1.4\n%nota fiscal de teste\n"
+
+
+@pytest.fixture
+def vault(monkeypatch: pytest.MonkeyPatch) -> MemoryFileStore:
+    """O cofre de arquivos na memória, com uma chave-mestra nova a cada teste."""
+    store = MemoryFileStore()
+    monkeypatch.setattr(config, "FILES_MASTER_KEY", base64.b64encode(os.urandom(32)).decode())
+    monkeypatch.setattr(file_vault, "get_store", lambda: store)
+    return store
+
+
+def _attach(
+    client: TestClient,
+    auth: dict[str, str],
+    payable_id: int,
+    content: bytes = PDF,
+    name: str = "nota.pdf",
+) -> Any:
+    return client.post(
+        f"/payables/{payable_id}/attachments", files={"file": (name, content)}, headers=auth
+    )
+
+
+def test_a_document_is_attached_stored_encrypted_and_listed(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    response = _attach(client, auth, created["id"], name="Nota fiscal 58.pdf")
+    assert response.status_code == 201, response.text
+    (document,) = response.json()["attachments"]
+    assert (document["name"], document["size"], document["contentType"]) == (
+        "Nota fiscal 58.pdf",
+        len(PDF),
+        "application/pdf",
+    )
+    assert document["uploadedBy"] == "Ana"
+    assert response.json()["events"][0]["text"] == "Documento incluído: Nota fiscal 58.pdf (0 KB)"
+    # o que vai para o cofre é o arquivo cifrado, nunca o original
+    ((body, metadata),) = vault.objects.values()
+    assert body != PDF and PDF not in body
+    assert set(metadata) == {"dek", "dek-nonce", "nonce", "key-version", "sha256"}
+    row = client.get(f"/payables/{created['id']}", headers=auth).json()
+    assert [a["name"] for a in row["attachments"]] == ["Nota fiscal 58.pdf"]
+
+
+def test_download_returns_the_same_bytes_and_is_audited(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    attached = _attach(client, auth, created["id"], name="Nota São João.pdf").json()
+    document = attached["attachments"][0]
+    response = client.get(
+        f"/payables/{created['id']}/attachments/{document['id']}/download", headers=auth
+    )
+    assert response.status_code == 200
+    assert response.content == PDF
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    disposition = response.headers["content-disposition"]
+    assert disposition.startswith("attachment; filename=")
+    assert "filename*=UTF-8''Nota%20S%C3%A3o%20Jo%C3%A3o.pdf" in disposition
+    events = client.get(f"/payables/{created['id']}", headers=auth).json()["events"]
+    assert events[0]["text"] == "Documento baixado: Nota São João.pdf"
+
+
+def test_removing_a_document_is_logical_and_needs_a_reason(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    document = _attach(client, auth, created["id"]).json()["attachments"][0]
+    url = f"/payables/{created['id']}/attachments/{document['id']}"
+    assert client.post(f"{url}/remove", json={"reason": ""}, headers=auth).status_code == 422
+    removed = client.post(f"{url}/remove", json={"reason": "Nota errada"}, headers=auth)
+    assert removed.status_code == 200
+    assert removed.json()["attachments"] == []
+    assert removed.json()["events"][0]["text"] == "Documento removido: nota.pdf — Nota errada"
+    # sai da conta e não baixa mais, mas o arquivo continua no cofre
+    assert client.get(f"{url}/download", headers=auth).status_code == 404
+    assert client.post(f"{url}/remove", json={"reason": "De novo"}, headers=auth).status_code == 404
+    assert len(vault.objects) == 1
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("falso.pdf", b"MZ\x90\x00 isto e um executavel"),
+        ("programa.exe", b"MZ\x90\x00"),
+        ("foto.png", PDF),
+        ("foto.jpg", b"%PDF-1.4"),
+        ("vazio.pdf", b""),
+        ("planilha.xlsx", b"PK\x03\x04 isto nao e uma planilha"),
+        ("sem-extensao", PDF),
+        ("entidade.xml", b'<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "b">]><x>&a;</x>'),
+        ("quebrado.xml", b"<nota><aberta></nota>"),
+    ],
+)
+def test_files_of_the_wrong_type_or_content_are_refused(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    vault: MemoryFileStore,
+    name: str,
+    content: bytes,
+) -> None:
+    created = create(client, auth, world)
+    response = _attach(client, auth, created["id"], content=content, name=name)
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Envie PDF, imagem, planilha, documento ou XML de até 20 MB"
+    assert vault.objects == {}
+
+
+def test_each_allowed_type_is_accepted_by_its_real_content(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    docx = io.BytesIO()
+    with zipfile.ZipFile(docx, "w") as archive:
+        archive.writestr("word/document.xml", "<w/>")
+    files = {
+        "a.pdf": PDF,
+        "b.jpg": b"\xff\xd8\xff\xe0 dados",
+        "c.jpeg": b"\xff\xd8\xff\xe1 outros dados",
+        "d.png": b"\x89PNG\r\n\x1a\n dados",
+        "e.xlsx": _xlsx([["a", 1]]),
+        "f.docx": docx.getvalue(),
+        "g.xml": b"<?xml version='1.0'?><nota><numero>1</numero></nota>",
+        "H.PDF": PDF + b"outro",
+    }
+    for name, content in files.items():
+        assert (
+            _attach(client, auth, created["id"], content=content, name=name).status_code == 201
+        ), name
+    types = {
+        a["name"]: a["contentType"]
+        for a in client.get(f"/payables/{created['id']}", headers=auth).json()["attachments"]
+    }
+    assert types["b.jpg"] == types["c.jpeg"] == "image/jpeg"
+    assert types["g.xml"] == "application/xml"
+
+
+def test_the_file_name_never_carries_a_path(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    response = _attach(client, auth, created["id"], name="..\\..\\etc/passwd.pdf")
+    assert response.status_code == 201
+    assert response.json()["attachments"][0]["name"] == "passwd.pdf"
+    # o cliente de teste codifica o byte nulo no envio, então a limpeza é conferida direto
+    assert attachments._clean_name("no\x00ta\n fiscal \x7f.pdf") == "nota fiscal .pdf"
+    assert attachments._clean_name("a" * 300 + ".pdf") == "a" * 196 + ".pdf"
+
+
+def test_the_size_and_count_limits_are_refused(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    vault: MemoryFileStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = create(client, auth, world)
+    monkeypatch.setattr(attachments, "MAX_BYTES", len(PDF) + 5)
+    big = _attach(client, auth, created["id"], content=PDF + b"x" * 6)
+    assert (big.status_code, big.json()["detail"]) == (
+        422,
+        "Envie PDF, imagem, planilha, documento ou XML de até 20 MB",
+    )
+    monkeypatch.setattr(attachments, "MAX_PER_PAYABLE", 2)
+    assert _attach(client, auth, created["id"], content=PDF + b"1").status_code == 201
+    assert _attach(client, auth, created["id"], content=PDF + b"2").status_code == 201
+    third = _attach(client, auth, created["id"], content=PDF + b"3")
+    assert (third.status_code, third.json()["detail"]) == (409, "Esta conta já tem 2 documentos")
+
+
+def test_the_same_file_is_not_attached_twice_but_can_come_back_after_removal(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    first = _attach(client, auth, created["id"]).json()["attachments"][0]
+    again = _attach(client, auth, created["id"], name="outro-nome.pdf")
+    assert (again.status_code, again.json()["detail"]) == (
+        409,
+        "Este arquivo já está anexado a esta conta",
+    )
+    client.post(
+        f"/payables/{created['id']}/attachments/{first['id']}/remove",
+        json={"reason": "Trocar"},
+        headers=auth,
+    )
+    assert _attach(client, auth, created["id"]).status_code == 201
+
+
+def test_a_document_of_one_account_cannot_be_read_through_another(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    first = create(client, auth, world)
+    second = create(client, auth, world)
+    document = _attach(client, auth, first["id"]).json()["attachments"][0]
+    stolen = client.get(
+        f"/payables/{second['id']}/attachments/{document['id']}/download", headers=auth
+    )
+    assert (stolen.status_code, stolen.json()["detail"]) == (404, "Documento não encontrado")
+    missing = _attach(client, auth, 99999)
+    assert (missing.status_code, missing.json()["detail"]) == (404, "Conta não encontrada")
+
+
+def test_without_the_vault_attaching_says_so_and_the_account_still_opens(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created = create(client, auth, world)
+    monkeypatch.setattr(config, "FILES_MASTER_KEY", "")
+    monkeypatch.setattr(file_vault, "get_store", lambda: MemoryFileStore())
+    response = _attach(client, auth, created["id"])
+    assert (response.status_code, response.json()["detail"]) == (
+        503,
+        "Os anexos não estão disponíveis agora. Avise quem cuida do sistema.",
+    )
+    assert client.get(f"/payables/{created['id']}", headers=auth).status_code == 200
+    # nada ficou pela metade
+    assert db_count(client, auth, created["id"]) == 0
+
+
+def db_count(client: TestClient, auth: dict[str, str], payable_id: int) -> int:
+    return len(client.get(f"/payables/{payable_id}", headers=auth).json()["attachments"])
+
+
+def test_a_tampered_file_is_never_delivered(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    document = _attach(client, auth, created["id"]).json()["attachments"][0]
+    (key,) = vault.objects
+    body, metadata = vault.objects[key]
+    vault.objects[key] = (body[:-1] + bytes([body[-1] ^ 1]), metadata)
+    response = client.get(
+        f"/payables/{created['id']}/attachments/{document['id']}/download", headers=auth
+    )
+    assert response.status_code == 500
+    assert "não confere" in response.json()["detail"]
+    events = client.get(f"/payables/{created['id']}", headers=auth).json()["events"]
+    assert not any("baixado" in event["text"] for event in events)
+
+
+def test_the_database_keeps_who_and_when_but_never_the_file(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    vault: MemoryFileStore,
+    db_session: Session,
+) -> None:
+    created = create(client, auth, world)
+    _attach(client, auth, created["id"], name="boleto.pdf")
+    row = db_session.query(PayableAttachment).one()
+    assert (row.name, row.size, row.uploaded_by_user_id) == ("boleto.pdf", len(PDF), 1)
+    assert row.fileKey.startswith(f"payable/{created['id']}/") and row.fileKey.endswith(".bin")
+    assert len(row.fileSha256) == 64
+    assert row.deletedAt is None

@@ -21,6 +21,12 @@ for _key in (
     "CONNECT_CLIENT_ID",
     "CONNECT_CLIENT_SECRET",
     "CONNECT_MODE",
+    # o cofre de arquivos de verdade (MinIO) também nunca entra nos testes
+    "FILES_MODE",
+    "FILES_ENDPOINT_URL",
+    "FILES_ACCESS_KEY",
+    "FILES_SECRET_KEY",
+    "FILES_MASTER_KEY",
 ):
     os.environ[_key] = ""
 os.environ["PAYMENT_DISPATCH_SECONDS"] = "0"
