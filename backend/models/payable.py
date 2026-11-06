@@ -129,6 +129,7 @@ class Payable(Base):
     items = relationship("PayableItem", cascade="all, delete-orphan", order_by="PayableItem.id")
     payments = relationship("PayablePayment", order_by="PayablePayment.id")
     events = relationship("PayableEvent", order_by="PayableEvent.id")
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
     attachments = relationship("PayableAttachment", order_by="PayableAttachment.id")
 
 

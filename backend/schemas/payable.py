@@ -261,6 +261,11 @@ class PayableDetail(PayableRow):
     docsReceivedOn: date | None
     isTransfer: bool
     notes: str | None
+    # quem incluiu e quem mexeu por último (nulo em conta que veio do Connect, sem pessoa)
+    createdAt: datetime
+    createdBy: str | None
+    updatedAt: datetime
+    updatedBy: str | None
     items: list[PayableItemOut]
     payments: list[PaymentOut]
     events: list[EventOut]

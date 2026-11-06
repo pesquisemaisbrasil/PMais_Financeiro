@@ -595,6 +595,10 @@ def _get(db: Session, payable_id: int, lock: bool = False) -> Payable:
 def detail(db: Session, payable_id: int) -> dict[str, Any]:
     payable = _get(db, payable_id)
     undone = reversed_ids(payable)
+    creator = payable.created_by.name if payable.created_by else None
+    # Baixar um documento não muda a conta: fica só no histórico.
+    changes = [e for e in payable.events if not e.text.startswith("Documento baixado")]
+    last = changes[-1] if changes else None
     return {
         **row(payable, today(), len(payable.items)),
         "company_id": payable.company_id,
@@ -609,6 +613,10 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
         "docsReceivedOn": payable.docsReceivedOn,
         "isTransfer": payable.isTransfer,
         "notes": payable.notes,
+        "createdAt": payable.createdAt,
+        "createdBy": creator,
+        "updatedAt": last.createdAt if last else payable.updatedAt,
+        "updatedBy": last.user.name if last else creator,
         "items": [
             {
                 "id": i.id,
