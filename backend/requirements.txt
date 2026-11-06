@@ -1,5 +1,5 @@
-fastapi==0.118.3
-starlette==0.48.0
+fastapi==0.162.0
+starlette==1.10.0
 uvicorn==0.34.2
 SQLAlchemy==1.4.39
 psycopg2-binary==2.9.10
