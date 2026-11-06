@@ -105,6 +105,7 @@ jobs:
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "CREATE TABLE escape (id int)"; then exit 1; fi
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DROP TABLE users"; then exit 1; fi
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM payable_payments"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM payable_attachments"; then exit 1; fi
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "UPDATE payable_events SET text = 'x'"; then exit 1; fi
 
       # Os testes comuns rodam em SQLite, que ignora FOR UPDATE: este passo falha se alguém
