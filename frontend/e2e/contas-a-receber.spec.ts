@@ -16,7 +16,7 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   await page.getByRole("combobox", { name: "Visão por período" }).click();
   await page.getByRole("option", { name: "Tudo" }).click();
 
-  // Líquido de cada título: 900 (1.000 menos 100 de abatimento) + 500 + 700
+  // Líquido de cada título: 900 (1.000 menos 100 de imposto retido) + 500 + 700
   await expect(page.getByRole("button", { name: /^Total/ })).toContainText("R$ 2.100,00");
   await expect(page.getByRole("button", { name: /^Total/ })).toContainText("3 títulos");
   await expect(page.getByRole("button", { name: /^Vencidos/ })).toContainText("R$ 1.400,00");
@@ -115,8 +115,13 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   await page.getByRole("button", { name: "Nova conta a receber" }).click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Valor bruto (R$) *").fill("1.000,00");
-  await form.getByLabel("Abatimentos (R$)").fill("115,00");
-  await expect(form.getByLabel("Líquido a receber")).toHaveValue(/885,00/);
+  // Os impostos retidos entram pelo botão: uma linha por lançamento, e o líquido aparece na hora
+  await form.getByRole("button", { name: "Impostos" }).click();
+  const taxes = page.getByRole("dialog", { name: "Impostos" });
+  await taxes.getByLabel("Descrição da linha 1").fill("Retenção na nota");
+  await taxes.getByLabel("Valor da linha 1").fill("115,00");
+  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  await expect(form.getByText(/Valor líquido:\s*R\$\s885,00/)).toBeVisible();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Informe o projeto da receita.")).toBeVisible();
 
@@ -127,10 +132,14 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   await choose(page, "Empresa *", "PPlus");
   await choose(page, "Unidade *", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
-  await form.getByLabel("Abatimentos (R$)").fill("1.000,00");
+  await form.getByRole("button", { name: /Impostos/ }).click();
+  await taxes.getByLabel("Valor da linha 1").fill("1.000,00");
+  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
   await form.getByRole("button", { name: "Lançar conta" }).click();
-  await expect(form.getByText("Os abatimentos precisam ser menores que o valor.")).toBeVisible();
-  await form.getByLabel("Abatimentos (R$)").fill("115,00");
+  await expect(form.getByText(/valor líquido precisa ser maior que zero/).first()).toBeVisible();
+  await form.getByRole("button", { name: /Impostos/ }).click();
+  await taxes.getByLabel("Valor da linha 1").fill("115,00");
+  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(page.getByText(/Conta lançada: R\$\s885,00/)).toBeVisible();
 
@@ -146,7 +155,6 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   const form = page.getByRole("dialog");
   await form.getByLabel("Vencimento *").fill("2027-01-15");
   await form.getByLabel("Valor bruto (R$) *").fill("1.000,00");
-  await form.getByLabel("Abatimentos (R$)").fill("100,00");
   await choose(page, "Cliente *", /Beta/);
   await choose(page, "Projeto *", /PRJ-1804/);
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
@@ -216,4 +224,51 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   expect(excel.suggestedFilename()).toMatch(/^contas-a-receber-.*\.xlsx$/);
   const book = await readFile((await excel.path()) as string);
   expect(book.subarray(0, 2).toString("latin1")).toBe("PK");
+});
+
+test("Contas a receber: acréscimos, descontos e impostos pelos botões e no detalhe", async ({ page }) => {
+  await signIn(page, "ajustes-receber@e2e.invalid");
+  await page.goto("/contas-a-receber");
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Tudo" }).click();
+  await page.getByRole("button", { name: "Nova conta a receber" }).click();
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Vencimento *").fill("2027-04-15");
+  await form.getByLabel("Valor bruto (R$) *").fill("2.000,00");
+  await choose(page, "Cliente *", /Beta/);
+  await choose(page, "Projeto *", /PRJ-1804/);
+  await choose(page, "Conta de receita *", /Receita de pesquisa/);
+  await form.getByLabel("Descrição *").fill("Receita com ajustes");
+  await choose(page, "Empresa *", "PPlus");
+  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Centro de custo *", "Administrativo");
+
+  await form.getByRole("button", { name: "Acréscimos" }).click();
+  const surcharges = page.getByRole("dialog", { name: "Acréscimos" });
+  await surcharges.getByLabel("Descrição da linha 1").fill("Correção monetária");
+  await surcharges.getByLabel("Valor da linha 1").fill("40,00");
+  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click();
+  await form.getByRole("button", { name: "Descontos" }).click();
+  const discounts = page.getByRole("dialog", { name: "Descontos" });
+  await discounts.getByLabel("Descrição da linha 1").fill("Desconto comercial");
+  await discounts.getByLabel("Valor da linha 1").fill("100,00");
+  await discounts.getByRole("button", { name: "Salvar descontos" }).click();
+  await form.getByRole("button", { name: "Impostos" }).click();
+  const taxes = page.getByRole("dialog", { name: "Impostos" });
+  await taxes.getByLabel("Descrição da linha 1").fill("IR retido");
+  await taxes.getByLabel("Valor da linha 1").fill("60,00");
+  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  // 2.000,00 + 40,00 − 100,00 − 60,00
+  await expect(form.getByText(/Valor líquido:\s*R\$\s1\.880,00/)).toBeVisible();
+  await form.getByRole("button", { name: "Lançar conta" }).click();
+
+  await page.getByLabel("Buscar título, cliente ou contrato").fill("Receita com ajustes");
+  const row = page.getByRole("row", { name: /Receita com ajustes/ });
+  await expect(row).toContainText(/R\$\s1\.880,00/);
+  await expect(row).toContainText("bruto R$"); // a lista mostra o líquido e o bruto embaixo
+  await row.getByRole("button", { name: "Ver detalhes" }).click();
+  const opened = page.getByRole("dialog");
+  await expect(opened.getByText("(+) Acréscimos")).toBeVisible();
+  await expect(opened.getByText("Correção monetária")).toBeVisible();
+  await expect(opened.getByText("IR retido")).toBeVisible();
 });

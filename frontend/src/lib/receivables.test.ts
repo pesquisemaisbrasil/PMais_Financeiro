@@ -5,7 +5,6 @@ import {
   bandTotals,
   daysLateText,
   effectiveIndicator,
-  netCents,
   receivableParams,
   type DelinquentCustomer,
   type ReceivableQuery,
@@ -72,13 +71,6 @@ describe("atraso", () => {
 
   it("título que não está vencido não tem texto de atraso", () => {
     expect(daysLateText(null)).toBeNull();
-  });
-});
-
-describe("líquido", () => {
-  it("é o bruto menos os abatimentos, em centavos", () => {
-    expect(netCents(100000, 11500)).toBe(88500);
-    expect(netCents(100000, 0)).toBe(100000);
   });
 });
 
