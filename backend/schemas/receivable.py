@@ -143,7 +143,14 @@ class DelinquentTitle(BaseModel):
     description: str
     dueDate: date
     daysLate: int
+    band: str
     pending: Decimal
+
+
+class DelinquencyBand(BaseModel):
+    id: str
+    count: int
+    total: Decimal
 
 
 class DelinquentCustomer(BaseModel):
@@ -152,6 +159,7 @@ class DelinquentCustomer(BaseModel):
     count: int
     maxDaysLate: int
     total: Decimal
+    bands: list[DelinquencyBand]
     titles: list[DelinquentTitle]
 
 

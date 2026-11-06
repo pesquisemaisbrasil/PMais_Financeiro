@@ -298,8 +298,26 @@ def list_receivables(
     }
 
 
+# Faixas de atraso da inadimplência: (id, primeiro dia, último dia). A última não tem teto.
+# shortcut: faixas-padrão de cobrança, limites a validar com a Vivi (spec contas-a-receber).
+DELINQUENCY_BANDS: tuple[tuple[str, int, int | None], ...] = (
+    ("1-30", 1, 30),
+    ("31-60", 31, 60),
+    ("61-90", 61, 90),
+    ("90+", 91, None),
+)
+
+
+def delinquency_band(days: int) -> str:
+    for band_id, first, last in DELINQUENCY_BANDS:
+        if days >= first and (last is None or days <= last):
+            return band_id
+    return DELINQUENCY_BANDS[0][0]
+
+
 def delinquency(db: Session) -> list[dict[str, Any]]:
-    """Títulos vencidos por cliente, com os dias de atraso e o total. O maior devedor primeiro."""
+    """Títulos vencidos por cliente, com os dias de atraso, a faixa e o total. O maior devedor
+    primeiro."""
     on = today()
     receivables = _base_query(db).all()
     by_customer: dict[int, list[Receivable]] = {}
@@ -309,23 +327,34 @@ def delinquency(db: Session) -> list[dict[str, Any]]:
     result = []
     for customer_id, titles in by_customer.items():
         titles.sort(key=lambda r: r.dueDate)
+        rows = [
+            {
+                "id": t.id,
+                "description": t.description,
+                "dueDate": t.dueDate,
+                "daysLate": days_late(t, on) or 0,
+                "band": delinquency_band(days_late(t, on) or 0),
+                "pending": pending_amount(t),
+            }
+            for t in titles
+        ]
         result.append(
             {
                 "customerId": customer_id,
                 "customer": titles[0].customer.name,
                 "count": len(titles),
-                "maxDaysLate": max(days_late(t, on) or 0 for t in titles),
+                "maxDaysLate": max(row["daysLate"] for row in rows),
                 "total": sum((pending_amount(t) for t in titles), ZERO),
-                "titles": [
+                # todas as faixas, mesmo vazias, na ordem: a tela não precisa conhecer os limites
+                "bands": [
                     {
-                        "id": t.id,
-                        "description": t.description,
-                        "dueDate": t.dueDate,
-                        "daysLate": days_late(t, on) or 0,
-                        "pending": pending_amount(t),
+                        "id": band_id,
+                        "count": sum(1 for row in rows if row["band"] == band_id),
+                        "total": sum((r["pending"] for r in rows if r["band"] == band_id), ZERO),
                     }
-                    for t in titles
+                    for band_id, _, _ in DELINQUENCY_BANDS
                 ],
+                "titles": rows,
             }
         )
     result.sort(key=lambda c: (-c["total"], c["customer"].casefold()))
