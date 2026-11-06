@@ -4,6 +4,7 @@ import { Download, RotateCcw, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
+import { FilePicker } from "@/components/FilePicker";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -248,12 +249,12 @@ export function ReceiptsDialog({
               </div>
             </Field>
             <Field label="PDF de comprovantes *" id="r-file" hint="O do banco (Comprovante de Transferência). Pode ter centenas de páginas.">
-              <Input
+              <FilePicker
                 id="r-file"
-                type="file"
                 accept="application/pdf,.pdf"
-                onChange={(event) => {
-                  setFile(event.target.files?.[0] ?? null);
+                status={file?.name}
+                onPick={(files) => {
+                  setFile(files[0] ?? null);
                   sending.current = null;
                 }}
               />

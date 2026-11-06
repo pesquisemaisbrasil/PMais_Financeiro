@@ -4,6 +4,7 @@ import { Copy, FileUp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
+import { FilePicker } from "@/components/FilePicker";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -255,11 +256,11 @@ export function ImportDialog({
                     : "Arquivo .xlsx ou .csv, com as colunas: nome, valor, data da pesquisa e, se já tiver, data de pagamento. Chave Pix e CPF não são lidos."
                 }
               >
-                <Input
+                <FilePicker
                   id="i-arq"
-                  type="file"
                   accept=".xlsx,.csv"
-                  onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                  status={file?.name}
+                  onPick={(files) => setFile(files[0] ?? null)}
                 />
               </Field>
               <FormError message={localError ?? error} />

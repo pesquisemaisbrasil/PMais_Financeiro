@@ -3,9 +3,9 @@
 import { Download, FileText, X } from "lucide-react";
 import { useState } from "react";
 import { Field } from "@/components/finance";
+import { FilePicker } from "@/components/FilePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { ApiError, attachDocument, downloadDocument, getPayable } from "@/lib/api";
 import { DOCUMENT_ACCEPT, DOCUMENT_HINT, checkDocument, fileSize, saveBlob } from "@/lib/documents";
@@ -68,17 +68,13 @@ export function DocumentsPanel({
   return (
     <div className="flex flex-col gap-3">
       <Field label="Anexar documentos" id="d-arq" hint={`${DOCUMENT_HINT}. Pode escolher vários de uma vez.`}>
-        <Input
+        <FilePicker
           id="d-arq"
-          type="file"
           multiple
           accept={DOCUMENT_ACCEPT}
           disabled={busy !== null}
-          onChange={(event) => {
-            const files = Array.from(event.target.files ?? []);
-            event.target.value = ""; // deixa escolher o mesmo arquivo de novo
-            if (files.length) void send(files);
-          }}
+          status={null}
+          onPick={(files) => files.length && void send(files)}
         />
       </Field>
       {busy && (
