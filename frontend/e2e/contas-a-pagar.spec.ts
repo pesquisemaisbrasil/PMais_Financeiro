@@ -8,6 +8,13 @@ async function choose(page: Page, label: string, option: string | RegExp) {
   await page.getByRole("option", { name: option }).click();
 }
 
+/** Campo de várias opções: marca (ou desmarca) uma e fecha a lista com Esc. */
+async function mark(page: Page, label: string, option: string | RegExp) {
+  await page.getByRole("dialog").getByRole("combobox", { name: label }).click();
+  await page.getByRole("option", { name: option }).click();
+  await page.keyboard.press("Escape");
+}
+
 test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", async ({ page }) => {
   const blocked: string[] = [];
   page.on("console", (message) => {
@@ -242,13 +249,13 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("button", { name: "Importar planilha" }).click();
   const importer = page.getByRole("dialog");
   await importer.getByRole("button", { name: "Ler planilha" }).click();
-  await expect(importer.getByText("Preencha os campos com *.")).toBeVisible();
-  await choose(page, "Projeto *", "PRJ-1790");
-  await choose(page, "Categoria *", /Serviços de terceiros/);
-  await choose(page, "Forma de pagamento *", "Pix");
-  await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade *", "Consumo SP");
-  await choose(page, "Centro de custo *", "Administrativo");
+  await expect(importer.getByText("Escolha a planilha.")).toBeVisible();
+  await mark(page, "Projeto", "PRJ-1790");
+  await mark(page, "Categoria", /Serviços de terceiros/);
+  await mark(page, "Forma de pagamento", "Pix");
+  await mark(page, "Empresa", "PPlus");
+  await mark(page, "Unidade", "Consumo SP");
+  await mark(page, "Centro de custo", "Administrativo");
   await importer.getByLabel("Planilha *").setInputFiles({
     name: "incentivos-exemplo.csv",
     mimeType: "text/csv",
@@ -258,7 +265,9 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   // Projeto sem prazo não importa linha sem data de pagamento
   await expect(importer.getByText("Este projeto não tem incentivo ou prazo marcado")).toBeVisible();
   await importer.getByRole("button", { name: "Voltar" }).click();
-  await choose(page, "Projeto *", "PRJ-1804");
+  // A marcação continua: tira o 1790 e marca o 1804
+  await mark(page, "Projeto", "PRJ-1790");
+  await mark(page, "Projeto", "PRJ-1804");
   await importer.getByRole("button", { name: "Ler planilha" }).click();
   await expect(importer.getByText("Use só números no valor")).toBeVisible();
   await expect(importer).not.toContainText("pessoa-a@exemplo.invalid");
@@ -328,4 +337,54 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(page.getByRole("link", { name: "Fornecedores" })).toBeVisible();
 
   expect(blocked).toEqual([]);
+});
+
+test("Importar planilha com vários projetos: todos os da planilha, ou só os marcados", async ({ page }) => {
+  // outra conta: o mesmo código do autenticador não vale duas vezes no mesmo período
+  await signIn(page, "importacao@e2e.invalid");
+  await page.goto("/contas-a-pagar");
+  const sheet = [
+    "Nome;Valor;Data de pagamento;Projeto;Empresa;Unidade",
+    "Respondente A;100,00;20/11/2026;1804;PPlus;Consumo SP",
+    "Respondente B;50,00;20/11/2026;1790;MC;Matriz",
+    "Respondente C;70,00;27/11/2026;PRJ-1804;PPlus;CATI Curitiba",
+    "Respondente D;30,00;27/11/2026;9999;PPlus;Consumo SP",
+  ].join("\r\n");
+  await page.getByRole("button", { name: "Importar planilha" }).click();
+  const importer = page.getByRole("dialog");
+  // Empresa e unidade ficam em "Todas": a planilha diz as de cada linha
+  await mark(page, "Categoria", /Serviços de terceiros/);
+  await mark(page, "Forma de pagamento", "Pix");
+  await mark(page, "Centro de custo", "Administrativo");
+  await importer.getByLabel("Planilha *").setInputFiles({
+    name: "incentivos-varios-projetos.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(sheet, "utf-8"),
+  });
+
+  // Sem marcar projeto, entram todos os projetos que a planilha trouxer
+  await expect(importer.getByRole("combobox", { name: "Projeto" })).toContainText("Todos os projetos da planilha");
+  await importer.getByRole("button", { name: "Ler planilha" }).click();
+  await expect(importer.getByText("PRJ-1790, PRJ-1804")).toBeVisible();
+  await expect(importer.getByText("Projeto 9999 não existe")).toBeVisible();
+  // Cada combinação de projeto, empresa e unidade vira um lançamento, com a classificação à mostra
+  await expect(importer.getByText("por classificação e data de pagamento")).toBeVisible();
+  await expect(importer.getByText("MC · Matriz · Administrativo").first()).toBeVisible();
+  await expect(importer.getByRole("button", { name: "Criar 3 lançamentos com 3 itens" })).toBeEnabled();
+
+  // Marcando só o 1804 e a PPlus, a linha do 1790 (e da MC) fica de fora sem virar erro
+  await importer.getByRole("button", { name: "Voltar" }).click();
+  await mark(page, "Projeto", "PRJ-1804");
+  await mark(page, "Empresa", "PPlus");
+  await expect(importer.getByRole("combobox", { name: "Projeto" })).toContainText("PRJ-1804");
+  await expect(importer.getByRole("combobox", { name: "Empresa" })).toContainText("PPlus");
+  await importer.getByRole("button", { name: "Ler planilha" }).click();
+  await expect(importer.getByText("Fora da seleção").first()).toBeVisible();
+  await importer.getByRole("button", { name: "Criar 2 lançamentos com 2 itens" }).click();
+  await expect(page.getByText(/2 lançamentos criados, 2 itens/)).toBeVisible();
+  // O banco é compartilhado com os outros testes: confere só as datas desta planilha.
+  // Em 20/11 entrou só a Respondente A (1804); a B (1790) ficou de fora.
+  const created = page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ });
+  await expect(created.filter({ hasText: "20/11/2026" })).toHaveCount(1);
+  await expect(created.filter({ hasText: "27/11/2026" })).toHaveCount(1);
 });

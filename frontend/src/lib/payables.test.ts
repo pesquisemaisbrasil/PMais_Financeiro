@@ -19,6 +19,7 @@ import {
   replacedMessage,
   replacesNote,
   scheduleText,
+  schedulesText,
   formatCnpj,
   inssAmount,
   itemPaymentLabel,
@@ -180,31 +181,68 @@ describe("provisão substituída", () => {
 });
 
 describe("cronograma para o projeto", () => {
+  const health = {
+    id: 1,
+    code: "1804",
+    title: "Pesquisa",
+    projectType: "Health",
+    deadlineDays: 10,
+    missingDeadline: false,
+    count: 3,
+    total: "600.00",
+  };
+  const given = {
+    id: 2,
+    code: "1790",
+    title: "Outra",
+    projectType: null,
+    deadlineDays: null,
+    missingDeadline: false,
+    count: 1,
+    total: "50.00",
+  };
+  const group = { projectId: 1, projectCode: "1804", projectTitle: "Pesquisa", classification: "PPlus · Consumo SP" };
+  const preview = {
+    kind: "incentivos" as const,
+    columns: ["projeto", "empresa"],
+    hasProjectColumn: true,
+    hasClassificationColumns: true,
+    projects: [health, given],
+    missingDeadline: false,
+    alreadyImported: false,
+    total: "650.00",
+    goodCount: 4,
+    errorCount: 0,
+    skippedCount: 0,
+    payableCount: 3,
+    lines: [],
+    groups: [
+      { ...group, payDate: "2026-11-16", surveyDates: ["2026-10-30"], count: 1, total: "200.00", source: "calculada pelo prazo" },
+      { ...group, payDate: "2026-11-20", surveyDates: [], count: 2, total: "400.00", source: "informada na planilha" },
+      { projectId: 2, projectCode: "1790", projectTitle: "Outra", classification: "MC · Consumo SP", payDate: "2026-11-09", surveyDates: [], count: 1, total: "50.00", source: "informada na planilha" },
+    ],
+  };
+
   it("lista cada data, com o prazo e o total", () => {
-    const text = scheduleText(
-      {
-        kind: "incentivos",
-        projectType: "Health",
-        deadlineDays: 10,
-        missingDeadline: false,
-        alreadyImported: false,
-        total: "600.00",
-        goodCount: 3,
-        errorCount: 0,
-        lines: [],
-        groups: [
-          { payDate: "2026-11-16", surveyDates: ["2026-10-30"], count: 1, total: "200.00", source: "calculada pelo prazo" },
-          { payDate: "2026-11-20", surveyDates: [], count: 2, total: "400.00", source: "informada na planilha" },
-        ],
-      },
-      "1804",
-      "Pesquisa"
-    );
+    const text = scheduleText(preview, health);
     expect(text).toContain("PRJ-1804 Pesquisa");
     expect(text).toContain("Prazo: 10 dias úteis depois da data da pesquisa (Health)");
     expect(text).toMatch(/- Pesquisas de 30\/10: 1 incentivo → pagar 16\/11 · R\$\s200,00 \(data calculada pelo prazo\)/);
     expect(text).toMatch(/- Pesquisas: 2 incentivos → pagar 20\/11/);
+    // a classificação aparece quando a planilha a trouxe em coluna
+    expect(text).toContain("(data calculada pelo prazo) · PPlus · Consumo SP");
     expect(text).toMatch(/Total: 3 incentivos · R\$\s600,00$/);
+    // as datas de outro projeto da mesma planilha não entram
+    expect(text).not.toContain("pagar 09/11");
+  });
+
+  it("um cronograma por projeto quando a planilha traz vários", () => {
+    const text = schedulesText(preview);
+    expect(text).toContain("PRJ-1804 Pesquisa");
+    expect(text).toContain("PRJ-1790 Outra");
+    expect(text).toContain("Datas de pagamento informadas na planilha.");
+    expect(text.split("Cronograma de pagamento dos incentivos")).toHaveLength(3);
+    expect(text).toMatch(/- Pesquisas: 1 incentivo → pagar 09\/11/);
   });
 });
 
