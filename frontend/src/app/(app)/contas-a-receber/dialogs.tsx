@@ -2,6 +2,7 @@
 
 import { Undo2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { AdjustmentsField } from "@/components/AdjustmentsField";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { ErrorBox, Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
@@ -44,7 +45,6 @@ import {
   deleteReceivable,
   getReceivable,
   listDelinquency,
-  netCents,
   receive,
   reverseReceipt,
   updateReceivable,
@@ -53,6 +53,14 @@ import {
   type ReceivableRow,
   type ReceivableSituation,
 } from "@/lib/receivables";
+import {
+  NET_ZERO_MESSAGE,
+  adjustmentTotals,
+  draftsFrom,
+  netText,
+  parseDrafts,
+  type AdjustmentDraft,
+} from "@/lib/adjustments";
 import { useFormAction } from "@/lib/use-form-action";
 
 const COLORS: Record<ReceivableSituation, "verde" | "azul" | "vermelho" | "ambar" | "cinza"> = {
@@ -84,6 +92,7 @@ export function NewReceivableDialog({
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
   const [recurrence, setRecurrence] = useState<RecurrenceState>(NO_RECURRENCE);
+  const [adjustments, setAdjustments] = useState<AdjustmentDraft[]>([]);
   const [form, setForm] = useState({
     customerId: "",
     projectId: "",
@@ -97,7 +106,6 @@ export function NewReceivableDialog({
     dueDate: addDays(today, 30),
     competence: today.slice(0, 7),
     amount: "",
-    withheld: "",
     documentType: "Sem documento",
     documentNumber: "",
     documentDate: "",
@@ -119,14 +127,17 @@ export function NewReceivableDialog({
   ].filter(Boolean);
 
   const gross = parseMoney(form.amount);
-  const held = form.withheld.trim() ? parseMoney(form.withheld) : "0.00";
-  const net = gross && held ? netCents(toCents(gross), toCents(held)) : null;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLocalError(null);
     if (!gross || Number(gross) === 0) return setLocalError("Informe um valor maior que zero.");
-    if (held === null) return setLocalError("Confira o valor dos abatimentos.");
+    const adjusted = parseDrafts(adjustments);
+    if (adjusted.error) return setLocalError(adjusted.error);
+    if (Number(netText(form.amount, adjustments)) <= 0) return setLocalError(NET_ZERO_MESSAGE);
+    if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
+      return setLocalError("Em título parcelado, lance acréscimos, descontos e impostos em cada parcela depois.");
+    }
     if (!form.projectId) return setLocalError("Informe o projeto da receita.");
     const required = [
       form.customerId,
@@ -142,7 +153,6 @@ export function NewReceivableDialog({
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
-    if (net !== null && net <= 0) return setLocalError("Os abatimentos precisam ser menores que o valor.");
     if (recurrence.repeat && !recurrence.rows) {
       return setLocalError("Clique em Simular para conferir as parcelas antes de salvar.");
     }
@@ -159,7 +169,7 @@ export function NewReceivableDialog({
           dueDate: form.dueDate,
           competence: form.competence || null,
           amount: gross,
-          withheld: held,
+          adjustments: adjusted.lines,
           documentType: form.documentType,
           documentNumber: form.documentNumber.trim() || null,
           documentDate: form.documentDate || null,
@@ -222,17 +232,10 @@ export function NewReceivableDialog({
             <Field label="Descrição *" id="r-desc">
               <Input id="r-desc" placeholder="Ex.: Pesquisa de satisfação · 1ª parcela" {...input("description")} />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Valor bruto (R$) *" id="r-valor">
-                <Input id="r-valor" inputMode="decimal" placeholder="0,00" autoFocus {...input("amount")} />
-              </Field>
-              <Field label="Abatimentos (R$)" id="r-abat" hint="Retenções lançadas junto da nota.">
-                <Input id="r-abat" inputMode="decimal" placeholder="0,00" {...input("withheld")} />
-              </Field>
-              <Field label="Líquido a receber" id="r-liq">
-                <Input id="r-liq" readOnly value={net !== null ? brl(net / 100) : "—"} />
-              </Field>
-            </div>
+            <Field label="Valor bruto (R$) *" id="r-valor">
+              <Input id="r-valor" inputMode="decimal" placeholder="0,00" autoFocus {...input("amount")} />
+            </Field>
+            <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Emissão *" id="r-emi">
                 <Input id="r-emi" type="date" {...input("issueDate")} />
@@ -556,10 +559,10 @@ function EditDialog({
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [adjustments, setAdjustments] = useState<AdjustmentDraft[]>(draftsFrom(row.adjustments));
   const [form, setForm] = useState({
     description: row.description,
     amount: row.amount.replace(".", ","),
-    withheld: row.withheld.replace(".", ","),
     dueDate: row.dueDate,
   });
   const input = (key: keyof typeof form) => ({
@@ -572,15 +575,17 @@ function EditDialog({
     event.preventDefault();
     setLocalError(null);
     const amount = parseMoney(form.amount);
-    const withheld = form.withheld.trim() ? parseMoney(form.withheld) : "0.00";
-    if (!amount || Number(amount) === 0 || withheld === null) return setLocalError("Confira os valores.");
+    if (!amount || Number(amount) === 0) return setLocalError("Confira o valor.");
     if (!form.description.trim() || !form.dueDate) return setLocalError("Preencha a descrição e o vencimento.");
+    const adjusted = parseDrafts(adjustments);
+    if (adjusted.error) return setLocalError(adjusted.error);
+    if (Number(netText(form.amount, adjustments)) <= 0) return setLocalError(NET_ZERO_MESSAGE);
     await run(async () => {
       onDone(
         await updateReceivable(row.id, {
           description: form.description,
           amount,
-          withheld,
+          adjustments: adjusted.lines,
           dueDate: form.dueDate,
         }),
       );
@@ -599,17 +604,15 @@ function EditDialog({
             <Field label="Descrição *" id="ed-desc">
               <Input id="ed-desc" {...input("description")} />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Valor bruto (R$) *" id="ed-valor">
                 <Input id="ed-valor" inputMode="decimal" {...input("amount")} />
-              </Field>
-              <Field label="Abatimentos (R$)" id="ed-abat">
-                <Input id="ed-abat" inputMode="decimal" {...input("withheld")} />
               </Field>
               <Field label="Vencimento *" id="ed-venc">
                 <Input id="ed-venc" type="date" {...input("dueDate")} />
               </Field>
             </div>
+            <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
@@ -695,7 +698,9 @@ export function DetailDialog({
               <dl className="grid gap-x-6 gap-y-2.5 text-[13px] sm:grid-cols-2">
                 {[
                   ["Valor bruto", brl(detail.amount)],
-                  ["Abatimentos", brl(detail.withheld)],
+                  ["(+) Acréscimos", brl(adjustmentTotals(detail.adjustments).acrescimo)],
+                  ["(−) Descontos", brl(adjustmentTotals(detail.adjustments).desconto)],
+                  ["(−) Impostos", brl(adjustmentTotals(detail.adjustments).imposto)],
                   ["Líquido a receber", brl(detail.net)],
                   ["Recebido", brl(detail.received)],
                   ["Pendente", brl(detail.pending)],
@@ -714,6 +719,18 @@ export function DetailDialog({
                   </div>
                 ))}
               </dl>
+              {detail.adjustments.length > 0 && (
+                <ul className="flex flex-col gap-1 text-[13px]">
+                  {detail.adjustments.map((item) => (
+                    <li key={item.id} className="flex justify-between gap-3">
+                      <span>
+                        {item.kind === "acrescimo" ? "(+)" : "(−)"} {item.description}
+                      </span>
+                      <span className="tabular-nums">{brl(item.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {detail.notes && <p className="rounded-xl bg-muted/60 p-3 text-[13px]">{detail.notes}</p>}
             </TabsContent>
             <TabsContent value="recebimentos" className="pt-3">

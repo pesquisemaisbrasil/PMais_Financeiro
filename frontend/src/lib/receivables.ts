@@ -1,3 +1,4 @@
+import type { Adjustment } from "./adjustments";
 import { fetchBlob, remove, request, send, type ExportFormat } from "./api";
 import { toCents, type PeriodMode, type SeriesInfo } from "./payables";
 
@@ -23,7 +24,6 @@ export interface ReceivableRow {
   categoryName: string;
   companyName: string;
   amount: string;
-  withheld: string;
   net: string;
   received: string;
   pending: string;
@@ -69,6 +69,7 @@ export interface ReceivableDetail extends ReceivableRow {
   notes: string | null;
   payments: Receipt[];
   events: { userName: string; text: string; createdAt: string }[];
+  adjustments: Adjustment[];
 }
 
 export interface DelinquencyBand {
@@ -159,11 +160,6 @@ export const DOCUMENT_TYPES: ReceivableDocument[] = ["Sem documento", "NF", "Fat
 export function daysLateText(days: number | null): string | null {
   if (days === null) return null;
   return `${days} ${days === 1 ? "dia" : "dias"} de atraso`;
-}
-
-/** Valor líquido que a pessoa vai receber, para mostrar enquanto digita (centavos, sem float). */
-export function netCents(amountCents: number, withheldCents: number): number {
-  return amountCents - withheldCents;
 }
 
 // ---- API ----

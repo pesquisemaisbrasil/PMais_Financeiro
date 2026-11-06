@@ -179,7 +179,7 @@ function Cell({ row, column }: { row: ReceivableRow; column: string }) {
       return (
         <TableCell className={numeric}>
           {brl(row.net)}
-          {Number(row.withheld) > 0 && (
+          {row.net !== row.amount && (
             <span className="block text-[11px] font-normal text-muted-foreground">
               bruto {brl(row.amount)}
             </span>
