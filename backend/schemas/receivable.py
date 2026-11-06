@@ -44,7 +44,7 @@ class ReceivableCreate(BaseModel):
     issueDate: date
     dueDate: date
     competence: Competence | None = None
-    # Bruto; o que se recebe é o líquido (bruto + acréscimos − descontos − impostos)
+    # Valor principal; o que se recebe é o líquido (principal + acréscimos − descontos − impostos)
     amount: Money
     adjustments: list[AdjustmentIn] = Field(default=[], max_length=60)
     notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None

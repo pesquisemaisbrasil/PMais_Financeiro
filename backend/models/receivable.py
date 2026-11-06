@@ -72,7 +72,7 @@ class Receivable(Base):
         Integer, ForeignKey("payable_series.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     seriesIndex = Column(Integer, nullable=True)
-    # Bruto. O líquido a receber é o bruto + acréscimos − descontos − impostos (`adjustments`).
+    # Valor principal. O líquido a receber é o principal + acréscimos − descontos − impostos.
     amount = Column(Numeric(12, 2), nullable=False)
     # Legado: os abatimentos viraram impostos em `adjustments` (migração d9e4f0a5b3c2). Já não é
     # lido nem gravado; a coluna sai numa migração futura, depois de um tempo em produção.

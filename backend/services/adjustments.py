@@ -17,7 +17,7 @@ def total(rows: Iterable[Any], kind: str) -> Decimal:
 
 
 def net(amount: Decimal, rows: Iterable[Any]) -> Decimal:
-    """O valor líquido: o bruto mais os acréscimos, menos descontos e impostos."""
+    """O valor líquido: o valor principal mais os acréscimos, menos descontos e impostos."""
     rows = list(rows)
     return amount + total(rows, "acrescimo") - total(rows, "desconto") - total(rows, "imposto")
 

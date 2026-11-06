@@ -73,7 +73,7 @@ def received_amount(receivable: Receivable) -> Decimal:
 
 
 def net_amount(receivable: Receivable) -> Decimal:
-    """O que de fato se recebe: o bruto mais os acréscimos, menos descontos e impostos."""
+    """O que de fato se recebe: o valor principal + acréscimos − descontos − impostos."""
     return adj.net(receivable.amount, receivable.adjustments)
 
 
@@ -470,7 +470,7 @@ def _export_table(
         "Empresa",
         "Situação",
         "Dias de atraso",
-        "Bruto",
+        "Valor principal",
         "Acréscimos",
         "Descontos",
         "Impostos",

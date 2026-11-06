@@ -1,6 +1,7 @@
 """Acréscimos, descontos e impostos de uma conta, lançados um a um (descrição e valor).
 
-O valor líquido é o bruto + acréscimos − descontos − impostos. Vale para Contas a pagar e a receber.
+O valor líquido é o valor principal + acréscimos − descontos − impostos.
+Vale para Contas a pagar e a receber.
 """
 
 from decimal import Decimal

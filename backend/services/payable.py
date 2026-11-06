@@ -521,7 +521,7 @@ def _export_table(
         "Forma",
         "Empresa",
         "Situação",
-        "Valor bruto",
+        "Valor principal",
         "Acréscimos",
         "Descontos",
         "Impostos",

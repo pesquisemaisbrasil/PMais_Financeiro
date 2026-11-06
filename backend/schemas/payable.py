@@ -176,7 +176,7 @@ class PayableRow(BaseModel):
     costCenterName: str
     paymentMethodName: str
     companyName: str
-    # o valor líquido (o que de fato se paga); o bruto vem em grossAmount
+    # o valor líquido (o que de fato se paga); o valor principal vem em grossAmount
     amount: Decimal
     grossAmount: Decimal
     paid: Decimal
