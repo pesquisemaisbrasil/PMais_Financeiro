@@ -2,7 +2,8 @@
 
 import type { ReactNode } from "react";
 import { SituationTag } from "@/components/finance";
-import { brl, formatCompetence, formatDate, formatDateTime, settlement, shareText, type PayableDetail } from "@/lib/payables";
+import { adjustmentTotals, type AdjustmentKind } from "@/lib/adjustments";
+import { brl, formatCompetence, formatDate, formatDateTime, paymentExtras, shareText, type PayableDetail } from "@/lib/payables";
 
 /** Rótulo à direita e valor ao lado, em blocos separados por um espaço, como no sistema antigo. */
 function Group({ children }: { children: ReactNode }) {
@@ -25,10 +26,21 @@ function Row({ label, children }: { label: string; children?: ReactNode }) {
   );
 }
 
+function AdjustmentLines({ items }: { items: PayableDetail["adjustments"] }) {
+  if (!items.length) return null;
+  return (
+    <span className="block text-xs font-normal text-muted-foreground">
+      {items.map((item) => `${item.description} ${brl(item.amount)}`).join(" · ")}
+    </span>
+  );
+}
+
 const by = (when: string, name: string | null) => `${formatDateTime(when)}${name ? ` - por ${name}` : ""}`;
 
 export function DetailFields({ payable }: { payable: PayableDetail }) {
-  const money = settlement(payable);
+  const totals = adjustmentTotals(payable.adjustments);
+  const extras = paymentExtras(payable.payments);
+  const lines = (kind: AdjustmentKind) => payable.adjustments.filter((a) => a.kind === kind);
   const document = [payable.documentType, payable.documentNumber].filter(Boolean).join(" ");
   return (
     <div className="flex flex-col gap-4">
@@ -90,10 +102,22 @@ export function DetailFields({ payable }: { payable: PayableDetail }) {
       </Group>
 
       <Group>
-        <Row label="Valor bruto">{brl(money.gross)}</Row>
-        <Row label="(+) Acréscimos">{brl(money.surcharge)}</Row>
-        <Row label="(−) Descontos">{brl(money.discount)}</Row>
-        <Row label="Valor líquido">{brl(money.net)}</Row>
+        <Row label="Valor bruto">{brl(payable.grossAmount)}</Row>
+        <Row label="(+) Acréscimos">
+          {brl(totals.acrescimo)}
+          <AdjustmentLines items={lines("acrescimo")} />
+        </Row>
+        <Row label="(−) Descontos">
+          {brl(totals.desconto)}
+          <AdjustmentLines items={lines("desconto")} />
+        </Row>
+        <Row label="(−) Impostos">
+          {brl(totals.imposto)}
+          <AdjustmentLines items={lines("imposto")} />
+        </Row>
+        <Row label="Valor líquido">{brl(payable.amount)}</Row>
+        {Number(extras.surcharge) > 0 && <Row label="Juros e multa nas baixas">{brl(extras.surcharge)}</Row>}
+        {Number(extras.discount) > 0 && <Row label="Descontos nas baixas">{brl(extras.discount)}</Row>}
         <Row label="Pago">{brl(payable.paid)}</Row>
         <Row label="Pendente">{brl(payable.pending)}</Row>
       </Group>

@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { AdjustmentsField } from "@/components/AdjustmentsField";
 import { ProjectSplit } from "@/components/ProjectSplit";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import {
@@ -63,6 +64,13 @@ import {
   type Reference,
   type ReplacementCandidate,
 } from "@/lib/payables";
+import {
+  NET_ZERO_MESSAGE,
+  draftsFrom,
+  netText,
+  parseDrafts,
+  type AdjustmentDraft,
+} from "@/lib/adjustments";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { DetailFields } from "./detail-fields";
@@ -90,6 +98,7 @@ export function NewPayableDialog({
   const [recurrence, setRecurrence] = useState<RecurrenceState>(NO_RECURRENCE);
   // A divisão do valor entre projetos, linha a linha. Vazia = vale o campo Projeto.
   const [split, setSplit] = useState<AllocationRow[]>([]);
+  const [adjustments, setAdjustments] = useState<AdjustmentDraft[]>([]);
   const [form, setForm] = useState({
     issueDate: today,
     dueDate: addDays(today, 7),
@@ -133,6 +142,12 @@ export function NewPayableDialog({
     setLocalError(null);
     const amount = parseMoney(form.amount);
     if (!amount || Number(amount) === 0) return setLocalError("Informe um valor maior que zero.");
+    const adjusted = parseDrafts(adjustments);
+    if (adjusted.error) return setLocalError(adjusted.error);
+    if (Number(netText(form.amount, adjustments)) <= 0) return setLocalError(NET_ZERO_MESSAGE);
+    if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
+      return setLocalError("Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois.");
+    }
     const required = [
       form.isProvision || form.supplierId,
       form.categoryId,
@@ -181,6 +196,7 @@ export function NewPayableDialog({
         docsReceivedOn: form.docsReceivedOn || null,
         isTransfer: form.isTransfer,
         notes: form.notes.trim() || null,
+        adjustments: adjusted.lines,
     };
     await run(async () => {
       if (recurrence.repeat && recurrence.rows && recurrence.simulated) {
@@ -221,10 +237,11 @@ export function NewPayableDialog({
               <Field label="Vencimento *" id="p-venc">
                 <Input id="p-venc" type="date" {...input("dueDate")} />
               </Field>
-              <Field label="Valor (R$) *" id="p-valor">
+              <Field label="Valor bruto (R$) *" id="p-valor">
                 <Input id="p-valor" inputMode="decimal" placeholder="0,00" autoFocus {...input("amount")} />
               </Field>
             </div>
+            <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />
             <div className="flex items-center gap-2 text-xs">
               <Checkbox
                 id="p-prov"
@@ -1354,9 +1371,10 @@ function EditForm({
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [adjustments, setAdjustments] = useState<AdjustmentDraft[]>(draftsFrom(payable.adjustments));
   const [form, setForm] = useState({
     description: payable.description,
-    amount: toField(payable.amount),
+    amount: toField(payable.grossAmount),
     dueDate: payable.dueDate,
     supplierId: payable.supplierId ? String(payable.supplierId) : "",
     categoryId: String(payable.categoryId),
@@ -1384,6 +1402,9 @@ function EditForm({
     const parsed = parseMoney(form.amount);
     if (!parsed || Number(parsed) === 0) return setLocalError("Informe o valor.");
     if (!form.description.trim() || !form.dueDate) return setLocalError("Preencha a descrição e o vencimento.");
+    const adjusted = parseDrafts(adjustments);
+    if (adjusted.error) return setLocalError(adjusted.error);
+    if (editSupplier && Number(netText(form.amount, adjustments)) <= 0) return setLocalError(NET_ZERO_MESSAGE);
     if (editSupplier && !form.supplierId && payable.type === "real") return setLocalError("Escolha o fornecedor.");
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
@@ -1405,6 +1426,8 @@ function EditForm({
           competence: form.competence || null,
           docsReceivedOn: form.docsReceivedOn || null,
           notes: form.notes.trim() || null,
+          // conta com pessoas não tem acréscimos, descontos nem impostos
+          ...(editSupplier ? { adjustments: adjusted.lines } : {}),
         })
       )
     );
@@ -1417,7 +1440,7 @@ function EditForm({
         <Input id="e-desc" maxLength={255} {...input("description")} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Valor (R$)" id="e-valor">
+        <Field label="Valor bruto (R$)" id="e-valor">
           <Input id="e-valor" inputMode="decimal" {...input("amount")} />
         </Field>
         <Field label="Vencimento" id="e-venc">
@@ -1427,6 +1450,7 @@ function EditForm({
           <Input id="e-comp" type="month" {...input("competence")} />
         </Field>
       </div>
+      {editSupplier && <AdjustmentsField drafts={adjustments} onChange={setAdjustments} gross={form.amount} />}
       <div className="grid gap-3 sm:grid-cols-2">
         {editSupplier && (
           <Field label="Fornecedor" id="e-forn">

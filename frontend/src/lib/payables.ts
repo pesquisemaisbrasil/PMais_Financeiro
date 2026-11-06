@@ -99,7 +99,9 @@ export interface PayableRow {
   costCenterName: string;
   paymentMethodName: string;
   companyName: string;
+  // o valor líquido: o que de fato se paga. O bruto vem em grossAmount
   amount: string;
+  grossAmount: string;
   paid: string;
   pending: string;
   docsLate: boolean;
@@ -168,6 +170,8 @@ export interface PayableEvent {
   createdAt: string;
 }
 
+import type { Adjustment } from "./adjustments";
+
 export interface Attachment {
   id: number;
   name: string;
@@ -198,6 +202,7 @@ export interface PayableDetail extends PayableRow {
   payments: Payment[];
   events: PayableEvent[];
   attachments: Attachment[];
+  adjustments: Adjustment[];
 }
 
 interface Named {
@@ -376,23 +381,16 @@ export function shareText(amount: string, total: string): string {
   return `${share.toFixed(2).replace(".", ",")}%`;
 }
 
-/** Valor da conta com o que as baixas somaram (juros e multa) ou tiraram (desconto). */
-export function settlement(payable: Pick<PayableDetail, "amount" | "payments">): {
-  gross: string;
+/** Juros, multa e desconto que as baixas que valem somaram ou tiraram (estornada não conta). */
+export function paymentExtras(payments: Pick<Payment, "kind" | "reversed" | "surcharge" | "discount">[]): {
   surcharge: string;
   discount: string;
-  net: string;
 } {
-  const live = payable.payments.filter((p) => p.kind === "pagamento" && !p.reversed);
-  const surcharge = live.reduce((sum, p) => sum + toCents(p.surcharge), 0);
-  const discount = live.reduce((sum, p) => sum + toCents(p.discount), 0);
-  const gross = toCents(payable.amount);
+  const live = payments.filter((p) => p.kind === "pagamento" && !p.reversed);
   const text = (cents: number) => (cents / 100).toFixed(2);
   return {
-    gross: text(gross),
-    surcharge: text(surcharge),
-    discount: text(discount),
-    net: text(gross + surcharge - discount),
+    surcharge: text(live.reduce((sum, p) => sum + toCents(p.surcharge), 0)),
+    discount: text(live.reduce((sum, p) => sum + toCents(p.discount), 0)),
   };
 }
 
