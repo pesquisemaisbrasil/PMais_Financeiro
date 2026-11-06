@@ -1122,7 +1122,7 @@ function PayablesContent() {
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, project: value })))}
           />
           <FilterSelect
-            label="Categoria"
+            label="Plano de contas"
             value={filters.category ?? ""}
             options={(reference ? expenseCategories(reference) : []).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, category: value })))}

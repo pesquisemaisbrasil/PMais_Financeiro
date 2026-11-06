@@ -32,6 +32,7 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   // Filtros combinados: cliente e situação
   await page.getByRole("button", { name: /^Total/ }).click();
   await page.getByRole("button", { name: /^Filtros/ }).click();
+  await expect(page.getByRole("combobox", { name: "Plano de contas" })).toBeVisible();
   // A lista de opções fica aberta enquanto se marca: Esc fecha
   await page.getByRole("combobox", { name: "Cliente" }).click();
   await page.getByRole("option", { name: "Beta" }).click();

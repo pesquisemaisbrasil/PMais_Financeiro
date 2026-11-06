@@ -727,7 +727,7 @@ export default function ReceivablesPage() {
               onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, project: value })))}
             />
             <FilterSelect
-              label="Conta de receita"
+              label="Plano de contas"
               value={filters.category ?? ""}
               options={(reference ? revenueCategories(reference) : []).map((c) => ({
                 id: c.id,

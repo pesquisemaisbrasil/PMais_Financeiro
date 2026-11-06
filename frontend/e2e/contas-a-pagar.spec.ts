@@ -211,6 +211,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   // Os filtros novos mudam a lista, e limpar volta tudo
   await page.getByRole("button", { name: /^Filtros/ }).click();
   const panel = page.getByRole("dialog", { name: "Filtros" });
+  await expect(panel.getByRole("combobox", { name: "Plano de contas" })).toBeVisible();
   await panel.getByRole("combobox", { name: "Tipo" }).click();
   await page.getByRole("option", { name: "Provisão" }).click();
   // Mais de uma opção no mesmo filtro: a lista fica aberta, e marcar "Conta real" junto traz tudo
