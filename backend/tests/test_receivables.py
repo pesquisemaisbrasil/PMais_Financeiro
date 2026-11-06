@@ -370,6 +370,65 @@ def test_filters_combine_as_an_intersection_and_clearing_brings_everything_back(
     assert listing(client, auth)["total"] == 4
 
 
+def test_each_filter_takes_several_options_or_inside_and_between_filters(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, dueDate=days(-5), description="Alfa vencida")
+    create(
+        client,
+        auth,
+        world,
+        dueDate=days(-5),
+        customerId=world["other_customer"].id,
+        description="Beta vencida",
+    )
+    create(
+        client,
+        auth,
+        world,
+        dueDate=days(9),
+        projectId=world["other_project"].id,
+        description="Outro projeto",
+    )
+    alfa, beta = world["customer"].id, world["other_customer"].id
+
+    assert listing(client, auth, customer=beta)["total"] == 1
+    assert listing(client, auth, customer=f"{alfa},{beta}")["total"] == 3  # "ou" dentro do filtro
+    assert listing(client, auth, situation="vencido,a_vencer")["total"] == 3
+    assert listing(client, auth, situation="a_vencer,hoje")["total"] == 1
+    both_projects = f"{world['project'].id},{world['other_project'].id}"
+    assert listing(client, auth, project=both_projects)["total"] == 3
+    # "e" entre filtros
+    assert listing(client, auth, customer=f"{alfa},{beta}", situation="vencido")["total"] == 2
+    assert listing(client, auth, customer=beta, project=world["project"].id)["total"] == 1
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["customer=abc", "project=1,x", "company=0", "situation=vencido,errada", "unit=99999999999"],
+)
+def test_filter_lists_with_bad_values_are_refused(
+    client: TestClient, auth: dict[str, str], query: str
+) -> None:
+    response = client.get(f"/receivables?{query}", headers=auth)
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Filtro inválido"
+
+
+def test_export_names_every_chosen_option(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, dueDate=days(-5))
+    ids = f"{world['customer'].id},{world['other_customer'].id}"
+    first_line = (
+        client.get(f"/receivables/export?customer={ids}&situation=vencido,parcial", headers=auth)
+        .text.lstrip("﻿")
+        .splitlines()[0]
+    )
+    assert "situação=Vencida ou Parcial" in first_line
+    assert " ou " in first_line.split("cliente=")[1].split(",")[0]
+
+
 def test_company_period_and_keyword_filters(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:

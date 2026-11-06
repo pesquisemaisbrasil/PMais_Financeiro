@@ -864,6 +864,88 @@ def test_filter_by_unit_kind_and_situation(
     assert client.get("/payables?situation=errada", headers=auth).status_code == 422
 
 
+def test_each_filter_takes_several_options_or_inside_and_between_filters(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    other_unit = BusinessUnit(company_id=world["company"].id, name="Health")
+    db_session.add(other_unit)
+    db_session.commit()
+    on = today()
+    both_projects = [
+        {"projectId": world["project"].id, "amount": "100.00"},
+        {"projectId": world["other_project"].id, "amount": "100.00"},
+    ]
+    create(
+        client,
+        auth,
+        world,
+        amount="200.00",
+        dueDate=(on - timedelta(days=1)).isoformat(),
+        allocations=both_projects,
+    )
+    create(
+        client,
+        auth,
+        world,
+        amount="200.00",
+        unitId=other_unit.id,
+        allocations=[{"projectId": world["other_project"].id, "amount": "200.00"}],
+    )
+    create(client, auth, world, amount="300.00", type="provisao")
+
+    def total(query: str) -> int:
+        return client.get(f"/payables?mode=tudo&{query}", headers=auth).json()["total"]
+
+    unit, other = world["unit"].id, other_unit.id
+    assert total(f"unit={other}") == 1
+    assert total(f"unit={unit},{other}") == 3  # "ou" dentro do filtro
+    assert total("situation=vencido,hoje") == 3
+    assert total("situation=vencido,devolvido") == 1
+    assert total("kind=real,provisao") == 3
+    assert total(f"project={world['project'].id}") == 1
+    # Um título rateado em dois projetos aparece uma vez só, não duas.
+    assert total(f"project={world['project'].id},{world['other_project'].id}") == 2
+    # "e" entre filtros: das 3 contas, só uma é da unidade Health e está vencida.
+    assert total(f"unit={unit},{other}&situation=vencido") == 1
+    assert total(f"unit={other}&situation=vencido") == 0
+    # Repetido e com espaço vale como uma opção só.
+    assert total(f"unit={other},{other}") == 1
+    assert total(f"unit={other}%2C") == 1
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "unit=abc",
+        "unit=1,x",
+        "unit=0",
+        "unit=-3",
+        "unit=99999999999",
+        "situation=vencido,errada",
+        "kind=real,outro",
+        f"project={','.join(str(n) for n in range(1, 52))}",
+    ],
+)
+def test_filter_lists_with_bad_values_are_refused(
+    client: TestClient, auth: dict[str, str], query: str
+) -> None:
+    response = client.get(f"/payables?{query}", headers=auth)
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Filtro inválido"
+
+
+def test_export_names_every_chosen_option(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world)
+    query = f"project={world['project'].id},{world['other_project'].id}&situation=hoje,vencido"
+    first_line = (
+        client.get(f"/payables/export?{query}", headers=auth).text.lstrip("﻿").splitlines()[0]
+    )
+    assert "situação=Vence hoje ou Vencida" in first_line
+    assert " ou " in first_line.split("projeto=")[1].split(",")[0]
+
+
 def test_period_can_follow_payment_date_or_competence(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
