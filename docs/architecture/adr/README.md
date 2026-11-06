@@ -14,3 +14,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0008](0008-ler-planilha-com-openpyxl.md) | Ler planilha com openpyxl | Aceito |
 | [0009](0009-padroes-de-outras-bibliotecas-em-shadcn.md) | Padrões do Ant Design, MUI X e Mantine feitos em shadcn | Aceito |
 | [0010](0010-minio-pelo-build-da-chainguard.md) | Manter o MinIO, pelo build da Chainguard fixo por digest | Aceito (provisório) |
+| [0011](0011-fastapi-e-starlette-novos-fora-da-versao-do-connect.md) | FastAPI 0.162.0 e Starlette 1.10.0, fora da versão do Connect | Aceito |

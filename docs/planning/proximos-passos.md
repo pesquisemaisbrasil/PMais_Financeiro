@@ -9,7 +9,7 @@
 | Login por senha com MFA, Google e Microsoft | Entregue. Google funcionando; Microsoft configurada, falta o João liberar o teste (autenticador dele) |
 | Identificador fixo do SSO (PF-49) | Entregue |
 | Inventário de dados e ROPA do login (PF-55) | Escritos; falta o DPO definir o prazo de guarda (Q26) |
-| Corpo grande em `/auth` (PF-52) | Mitigado com limite de 16 KB; falta subir o FastAPI para fechar o alerta do `pip-audit` |
+| Corpo grande em `/auth` (PF-52) | **Entregue** em 06/11/2026: FastAPI 0.162.0 e Starlette 1.10.0 ([ADR 0011](../architecture/adr/0011-fastapi-e-starlette-novos-fora-da-versao-do-connect.md)), `pip-audit` sem exceções; o `pypdf` também subiu (7 avisos). Falta avisar o Connect e rodar a simulação de CI em Linux antes do push |
 | Pedidos simultâneos de login em Postgres (PF-54) | Teste escrito e provado localmente (falha sem o `FOR UPDATE`); falta rodar no CI, que passa a ter o passo novo em `tests.yml` |
 | Início e Contas a pagar | Entregue: lista, filtros, importar planilha, detalhes por pessoa, menu lateral em 4 seções e recorrência (PF-57) |
 | Comprovantes e baixa (PF-56) | **Entregue** com o Connect simulado ([spec](../specs/comprovantes-e-baixa.md), [como testar](roadmap.md)) |
@@ -44,7 +44,7 @@ Em ordem sugerida:
 7. **Débitos pequenos:**
    - ~~corrigir o handoff/07 §7~~ feito em 06/11/2026;
    - ~~cache `.next` separado para o E2E~~ feito em 06/11/2026 (`NEXT_DIST_DIR`);
-   - subir o FastAPI em PR próprio, combinado com o Connect (PF-52);
+   - ~~subir o FastAPI~~ feito em 06/11/2026 (PF-52); falta combinar com o time do Connect, que segue na 0.118.3;
    - ~~quadro do PF-1~~ arrumado em 06/11/2026: PF-20 a 23, 30 a 32 em Feito; PF-25 a 28 fechadas **sem execução** (escopo reduzido do PF-18) e PF-34/35 também **sem execução** (reunião das 11 bases e pedido de exportação ao fornecedor do SGE4B: a migração fica para mais adiante, e o pedido sai junto com ela); cada uma tem comentário dizendo isso. PF-19 e o épico PF-1 fechados;
    - épicos novos no Jira: PF-59 (Contas a receber, fatias 1 e 2 em Feito, fatia 3 em PF-65), PF-60 (Notas e RPA), PF-61 (Conferência bancária) e PF-62 (Relatórios e fluxo de caixa).
 

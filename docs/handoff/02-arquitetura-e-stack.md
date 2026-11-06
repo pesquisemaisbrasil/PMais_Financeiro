@@ -28,8 +28,8 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | Pacote | Versão | Para quê |
 |---|---|---|
 | Python | **3.11** (imagem `python:3.11-slim` e CI). Local aceita 3.12 | — |
-| fastapi | 0.118.3 | API |
-| starlette | 0.48.0 | base do FastAPI (fixada à parte) |
+| fastapi | 0.162.0 | API (o Connect segue na 0.118.3: ver [ADR 0011](../architecture/adr/0011-fastapi-e-starlette-novos-fora-da-versao-do-connect.md)) |
+| starlette | 1.10.0 | base do FastAPI (fixada à parte) |
 | uvicorn | 0.34.2 | servidor ASGI |
 | SQLAlchemy | **1.4.39** | ORM, **estilo legado `db.query(...)`** (não use `select()` 2.0) |
 | psycopg2-binary | 2.9.10 | driver Postgres |
