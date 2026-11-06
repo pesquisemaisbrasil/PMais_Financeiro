@@ -295,9 +295,14 @@ export function listPayables(query: PayableQuery): Promise<PayableList> {
   return request<PayableList>(`/payables?${params}`);
 }
 
-/** Tudo o que os filtros trazem, sem paginar, em CSV. */
-export async function exportPayables(query: PayableQuery): Promise<Blob> {
-  const response = await fetchWithAuth(`/payables/export?${payableParams(query)}`);
+/** Os dois formatos da exportação das listas: Excel e CSV (para outros sistemas). */
+export type ExportFormat = "xlsx" | "csv";
+
+/** Tudo o que os filtros trazem, sem paginar, em Excel ou CSV. */
+export async function exportPayables(query: PayableQuery, format: ExportFormat = "xlsx"): Promise<Blob> {
+  const params = payableParams(query);
+  params.set("format", format);
+  const response = await fetchWithAuth(`/payables/export?${params}`);
   return response.blob();
 }
 

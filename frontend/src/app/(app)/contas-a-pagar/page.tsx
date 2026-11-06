@@ -34,6 +34,12 @@ import { PeriodPicker } from "@/components/PeriodPicker";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,6 +49,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ApiError,
+  type ExportFormat,
   cancelSeries,
   editSeries,
   exportPayables,
@@ -564,13 +571,13 @@ function PayablesContent() {
     }
   }
 
-  async function exportList() {
+  async function exportList(format: ExportFormat) {
     setExporting(true);
     try {
-      const url = URL.createObjectURL(await exportPayables(query));
+      const url = URL.createObjectURL(await exportPayables(query, format));
       const link = document.createElement("a");
       link.href = url;
-      link.download = `contas-a-pagar-${data?.today ?? "lista"}.csv`;
+      link.download = `contas-a-pagar-${data?.today ?? "lista"}.${format}`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
@@ -720,10 +727,18 @@ function PayablesContent() {
                 </span>
               )}
             </Button>
-            <Button variant="outline" className="h-9 gap-2 bg-card font-normal" disabled={exporting} onClick={exportList}>
-              <Download size={16} />
-              {exporting ? "Exportando…" : "Exportar"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="h-9 gap-2 bg-card font-normal" disabled={exporting}>
+                  <Download size={16} />
+                  {exporting ? "Exportando…" : "Exportar"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onSelect={() => exportList("xlsx")}>Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => exportList("csv")}>CSV (para outros sistemas)</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" className="h-9 gap-2 bg-card font-normal" onClick={() => setChoosingColumns(true)}>
               <Columns3 size={16} />
               Colunas

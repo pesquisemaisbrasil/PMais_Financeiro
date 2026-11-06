@@ -1,4 +1,4 @@
-import { fetchBlob, remove, request, send } from "./api";
+import { fetchBlob, remove, request, send, type ExportFormat } from "./api";
 import { toCents, type PeriodMode, type SeriesInfo } from "./payables";
 
 // ---- Tipos (iguais aos do backend: schemas/receivable.py) ----
@@ -201,10 +201,11 @@ export function listReceivables(query: ReceivableQuery): Promise<ReceivableList>
   return request<ReceivableList>(`/receivables?${receivableParams(query)}`);
 }
 
-/** Tudo o que os filtros trazem, sem paginar, em CSV. */
-export function exportReceivables(query: ReceivableQuery): Promise<Blob> {
+/** Tudo o que os filtros trazem, sem paginar, em Excel ou CSV. */
+export function exportReceivables(query: ReceivableQuery, format: ExportFormat = "xlsx"): Promise<Blob> {
   const params = receivableParams(query);
   params.delete("page");
+  params.set("format", format);
   return fetchBlob(`/receivables/export?${params}`);
 }
 
