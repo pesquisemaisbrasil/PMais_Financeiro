@@ -19,10 +19,10 @@ Ordem dos módulos do Financeiro e o estado de cada um. O que fazer agora e o qu
 
 | # | Módulo | Specs | Depende de | Estado |
 |---|---|---|---|---|
-| 0 | Fundação do repositório | [handoff/11 fase 0](../handoff/11-plano-de-implementacao.md) | — | em andamento: login com MFA e SSO, CI, compose e componentes entregues; faltam o armazenamento de arquivos (Q18) e AGENTS.md, skills e revisores (PF-11) |
+| 0 | Fundação do repositório | [handoff/11 fase 0](../handoff/11-plano-de-implementacao.md) | — | em andamento: login com MFA e SSO, CI, compose e componentes entregues; o armazenamento de arquivos entrou com os anexos das contas (provisório, [ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrados-por-arquivo.md); a escolha final segue na Q18); faltam AGENTS.md, skills e revisores (PF-11) |
 | 1 | Pagamento de entrevistadores | acesso-e-auditoria, pagamentos-a-pagar, comprovantes-e-baixa, integracao-com-o-connect | 0; API de integração no Connect | em andamento: comprovantes e baixa entregues com o Connect simulado (PF-56); faltam a planilha de pagamento e o cliente real do Connect |
 | 2 | Cadastros, papéis e migração | cadastros-e-dimensoes, papeis-e-escopo-ampliados | 0; exportação do SGE4B | specs prontos; falta a exportação |
-| 3 | Contas a pagar e a receber | contas-a-pagar, contas-a-receber, baixas-recorrencia-e-anexos, documentos-fiscais | 2 | em andamento: Início e primeira fatia do Contas a pagar na `homolog`; faltam importar planilha, anexos (Q18, Q19) e as ações listadas na spec |
+| 3 | Contas a pagar e a receber | contas-a-pagar, contas-a-receber, baixas-recorrencia-e-anexos, documentos-fiscais | 2 | em andamento: Início e primeira fatia do Contas a pagar na `homolog`; importar planilha, exportar, editar e anexos entregues; faltam o prazo de guarda dos anexos (Q5), o antivírus e as ações listadas na spec |
 | 4 | Projetos, orçamento e provisionamento | projetos-financeiros, orcamento-e-saude-financeira | 1, 3; categorias do orçamento no Connect (N4) | specs prontos |
 | 5 | Folha de campo e pagamento em lote | regras-de-pagamento-de-campo, folha-de-campo, lotes-de-pagamento-de-campo | 1, 3, 4; etapa 2 depende de N1 | specs prontos |
 | 6 | Conciliação bancária | bancos-e-conciliacao | 3 | specs prontos |
@@ -86,6 +86,7 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 14. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
 15. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
 16. **Abrir e editar a conta:** clique em qualquer lugar da linha (menos nos botões e na caixa de seleção) para abrir a conta. Em **Editar conta** mude fornecedor, categoria, centro de custo, forma de pagamento, documento, código de barras, competência, documentação recebida e observações; a aba **Baixas** mostra todas as baixas e estornos, e **Histórico** traz o antes e o depois de cada mudança.
+17. **Documentos da conta:** na conta aberta, aba **Documentos**: escolha um ou mais arquivos (PDF, JPG, PNG, XLSX, DOCX ou XML, até 20 MB). **Baixar** devolve o mesmo arquivo e o download aparece no **Histórico**; **Tirar** pede o motivo, e o arquivo continua guardado. Um arquivo de outro tipo (ou um .exe renomeado para .pdf) é recusado com o motivo. Sem o cofre configurado (`FILES_*` no `backend/.env`), a tela avisa que os anexos não estão disponíveis.
 
 Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em ambiente de teste. Em **Contas a pagar → Importar planilha**:
 

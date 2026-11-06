@@ -58,9 +58,9 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### D4. Onde guardar arquivos e se o PDF do comprovante fica guardado (Q18, Q19)
 
-- **Q18:** o MinIO foi arquivado no GitHub e as imagens oficiais saíram do ar. **Hoje** o ambiente local usa o build da Chainguard fixo por digest ([ADR 0010](../architecture/adr/0010-minio-pelo-build-da-chainguard.md)), provisório. É preciso escolher o substituto antes de produção.
+- **Q18:** o MinIO foi arquivado no GitHub e as imagens oficiais saíram do ar. **Hoje** o ambiente local usa o build da Chainguard fixo por digest ([ADR 0010](../architecture/adr/0010-minio-pelo-build-da-chainguard.md)), provisório. É preciso escolher o substituto antes de produção. **Desde 06/11/2026 o primeiro upload existe** (anexos das contas, via `boto3`, cifrado arquivo a arquivo; [ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrados-por-arquivo.md)): trocar de produto é trocar variáveis, mas faltam o usuário do bucket restrito ao bucket, o antivírus e o backup da `FILES_MASTER_KEY` (perdê-la perde todos os arquivos).
 - **Q19:** o kickoff de 03/11 pede o PDF anexado ao lançamento, mas as regras do projeto dizem que ele é lido e descartado. **Hoje** não guarda. **Proposta:** manter descartado até o DPO responder; se guardar, definir cofre e prazo (depende da Q18).
-- **Destrava:** anexos no Contas a pagar e no Contas a receber (nota fiscal do título).
+- **Já feito:** anexos no Contas a pagar. **Destrava:** anexos no Contas a receber (nota fiscal do título) e o prazo de guarda dos arquivos (Q5, F6, com o DPO).
 
 ### D5. Cancelar baixa e segregação de funções (Q4, Q8)
 

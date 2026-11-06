@@ -23,7 +23,7 @@ Nada disto anda sem uma resposta. A ordem é a de quem destrava mais coisa.
 |---|---|---|---|---|
 | 1 | **Datas e responsáveis das entregas 1 a 8 da API do Connect** ([entregas-do-connect](../specs/entregas-do-connect.md)). A pauta pronta para levar ao João está em [pauta-para-o-joao](pauta-para-o-joao.md) | João e o dev do Connect | A baixa de verdade, a planilha de pagamento, a sincronização do espelho | PF-58, PF-6 |
 | 2 | Q4 (cancelar baixa), Q18 a Q25 | João, DPO, financeiro | Cancelamento de baixa, onde guardar arquivos, regras de data e fornecedor | PF-58 |
-| 3 | **Q19 e Q5**: guardar ou não o PDF de comprovantes, e por quanto tempo | DPO | Hoje o PDF é só lido e descartado; se mudar, entra o armazenamento no MinIO | — |
+| 3 | **Q19 e Q5**: guardar ou não o PDF de comprovantes, e por quanto tempo | DPO | O fluxo de comprovante só lê e descarta o PDF. Os anexos manuais da conta já existem (ADR 0012), sem prazo de guarda | — |
 | 4 | **Q20**: a baixa exige reautenticação para quem entra por SSO? | João | Fecha a regra de MFA da confirmação | — |
 | 5 | **Q26**: prazo de guarda de `login_events` e `refresh_tokens` | DPO | Ligar a rotina de limpeza (já escrita) com os prazos aprovados e fechar o PF-55 | PF-55 |
 | 6 | **Regra do bloqueio de login** (10 falhas por hora por e-mail deixa qualquer um travar a conta de outra pessoa) | João e Vivi | PF-53 e PF-54 (teste de concorrência no CI) | PF-53, PF-54 |
@@ -44,6 +44,7 @@ Em ordem sugerida:
 7. **Débitos pequenos:**
    - ~~corrigir o handoff/07 §7~~ feito em 06/11/2026;
    - ~~cache `.next` separado para o E2E~~ feito em 06/11/2026 (`NEXT_DIST_DIR`);
+   - **anexos (ADR 0012), o que falta:** antivírus no gancho `scan()`, usuário do bucket restrito ao bucket, camada 2 (SSE via KES), rotina de troca da `FILES_MASTER_KEY`, separação por empresa, anexos no Contas a receber e um clipe com a contagem de documentos na lista;
    - ~~subir o FastAPI~~ feito em 06/11/2026 (PF-52); falta combinar com o time do Connect, que segue na 0.118.3;
    - ~~quadro do PF-1~~ arrumado em 06/11/2026: PF-20 a 23, 30 a 32 em Feito; PF-25 a 28 fechadas **sem execução** (escopo reduzido do PF-18) e PF-34/35 também **sem execução** (reunião das 11 bases e pedido de exportação ao fornecedor do SGE4B: a migração fica para mais adiante, e o pedido sai junto com ela); cada uma tem comentário dizendo isso. PF-19 e o épico PF-1 fechados;
    - épicos novos no Jira: PF-59 (Contas a receber, fatias 1 e 2 em Feito, fatia 3 em PF-65), PF-60 (Notas e RPA), PF-61 (Conferência bancária) e PF-62 (Relatórios e fluxo de caixa).

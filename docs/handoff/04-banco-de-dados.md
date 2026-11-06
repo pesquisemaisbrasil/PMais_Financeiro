@@ -207,6 +207,8 @@ Hoje o Connect **não** guarda o PDF de comprovante (ADR 0002) e **não** usa SS
 2. **SSE no MinIO via KES**: `put_object(..., ServerSideEncryption="aws:kms", SSEKMSKeyId=MINIO_SSE_KMS_KEY_ID)`.
 3. Download passa pela API (decifra e devolve), nunca URL pré-assinada direta, porque o objeto no bucket está cifrado pelo backend.
 
+**Hoje (06/11/2026, anexos das contas a pagar):** só a camada 1 existe, com a chave-mestra própria `FILES_MASTER_KEY` no lugar da `ENCRYPTION_KEY`, e a tabela é `payable_attachments` (não `stored_files`). Ver o [ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrados-por-arquivo.md).
+
 ## Tabelas de auditoria (append-only)
 
 Padrão do Connect: tabela própria por tipo de evento, só `INSERT`, FK de quem agiu com `RESTRICT`, docstring dizendo o porquê.
@@ -326,6 +328,8 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 **`payable_items`** ganhou `connect_interviewer_id` (Integer, nulo, sem FK) e `paidOn` (Date, nulo): a pessoa do lançamento agrupado no Connect e o dia do Pix que a pagou.
 
 **`payable_series`** (PF-57): `kind` (`mensal`|`semanal`|`parcelado`), `count`, `startDate`, `estimated`, `created_by_user_id` (SET NULL). `payables.series_id` (RESTRICT, nulo em conta avulsa) e `payables.seriesIndex` ligam cada ocorrência à série.
+
+**`payable_attachments`**: `payable_id` (RESTRICT), `name`, `contentType`, `size`, `fileKey` (único: o nome do objeto no bucket), `fileSha256`, `uploaded_by_user_id` (RESTRICT), `createdAt`, e a remoção lógica `deletedAt`, `deleted_by_user_id` (RESTRICT) e `deletedReason`. O arquivo cifrado mora no bucket, nunca no banco. A role da app não tem `DELETE` nesta tabela.
 
 **`payment_requests`** (no código, no lugar do `outbox_events` para a baixa): um pedido de baixa ao Connect por comprovante pago. `receipt_id` (RESTRICT, único), `paymentRef` (único, `fin-pay-NNNNNN`, é o `Idempotency-Key`), `status` (`pendente_envio → enviada → aplicada | recusada`), `attempts`, `lastError` (só o código do erro), `sentAt`, `appliedAt`. `receipt_batches.payable_id` (RESTRICT, nulo) liga o lote ao lançamento de onde o PDF foi enviado.
 

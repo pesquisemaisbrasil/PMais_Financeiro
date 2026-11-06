@@ -74,7 +74,7 @@ Contrato das três abas compartilhadas por contas a pagar e a receber: **Baixas*
 - [x] Simular 6 meses a partir de 31/01 gera vencimentos 31/01, 28/02 (ou 29), 31/03, 30/04, 31/05 e 30/06 (ajustados para dia útil).
 - [x] Mudar o valor da 3ª parcela com "só esta" mantém a 4ª–6ª; com "esta e as seguintes" muda a 3ª–6ª em aberto.
 - [ ] Incluir, renomear, baixar e excluir um comprovante deixa as 4 operações na trilha.
-- [ ] Enviar um .exe renomeado para .pdf é recusado.
+- [x] Enviar um .exe renomeado para .pdf é recusado.
 - [ ] Um Pix devolvido em 15/10 e pago de novo em 16/10 deixa o título com as duas baixas e a devolução; o relatório por data de baixa mostra a saída em 16/10.
 - [x] Uma conta de luz estimada em R$ 150 por 12 meses tem a ocorrência de outubro substituída por R$ 163,40, e as de novembro em diante continuam R$ 150.
 - [ ] Baixa em lote de 5 títulos grava 5 baixas iguais em data e conta.
@@ -82,7 +82,8 @@ Contrato das três abas compartilhadas por contas a pagar e a receber: **Baixas*
 ## Onde está no código
 
 - Recorrência (PF-57): `backend/services/recurrence.py`, `backend/models/payable.py` (`PayableSeries`), rotas em `backend/api/payables.py` (`/payables/recurrence`, `/payables/{id}/series`), tela em `frontend/src/app/(app)/contas-a-pagar/recurrence-fields.tsx` e `series-dialog.tsx`. Testes: `backend/tests/test_recurrence.py`, `frontend/e2e/recorrencia.spec.ts`.
-- Baixas e anexos: a criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- Anexos: `backend/core/file_vault.py` (cofre), `backend/services/attachments.py` (regras), `PayableAttachment` em `backend/models/payable.py`, rotas `/payables/{id}/attachments` em `backend/api/payables.py`, tela em `frontend/src/app/(app)/contas-a-pagar/documents-panel.tsx`. Testes: `backend/tests/test_file_vault.py` e a seção "Anexos" de `test_payables.py`; `frontend/e2e/contas-a-pagar.spec.ts`.
+- Baixas: a criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
 
 Origem do requisito:
 
@@ -99,3 +100,6 @@ Origem do requisito:
 - 2026-11-06: **recorrência estimada** (luz): marca a série como estimada; "só esta" troca uma ocorrência pelo valor real sem mexer nas seguintes. Provisão não tem série (422).
 - 2026-11-06: ficou de fora desta entrega: estender uma série (acrescentar ocorrências depois) e a baixa em lote por série.
 - 2026-11-06: a série (`payable_series`) e a simulação também servem ao Contas a receber, para parcelar a receita do projeto (ver [contas-a-receber](contas-a-receber.md)). O nome da tabela ficou como está para não migrar dado; a coluna `series_id` de `receivables` aponta para ela.
+- 2026-11-06 (anexos em Contas a pagar): a conta aberta ganhou a aba **Documentos**, com vários arquivos de uma vez. Vale o que a regra 6 pede, com os limites "a validar" mantidos: PDF, JPG, PNG, XLSX, DOCX e XML, até 20 MB cada e 50 por conta. O tipo é conferido pelo conteúdo, o XML não aceita DTD, e o mesmo arquivo (mesmo SHA-256) não entra duas vezes na conta, mas volta a ser aceito depois de tirado. O nome é guardado sem pasta e sem caractere de controle. Como a spec manda, cada arquivo vai cifrado para o cofre ([ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrados-por-arquivo.md)), o download só passa pela API, e **incluir, baixar e tirar** ficam no histórico da conta, com o motivo na remoção.
+- 2026-11-06: **ficou de fora dos anexos:** antivírus (o gancho existe e não recusa nada), renomear, separação por empresa (um bucket só por ora), prazo de guarda e rotina de limpeza (Q5, F6) e anexos no Contas a receber. Conta paga ou cancelada também aceita e perde documento, porque a prova de uma conta paga costuma chegar depois; tudo fica no histórico.
+- 2026-11-06: a regra 7 vale para o **fluxo de comprovante** (conciliar e dar baixa não guarda o PDF). O sistema não impede alguém de anexar à mão um PDF de comprovante na aba Documentos: isso é anexo comum, com a guarda ainda sem prazo (Q19, Q5).

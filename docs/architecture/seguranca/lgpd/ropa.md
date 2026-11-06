@@ -1,6 +1,6 @@
 # ROPA do Financeiro (registro das operações de tratamento)
 
-Modelo do ROPA do Connect. Bases legais **propostas**, a validar com o DPO. Por ora cobre o login, a leitura de comprovantes e os cadastros de cliente e fornecedor; as operações de pagamento, conciliação e comprovante entram quando cada módulo for entregue.
+Modelo do ROPA do Connect. Bases legais **propostas**, a validar com o DPO. Por ora cobre o login, a leitura de comprovantes, os cadastros de cliente e fornecedor e os documentos anexados às contas; as operações de pagamento, conciliação e comprovante entram quando cada módulo for entregue.
 
 Controlador: Pesquise+. Operador: nenhum terceiro além dos provedores de login (Google e Microsoft), que só confirmam a identidade da pessoa.
 
@@ -10,6 +10,7 @@ Controlador: Pesquise+. Operador: nenhum terceiro além dos provedores de login 
 | FIN-L2 | Registrar tentativas de login e sessões | Os mesmos | HMAC do e-mail digitado, IP mascarado, user-agent, motivo, data; hash do token de sessão | Limitar tentativas, detectar ataque e manter prova de acesso | Art. 7 IX e art. 46 (segurança); Marco Civil art. 15 (guarda de registro de acesso por 6 meses) | Ninguém | `login_events`: 6 meses. `refresh_tokens`: 30 dias após expirar |
 | FIN-C1 | Ler comprovante Pix e conciliar a baixa | Entrevistadores de campo (pessoas pagas) | Nome do recebedor (cifrado), hash e máscara da chave Pix, valor, data, ID da transação, id da pessoa no Connect | Dar baixa só no que foi pago, sem pagar duas vezes | Art. 7 V (execução de contrato) e art. 7 II (obrigação legal e prova de pagamento) | P+ Connect (recebe a baixa, sem dado pessoal novo) | A definir com o DPO (Q5, Q19) |
 | FIN-R1 | Cadastrar clientes e fornecedores e controlar o que se paga e se recebe deles | Pessoas de contato de empresas clientes e fornecedoras | Nome, telefone e e-mail do contato; CNPJ da empresa | Cobrar, pagar e falar com a empresa | Art. 7 V (execução de contrato) e art. 7 IX (legítimo interesse) | Ninguém fora da empresa | A definir com o DPO (Q5) |
+| FIN-A1 | Guardar documentos anexados às contas a pagar | Quem emitiu o documento (pessoas de contato de fornecedores, autônomos com RPA) | O arquivo cifrado (pode ter nome, documento e valores de quem emitiu; o sistema não lê o conteúdo), nome, tipo e tamanho do arquivo, quem anexou, baixou e tirou | Guardar a prova de cada conta (nota, boleto, contrato) | Art. 7 II (obrigação legal, guarda fiscal) e art. 7 V (execução de contrato) | Ninguém: só sai pela API do Financeiro, com download auditado | A definir com o DPO (Q5, F6). Nada apaga hoje |
 
 ## Medidas de segurança
 

@@ -15,6 +15,7 @@ O inventário completo e o ROPA são a PF-55. Enquanto eles não existem, cada d
 | Data da pesquisa de cada respondente, ligada ao nome | Planilha de incentivos | `payable_items` | Calcular a data de pagamento e devolver o cronograma ao projeto | A definir com o DPO (Q5) |
 | Contato do fornecedor: nome, telefone e e-mail | Tela de cadastros | `suppliers` | Falar com o fornecedor | A definir com o DPO (Q5) |
 | Quem alterou cada cadastro | Tela de cadastros | `record_events` | Auditoria | A definir com o DPO (Q5) |
+| Documentos anexados à conta (nota, boleto, contrato), com o nome do arquivo e quem anexou | Aba Documentos da conta | Arquivo cifrado no bucket `financeiro-arquivos`; dados do arquivo em `payable_attachments` | Guardar a prova de cada conta | A definir com o DPO (Q5, F6). Ver o [inventário](inventario-de-dados.md) |
 
 **O que a importação não guarda:** o arquivo, a chave Pix e o CPF. A chave Pix depende da Q22. O resumo do arquivo (`payables.importHash`) só serve para avisar quando a mesma planilha vier de novo e não permite recuperar o conteúdo.
 

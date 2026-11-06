@@ -24,3 +24,4 @@ Manter o MinIO, usando o build mantido pela **Chainguard** (`cgr.dev/chainguard/
 - Subir uma imagem nova é decisão consciente: troque o digest, rode `bash scripts/verify-delivery.sh` e o `docker compose up` do zero.
 - Em produção, a criptografia em duas camadas e o usuário restrito têm de existir antes do primeiro arquivo real (decisão 14).
 - A pergunta Q18 continua aberta para o João confirmar ou trocar de produto.
+- 06/11/2026: o primeiro upload entrou com os anexos das contas ([ADR 0012](0012-anexos-das-contas-cifrados-por-arquivo.md)). O usuário restrito ao bucket, prometido para este momento, **ainda não existe**: o ambiente local usa o administrador do compose.
