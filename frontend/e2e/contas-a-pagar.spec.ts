@@ -97,10 +97,20 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await choose(page, "Unidade *", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Pix");
-  await form.getByLabel("Dividir entre projetos (opcional)").fill("1804;1.000,00");
+  // Dividir entre projetos nos campos, sem digitar separador: a tela diz quanto falta
+  await form.getByRole("button", { name: "Adicionar projeto" }).click();
+  await form.getByRole("combobox", { name: "Projeto da linha 1" }).click();
+  await page.getByRole("option", { name: /PRJ-1804/ }).click();
+  await form.getByLabel("Valor da linha 1 (R$)").fill("1.000,00");
+  await expect(form.getByText(/Faltam R\$\s0,50 para fechar\./)).toBeVisible();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText(/somam R\$\s1\.000,00.*R\$\s1\.000,50/)).toBeVisible();
-  await form.getByLabel("Dividir entre projetos (opcional)").fill("1804;500,50\n1790;500,00");
+  // Colar da planilha com espaço (ou tabulação) vira os campos, para conferir antes de lançar
+  await form.getByText("Colar várias linhas da planilha").click();
+  await form.getByLabel("Linhas coladas da planilha").fill("1804 500,50\n1790 500,00");
+  await form.getByRole("button", { name: "Passar para os campos" }).click();
+  await expect(form.getByLabel("Valor da linha 2 (R$)")).toHaveValue("500,00");
+  await expect(form.getByText(/A divisão fecha com o valor da conta/)).toBeVisible();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(page.getByRole("row", { name: /Consultoria de teste/ })).toContainText("PRJ-1804, PRJ-1790");
   await expect(total).toContainText("6 contas");

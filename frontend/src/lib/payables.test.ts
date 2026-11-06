@@ -10,7 +10,10 @@ import {
   nextRange,
   occurrenceEdits,
   seriesLabel,
+  allocationDiff,
+  buildAllocations,
   parseAllocations,
+  parsePastedAllocations,
   parseMoney,
   periodLabel,
   toCents,
@@ -48,6 +51,65 @@ describe("parseMoney", () => {
 
   it.each(["", "abc", "R$ 10", "-5", "10,999", "1.23,00", "1,2,3"])("recusa %s", (text) => {
     expect(parseMoney(text)).toBeNull();
+  });
+});
+
+describe("divisão entre projetos nos campos da tela", () => {
+  it("aceita código e valor separados por espaço, tabulação ou ponto e vírgula", () => {
+    const expected = [
+      { projectId: "1", amount: "600,00" },
+      { projectId: "2", amount: "400,00" },
+    ];
+    for (const text of ["1804;600,00\n1790;400,00", "1804 600,00\n1790 400,00", "1804\t600,00\nPRJ-1790\t400,00", " 1804   600,00 \r\n1790 400,00\r\n"]) {
+      expect(parsePastedAllocations(text, PROJECTS)).toEqual({ rows: expected, error: null });
+    }
+  });
+
+  it("cola sem conferir a soma, que fica para a tela", () => {
+    expect(parsePastedAllocations("1804 1,00", PROJECTS).error).toBeNull();
+    expect(parsePastedAllocations("1804 R$ 10", PROJECTS).error).toBe("Linha 1: use só números no valor");
+    expect(parsePastedAllocations("1804", PROJECTS).error).toBe("Linha 1: use só números no valor");
+    expect(parsePastedAllocations("1804 1,00\n9999 1,00", PROJECTS).error).toBe("Projeto 9999 não encontrado (linha 2)");
+  });
+
+  it("confere as linhas: projeto escolhido, valor em números, sem repetir e somando o lançamento", () => {
+    expect(buildAllocations([], "10.00")).toEqual({ allocations: [], error: null });
+    expect(buildAllocations([{ projectId: "", amount: "" }], "10.00")).toEqual({ allocations: [], error: null });
+    expect(buildAllocations([{ projectId: "1", amount: "6,00" }, { projectId: "2", amount: "4,00" }], "10.00")).toEqual({
+      allocations: [
+        { projectId: 1, amount: "6.00" },
+        { projectId: 2, amount: "4.00" },
+      ],
+      error: null,
+    });
+    expect(buildAllocations([{ projectId: "", amount: "5,00" }], "10.00").error).toBe("Linha 1: escolha o projeto");
+    expect(buildAllocations([{ projectId: "1", amount: "R$ 5" }], "10.00").error).toBe("Linha 1: use só números no valor");
+    expect(buildAllocations([{ projectId: "1", amount: "0,00" }], "10.00").error).toBe("Linha 1: use só números no valor");
+    expect(
+      buildAllocations([{ projectId: "1", amount: "5,00" }, { projectId: "1", amount: "5,00" }], "10.00").error
+    ).toBe("O mesmo projeto aparece mais de uma vez no rateio");
+    expect(buildAllocations([{ projectId: "1", amount: "9,90" }], "10.00").error).toMatch(/somam R\$\s9,90.*R\$\s10,00/);
+  });
+
+  it("a linha vazia no meio não muda o número das outras", () => {
+    const rows = [
+      { projectId: "1", amount: "5,00" },
+      { projectId: "", amount: "" },
+      { projectId: "", amount: "5,00" },
+    ];
+    expect(buildAllocations(rows, "10.00").error).toBe("Linha 3: escolha o projeto");
+  });
+
+  it("diz quanto falta ou passou para fechar com o valor, sem erro de arredondamento", () => {
+    const rows = [
+      { projectId: "1", amount: "0,10" },
+      { projectId: "2", amount: "0,20" },
+    ];
+    expect(allocationDiff(rows, "0.30")).toEqual({ total: 30, diff: 0 });
+    expect(allocationDiff(rows, "1000.00")).toEqual({ total: 30, diff: 99970 });
+    expect(allocationDiff(rows, "0.20")).toEqual({ total: 30, diff: -10 });
+    expect(allocationDiff(rows, "")).toBeNull();
+    expect(allocationDiff([{ projectId: "1", amount: "abc" }], "1.00")).toEqual({ total: 0, diff: 100 });
   });
 });
 
