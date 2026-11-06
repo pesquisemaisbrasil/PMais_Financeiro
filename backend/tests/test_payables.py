@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from sqlalchemy.orm import Session
 
 from models.payable import Payable, PayableEvent, PayableItem, PayablePayment
@@ -991,6 +991,82 @@ def test_export_brings_all_filtered_rows_with_filters_on_top(
     assert lines[1].startswith("Vencimento;Fornecedor;")
     assert len(lines) == 16
     assert lines[2].endswith(";Vence hoje;1,00;0,00;1,00")
+
+
+def _sheet(content: bytes) -> Any:
+    return load_workbook(io.BytesIO(content)).active
+
+
+def test_export_to_excel_keeps_numbers_dates_and_the_filters_on_top(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    for value in (10, 20, 30):
+        create(client, auth, world, amount=f"{value}.50", description=f"Conta {value}")
+    response = client.get(
+        f"/payables/export?format=xlsx&supplier={world['supplier'].id}", headers=auth
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert response.headers["content-disposition"] == 'attachment; filename="contas-a-pagar.xlsx"'
+    assert response.headers["cache-control"] == "no-store"
+    sheet = _sheet(response.content)
+    assert "fornecedor=Gráfica Ponto Certo" in sheet["A1"].value
+    assert [cell.value for cell in sheet[2]][:3] == ["Vencimento", "Fornecedor", "Descrição"]
+    # dinheiro e data são de verdade, para o Excel somar e ordenar
+    first = [cell for cell in sheet[3]]
+    assert isinstance(first[0].value, datetime)
+    assert first[0].number_format == "DD/MM/YYYY"
+    assert Decimal(str(first[10].value)) in (Decimal("10.50"), Decimal("20.50"), Decimal("30.50"))
+    assert first[10].number_format == "#,##0.00"
+    assert isinstance(first[10].value, int | float)
+    # uma linha por conta, mais o total no fim
+    assert [row[1].value for row in sheet.iter_rows(min_row=3, max_row=5)] == [
+        "Gráfica Ponto Certo"
+    ] * 3
+    totals = [cell.value for cell in sheet[6]]
+    assert totals[0] == "Total"
+    assert Decimal(str(totals[10])) == Decimal("61.50")
+    assert Decimal(str(totals[12])) == Decimal("61.50")
+    assert sheet.auto_filter.ref == "A2:M5"
+    assert sheet.freeze_panes == "A3"
+
+
+def test_excel_export_follows_the_same_filters_as_the_list(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, description="Aluguel")
+    create(client, auth, world, description="Telefone")
+    both = _sheet(client.get("/payables/export?format=xlsx&mode=tudo", headers=auth).content)
+    only = _sheet(
+        client.get("/payables/export?format=xlsx&mode=tudo&search=alug", headers=auth).content
+    )
+    assert [row[2].value for row in both.iter_rows(min_row=3, max_row=4)] == ["Aluguel", "Telefone"]
+    assert [row[2].value for row in only.iter_rows(min_row=3, max_row=3)] == ["Aluguel"]
+    assert "busca: alug" in only["A1"].value
+    # sem linha nenhuma, não há total nem filtro de coluna
+    empty = _sheet(
+        client.get("/payables/export?format=xlsx&search=nada-assim", headers=auth).content
+    )
+    assert empty.max_row == 2
+    assert empty.auto_filter.ref in (None, "")
+
+
+def test_excel_export_never_turns_text_into_a_formula(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, description='=HYPERLINK("http://x")')
+    cell = _sheet(client.get("/payables/export?format=xlsx", headers=auth).content)["C3"]
+    assert cell.value == '=HYPERLINK("http://x")'
+    assert cell.data_type == "s"
+
+
+def test_the_export_format_must_be_csv_or_xlsx(client: TestClient, auth: dict[str, str]) -> None:
+    assert client.get("/payables/export?format=pdf", headers=auth).status_code == 422
+    assert (
+        client.get("/payables/export", headers=auth).headers["content-type"].startswith("text/csv")
+    )
 
 
 def test_export_neutralizes_spreadsheet_formulas(

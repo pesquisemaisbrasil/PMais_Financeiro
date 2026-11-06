@@ -1,3 +1,4 @@
+import io
 from collections.abc import Callable
 from datetime import timedelta
 from decimal import Decimal
@@ -5,6 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from models.receivable import Receivable
@@ -427,6 +429,35 @@ def test_export_names_every_chosen_option(
     )
     assert "situação=Vencida ou Parcial" in first_line
     assert " ou " in first_line.split("cliente=")[1].split(",")[0]
+
+
+def test_export_to_excel_has_real_numbers_totals_and_the_filters_on_top(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, dueDate=days(-5), amount="1000.00", withheld="100.00")
+    create(client, auth, world, dueDate=days(9), amount="500.00")
+    response = client.get(
+        f"/receivables/export?format=xlsx&mode=tudo&customer={world['customer'].id}", headers=auth
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert response.headers["content-disposition"] == 'attachment; filename="contas-a-receber.xlsx"'
+    sheet = load_workbook(io.BytesIO(response.content)).active
+    assert "cliente=Alfa Pesquisas Ltda" in sheet["A1"].value
+    headers = [cell.value for cell in sheet[2]]
+    assert headers[:3] == ["Vencimento", "Cliente", "Descrição"]
+    net = headers.index("Líquido")
+    late = headers.index("Dias de atraso")
+    rows = [[cell.value for cell in row] for row in sheet.iter_rows(min_row=3, max_row=4)]
+    assert sorted(Decimal(str(row[net])) for row in rows) == [Decimal("500.00"), Decimal("900.00")]
+    # só o título vencido tem dias de atraso
+    assert sorted((row[late] is None, row[late]) for row in rows) == [(False, 5), (True, None)]
+    total = [cell.value for cell in sheet[5]]
+    assert total[0] == "Total"
+    assert Decimal(str(total[net])) == Decimal("1400.00")
+    assert client.get("/receivables/export?format=pdf", headers=auth).status_code == 422
 
 
 def test_company_period_and_keyword_filters(
