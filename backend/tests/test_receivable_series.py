@@ -299,7 +299,60 @@ def test_series_actions_need_a_series_a_reason_and_a_valid_scope(
     assert cancel(client, auth, ids[0], scope="only").status_code == 422
 
 
+def series_of(client: TestClient, auth: dict[str, str], receivable_id: int) -> Any:
+    return client.get(f"/receivables/{receivable_id}/series", headers=auth)
+
+
+def test_the_series_lists_every_title_in_order_with_what_happened_to_each(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    ids = make_series(
+        client, auth, world, kind="mensal", count=4, amount="100.00", dueDate="2026-12-15"
+    )
+    receive(client, auth, world, ids[0])
+    cancel(client, auth, ids[3], scope="following")
+
+    response = series_of(client, auth, ids[2])
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert [r["id"] for r in rows] == ids
+    assert [r["index"] for r in rows] == [1, 2, 3, 4]
+    assert [r["situation"] for r in rows] == ["recebido", "a_vencer", "a_vencer", "cancelado"]
+    assert [r["amount"] for r in rows] == ["100.00"] * 4
+    assert rows == series_of(client, auth, ids[0]).json()
+
+
+def test_the_series_listing_shows_the_net_value_when_there_are_adjustments(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    ids = make_series(
+        client,
+        auth,
+        world,
+        kind="mensal",
+        count=2,
+        amount="1000.00",
+        dueDate="2026-12-15",
+        adjustments=[{"kind": "imposto", "description": "ISS", "amount": "50.00"}],
+    )
+    assert [r["amount"] for r in series_of(client, auth, ids[0]).json()] == ["950.00", "950.00"]
+
+
+def test_the_series_listing_refuses_a_standalone_title_and_an_unknown_one(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    single = create(client, auth, world)
+    refused = series_of(client, auth, single["id"])
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "Esse título não faz parte de uma série",
+    )
+    assert series_of(client, auth, 9999).status_code == 404
+
+
 def test_the_new_routes_ask_for_login(client: TestClient) -> None:
+    assert client.get("/receivables/1/series").status_code == 401
     for method, path in [
         ("post", "/receivables/recurrence"),
         ("patch", "/receivables/1/series"),

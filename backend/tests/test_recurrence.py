@@ -417,7 +417,64 @@ def test_canceling_needs_a_reason_and_a_valid_scope(
     assert cancel(client, auth, ids[0], scope="only").status_code == 422
 
 
+# ---- Listar a série (aba Repetir) ----
+
+
+def listing(client: TestClient, auth: dict[str, str], payable_id: int) -> Any:
+    return client.get(f"/payables/{payable_id}/series", headers=auth)
+
+
+def test_the_series_lists_every_occurrence_in_order_with_what_happened_to_each(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    ids = create_series(client, auth, world, count=4, amount="100.00", dueDate="2026-12-30")
+    pay(client, auth, world, ids[0])
+    cancel(client, auth, ids[3], scope="following")
+
+    # de qualquer ocorrência, a lista é a mesma
+    response = listing(client, auth, ids[2])
+
+    assert response.status_code == 200
+    rows = response.json()
+    assert [r["id"] for r in rows] == ids
+    assert [r["index"] for r in rows] == [1, 2, 3, 4]
+    assert [r["situation"] for r in rows] == ["pago", "a_vencer", "a_vencer", "cancelado"]
+    assert [r["amount"] for r in rows] == ["100.00"] * 4
+    assert rows == listing(client, auth, ids[0]).json()
+
+
+def test_the_series_listing_shows_the_net_value_and_the_new_value_after_an_edit(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    ids = create_series(client, auth, world, count=3, amount="100.00", dueDate="2026-12-30")
+    edit(client, auth, ids[1], scope="following", amount="130.00")
+    amounts_listed = [r["amount"] for r in listing(client, auth, ids[0]).json()]
+    assert amounts_listed == ["100.00", "130.00", "130.00"]
+
+
+def test_the_series_listing_refuses_a_standalone_payable_and_an_unknown_one(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    single = client.post("/payables", json=body(world), headers=auth).json()["id"]
+    refused = listing(client, auth, single)
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "Essa conta não faz parte de uma série",
+    )
+    assert listing(client, auth, 9999).status_code == 404
+
+
+def test_the_series_listing_does_not_show_other_series(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    first = create_series(client, auth, world, count=2, amount="100.00", dueDate="2026-12-30")
+    second = create_series(client, auth, world, count=3, amount="50.00", dueDate="2026-12-30")
+    assert [r["id"] for r in listing(client, auth, first[0]).json()] == first
+    assert [r["id"] for r in listing(client, auth, second[0]).json()] == second
+
+
 def test_the_new_routes_ask_for_login(client: TestClient) -> None:
+    assert client.get("/payables/1/series").status_code == 401
     for method, path in [
         ("post", "/payables/recurrence/simulate"),
         ("post", "/payables/recurrence"),
