@@ -118,6 +118,11 @@ def listing(client: TestClient, auth: dict[str, str], **params: Any) -> Any:
         ("post", "/receivables/1/receipts/1/reverse"),
         ("post", "/receivables/1/cancel"),
         ("delete", "/receivables/1"),
+        ("get", "/receivables/1/series"),
+        ("post", "/receivables/1/attachments"),
+        ("get", "/receivables/1/attachments/1/download"),
+        ("patch", "/receivables/1/attachments/1"),
+        ("post", "/receivables/1/attachments/1/remove"),
     ],
 )
 def test_every_route_asks_for_login(client: TestClient, method: str, path: str) -> None:

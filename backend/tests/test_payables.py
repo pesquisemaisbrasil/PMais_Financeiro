@@ -143,7 +143,9 @@ def create(
         ("post", "/payables/1/payments/1/reverse"),
         ("post", "/payables/1/attachments"),
         ("get", "/payables/1/attachments/1/download"),
+        ("patch", "/payables/1/attachments/1"),
         ("post", "/payables/1/attachments/1/remove"),
+        ("get", "/payables/1/series"),
     ],
 )
 def test_every_route_requires_a_session(client: TestClient, method: str, path: str) -> None:
@@ -172,7 +174,9 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables/1/payments/1/reverse"),
         ("post", "/payables/1/attachments"),
         ("get", "/payables/1/attachments/1/download"),
+        ("patch", "/payables/1/attachments/1"),
         ("post", "/payables/1/attachments/1/remove"),
+        ("get", "/payables/1/series"),
     ],
 )
 def test_role_without_finance_access_is_refused(
@@ -2587,9 +2591,13 @@ def _attach(
     payable_id: int,
     content: bytes = PDF,
     name: str = "nota.pdf",
+    kind: str | None = None,
 ) -> Any:
     return client.post(
-        f"/payables/{payable_id}/attachments", files={"file": (name, content)}, headers=auth
+        f"/payables/{payable_id}/attachments",
+        files={"file": (name, content)},
+        data={"kind": kind} if kind else None,
+        headers=auth,
     )
 
 
@@ -2737,7 +2745,7 @@ def test_the_size_and_count_limits_are_refused(
         422,
         "Envie PDF, imagem, planilha, documento ou XML de até 20 MB",
     )
-    monkeypatch.setattr(attachments, "MAX_PER_PAYABLE", 2)
+    monkeypatch.setattr(attachments, "MAX_PER_OWNER", 2)
     assert _attach(client, auth, created["id"], content=PDF + b"1").status_code == 201
     assert _attach(client, auth, created["id"], content=PDF + b"2").status_code == 201
     third = _attach(client, auth, created["id"], content=PDF + b"3")
@@ -2845,3 +2853,117 @@ def test_the_detail_says_who_created_and_who_changed_last_and_a_download_is_not_
     included = next(e for e in after["events"] if e["text"].startswith("Documento incluído"))
     assert after["events"][0]["text"].startswith("Documento baixado")
     assert after["updatedAt"] == included["createdAt"]
+
+
+# ---- Tipo e nome do documento ----
+
+
+def _document_url(payable_id: int, document: dict[str, Any]) -> str:
+    return f"/payables/{payable_id}/attachments/{document['id']}"
+
+
+def test_the_document_type_is_other_unless_chosen_and_a_wrong_one_is_refused(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    plain = _attach(client, auth, created["id"]).json()["attachments"][0]
+    assert plain["kind"] == "outro"
+    boleto = _attach(
+        client, auth, created["id"], content=PDF + b"2", name="boleto.pdf", kind="boleto"
+    )
+    assert boleto.status_code == 201
+    assert [a["kind"] for a in boleto.json()["attachments"]] == ["outro", "boleto"]
+    wrong = _attach(client, auth, created["id"], content=PDF + b"3", name="x.pdf", kind="foto")
+    assert (wrong.status_code, wrong.json()["detail"]) == (422, "Escolha o tipo do documento")
+    assert len(vault.objects) == 2  # o recusado nem chegou ao cofre
+
+
+def test_renaming_keeps_the_extension_and_the_stored_file_and_is_audited(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    document = _attach(client, auth, created["id"]).json()["attachments"][0]
+    url = _document_url(created["id"], document)
+
+    renamed = client.patch(url, json={"name": "Nota fiscal 58"}, headers=auth)
+    assert renamed.status_code == 200, renamed.text
+    assert [a["name"] for a in renamed.json()["attachments"]] == ["Nota fiscal 58.pdf"]
+    assert renamed.json()["events"][0]["text"] == (
+        "Documento renomeado: nota.pdf → Nota fiscal 58.pdf"
+    )
+    # o arquivo guardado é o mesmo: só o nome mudou
+    assert len(vault.objects) == 1
+    downloaded = client.get(f"{url}/download", headers=auth)
+    assert downloaded.content == PDF
+    assert "filename*=UTF-8''Nota%20fiscal%2058.pdf" in downloaded.headers["content-disposition"]
+
+    for typed, expected in [
+        ("nota.PDF", "nota.PDF"),  # já termina com a extensão: fica como veio
+        ("nota.exe", "nota.exe.pdf"),  # renomear nunca troca a extensão do arquivo
+        ("..\\..\\etc/passwd", "passwd.pdf"),  # sem pasta
+        ("a" * 250, "a" * 196 + ".pdf"),  # até 200 letras, com a extensão
+    ]:
+        out = client.patch(url, json={"name": typed}, headers=auth)
+        assert out.json()["attachments"][0]["name"] == expected, typed
+
+    for blank in ["", "   ", "..."]:
+        refused = client.patch(url, json={"name": blank}, headers=auth)
+        assert (refused.status_code, refused.json()["detail"]) == (
+            422,
+            "Informe o nome do documento",
+        )
+
+
+def test_changing_the_type_is_audited_and_changing_nothing_is_not(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    document = _attach(client, auth, created["id"]).json()["attachments"][0]
+    url = _document_url(created["id"], document)
+
+    changed = client.patch(url, json={"kind": "boleto"}, headers=auth)
+    assert changed.json()["attachments"][0]["kind"] == "boleto"
+    assert (
+        changed.json()["events"][0]["text"] == "Tipo do documento mudou: nota.pdf (Outro → Boleto)"
+    )
+
+    events = len(changed.json()["events"])
+    same = client.patch(url, json={"kind": "boleto", "name": "nota.pdf"}, headers=auth)
+    assert same.status_code == 200 and len(same.json()["events"]) == events
+
+    both = client.patch(url, json={"name": "boleto de março", "kind": "nota"}, headers=auth)
+    assert [e["text"] for e in both.json()["events"][:2]] == [
+        "Tipo do documento mudou: boleto de março.pdf (Boleto → Nota fiscal)",
+        "Documento renomeado: nota.pdf → boleto de março.pdf",
+    ]
+
+    empty = client.patch(url, json={}, headers=auth)
+    assert (empty.status_code, empty.json()["detail"]) == (
+        422,
+        "Mude o nome ou o tipo do documento",
+    )
+    wrong = client.patch(url, json={"kind": "foto"}, headers=auth)
+    assert (wrong.status_code, wrong.json()["detail"]) == (422, "Escolha o tipo do documento")
+    assert (
+        client.get(f"/payables/{created['id']}", headers=auth).json()["attachments"][0]["kind"]
+        == "nota"
+    )
+
+
+def test_a_removed_or_foreign_document_cannot_be_renamed(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    first = create(client, auth, world)
+    second = create(client, auth, world)
+    document = _attach(client, auth, first["id"]).json()["attachments"][0]
+    url = _document_url(first["id"], document)
+
+    foreign = client.patch(
+        f"/payables/{second['id']}/attachments/{document['id']}", json={"name": "x"}, headers=auth
+    )
+    assert (foreign.status_code, foreign.json()["detail"]) == (404, "Documento não encontrado")
+    client.post(f"{url}/remove", json={"reason": "Trocar"}, headers=auth)
+    gone = client.patch(url, json={"name": "x"}, headers=auth)
+    assert (gone.status_code, gone.json()["detail"]) == (404, "Documento não encontrado")
+    missing = client.patch("/payables/99999/attachments/1", json={"name": "x"}, headers=auth)
+    assert (missing.status_code, missing.json()["detail"]) == (404, "Conta não encontrada")
