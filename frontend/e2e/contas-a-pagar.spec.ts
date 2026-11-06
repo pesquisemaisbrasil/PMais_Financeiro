@@ -207,6 +207,8 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("row", { name: /Consultoria de teste/ }).getByText("Consultoria de teste").first().click();
   const opened = page.getByRole("dialog");
   await expect(opened.getByRole("tab", { name: /Baixas/ })).toBeVisible();
+  await expect(opened.getByText("Incluído em:")).toBeVisible(); // Detalhes em blocos, como no sistema antigo
+  await expect(opened.getByText("Valor líquido:")).toBeVisible();
   await opened.getByRole("button", { name: "Editar conta" }).click();
   await opened.getByLabel("Observações").fill("Combinado por telefone");
   await opened.getByRole("button", { name: "Salvar" }).click();

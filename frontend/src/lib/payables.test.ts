@@ -27,6 +27,10 @@ import {
   inssAmount,
   itemPaymentLabel,
   type PayableDetail,
+  formatCompetence,
+  formatDateTime,
+  settlement,
+  shareText,
 } from "./payables";
 
 const PROJECTS: Project[] = [
@@ -384,5 +388,48 @@ describe("recorrência", () => {
     const base = { id: 1, index: 3, count: 12, kind: "mensal" as const, estimated: false };
     expect(seriesLabel(base)).toBe("3/12");
     expect(seriesLabel({ ...base, estimated: true })).toBe("3/12 · estimada");
+  });
+});
+
+describe("detalhes da conta", () => {
+  const payment = (kind: "pagamento" | "estorno", reversed: boolean, surcharge: string, discount: string) =>
+    ({ kind, reversed, surcharge, discount }) as PayableDetail["payments"][number];
+
+  it("mostra a competência como mês/ano, ou traço sem ela", () => {
+    expect(formatCompetence("2026-11")).toBe("11/2026");
+    expect(formatCompetence(null)).toBe("—");
+  });
+
+  it("mostra data e hora no horário de São Paulo", () => {
+    expect(formatDateTime("2026-11-06T12:45:28Z")).toBe("06/11/2026 09:45:28");
+  });
+
+  it("calcula a parte de cada projeto", () => {
+    expect(shareText("600.00", "1000.00")).toBe("60,00%");
+    expect(shareText("52.50", "52.50")).toBe("100,00%");
+    expect(shareText("1.00", "3.00")).toBe("33,33%");
+    expect(shareText("0.00", "0.00")).toBe("0,00%");
+  });
+
+  it("soma juros e desconto só das baixas que valem, sem somar com ponto flutuante", () => {
+    const result = settlement({
+      amount: "1000.10",
+      payments: [
+        payment("pagamento", false, "10.20", "0.00"),
+        payment("pagamento", false, "0.00", "5.05"),
+        payment("pagamento", true, "99.00", "99.00"), // estornada: não conta
+        payment("estorno", false, "50.00", "50.00"), // estorno em si: não conta
+      ],
+    });
+    expect(result).toEqual({ gross: "1000.10", surcharge: "10.20", discount: "5.05", net: "1005.25" });
+  });
+
+  it("sem baixa, o líquido é o próprio valor", () => {
+    expect(settlement({ amount: "52.50", payments: [] })).toEqual({
+      gross: "52.50",
+      surcharge: "0.00",
+      discount: "0.00",
+      net: "52.50",
+    });
   });
 });
