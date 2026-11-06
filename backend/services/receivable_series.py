@@ -8,8 +8,9 @@ com recebimento.
 """
 
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from core.text import format_brl
 from models.payable import PayableSeries
@@ -17,6 +18,7 @@ from models.receivable import Receivable
 from models.user import User
 from schemas.payable import RecurrenceIn, SeriesCancel, SeriesEdit
 from schemas.receivable import ReceivableCreate, ReceivableUpdate
+from services import payable as payables
 from services import receivable as receivables
 from services.payable import PayableConflict, PayableInvalid
 from services.recurrence import Occurrence, simulate
@@ -104,6 +106,32 @@ def _targets(db: Session, receivable: Receivable, scope: str) -> list[Receivable
             query = query.filter(Receivable.seriesIndex >= receivable.seriesIndex)
         candidates = query.order_by(Receivable.seriesIndex).with_for_update().all()
     return [r for r in candidates if r.canceledAt is None and receivables.received_amount(r) == 0]
+
+
+def list_series(db: Session, receivable_id: int) -> list[dict[str, Any]]:
+    """As ocorrências da série do título, em ordem, inclusive as recebidas e as canceladas."""
+    receivable = receivables._get(db, receivable_id)
+    if receivable.series_id is None:
+        raise PayableConflict("Esse título não faz parte de uma série")
+    on = payables.today()
+    members = (
+        db.query(Receivable)
+        .options(selectinload(Receivable.payments), selectinload(Receivable.adjustments))
+        .filter(Receivable.series_id == receivable.series_id, Receivable.deletedAt.is_(None))
+        .order_by(Receivable.seriesIndex)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "index": r.seriesIndex,
+            "dueDate": r.dueDate,
+            "description": r.description,
+            "amount": receivables.net_amount(r),
+            "situation": receivables.situation(r, on),
+        }
+        for r in members
+    ]
 
 
 def edit_series(db: Session, receivable_id: int, data: SeriesEdit, user: User) -> int:

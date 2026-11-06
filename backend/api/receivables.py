@@ -17,6 +17,7 @@ from schemas.payable import (
     SeriesCancel,
     SeriesCreated,
     SeriesEdit,
+    SeriesOccurrence,
     SeriesResult,
 )
 from schemas.receivable import (
@@ -204,6 +205,18 @@ def create_series(
         ),
     )
     return {"seriesId": series.id, "ids": [r.id for r in created]}
+
+
+@router.get(
+    "/receivables/{receivable_id}/series",
+    response_model=list[SeriesOccurrence],
+    description="Lista as ocorrências da série do título, na ordem",
+)
+@limiter.limit(READ_LIMIT)
+def list_series(
+    request: Request, receivable_id: int, db: DbSession, _: FinanceUser
+) -> list[dict[str, Any]]:
+    return _handle(db, lambda: receivable_series.list_series(db, receivable_id))
 
 
 @router.patch(

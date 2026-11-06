@@ -53,6 +53,7 @@ from schemas.payable import (
     SeriesCancel,
     SeriesCreated,
     SeriesEdit,
+    SeriesOccurrence,
     SeriesResult,
     SimulateIn,
     SituationFilter,
@@ -535,6 +536,18 @@ def create_series(
         ),
     )
     return {"seriesId": series.id, "ids": [p.id for p in created]}
+
+
+@router.get(
+    "/payables/{payable_id}/series",
+    response_model=list[SeriesOccurrence],
+    description="Lista as ocorrências da série da conta, na ordem",
+)
+@limiter.limit(READ_LIMIT)
+def list_series(
+    request: Request, payable_id: int, db: DbSession, _: FinanceUser
+) -> list[dict[str, Any]]:
+    return _handle(lambda: recurrence.list_series(db, payable_id))
 
 
 @router.patch(

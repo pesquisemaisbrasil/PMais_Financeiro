@@ -498,3 +498,15 @@ class SeriesCreated(BaseModel):
 
 class SeriesResult(BaseModel):
     count: int
+
+
+class SeriesOccurrence(BaseModel):
+    """Uma linha da aba Repetir: a ocorrência da série como está hoje."""
+
+    id: int
+    index: int
+    dueDate: date
+    description: str
+    # o valor líquido: o que de fato se paga ou se recebe
+    amount: Decimal
+    situation: str

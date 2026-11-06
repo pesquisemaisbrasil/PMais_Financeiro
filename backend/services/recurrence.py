@@ -9,8 +9,9 @@ import calendar
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import ROUND_DOWN, Decimal
+from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from core.business_days import is_business_day
 from models.payable import Payable, PayableSeries
@@ -168,6 +169,32 @@ def _targets(db: Session, payable: Payable, scope: str) -> list[Payable]:
             query = query.filter(Payable.seriesIndex >= payable.seriesIndex)
         candidates = query.order_by(Payable.seriesIndex).with_for_update().all()
     return [p for p in candidates if p.canceledAt is None and payables.paid_amount(p) == 0]
+
+
+def list_series(db: Session, payable_id: int) -> list[dict[str, Any]]:
+    """As ocorrências da série da conta, em ordem, inclusive as pagas e as canceladas."""
+    payable = payables._get(db, payable_id)
+    if payable.series_id is None:
+        raise PayableConflict("Essa conta não faz parte de uma série")
+    on = payables.today()
+    members = (
+        db.query(Payable)
+        .options(selectinload(Payable.payments), selectinload(Payable.adjustments))
+        .filter(Payable.series_id == payable.series_id, Payable.deletedAt.is_(None))
+        .order_by(Payable.seriesIndex)
+        .all()
+    )
+    return [
+        {
+            "id": p.id,
+            "index": p.seriesIndex,
+            "dueDate": p.dueDate,
+            "description": p.description,
+            "amount": payables.net_amount(p),
+            "situation": payables.situation(p, on),
+        }
+        for p in members
+    ]
 
 
 def edit_series(db: Session, payable_id: int, data: SeriesEdit, user: User) -> int:
