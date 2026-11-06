@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { expenseCategories, revenueCategories, type Reference } from "./payables";
 import {
+  bandLabel,
+  bandTotals,
   daysLateText,
   effectiveIndicator,
   netCents,
   receivableParams,
+  type DelinquentCustomer,
   type ReceivableQuery,
 } from "./receivables";
 
@@ -21,6 +24,45 @@ const base: ReceivableQuery = {
   descending: false,
   page: 1,
 };
+
+describe("faixas de atraso", () => {
+  const customer = (id: number, bands: [number, string][]): DelinquentCustomer => ({
+    customerId: id,
+    customer: `Cliente ${id}`,
+    count: bands.reduce((sum, [count]) => sum + count, 0),
+    maxDaysLate: 0,
+    total: "0",
+    bands: ["1-30", "31-60", "61-90", "90+"].map((band, index) => ({
+      id: band,
+      count: bands[index][0],
+      total: bands[index][1],
+    })),
+    titles: [],
+  });
+
+  it("escreve cada faixa por extenso", () => {
+    expect(bandLabel("1-30")).toBe("1 a 30 dias");
+    expect(bandLabel("90+")).toBe("Mais de 90 dias");
+    expect(bandLabel("outra")).toBe("outra");
+  });
+
+  it("soma as faixas de todos os clientes em centavos, sem perder a ordem", () => {
+    const totals = bandTotals([
+      customer(1, [[2, "30.10"], [0, "0.00"], [1, "50.00"], [0, "0.00"]]),
+      customer(2, [[1, "0.20"], [3, "70.00"], [0, "0.00"], [1, "9.99"]]),
+    ]);
+    expect(totals).toEqual([
+      { id: "1-30", count: 3, cents: 3030 },
+      { id: "31-60", count: 3, cents: 7000 },
+      { id: "61-90", count: 1, cents: 5000 },
+      { id: "90+", count: 1, cents: 999 },
+    ]);
+  });
+
+  it("sem clientes, não há faixa", () => {
+    expect(bandTotals([])).toEqual([]);
+  });
+});
 
 describe("atraso", () => {
   it("escreve os dias de atraso no singular e no plural", () => {

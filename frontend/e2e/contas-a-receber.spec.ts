@@ -69,6 +69,12 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   await expect(delinquency).toContainText("até 10 dias de atraso");
   await expect(delinquency).toContainText("R$ 1.400,00");
   await expect(delinquency).not.toContainText("Beta Consultoria");
+  // Faixas de atraso: as duas parcelas (10 e 3 dias) caem na primeira, e as outras ficam zeradas
+  const bands = delinquency.getByRole("group", { name: "Total por faixa de atraso" });
+  await expect(bands.getByText("1 a 30 dias")).toBeVisible();
+  await expect(bands).toContainText("2 títulos");
+  await expect(bands).toContainText("Mais de 90 dias");
+  await expect(bands).toContainText("0 títulos");
   await delinquency.getByRole("button", { name: "Fechar" }).first().click();
 
   // Recebimento parcial: o saldo continua e a situação vira Parcial
