@@ -8,7 +8,7 @@ traduz.
 
 import csv
 import io
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
@@ -19,7 +19,12 @@ from sqlalchemy.orm import Session, selectinload
 from core.query_lists import as_list
 from core.text import format_brl, format_brl_plain, format_date_br
 from core.xlsx import build_xlsx
-from models.receivable import Receivable, ReceivableEvent, ReceivablePayment
+from models.receivable import (
+    Receivable,
+    ReceivableAdjustment,
+    ReceivableEvent,
+    ReceivablePayment,
+)
 from models.reference import (
     BankAccount,
     BusinessUnit,
@@ -32,6 +37,7 @@ from models.reference import (
 )
 from models.user import User
 from schemas.receivable import ReceiptCreate, ReceiptReverse, ReceivableCreate, ReceivableUpdate
+from services import adjustments as adj
 from services.payable import (
     PayableConflict,
     PayableInvalid,
@@ -67,8 +73,8 @@ def received_amount(receivable: Receivable) -> Decimal:
 
 
 def net_amount(receivable: Receivable) -> Decimal:
-    """O que de fato se recebe: o bruto menos os abatimentos (retenções) da NF."""
-    return receivable.amount - receivable.withheld
+    """O que de fato se recebe: o bruto mais os acréscimos, menos descontos e impostos."""
+    return adj.net(receivable.amount, receivable.adjustments)
 
 
 def pending_amount(receivable: Receivable) -> Decimal:
@@ -131,6 +137,7 @@ def _base_query(db: Session) -> Any:
             selectinload(Receivable.category),
             selectinload(Receivable.company),
             selectinload(Receivable.payments),
+            selectinload(Receivable.adjustments),
         )
     )
 
@@ -163,7 +170,6 @@ def row(receivable: Receivable, on: date) -> dict[str, Any]:
         "categoryName": receivable.category.name,
         "companyName": receivable.company.name,
         "amount": receivable.amount,
-        "withheld": receivable.withheld,
         "net": net_amount(receivable),
         "received": received_amount(receivable),
         "pending": pending_amount(receivable),
@@ -465,7 +471,9 @@ def _export_table(
         "Situação",
         "Dias de atraso",
         "Bruto",
-        "Abatimentos",
+        "Acréscimos",
+        "Descontos",
+        "Impostos",
         "Líquido",
         "Recebido",
         "Pendente",
@@ -490,7 +498,9 @@ def _export_table(
                 SITUATION_NAMES[situation(r, on)],
                 days_late(r, on),
                 r.amount,
-                r.withheld,
+                adj.total(r.adjustments, "acrescimo"),
+                adj.total(r.adjustments, "desconto"),
+                adj.total(r.adjustments, "imposto"),
                 net_amount(r),
                 received_amount(r),
                 pending_amount(r),
@@ -499,7 +509,7 @@ def _export_table(
     return " · ".join(header), headers, rows
 
 
-EXPORT_MONEY_COLUMNS = (10, 11, 12, 13, 14)
+EXPORT_MONEY_COLUMNS = (10, 11, 12, 13, 14, 15, 16)
 
 
 def _csv_value(value: Any) -> Any:
@@ -582,6 +592,10 @@ def detail(db: Session, receivable_id: int) -> dict[str, Any]:
             }
             for p in receivable.payments
         ],
+        "adjustments": [
+            {"id": a.id, "kind": a.kind, "description": a.description, "amount": a.amount}
+            for a in receivable.adjustments
+        ],
         "events": [
             {"userName": e.user.name, "text": e.text, "createdAt": e.createdAt}
             for e in reversed(receivable.events)
@@ -596,9 +610,15 @@ def audit(db: Session, receivable: Receivable, user: User, text: str) -> None:
     db.add(ReceivableEvent(receivable_id=receivable.id, user_id=user.id, text=text[:500]))
 
 
-def _check_amounts(amount: Decimal, withheld: Decimal) -> None:
-    if withheld >= amount:
-        raise PayableInvalid("Os abatimentos não podem ser iguais nem maiores que o valor")
+def _check_net(amount: Decimal, rows: Iterable[Any]) -> None:
+    if adj.net(amount, rows) <= 0:
+        raise PayableInvalid(adj.NET_ZERO)
+
+
+def _adjustment_rows(items: Iterable[Any]) -> list[ReceivableAdjustment]:
+    return [
+        ReceivableAdjustment(kind=a.kind, description=a.description, amount=a.amount) for a in items
+    ]
 
 
 def _check_project(db: Session, project_id: int | None) -> Project:
@@ -632,7 +652,7 @@ def new_receivable(db: Session, data: ReceivableCreate, user: User) -> Receivabl
         raise PayableInvalid("A unidade não é dessa empresa")
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
-    _check_amounts(data.amount, data.withheld)
+    _check_net(data.amount, data.adjustments)
 
     receivable = Receivable(
         customer_id=data.customerId,
@@ -650,7 +670,7 @@ def new_receivable(db: Session, data: ReceivableCreate, user: User) -> Receivabl
         dueDate=data.dueDate,
         competence=data.competence or data.dueDate.strftime("%Y-%m"),
         amount=data.amount,
-        withheld=data.withheld,
+        adjustments=_adjustment_rows(data.adjustments),
         notes=data.notes or None,
         created_by_user_id=user.id,
     )
@@ -672,22 +692,27 @@ def update(db: Session, receivable_id: int, data: ReceivableUpdate, user: User) 
 
 
 def apply_update(db: Session, receivable: Receivable, data: ReceivableUpdate, user: User) -> None:
-    """Altera valor, abatimentos, vencimento e descrição na transação aberta, sem commit."""
+    """Altera valor, acréscimos, descontos, impostos, vencimento e descrição na transação aberta."""
     if receivable.canceledAt is not None:
         raise PayableConflict("Título cancelado não pode ser alterado")
-    _check_amounts(data.amount, data.withheld)
+    rows = receivable.adjustments if data.adjustments is None else data.adjustments
+    _check_net(data.amount, rows)
+    amount_changed = data.amount != receivable.amount
+    adjustments_changed = data.adjustments is not None and adj.lines(
+        receivable.adjustments
+    ) != adj.lines(data.adjustments)
     changes = []
-    if data.amount != receivable.amount or data.withheld != receivable.withheld:
+    if amount_changed or adjustments_changed:
         if receivable.project.status == "encerrado":
             raise PayableConflict(PROJECT_CLOSED)
-        if data.amount - data.withheld < received_amount(receivable):
+        if adj.net(data.amount, rows) < received_amount(receivable):
             raise PayableConflict("O novo valor é menor do que já foi recebido")
-        changes.append(
-            f"valor {format_brl(receivable.amount)} − {format_brl(receivable.withheld)} "
-            f"→ {format_brl(data.amount)} − {format_brl(data.withheld)}"
-        )
+    if amount_changed:
+        changes.append(f"valor {format_brl(receivable.amount)} → {format_brl(data.amount)}")
         receivable.amount = data.amount
-        receivable.withheld = data.withheld
+    if adjustments_changed and data.adjustments is not None:
+        changes += adj.describe_changes(receivable.adjustments, data.adjustments)
+        receivable.adjustments = _adjustment_rows(data.adjustments)
     if data.dueDate != receivable.dueDate:
         changes.append(
             f"vencimento {format_date_br(receivable.dueDate)} → {format_date_br(data.dueDate)}"

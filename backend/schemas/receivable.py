@@ -2,12 +2,12 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
+from schemas.adjustment import AdjustmentIn, AdjustmentOut
 from schemas.payable import (
     EventOut,
     Money,
-    OptionalMoney,
     RecurrenceIn,
     SeriesInfo,
     ShortText,
@@ -44,9 +44,9 @@ class ReceivableCreate(BaseModel):
     issueDate: date
     dueDate: date
     competence: Competence | None = None
-    # Bruto; o que se recebe é o líquido (bruto menos os abatimentos)
+    # Bruto; o que se recebe é o líquido (bruto + acréscimos − descontos − impostos)
     amount: Money
-    withheld: OptionalMoney = Decimal("0")
+    adjustments: list[AdjustmentIn] = Field(default=[], max_length=60)
     notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
 
 
@@ -57,8 +57,9 @@ class RecurringReceivableCreate(ReceivableCreate):
 class ReceivableUpdate(BaseModel):
     description: ShortText
     amount: Money
-    withheld: OptionalMoney = Decimal("0")
     dueDate: date
+    # Não vindo, não muda; vindo, troca a lista inteira (vazia tira todos).
+    adjustments: list[AdjustmentIn] | None = Field(default=None, max_length=60)
 
 
 class ReceiptCreate(BaseModel):
@@ -88,7 +89,6 @@ class ReceivableRow(BaseModel):
     categoryName: str
     companyName: str
     amount: Decimal
-    withheld: Decimal
     net: Decimal
     received: Decimal
     pending: Decimal
@@ -136,6 +136,7 @@ class ReceivableDetail(ReceivableRow):
     notes: str | None
     payments: list[ReceiptOut]
     events: list[EventOut]
+    adjustments: list[AdjustmentOut]
 
 
 class DelinquentTitle(BaseModel):

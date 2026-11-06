@@ -32,7 +32,7 @@ from models.receipt import (  # noqa: E402,F401 (registers model on Base.metadat
     ReceiptBatch,
     ReceiptBatchPart,
 )
-from models.receivable import Receivable  # noqa: E402,F401 (registers model on Base.metadata)
+from models.receivable import Receivable, ReceivableAdjustment  # noqa: E402,F401 (registers model on Base.metadata)
 from models.refresh_token import RefreshToken  # noqa: E402,F401 (registers model on Base.metadata)
 from models.sso_identity import SsoIdentity  # noqa: E402,F401 (registers model on Base.metadata)
 from models.user import User  # noqa: E402,F401 (registers model on Base.metadata)

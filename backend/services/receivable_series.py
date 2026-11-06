@@ -19,7 +19,7 @@ from schemas.payable import RecurrenceIn, SeriesCancel, SeriesEdit
 from schemas.receivable import ReceivableCreate, ReceivableUpdate
 from services import receivable as receivables
 from services.payable import PayableConflict, PayableInvalid
-from services.recurrence import Occurrence, simulate, split_amount
+from services.recurrence import Occurrence, simulate
 
 RECEIVED_DETAIL = "Títulos com recebimento não são alterados pela série"
 
@@ -43,10 +43,10 @@ def create_series(
                 f"As parcelas somam {format_brl(total)}, "
                 f"mas o título é de {format_brl(data.amount)}"
             )
-        # os abatimentos também se dividem: a soma das parcelas fecha com o título
-        withheld = split_amount(data.withheld, recurrence.count)
-    else:
-        withheld = [data.withheld] * recurrence.count
+        if data.adjustments:
+            raise PayableInvalid(
+                "Em título parcelado, lance acréscimos, descontos e impostos em cada parcela depois"
+            )
 
     series = PayableSeries(
         kind=recurrence.kind,
@@ -66,7 +66,6 @@ def create_series(
             update={
                 "dueDate": occurrence.dueDate,
                 "amount": occurrence.amount,
-                "withheld": withheld[occurrence.index - 1],
                 "issueDate": data.issueDate + (occurrence.dueDate - first_due),
                 # nota e competência são de cada mês: só a primeira leva o que veio
                 "competence": data.competence if first else None,
@@ -126,7 +125,6 @@ def edit_series(db: Session, receivable_id: int, data: SeriesEdit, user: User) -
             ReceivableUpdate(
                 description=data.description or target.description,
                 amount=data.amount or target.amount,
-                withheld=target.withheld,
                 dueDate=target.dueDate,
             ),
             user,

@@ -72,8 +72,10 @@ class Receivable(Base):
         Integer, ForeignKey("payable_series.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     seriesIndex = Column(Integer, nullable=True)
-    # Bruto. O líquido a receber é `amount - withheld` (abatimentos lançados junto da NF).
+    # Bruto. O líquido a receber é o bruto + acréscimos − descontos − impostos (`adjustments`).
     amount = Column(Numeric(12, 2), nullable=False)
+    # Legado: os abatimentos viraram impostos em `adjustments` (migração d9e4f0a5b3c2). Já não é
+    # lido nem gravado; a coluna sai numa migração futura, depois de um tempo em produção.
     withheld = Column(Numeric(12, 2), nullable=False, default=0, server_default="0")
     notes = Column(String, nullable=True)
     canceledAt = Column(DateTime(timezone=True), nullable=True)
@@ -93,8 +95,26 @@ class Receivable(Base):
     unit = relationship(BusinessUnit)
     cost_center = relationship(CostCenter)
     category = relationship(ExpenseCategory)
+    adjustments = relationship(
+        "ReceivableAdjustment", cascade="all, delete-orphan", order_by="ReceivableAdjustment.id"
+    )
     payments = relationship("ReceivablePayment", order_by="ReceivablePayment.id")
     events = relationship("ReceivableEvent", order_by="ReceivableEvent.id")
+
+
+class ReceivableAdjustment(Base):
+    """Acréscimo, desconto ou imposto lançado no título (kind: acrescimo | desconto | imposto).
+    O líquido é o valor + acréscimos − descontos − impostos; os totais saem desta tabela."""
+
+    __tablename__ = "receivable_adjustments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receivable_id = Column(
+        Integer, ForeignKey("receivables.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind = Column(String(10), nullable=False)
+    description = Column(String(120), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
 
 
 class ReceivablePayment(Base):
