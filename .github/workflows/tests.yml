@@ -106,3 +106,10 @@ jobs:
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DROP TABLE users"; then exit 1; fi
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM payable_payments"; then exit 1; fi
           if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "UPDATE payable_events SET text = 'x'"; then exit 1; fi
+
+      # Os testes comuns rodam em SQLite, que ignora FOR UPDATE: este passo falha se alguém
+      # apagar a trava do código do MFA ou da renovação da sessão (PF-54).
+      - name: Concurrent logins (row lock)
+        run: |
+          pip install -r requirements-dev.txt
+          pytest tests/test_concurrency_postgres.py -q --no-cov
