@@ -81,7 +81,7 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 9. Recolha o menu lateral pelo botão ao lado do logo: ficam só os ícones, e a escolha continua depois de recarregar.
 10. **Filtros** abre um painel lateral: a lista muda enquanto você escolhe, e o botão de baixo mostra quantas contas sobraram. Digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Plano de contas** (o antigo "Categoria", com código e nome), **Unidade**, **Situação**, **Tipo** e **Período por**. Todos os filtros aceitam **mais de uma opção**: marque duas situações ou dois projetos e a lista traz as contas de qualquer um deles. A lista fica aberta enquanto você marca (Esc fecha), e a primeira linha, "Todos", limpa a marcação.
 11. Em **Colunas**, ligue mais colunas e escolha a densidade **Compacta**. A escolha fica guardada neste navegador.
-12. **Exportar** baixa um CSV com tudo o que os filtros mostram. Abra no Excel: os acentos aparecem certos, e os filtros estão na primeira linha.
+12. **Exportar** oferece **Excel (.xlsx)** e **CSV** com tudo o que os filtros mostram. No Excel, valor e data já vêm como número e data (dá para somar e ordenar), com os filtros na primeira linha e o **Total** no fim. O CSV abre no Excel com os acentos certos.
 13. Selecione contas e use **Reclassificar**: sem escolher nada, o sistema pede o que vai mudar. O **Histórico** mostra o antes e o depois.
 14. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
 15. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
@@ -134,7 +134,7 @@ Com o sistema rodando. Em **Financeiro > Contas a receber**:
 6. **Inadimplência:** vencidos por cliente, com os dias de atraso e o total, e botão para abrir cada título. No alto, o saldo por **faixa de atraso** (1 a 30, 31 a 60, 61 a 90 e mais de 90 dias), e cada título diz em que faixa está.
 7. **Parcelar a receita:** em **Nova conta a receber**, marque **Repetir esta conta**, escolha "Parcelado" e a quantidade, e clique em **Simular**. Ajuste valor e data de cada parcela na tabela (a soma tem de fechar com o título) e lance. Cada parcela aparece com o número na série (`1/3`).
 8. O botão de série da linha altera "só este", "este e os seguintes" ou "todos em aberto" (valor ou descrição) ou cancela a série; quem já recebeu não muda.
-9. **Exportar** baixa o CSV do que está na tela, com os filtros e a busca na primeira linha.
+9. **Exportar** oferece **Excel (.xlsx)** e **CSV** do que está na tela, com os filtros e a busca na primeira linha.
 
 ### Repetir uma conta (PF-57)
 
