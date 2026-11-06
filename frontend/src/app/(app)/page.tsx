@@ -32,6 +32,15 @@ const ICON_COLORS = {
   roxo: "bg-brand-roxo/10 text-brand-roxo",
 };
 
+// O tom suave de fundo de cada cor, igual ao dos indicadores das listas.
+const KPI_SURFACE = {
+  azul: "bg-[linear-gradient(135deg,#ffffff_55%,rgb(64_99_238/.09))]",
+  verde: "bg-[linear-gradient(135deg,#ffffff_55%,rgb(0_201_119/.1))]",
+  ambar: "bg-[linear-gradient(135deg,#ffffff_55%,rgb(245_158_11/.12))]",
+  vermelho: "bg-[linear-gradient(135deg,#ffffff_55%,rgb(239_68_68/.09))]",
+  roxo: "bg-[linear-gradient(135deg,#ffffff_55%,rgb(107_54_247/.08))]",
+};
+
 const ATTENTION_ICONS: Record<AttentionItem["kind"], [LucideIcon, keyof typeof ICON_COLORS]> = {
   vencidas: [TriangleAlert, "vermelho"],
   hoje: [CalendarClock, "ambar"],
@@ -54,7 +63,7 @@ function Kpi({
   color: keyof typeof ICON_COLORS;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
+    <div className={cn("flex items-start gap-3 rounded-2xl border border-border bg-card p-4", KPI_SURFACE[color])}>
       <span className={cn("grid size-9 flex-shrink-0 place-items-center rounded-[10px]", ICON_COLORS[color])}>
         <Icon size={16} />
       </span>

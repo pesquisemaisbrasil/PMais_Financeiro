@@ -39,7 +39,7 @@ export function Tag({
   children: React.ReactNode;
 }) {
   return (
-    <Badge variant="secondary" className={cn("gap-1 rounded-full border-0 px-2 py-0.5 text-xs font-semibold", COLORS[color])}>
+    <Badge variant="secondary" className={cn("gap-1 rounded-full border-0 px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ring-current/15", COLORS[color])}>
       {Icon && <Icon size={13} />}
       {children}
     </Badge>
@@ -107,8 +107,8 @@ export function PageHeader({
           <div className="mb-1 text-xs font-semibold uppercase tracking-[.05em] text-brand-azul-deep">{overline}</div>
         )}
         <h1 className="mb-1 flex items-center gap-2.5 text-xl font-semibold text-brand-cinza-escuro">
-          <span className="grid size-8 place-items-center rounded-[10px] bg-brand-azul-deep/10 text-brand-azul-deep">
-            <Icon size={16} />
+          <span className="grid size-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#4063ee,#009cef)] text-white shadow-[0_6px_14px_-6px_rgb(64_99_238/.7)]">
+            <Icon size={18} />
           </span>
           {title}
         </h1>
@@ -133,7 +133,8 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
 }
 
 // Classes que se repetem nas tabelas: mesmo visual do protótipo validado com o financeiro.
-export const CARD = "rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(15_23_42/.04)]";
+export const CARD =
+  "rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(15_23_42/.04),0_12px_28px_-20px_rgb(64_99_238/.28)]";
 export const TH = "px-4 py-3 text-xs font-medium text-muted-foreground";
 export const TD = "px-4 py-3.5 text-[13px]";
 export const NUM = "text-right tabular-nums";

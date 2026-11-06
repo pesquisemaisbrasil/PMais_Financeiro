@@ -13,7 +13,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Suspense>
             <Sidebar />
           </Suspense>
-          <div className="min-w-0 flex-1">{children}</div>
+          <div className="min-w-0 flex-1 bg-[radial-gradient(900px_320px_at_75%_-120px,rgb(0_156_239/.09),transparent_70%)]">
+            {children}
+          </div>
         </div>
       </TooltipProvider>
     </RequireAuth>

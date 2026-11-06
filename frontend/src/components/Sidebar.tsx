@@ -76,9 +76,11 @@ const NAV: Entry[] = [
   },
 ];
 
-const ROW = "relative flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-[9px] text-sm font-medium";
-const ROW_ACTIVE = "bg-brand-azul-deep text-white shadow-sm";
-const ROW_IDLE = "text-brand-cinza-escuro/75 hover:bg-muted hover:text-brand-cinza-escuro";
+const ROW =
+  "relative flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-[9px] text-sm font-medium transition-colors duration-150";
+const ROW_ACTIVE =
+  "bg-[linear-gradient(135deg,#4063ee,#5a52f0)] text-white shadow-[0_8px_16px_-8px_rgb(64_99_238/.75)]";
+const ROW_IDLE = "text-brand-cinza-escuro/75 hover:bg-accent hover:text-brand-azul-deep";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -179,7 +181,7 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          "flex min-h-16 items-center gap-2.5 bg-brand-azul-deep px-5 py-[18px]",
+          "flex min-h-16 items-center gap-2.5 bg-[linear-gradient(135deg,#4063ee_0%,#5a52f0_100%)] px-5 py-[18px]",
           collapsed && "md:justify-center md:px-0"
         )}
       >
@@ -237,9 +239,9 @@ export function Sidebar() {
                     aria-label={entry.label}
                     className={cn(
                       ROW,
-                      "h-auto w-full justify-start hover:bg-muted",
+                      "h-auto w-full justify-start hover:bg-accent",
                       collapsed && "md:justify-center md:px-0",
-                      hasCurrent ? "text-brand-azul-deep" : "text-brand-cinza-escuro/75 hover:text-brand-cinza-escuro"
+                      hasCurrent ? "text-brand-azul-deep" : "text-brand-cinza-escuro/75 hover:text-brand-azul-deep"
                     )}
                   >
                     <Icon size={16} strokeWidth={2} />

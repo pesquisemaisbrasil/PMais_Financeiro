@@ -4,11 +4,15 @@ import {
   ArrowDown,
   ArrowUp,
   Ban,
+  CalendarClock,
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
+  CircleCheck,
   Download,
   Eye,
+  Hourglass,
   Plus,
   Repeat,
   Search,
@@ -20,6 +24,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
+import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
@@ -78,6 +83,17 @@ const COLUMNS: { id: string; label: string; sort?: ReceivableSort; numeric?: boo
   { id: "recebido", label: "Recebido", sort: "recebido", numeric: true },
   { id: "pendente", label: "Pendente", sort: "pendente", numeric: true },
 ];
+
+// O ícone e a cor de cada indicador, os mesmos das etiquetas da lista.
+const INDICATOR_LOOK: Record<ReceivableIndicator, { icon: LucideIcon; tone: IndicatorTone }> = {
+  total: { icon: Wallet, tone: "azul" },
+  recebidos: { icon: CircleCheck, tone: "verde" },
+  pendentes: { icon: Hourglass, tone: "ceu" },
+  vencidos: { icon: TriangleAlert, tone: "vermelho" },
+  hoje: { icon: CalendarClock, tone: "ambar" },
+  avencer: { icon: CalendarDays, tone: "neutro" },
+  cancelados: { icon: Ban, tone: "cinza" },
+};
 
 const MODES: { id: PeriodMode; label: string }[] = [
   { id: "dia", label: "Dia" },
@@ -386,32 +402,22 @@ export default function ReceivablesPage() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3">
-        {INDICATORS.map((option) => {
+        {INDICATORS.map((option, index) => {
           const value = data?.indicators[option.id];
+          const look = INDICATOR_LOOK[option.id];
           return (
-            <Button
+            <IndicatorCard
               key={option.id}
-              variant="outline"
-              aria-pressed={indicator === option.id}
-              className={cn(
-                "h-auto flex-col items-start gap-1 rounded-xl border-transparent bg-card px-3.5 py-3.5 text-left font-normal whitespace-normal shadow-[0_1px_2px_rgb(15_23_42/.06)] hover:bg-card hover:shadow-[0_2px_6px_rgb(15_23_42/.08)]",
-                indicator === option.id && "bg-accent ring-2 ring-brand-azul-deep/70 hover:bg-accent",
-              )}
+              index={index}
+              label={option.label}
+              icon={look.icon}
+              tone={look.tone}
+              active={indicator === option.id}
+              danger={option.id === "vencidos" && Boolean(value?.count)}
+              value={value ? brl(value.value) : "—"}
+              count={value ? plural(value.count, "título", "títulos") : "\u00a0"}
               onClick={() => resetPageAnd(() => setIndicator(option.id))}
-            >
-              <span className="text-xs font-medium text-muted-foreground">{option.label}</span>
-              <span
-                className={cn(
-                  "text-[15px] font-semibold tabular-nums",
-                  option.id === "vencidos" && value?.count ? "text-[#b91c1c]" : undefined,
-                )}
-              >
-                {value ? brl(value.value) : "—"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {value ? plural(value.count, "título", "títulos") : " "}
-              </span>
-            </Button>
+            />
           );
         })}
       </div>

@@ -6,16 +6,21 @@ import {
   ArrowUpRight,
   Ban,
   Barcode,
+  CalendarClock,
+  CalendarDays,
   Check,
   CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleCheck,
   Columns3,
   Copy,
   Download,
   Eye,
   FileUp,
+  Hourglass,
+  PiggyBank,
   Plus,
   Receipt,
   Repeat,
@@ -24,12 +29,15 @@ import {
   SlidersHorizontal,
   Tags,
   Trash2,
+  TriangleAlert,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
+import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
@@ -111,15 +119,15 @@ const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean
 ];
 const DEFAULT_COLUMNS = ["vencimento", "fornecedor", "projeto", "categoria", "situacao", "valor", "pendente"];
 
-const INDICATORS: { id: Indicator; label: string }[] = [
-  { id: "total", label: "Total" },
-  { id: "pagos", label: "Pagos" },
-  { id: "pendentes", label: "Pendentes" },
-  { id: "vencidos", label: "Vencidos" },
-  { id: "hoje", label: "Hoje" },
-  { id: "avencer", label: "A vencer" },
-  { id: "provisoes", label: "Provisões" },
-  { id: "cancelados", label: "Canceladas" },
+const INDICATORS: { id: Indicator; label: string; icon: LucideIcon; tone: IndicatorTone }[] = [
+  { id: "total", label: "Total", icon: Wallet, tone: "azul" },
+  { id: "pagos", label: "Pagos", icon: CircleCheck, tone: "verde" },
+  { id: "pendentes", label: "Pendentes", icon: Hourglass, tone: "ceu" },
+  { id: "vencidos", label: "Vencidos", icon: TriangleAlert, tone: "vermelho" },
+  { id: "hoje", label: "Hoje", icon: CalendarClock, tone: "ambar" },
+  { id: "avencer", label: "A vencer", icon: CalendarDays, tone: "neutro" },
+  { id: "provisoes", label: "Provisões", icon: PiggyBank, tone: "roxo" },
+  { id: "cancelados", label: "Canceladas", icon: Ban, tone: "cinza" },
 ];
 
 const TABS: { id: Tab; label: string }[] = [
@@ -636,32 +644,21 @@ function PayablesContent() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {INDICATORS.map((option) => {
+        {INDICATORS.map((option, index) => {
           const value = data?.indicators[option.id];
           return (
-            <Button
+            <IndicatorCard
               key={option.id}
-              variant="outline"
-              aria-pressed={indicator === option.id}
-              className={cn(
-                "h-auto flex-col items-start gap-1 rounded-xl border-transparent bg-card px-3.5 py-3.5 text-left font-normal whitespace-normal shadow-[0_1px_2px_rgb(15_23_42/.06)] hover:bg-card hover:shadow-[0_2px_6px_rgb(15_23_42/.08)]",
-                indicator === option.id && "bg-accent ring-2 ring-brand-azul-deep/70 hover:bg-accent"
-              )}
+              index={index}
+              label={option.label}
+              icon={option.icon}
+              tone={option.tone}
+              active={indicator === option.id}
+              danger={option.id === "vencidos" && Boolean(value?.count)}
+              value={value ? brl(value.value) : "—"}
+              count={value ? plural(value.count, "conta", "contas") : "\u00a0"}
               onClick={() => resetPageAnd(() => setIndicator(option.id))}
-            >
-              <span className="text-xs font-medium text-muted-foreground">{option.label}</span>
-              <span
-                className={cn(
-                  "text-[15px] font-semibold tabular-nums",
-                  option.id === "vencidos" && value?.count ? "text-[#b91c1c]" : undefined
-                )}
-              >
-                {value ? brl(value.value) : "—"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {value ? plural(value.count, "conta", "contas") : "\u00a0"}
-              </span>
-            </Button>
+            />
           );
         })}
       </div>
