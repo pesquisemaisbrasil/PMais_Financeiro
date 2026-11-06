@@ -85,6 +85,7 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 13. Selecione contas e use **Reclassificar**: sem escolher nada, o sistema pede o que vai mudar. O **Histórico** mostra o antes e o depois.
 14. Selecione uma conta e use **Duplicar**: a cópia aparece no mês seguinte, sem baixas.
 15. Em **Nova conta a pagar**, marque **É uma provisão** e lance sem fornecedor. Na linha, **Substituir pelo valor real**: o total conta só o real, sem contar duas vezes. Cancele o real: a provisão volta a valer.
+16. **Abrir e editar a conta:** clique em qualquer lugar da linha (menos nos botões e na caixa de seleção) para abrir a conta. Em **Editar conta** mude fornecedor, categoria, centro de custo, forma de pagamento, documento, código de barras, competência, documentação recebida e observações; a aba **Baixas** mostra todas as baixas e estornos, e **Histórico** traz o antes e o depois de cada mudança.
 
 Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em ambiente de teste. Em **Contas a pagar → Importar planilha**:
 
