@@ -58,8 +58,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   ApiError,
   type ExportFormat,
-  cancelSeries,
-  editSeries,
   exportPayables,
   getPayable,
   getReference,
@@ -95,6 +93,8 @@ import {
   DuplicateDialog,
   ItemsPanel,
   NewPayableDialog,
+  PAYABLE_SERIES_API,
+  PAYABLE_SERIES_TEXTS,
   PaymentDialog,
   ReclassifyDialog,
   ReplaceProvisionDialog,
@@ -1025,14 +1025,8 @@ function PayablesContent() {
         <SeriesDialog
           row={seriesAction.row}
           mode={seriesAction.mode}
-          api={{ edit: editSeries, cancel: cancelSeries }}
-          texts={{
-            canceled: ["conta cancelada", "contas canceladas"],
-            changed: ["conta alterada", "contas alteradas"],
-            settled: "O que já foi pago",
-            none: "Nenhuma conta mudou: todas já têm baixa ou estão canceladas.",
-            many: "contas",
-          }}
+          api={PAYABLE_SERIES_API}
+          texts={PAYABLE_SERIES_TEXTS}
           onClose={() => setSeriesAction(null)}
           onDone={(message) => {
             setSeriesAction(null);

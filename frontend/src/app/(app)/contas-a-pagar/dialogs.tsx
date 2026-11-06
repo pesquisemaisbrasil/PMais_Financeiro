@@ -1,11 +1,11 @@
 "use client";
 
-import { Check, CheckCheck, Copy, Pencil, Replace, Search, Tags, Undo2 } from "lucide-react";
+import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Search, Tags, Undo2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { ErrorBox, Field, FormError, NUM, OriginTag, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -23,18 +23,24 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { AmountSummary } from "@/components/AmountSummary";
 import { ProjectSplit } from "@/components/ProjectSplit";
+import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
+import { SeriesPanel } from "@/components/SeriesPanel";
 import { ValuesCard } from "@/components/ValuesCard";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import {
   ApiError,
   cancelPayable,
+  cancelSeries,
   createPayable,
   createSeries,
   deleteBatch,
   duplicateBatch,
+  editSeries,
   getPayable,
   getReplacementCandidates,
+  listSeries,
   payBatch,
   payPayable,
   reclassifyBatch,
@@ -53,6 +59,7 @@ import {
   occurrenceEdits,
   buildAllocations,
   parseMoney,
+  percentOf,
   plural,
   toCents,
   toField,
@@ -63,6 +70,7 @@ import {
   type Payment,
   type Reference,
   type ReplacementCandidate,
+  type Situation,
 } from "@/lib/payables";
 import {
   NET_ZERO_MESSAGE,
@@ -1126,6 +1134,46 @@ const PAYMENT_KINDS: Record<Payment["kind"], string> = {
   devolucao: "Pix devolvido",
 };
 
+/** As chamadas e as palavras da série no Contas a pagar: a lista e o detalhe usam as mesmas. */
+export const PAYABLE_SERIES_API: SeriesApi = { edit: editSeries, cancel: cancelSeries };
+
+export const PAYABLE_SERIES_TEXTS: SeriesTexts = {
+  canceled: ["conta cancelada", "contas canceladas"],
+  changed: ["conta alterada", "contas alteradas"],
+  settled: "O que já foi pago",
+  none: "Nenhuma conta mudou: todas já têm baixa ou estão canceladas.",
+  many: "contas",
+};
+
+/** Valor, pago e pendente da conta, com a barra de quanto já foi pago. */
+function PayableSummary({ payable }: { payable: PayableDetail }) {
+  const percent = percentOf(payable.paid, payable.amount);
+  const payments = payable.payments.filter((payment) => payment.kind === "pagamento" && !payment.reversed).length;
+  return (
+    <AmountSummary
+      percent={percent}
+      progressText={`${percent}% pago`}
+      items={[
+        { label: "Valor", value: brl(payable.amount), hint: `vence ${formatDate(payable.dueDate)}`, icon: Wallet, tone: "azul" },
+        {
+          label: "Pago",
+          value: brl(payable.paid),
+          hint: payments ? plural(payments, "baixa", "baixas") : "nenhuma baixa",
+          icon: CircleCheck,
+          tone: "verde",
+        },
+        {
+          label: "Pendente",
+          value: brl(payable.pending),
+          hint: Number(payable.pending) > 0 ? "falta pagar" : "nada a pagar",
+          icon: Hourglass,
+          tone: "ambar",
+        },
+      ]}
+    />
+  );
+}
+
 export function DetailDialog({
   id,
   today,
@@ -1141,24 +1189,45 @@ export function DetailDialog({
   onChanged: () => void;
   onReplace: (payable: PayableDetail) => void;
 }) {
-  const [payable, setPayable] = useState<PayableDetail | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // A aba Repetir leva de uma ocorrência da série para outra sem fechar a janela.
+  const [currentId, setCurrentId] = useState(id);
+  const [loaded, setLoaded] = useState<PayableDetail | null>(null);
+  const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null);
+  // Sobe quando a série muda (valor, cancelamento): recarrega a conta e a lista da aba Repetir.
+  const [version, setVersion] = useState(0);
+  const [tab, setTab] = useState("detalhes");
   const [action, setAction] = useState<
     | { kind: "edit" }
+    | { kind: "pay" }
     | { kind: "cancel" }
+    | { kind: "series"; mode: "edit" | "cancel" }
     | { kind: "reverse"; payment: Payment; type: "estorno" | "devolucao" }
     | { kind: "remove-document"; attachment: Attachment }
     | null
   >(null);
 
   useEffect(() => {
-    getPayable(id).then(setPayable, (err) =>
-      setLoadError(err instanceof ApiError ? err.message : "Não foi possível abrir a conta")
+    let live = true;
+    getPayable(currentId).then(
+      (next) => live && setLoaded(next),
+      (err) =>
+        live &&
+        setLoadError({
+          id: currentId,
+          message: err instanceof ApiError ? err.message : "Não foi possível abrir a conta",
+        })
     );
-  }, [id]);
+    return () => {
+      live = false;
+    };
+  }, [currentId, version]);
+
+  // Enquanto a outra ocorrência carrega, a anterior não aparece no lugar dela.
+  const payable = loaded?.id === currentId ? loaded : null;
+  const failure = loadError?.id === currentId ? loadError.message : null;
 
   function updated(next: PayableDetail, message: string) {
-    setPayable(next);
+    setLoaded(next);
     setAction(null);
     toast.success(message);
     onChanged();
@@ -1167,13 +1236,13 @@ export function DetailDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[820px]">
-        {loadError ? (
+        {failure ? (
           <>
             <DialogHeader>
               <DialogTitle>Detalhes da conta</DialogTitle>
               <DialogDescription>Não foi possível abrir.</DialogDescription>
             </DialogHeader>
-            <ErrorBox message={loadError} />
+            <ErrorBox message={failure} />
           </>
         ) : !payable ? (
           <>
@@ -1197,11 +1266,37 @@ export function DetailDialog({
               {payable.type === "provisao" && <ProvisionTag />}
               <SituationTag situation={payable.situation} />
               <OriginTag origin={payable.origin} />
-              {payable.docsLate && <Tag color="ambar">Documentação atrasada</Tag>}
             </div>
+            <PayableSummary payable={payable} />
+            {payable.docsLate && payable.docsReceivedOn && (
+              <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                <FileClock />
+                <AlertTitle>Documentação atrasada</AlertTitle>
+                <AlertDescription className="text-amber-900/90">
+                  A documentação chegou em {formatDate(payable.docsReceivedOn)}, menos de 3 dias antes do vencimento (
+                  {formatDate(payable.dueDate)}).
+                </AlertDescription>
+              </Alert>
+            )}
+            {payable.situation === "devolvido" && (
+              <Alert className="border-red-200 bg-red-50 text-red-800">
+                <Undo2 />
+                <AlertTitle>Pix devolvido</AlertTitle>
+                <AlertDescription className="text-red-800/90">
+                  O dinheiro voltou e o valor está pendente de novo. Peça ao supervisor para corrigir a chave no Connect e
+                  dê uma nova baixa, com a data em que o pagamento sair.
+                </AlertDescription>
+              </Alert>
+            )}
             {payable.situation !== "cancelado" && payable.situation !== "substituido" && payable.origin !== "connect" && (
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant={action?.kind === "edit" ? "secondary" : "default"} onClick={() => setAction({ kind: "edit" })}>
+                {payable.canPayDirectly && (
+                  <Button size="sm" onClick={() => setAction({ kind: "pay" })}>
+                    <Check size={14} />
+                    Dar baixa
+                  </Button>
+                )}
+                <Button size="sm" variant={action?.kind === "edit" ? "secondary" : "outline"} onClick={() => setAction({ kind: "edit" })}>
                   <Pencil size={14} />
                   Editar conta
                 </Button>
@@ -1227,11 +1322,12 @@ export function DetailDialog({
                 onDone={(next) => updated(next, "Conta alterada.")}
               />
             )}
-            <Tabs defaultValue="detalhes">
+            <Tabs value={tab} onValueChange={setTab}>
               <TabsList>
                 <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
                 <TabsTrigger value="baixas">Baixas ({payable.payments.length})</TabsTrigger>
                 <TabsTrigger value="documentos">Documentos ({payable.attachments.length})</TabsTrigger>
+                {payable.series && <TabsTrigger value="repetir">Repetir ({payable.series.count})</TabsTrigger>}
                 {payable.items.length > 0 && <TabsTrigger value="itens">Itens ({payable.items.length})</TabsTrigger>}
                 <TabsTrigger value="historico">Histórico</TabsTrigger>
               </TabsList>
@@ -1288,12 +1384,41 @@ export function DetailDialog({
                 <DocumentsPanel
                   payable={payable}
                   onChanged={(next, message) => {
-                    setPayable(next);
+                    setLoaded(next);
                     if (message) toast.success(message);
                   }}
                   onRemove={(attachment) => setAction({ kind: "remove-document", attachment })}
                 />
               </TabsContent>
+              {payable.series && (
+                <TabsContent value="repetir" className="pt-3">
+                  <SeriesPanel
+                    key={`${version}-${payable.events.length}`}
+                    currentId={payable.id}
+                    series={payable.series}
+                    words={["conta", "contas"]}
+                    load={listSeries}
+                    situation={(value) => <SituationTag situation={value as Situation} />}
+                    onOpen={(next) => {
+                      setAction(null);
+                      setCurrentId(next);
+                    }}
+                    actions={
+                      payable.situation !== "cancelado" &&
+                      payable.situation !== "substituido" && (
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setAction({ kind: "series", mode: "edit" })}>
+                            Alterar a série
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setAction({ kind: "series", mode: "cancel" })}>
+                            Cancelar contas da série
+                          </Button>
+                        </div>
+                      )
+                    }
+                  />
+                </TabsContent>
+              )}
               {payable.items.length > 0 && (
                 <TabsContent value="itens" className="pt-3">
                   <ItemsPanel payable={payable} />
@@ -1332,6 +1457,37 @@ export function DetailDialog({
                 onClose={() => setAction(null)}
                 submit={(reason) => removeDocument(payable.id, action.attachment.id, reason)}
                 onDone={(next) => updated(next, "Documento tirado da conta.")}
+              />
+            )}
+            {action?.kind === "pay" && (
+              <PaymentDialog
+                row={payable}
+                reference={reference}
+                today={today}
+                onClose={() => setAction(null)}
+                onDone={(next) =>
+                  updated(
+                    next,
+                    Number(next.pending) > 0
+                      ? `Baixa parcial feita. Ainda faltam ${brl(next.pending)}.`
+                      : `Conta paga: ${next.description}.`
+                  )
+                }
+              />
+            )}
+            {action?.kind === "series" && payable.series && (
+              <SeriesDialog
+                row={payable}
+                mode={action.mode}
+                api={PAYABLE_SERIES_API}
+                texts={PAYABLE_SERIES_TEXTS}
+                onClose={() => setAction(null)}
+                onDone={(message) => {
+                  setAction(null);
+                  toast.success(message);
+                  onChanged();
+                  setVersion((value) => value + 1);
+                }}
               />
             )}
             {action?.kind === "reverse" && (

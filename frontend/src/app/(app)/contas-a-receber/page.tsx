@@ -58,9 +58,7 @@ import {
   DATE_FIELDS,
   INDICATORS,
   SITUATION_LABELS,
-  cancelReceivableSeries,
   daysLateText,
-  editReceivableSeries,
   exportReceivables,
   listReceivables,
   type ReceivableDateField,
@@ -71,7 +69,15 @@ import {
   type ReceivableSort,
 } from "@/lib/receivables";
 import { cn } from "@/lib/utils";
-import { DelinquencyDialog, DetailDialog, NewReceivableDialog, ReceiveDialog, SituationBadge } from "./dialogs";
+import {
+  DelinquencyDialog,
+  DetailDialog,
+  NewReceivableDialog,
+  RECEIVABLE_SERIES_API,
+  RECEIVABLE_SERIES_TEXTS,
+  ReceiveDialog,
+  SituationBadge,
+} from "./dialogs";
 
 const COLUMNS: { id: string; label: string; sort?: ReceivableSort; numeric?: boolean }[] = [
   { id: "vencimento", label: "Vencimento", sort: "vencimento" },
@@ -701,14 +707,8 @@ export default function ReceivablesPage() {
         <SeriesDialog
           row={seriesAction.row}
           mode={seriesAction.mode}
-          api={{ edit: editReceivableSeries, cancel: cancelReceivableSeries }}
-          texts={{
-            canceled: ["título cancelado", "títulos cancelados"],
-            changed: ["título alterado", "títulos alterados"],
-            settled: "O que já foi recebido",
-            none: "Nenhum título mudou: todos já têm recebimento ou estão cancelados.",
-            many: "títulos",
-          }}
+          api={RECEIVABLE_SERIES_API}
+          texts={RECEIVABLE_SERIES_TEXTS}
           onClose={() => setSeriesAction(null)}
           onDone={(message) => {
             setSeriesAction(null);

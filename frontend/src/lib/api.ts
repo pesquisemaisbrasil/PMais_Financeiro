@@ -14,7 +14,8 @@ import type {
   Occurrence,
   Project,
   RecordKind,
-  RecordRow
+  RecordRow,
+  SeriesOccurrence
 } from "./payables";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
@@ -320,6 +321,11 @@ export function simulateRecurrence(body: unknown): Promise<Occurrence[]> {
 
 export function createSeries(body: unknown): Promise<{ seriesId: number; ids: number[] }> {
   return send<{ seriesId: number; ids: number[] }>("/payables/recurrence", "POST", body);
+}
+
+/** As ocorrências da série da conta, em ordem (aba Repetir). */
+export function listSeries(id: number): Promise<SeriesOccurrence[]> {
+  return request<SeriesOccurrence[]>(`/payables/${id}/series`);
 }
 
 export function editSeries(id: number, body: unknown): Promise<{ count: number }> {

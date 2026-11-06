@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export type IndicatorTone = "azul" | "verde" | "ceu" | "vermelho" | "ambar" | "roxo" | "neutro" | "cinza";
 
 // As classes ficam escritas por inteiro: o Tailwind não enxerga nome montado com texto.
-const TONES: Record<IndicatorTone, { chip: string; idle: string; active: string }> = {
+export const TONES: Record<IndicatorTone, { chip: string; idle: string; active: string }> = {
   azul: {
     chip: "bg-brand-azul-deep/12 text-brand-azul-deep",
     idle: "bg-[linear-gradient(135deg,#ffffff_55%,rgb(64_99_238/.09))]",

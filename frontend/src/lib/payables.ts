@@ -57,6 +57,17 @@ export interface Occurrence {
   amount: string;
 }
 
+/** Uma linha da aba Repetir: a ocorrência da série como está hoje. */
+export interface SeriesOccurrence {
+  id: number;
+  index: number;
+  dueDate: string;
+  description: string;
+  /** O valor líquido: o que de fato se paga ou se recebe. */
+  amount: string;
+  situation: string;
+}
+
 export const RECURRENCE_KINDS: { id: RecurrenceKind; label: string }[] = [
   { id: "mensal", label: "Todo mês" },
   { id: "semanal", label: "Toda semana" },
@@ -397,6 +408,13 @@ export function paymentExtras(payments: Pick<Payment, "kind" | "reversed" | "sur
 /** Dinheiro em centavos inteiros: soma sem o erro de arredondamento do ponto flutuante. */
 export function toCents(value: string): number {
   return Number(value.replace(".", ""));
+}
+
+/** Quanto de `total` já foi coberto por `part`, de 0 a 100 (nunca passa disso). Valores com duas casas. */
+export function percentOf(part: string, total: string): number {
+  const whole = toCents(total);
+  if (whole <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((toCents(part) * 100) / whole)));
 }
 
 /** Para o campo de valor do formulário: "1234.50" vira "1234,50". */

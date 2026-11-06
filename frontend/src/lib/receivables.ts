@@ -1,6 +1,6 @@
 import type { Adjustment } from "./adjustments";
 import { fetchBlob, remove, request, send, type ExportFormat } from "./api";
-import { toCents, type PeriodMode, type SeriesInfo } from "./payables";
+import { toCents, type PeriodMode, type SeriesInfo, type SeriesOccurrence } from "./payables";
 
 // ---- Tipos (iguais aos do backend: schemas/receivable.py) ----
 
@@ -207,6 +207,11 @@ export function exportReceivables(query: ReceivableQuery, format: ExportFormat =
 
 export function createReceivableSeries(body: unknown): Promise<{ seriesId: number; ids: number[] }> {
   return send<{ seriesId: number; ids: number[] }>("/receivables/recurrence", "POST", body);
+}
+
+/** Os títulos da série, em ordem (aba Repetir). */
+export function listReceivableSeries(id: number): Promise<SeriesOccurrence[]> {
+  return request<SeriesOccurrence[]>(`/receivables/${id}/series`);
 }
 
 export function editReceivableSeries(id: number, body: unknown): Promise<{ count: number }> {

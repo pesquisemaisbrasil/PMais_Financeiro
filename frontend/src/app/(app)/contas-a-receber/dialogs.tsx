@@ -1,9 +1,13 @@
 "use client";
 
-import { Undo2 } from "lucide-react";
+import { CircleCheck, Hourglass, Undo2, Wallet } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
+import { AmountSummary } from "@/components/AmountSummary";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
+import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
+import { SeriesPanel } from "@/components/SeriesPanel";
 import { ValuesCard } from "@/components/ValuesCard";
 import { ErrorBox, Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -28,6 +32,7 @@ import {
   formatDate,
   occurrenceEdits,
   parseMoney,
+  percentOf,
   plural,
   revenueCategories,
   toCents,
@@ -39,12 +44,15 @@ import {
   bandLabel,
   bandTotals,
   cancelReceivable,
+  cancelReceivableSeries,
   createReceivable,
   createReceivableSeries,
   daysLateText,
   deleteReceivable,
+  editReceivableSeries,
   getReceivable,
   listDelinquency,
+  listReceivableSeries,
   receive,
   reverseReceipt,
   updateReceivable,
@@ -637,6 +645,46 @@ function EditDialog({
 
 // ---- Detalhe ----
 
+/** As chamadas e as palavras da série no Contas a receber: a lista e o detalhe usam as mesmas. */
+export const RECEIVABLE_SERIES_API: SeriesApi = { edit: editReceivableSeries, cancel: cancelReceivableSeries };
+
+export const RECEIVABLE_SERIES_TEXTS: SeriesTexts = {
+  canceled: ["título cancelado", "títulos cancelados"],
+  changed: ["título alterado", "títulos alterados"],
+  settled: "O que já foi recebido",
+  none: "Nenhum título mudou: todos já têm recebimento ou estão cancelados.",
+  many: "títulos",
+};
+
+/** Valor a receber, recebido e pendente do título, com a barra de quanto já foi recebido. */
+function ReceivableSummary({ detail }: { detail: ReceivableDetail }) {
+  const percent = percentOf(detail.received, detail.net);
+  const receipts = detail.payments.filter((payment) => payment.kind === "recebimento" && !payment.reversed).length;
+  return (
+    <AmountSummary
+      percent={percent}
+      progressText={`${percent}% recebido`}
+      items={[
+        { label: "Valor", value: brl(detail.net), hint: `vence ${formatDate(detail.dueDate)}`, icon: Wallet, tone: "azul" },
+        {
+          label: "Recebido",
+          value: brl(detail.received),
+          hint: receipts ? plural(receipts, "recebimento", "recebimentos") : "nenhum recebimento",
+          icon: CircleCheck,
+          tone: "verde",
+        },
+        {
+          label: "Pendente",
+          value: brl(detail.pending),
+          hint: Number(detail.pending) > 0 ? "falta receber" : "nada a receber",
+          icon: Hourglass,
+          tone: "ambar",
+        },
+      ]}
+    />
+  );
+}
+
 export function DetailDialog({
   id,
   onClose,
@@ -648,26 +696,41 @@ export function DetailDialog({
   onChanged: () => void;
   onReceive: (row: ReceivableDetail) => void;
 }) {
-  const [detail, setDetail] = useState<ReceivableDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // A aba Repetir leva de um título da série para outro sem fechar a janela.
+  const [currentId, setCurrentId] = useState(id);
+  const [loaded, setLoaded] = useState<ReceivableDetail | null>(null);
+  const [failure, setFailure] = useState<{ id: number; message: string } | null>(null);
+  // Sobe quando a série muda (valor, cancelamento): recarrega o título e a lista da aba Repetir.
+  const [version, setVersion] = useState(0);
+  const [tab, setTab] = useState("resumo");
   const [editing, setEditing] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reversing, setReversing] = useState<number | null>(null);
+  const [changingSeries, setChangingSeries] = useState<"edit" | "cancel" | null>(null);
 
   useEffect(() => {
     let live = true;
-    getReceivable(id).then(
-      (loaded) => live && setDetail(loaded),
-      (err) => live && setError(err instanceof ApiError ? err.message : "Não foi possível abrir o título."),
+    getReceivable(currentId).then(
+      (next) => live && setLoaded(next),
+      (err) =>
+        live &&
+        setFailure({
+          id: currentId,
+          message: err instanceof ApiError ? err.message : "Não foi possível abrir o título.",
+        }),
     );
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [currentId, version]);
+
+  // Enquanto o outro título carrega, o anterior não aparece no lugar dele.
+  const detail = loaded?.id === currentId ? loaded : null;
+  const error = failure?.id === currentId ? failure.message : null;
 
   function apply(next: ReceivableDetail) {
-    setDetail(next);
+    setLoaded(next);
     onChanged();
   }
 
@@ -687,11 +750,13 @@ export function DetailDialog({
             <Spinner aria-label="Carregando" className="size-6" />
           </div>
         )}
+        {detail && <ReceivableSummary detail={detail} />}
         {detail && (
-          <Tabs defaultValue="resumo">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList>
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="recebimentos">Recebimentos ({detail.payments.length})</TabsTrigger>
+              {detail.series && <TabsTrigger value="repetir">Repetir ({detail.series.count})</TabsTrigger>}
               <TabsTrigger value="historico">Histórico</TabsTrigger>
             </TabsList>
             <TabsContent value="resumo" className="flex flex-col gap-3 pt-3">
@@ -787,6 +852,31 @@ export function DetailDialog({
                 </Table>
               )}
             </TabsContent>
+            {detail.series && (
+              <TabsContent value="repetir" className="pt-3">
+                <SeriesPanel
+                  key={`${version}-${detail.events.length}`}
+                  currentId={detail.id}
+                  series={detail.series}
+                  words={["título", "títulos"]}
+                  load={listReceivableSeries}
+                  situation={(value) => <SituationBadge situation={value as ReceivableSituation} />}
+                  onOpen={setCurrentId}
+                  actions={
+                    detail.situation !== "cancelado" && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setChangingSeries("edit")}>
+                          Alterar a série
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setChangingSeries("cancel")}>
+                          Cancelar títulos da série
+                        </Button>
+                      </div>
+                    )
+                  }
+                />
+              </TabsContent>
+            )}
             <TabsContent value="historico" className="pt-3">
               <ul className="flex flex-col gap-2 text-[13px]">
                 {detail.events.map((event, index) => (
@@ -860,6 +950,21 @@ export function DetailDialog({
               const next = await reverseReceipt(detail.id, reversing, reason);
               setReversing(null);
               apply(next);
+            }}
+          />
+        )}
+        {detail && changingSeries && detail.series && (
+          <SeriesDialog
+            row={detail}
+            mode={changingSeries}
+            api={RECEIVABLE_SERIES_API}
+            texts={RECEIVABLE_SERIES_TEXTS}
+            onClose={() => setChangingSeries(null)}
+            onDone={(message) => {
+              setChangingSeries(null);
+              toast.success(message);
+              onChanged();
+              setVersion((value) => value + 1);
             }}
           />
         )}
