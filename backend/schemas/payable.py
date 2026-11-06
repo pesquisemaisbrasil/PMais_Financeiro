@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from schemas.adjustment import AdjustmentIn, AdjustmentOut
+
 Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
 OptionalMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
@@ -52,6 +54,7 @@ class PayableCreate(BaseModel):
     docsReceivedOn: date | None = None
     isTransfer: bool = False
     notes: str | None = Field(default=None, max_length=2000)
+    adjustments: list[AdjustmentIn] = Field(default=[], max_length=60)
 
 
 class ProvisionReplace(BaseModel):
@@ -93,6 +96,8 @@ class PayableUpdate(BaseModel):
     docsReceivedOn: date | None = None
     notes: str | None = Field(default=None, max_length=2000)
     isTransfer: bool | None = None
+    # Não vindo, não muda; vindo, troca a lista inteira (vazia tira todos).
+    adjustments: list[AdjustmentIn] | None = Field(default=None, max_length=60)
 
 
 class PaymentCreate(BaseModel):
@@ -171,7 +176,9 @@ class PayableRow(BaseModel):
     costCenterName: str
     paymentMethodName: str
     companyName: str
+    # o valor líquido (o que de fato se paga); o bruto vem em grossAmount
     amount: Decimal
+    grossAmount: Decimal
     paid: Decimal
     pending: Decimal
     docsLate: bool
@@ -270,6 +277,7 @@ class PayableDetail(PayableRow):
     payments: list[PaymentOut]
     events: list[EventOut]
     attachments: list[AttachmentOut]
+    adjustments: list[AdjustmentOut]
 
 
 class CodeName(BaseModel):

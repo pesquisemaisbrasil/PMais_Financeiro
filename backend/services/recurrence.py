@@ -95,6 +95,10 @@ def create_series(
     """Cria a série e todas as ocorrências, ou nada. A data inicial é o vencimento informado."""
     if data.type != "real":
         raise PayableInvalid("Só conta real se repete: provisão não tem série")
+    if data.adjustments and recurrence.kind == "parcelado":
+        raise PayableInvalid(
+            "Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois"
+        )
     occurrences = simulate(recurrence.kind, data.dueDate, recurrence.count, data.amount)
     for edit in recurrence.occurrences or []:
         if not 1 <= edit.index <= len(occurrences):

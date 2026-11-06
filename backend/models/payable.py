@@ -127,10 +127,28 @@ class Payable(Base):
         "PayableAllocation", cascade="all, delete-orphan", order_by="PayableAllocation.id"
     )
     items = relationship("PayableItem", cascade="all, delete-orphan", order_by="PayableItem.id")
+    adjustments = relationship(
+        "PayableAdjustment", cascade="all, delete-orphan", order_by="PayableAdjustment.id"
+    )
     payments = relationship("PayablePayment", order_by="PayablePayment.id")
     events = relationship("PayableEvent", order_by="PayableEvent.id")
     created_by = relationship("User", foreign_keys=[created_by_user_id])
     attachments = relationship("PayableAttachment", order_by="PayableAttachment.id")
+
+
+class PayableAdjustment(Base):
+    """Acréscimo, desconto ou imposto lançado na conta (kind: acrescimo | desconto | imposto).
+    O líquido é o valor + acréscimos − descontos − impostos; os totais saem desta tabela."""
+
+    __tablename__ = "payable_adjustments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payable_id = Column(
+        Integer, ForeignKey("payables.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind = Column(String(10), nullable=False)
+    description = Column(String(120), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
 
 
 class PayableAllocation(Base):

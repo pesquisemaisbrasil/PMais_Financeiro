@@ -13,6 +13,7 @@ from core.text import format_brl, format_brl_plain, format_date_br, launch_date
 from core.xlsx import build_xlsx
 from models.payable import (
     Payable,
+    PayableAdjustment,
     PayableAllocation,
     PayableEvent,
     PayableItem,
@@ -40,6 +41,7 @@ from schemas.payable import (
     PaymentReverse,
     ProvisionReplace,
 )
+from services import adjustments as adj
 
 PAGE_SIZE = 12
 ZERO = Decimal("0")
@@ -82,14 +84,19 @@ def paid_amount(payable: Payable) -> Decimal:
     return sum((p.amount for p in _active_payments(payable)), ZERO)
 
 
+def net_amount(payable: Payable) -> Decimal:
+    """O que de fato se paga: o valor com os acréscimos, menos descontos e impostos da conta."""
+    return adj.net(payable.amount, payable.adjustments)
+
+
 def pending_amount(payable: Payable) -> Decimal:
-    """Pendente = valor + juros e multa − desconto − baixas (regra 2 da spec)."""
+    """Pendente = líquido + juros e multa das baixas - desconto das baixas - baixas."""
     if payable.canceledAt is not None or payable.replaced_by_id is not None:
         return ZERO
     active = _active_payments(payable)
     surcharge = sum((p.surcharge for p in active), ZERO)
     discount = sum((p.discount for p in active), ZERO)
-    return payable.amount + surcharge - discount - paid_amount(payable)
+    return net_amount(payable) + surcharge - discount - paid_amount(payable)
 
 
 def _returned(payable: Payable) -> bool:
@@ -172,7 +179,7 @@ def _indicator_value(key: str, payables: list[Payable]) -> Decimal:
     if key == "pagos":
         return sum((paid_amount(p) for p in payables), ZERO)
     if key in ("total", "provisoes", "cancelados"):
-        return sum((p.amount for p in payables), ZERO)
+        return sum((net_amount(p) for p in payables), ZERO)
     return sum((pending_amount(p) for p in payables), ZERO)
 
 
@@ -204,6 +211,7 @@ def _base_query(db: Session) -> Any:
             selectinload(Payable.company),
             selectinload(Payable.allocations).selectinload(PayableAllocation.project),
             selectinload(Payable.payments),
+            selectinload(Payable.adjustments),
             selectinload(Payable.replaced_provisions),
         )
     )
@@ -226,7 +234,7 @@ def _sort_key(column: str, on: date) -> Callable[[Payable], Any]:
         "documento": lambda p: p.documentType,
         "categoria": lambda p: p.category.name.casefold(),
         "situacao": lambda p: situation(p, on),
-        "valor": lambda p: p.amount,
+        "valor": net_amount,
         "pago": paid_amount,
         "pendente": pending_amount,
     }
@@ -252,7 +260,8 @@ def row(payable: Payable, on: date, item_count: int) -> dict[str, Any]:
         "costCenterName": payable.cost_center.name,
         "paymentMethodName": payable.payment_method.name,
         "companyName": payable.company.name,
-        "amount": payable.amount,
+        "amount": net_amount(payable),
+        "grossAmount": payable.amount,
         "paid": paid_amount(payable),
         "pending": pending_amount(payable),
         "docsLate": docs_late(payable),
@@ -395,7 +404,7 @@ def list_payables(
         "total": len(selected),
         "page": page,
         "pageSize": PAGE_SIZE,
-        "filteredAmount": sum((p.amount for p in selected), ZERO),
+        "filteredAmount": sum((net_amount(p) for p in selected), ZERO),
         "filteredPaid": sum((paid_amount(p) for p in selected), ZERO),
         "filteredPending": sum((pending_amount(p) for p in selected), ZERO),
         "indicators": indicators,
@@ -512,7 +521,11 @@ def _export_table(
         "Forma",
         "Empresa",
         "Situação",
-        "Valor",
+        "Valor bruto",
+        "Acréscimos",
+        "Descontos",
+        "Impostos",
+        "Valor líquido",
         "Pago",
         "Pendente",
     ]
@@ -534,6 +547,10 @@ def _export_table(
                 p.company.name,
                 SITUATION_LABELS[situation(p, on)],
                 p.amount,
+                adj.total(p.adjustments, "acrescimo"),
+                adj.total(p.adjustments, "desconto"),
+                adj.total(p.adjustments, "imposto"),
+                net_amount(p),
                 paid_amount(p),
                 pending_amount(p),
             ]
@@ -541,7 +558,7 @@ def _export_table(
     return " · ".join(header), headers, rows
 
 
-EXPORT_MONEY_COLUMNS = (10, 11, 12)
+EXPORT_MONEY_COLUMNS = (10, 11, 12, 13, 14, 15, 16)
 
 
 def _csv_value(value: Any) -> Any:
@@ -653,6 +670,10 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
             {"userName": e.user.name, "text": e.text, "createdAt": e.createdAt}
             for e in reversed(payable.events)
         ],
+        "adjustments": [
+            {"id": a.id, "kind": a.kind, "description": a.description, "amount": a.amount}
+            for a in payable.adjustments
+        ],
         "attachments": [
             {
                 "id": a.id,
@@ -745,6 +766,7 @@ def new_payable(db: Session, data: PayableCreate, user: User) -> Payable:
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
     _check_allocations(db, data.allocations, data.amount)
+    _check_net(data.amount, data.adjustments)
 
     payable = Payable(
         type=data.type,
@@ -771,17 +793,30 @@ def new_payable(db: Session, data: PayableCreate, user: User) -> Payable:
         allocations=[
             PayableAllocation(project_id=a.projectId, amount=a.amount) for a in data.allocations
         ],
+        adjustments=_adjustment_rows(data.adjustments),
     )
     db.add(payable)
     db.flush()
+    liquid = f" (líquido {format_brl(net_amount(payable))})" if data.adjustments else ""
     audit(
         db,
         payable,
         user,
-        f"Lançada: {payable.description} · {format_brl(payable.amount)} · "
+        f"Lançada: {payable.description} · {format_brl(payable.amount)}{liquid} · "
         f"vence {format_date_br(payable.dueDate)}",
     )
     return payable
+
+
+def _adjustment_rows(items: Iterable[Any]) -> list[PayableAdjustment]:
+    return [
+        PayableAdjustment(kind=a.kind, description=a.description, amount=a.amount) for a in items
+    ]
+
+
+def _check_net(amount: Decimal, rows: Iterable[Any]) -> None:
+    if adj.net(amount, rows) <= 0:
+        raise PayableInvalid(adj.NET_ZERO)
 
 
 def update(db: Session, payable_id: int, data: PayableUpdate, user: User) -> None:
@@ -798,22 +833,36 @@ def apply_update(db: Session, payable: Payable, data: PayableUpdate, user: User)
     if payable.origin == "connect":
         raise PayableConflict("Lançamento do Connect não é alterado aqui")
     changes = []
-    if data.amount != payable.amount:
+    rows = payable.adjustments if data.adjustments is None else data.adjustments
+    amount_changed = data.amount != payable.amount
+    adjustments_changed = data.adjustments is not None and adj.lines(
+        payable.adjustments
+    ) != adj.lines(data.adjustments)
+    if amount_changed or adjustments_changed:
         if any(a.project.status == "encerrado" for a in payable.allocations):
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
         if payable.items:
-            raise PayableConflict("Lançamento com itens: o valor é a soma das pessoas")
+            raise PayableConflict(
+                "Lançamento com itens: o valor é a soma das pessoas"
+                if amount_changed
+                else "Lançamento com itens: acréscimos, descontos e impostos não se aplicam"
+            )
+        _check_net(data.amount, rows)
         active = _active_payments(payable)
         surcharge = sum((p.surcharge for p in active), ZERO)
         discount = sum((p.discount for p in active), ZERO)
-        if data.amount + surcharge - discount < paid_amount(payable):
+        if adj.net(data.amount, rows) + surcharge - discount < paid_amount(payable):
             raise PayableConflict("O novo valor é menor do que já foi pago")
+    if amount_changed:
         if len(payable.allocations) > 1:
             raise PayableConflict("Conta com rateio: refaça o rateio para mudar o valor")
         if payable.allocations:
             payable.allocations[0].amount = data.amount
         changes.append(f"valor {format_brl(payable.amount)} → {format_brl(data.amount)}")
         payable.amount = data.amount
+    if adjustments_changed and data.adjustments is not None:
+        changes += adj.describe_changes(payable.adjustments, data.adjustments)
+        payable.adjustments = _adjustment_rows(data.adjustments)
     if data.dueDate != payable.dueDate:
         before, after = format_date_br(payable.dueDate), format_date_br(data.dueDate)
         changes.append(f"vencimento {before} → {after}")
@@ -1276,6 +1325,7 @@ def duplicate_batch(db: Session, ids: list[int], user: User) -> int:
                 PayableAllocation(project_id=a.project_id, amount=a.amount)
                 for a in source.allocations
             ],
+            adjustments=_adjustment_rows(source.adjustments),
             items=[
                 PayableItem(
                     name=i.name,
