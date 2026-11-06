@@ -213,6 +213,18 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   const panel = page.getByRole("dialog", { name: "Filtros" });
   await panel.getByRole("combobox", { name: "Tipo" }).click();
   await page.getByRole("option", { name: "Provisão" }).click();
+  // Mais de uma opção no mesmo filtro: a lista fica aberta, e marcar "Conta real" junto traz tudo
+  await page.getByRole("option", { name: "Conta real" }).click();
+  await page.keyboard.press("Escape");
+  await expect(panel.getByRole("combobox", { name: "Tipo" })).toContainText("Provisão, Conta real");
+  // O painel cobre a tela: fecha para conferir a lista por trás dele
+  await panel.getByRole("button", { name: /^Ver \d+ contas?$/ }).click();
+  await expect(consultoria).toBeVisible();
+  await page.getByRole("button", { name: /^Filtros/ }).click();
+  await panel.getByRole("combobox", { name: "Tipo" }).click();
+  await page.getByRole("option", { name: "Conta real" }).click();
+  await page.keyboard.press("Escape");
+  await expect(panel.getByRole("combobox", { name: "Tipo" })).toContainText("Provisão");
   // O painel cobre a tela: fecha para conferir a lista por trás dele
   await panel.getByRole("button", { name: /^Ver \d+ contas?$/ }).click();
   await expect(consultoria).toHaveCount(0);

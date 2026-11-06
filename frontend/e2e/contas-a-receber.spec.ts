@@ -32,11 +32,30 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   // Filtros combinados: cliente e situação
   await page.getByRole("button", { name: /^Total/ }).click();
   await page.getByRole("button", { name: /^Filtros/ }).click();
+  // A lista de opções fica aberta enquanto se marca: Esc fecha
   await page.getByRole("combobox", { name: "Cliente" }).click();
   await page.getByRole("option", { name: "Beta" }).click();
+  await page.keyboard.press("Escape");
   await page.getByRole("combobox", { name: "Situação" }).click();
   await page.getByRole("option", { name: "Vencida" }).click();
+  await page.keyboard.press("Escape");
   await expect(page.getByText("Nenhum título neste período e com estes filtros.")).toBeVisible();
+  // Mais de uma opção no mesmo filtro: Beta ou Alfa, e só as vencidas
+  await page.getByRole("combobox", { name: "Cliente" }).click();
+  await page.getByRole("option", { name: "Alfa" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("combobox", { name: "Cliente" })).toContainText("Beta, Alfa");
+  // O painel cobre a tela: fecha para conferir a lista por trás dele
+  await page.getByRole("button", { name: /^Ver \d+ títulos?$/ }).click();
+  await expect(page.getByRole("row", { name: /Satisfação · 1ª parcela/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Tracking mensal/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Filtros/ }).click();
+  // "Cancelada" não combina com as outras situações: marcá-la tira a "Vencida"
+  await page.getByRole("combobox", { name: "Situação" }).click();
+  await page.getByRole("option", { name: "Cancelada" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("combobox", { name: "Situação" })).toContainText("Cancelada");
+  await expect(page.getByRole("combobox", { name: "Situação" })).not.toContainText("Vencida");
   await page.getByRole("button", { name: "Limpar filtros", exact: true }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("row", { name: /Tracking mensal/ })).toBeVisible();
