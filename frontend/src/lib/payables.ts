@@ -170,6 +170,10 @@ export interface PayableEvent {
 
 export interface PayableDetail extends PayableRow {
   company_id: number;
+  supplierId: number | null;
+  categoryId: number;
+  costCenterId: number;
+  paymentMethodId: number;
   unitName: string;
   issueDate: string;
   competence: string | null;

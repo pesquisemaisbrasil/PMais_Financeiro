@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, CheckCheck, Copy, Replace, Search, Tags, Undo2 } from "lucide-react";
+import { Check, CheckCheck, Copy, Pencil, Replace, Search, Tags, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
@@ -1113,12 +1113,14 @@ const PAYMENT_KINDS: Record<Payment["kind"], string> = {
 export function DetailDialog({
   id,
   today,
+  reference,
   onClose,
   onChanged,
   onReplace,
 }: {
   id: number;
   today: string;
+  reference: Reference;
   onClose: () => void;
   onChanged: () => void;
   onReplace: (payable: PayableDetail) => void;
@@ -1180,6 +1182,34 @@ export function DetailDialog({
               <OriginTag origin={payable.origin} />
               {payable.docsLate && <Tag color="ambar">Documentação atrasada</Tag>}
             </div>
+            {payable.situation !== "cancelado" && payable.situation !== "substituido" && payable.origin !== "connect" && (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant={action?.kind === "edit" ? "secondary" : "default"} onClick={() => setAction({ kind: "edit" })}>
+                  <Pencil size={14} />
+                  Editar conta
+                </Button>
+                {payable.canReplace && (
+                  <Button variant="outline" size="sm" onClick={() => onReplace(payable)}>
+                    <Replace size={14} />
+                    Substituir pelo valor real
+                  </Button>
+                )}
+                {Number(payable.paid) === 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setAction({ kind: "cancel" })}>
+                    Cancelar conta
+                  </Button>
+                )}
+              </div>
+            )}
+            {action?.kind === "edit" && (
+              <EditForm
+                key={payable.events.length}
+                payable={payable}
+                reference={reference}
+                onClose={() => setAction(null)}
+                onDone={(next) => updated(next, "Conta alterada.")}
+              />
+            )}
             <Tabs defaultValue="detalhes">
               <TabsList>
                 <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
@@ -1215,24 +1245,6 @@ export function DetailDialog({
                   <p className="mt-3 break-all font-mono text-xs text-muted-foreground">{payable.barcode}</p>
                 )}
                 {payable.notes && <p className="mt-3 text-[13px]">{payable.notes}</p>}
-                {payable.situation !== "cancelado" && payable.situation !== "substituido" && payable.origin !== "connect" && (
-                  <div className="mt-4 flex gap-2">
-                    {payable.canReplace && (
-                      <Button size="sm" onClick={() => onReplace(payable)}>
-                        <Replace size={14} />
-                        Substituir pelo valor real
-                      </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setAction({ kind: "edit" })}>
-                      Editar
-                    </Button>
-                    {Number(payable.paid) === 0 && (
-                      <Button variant="outline" size="sm" onClick={() => setAction({ kind: "cancel" })}>
-                        Cancelar conta
-                      </Button>
-                    )}
-                  </div>
-                )}
               </TabsContent>
               <TabsContent value="baixas" className="pt-3">
                 {payable.payments.length ? (
@@ -1301,13 +1313,6 @@ export function DetailDialog({
                 </ul>
               </TabsContent>
             </Tabs>
-            {action?.kind === "edit" && (
-              <EditForm
-                payable={payable}
-                onClose={() => setAction(null)}
-                onDone={(next) => updated(next, "Conta alterada.")}
-              />
-            )}
             {action?.kind === "cancel" && (
               <ReasonForm
                 title="Cancelar conta"
@@ -1347,42 +1352,157 @@ export function DetailDialog({
 
 function EditForm({
   payable,
+  reference,
   onClose,
   onDone,
 }: {
   payable: PayableDetail;
+  reference: Reference;
   onClose: () => void;
   onDone: (payable: PayableDetail) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
-  const [description, setDescription] = useState(payable.description);
-  const [amount, setAmount] = useState(toField(payable.amount));
-  const [dueDate, setDueDate] = useState(payable.dueDate);
+  const [form, setForm] = useState({
+    description: payable.description,
+    amount: toField(payable.amount),
+    dueDate: payable.dueDate,
+    supplierId: payable.supplierId ? String(payable.supplierId) : "",
+    categoryId: String(payable.categoryId),
+    costCenterId: String(payable.costCenterId),
+    paymentMethodId: String(payable.paymentMethodId),
+    documentType: payable.documentType,
+    documentNumber: payable.documentNumber ?? "",
+    documentDate: payable.documentDate ?? "",
+    barcode: payable.barcode ?? "",
+    competence: payable.competence ?? "",
+    docsReceivedOn: payable.docsReceivedOn ?? "",
+    notes: payable.notes ?? "",
+  });
+  const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const input = (key: keyof typeof form) => ({
+    value: form[key],
+    onChange: (event: { target: { value: string } }) => set(key)(event.target.value),
+  });
+  // Lançamento com itens (folha, incentivo) tem o fornecedor nas pessoas, não aqui.
+  const editSupplier = payable.items.length === 0;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLocalError(null);
-    const parsed = parseMoney(amount);
+    const parsed = parseMoney(form.amount);
     if (!parsed || Number(parsed) === 0) return setLocalError("Informe o valor.");
-    if (!description.trim() || !dueDate) return setLocalError("Preencha a descrição e o vencimento.");
-    await run(async () => onDone(await updatePayable(payable.id, { description, amount: parsed, dueDate })));
+    if (!form.description.trim() || !form.dueDate) return setLocalError("Preencha a descrição e o vencimento.");
+    if (editSupplier && !form.supplierId && payable.type === "real") return setLocalError("Escolha o fornecedor.");
+    if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
+      return setLocalError("Informe o número e a data de emissão da nota.");
+    }
+    await run(async () =>
+      onDone(
+        await updatePayable(payable.id, {
+          description: form.description,
+          amount: parsed,
+          dueDate: form.dueDate,
+          ...(editSupplier && form.supplierId ? { supplierId: Number(form.supplierId) } : {}),
+          categoryId: Number(form.categoryId),
+          costCenterId: Number(form.costCenterId),
+          paymentMethodId: Number(form.paymentMethodId),
+          documentType: form.documentType,
+          documentNumber: form.documentNumber.trim() || null,
+          documentDate: form.documentDate || null,
+          barcode: form.barcode.trim() || null,
+          competence: form.competence || null,
+          docsReceivedOn: form.docsReceivedOn || null,
+          notes: form.notes.trim() || null,
+        })
+      )
+    );
   }
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-3 rounded-xl border border-border p-4">
       <strong className="text-[13px]">Editar conta</strong>
       <Field label="Descrição" id="e-desc">
-        <Input id="e-desc" value={description} onChange={(event) => setDescription(event.target.value)} />
+        <Input id="e-desc" maxLength={255} {...input("description")} />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Valor (R$)" id="e-valor">
-          <Input id="e-valor" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} />
+          <Input id="e-valor" inputMode="decimal" {...input("amount")} />
         </Field>
         <Field label="Vencimento" id="e-venc">
-          <Input id="e-venc" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          <Input id="e-venc" type="date" {...input("dueDate")} />
+        </Field>
+        <Field label="Competência" id="e-comp">
+          <Input id="e-comp" type="month" {...input("competence")} />
         </Field>
       </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {editSupplier && (
+          <Field label="Fornecedor" id="e-forn">
+            <Choice
+              id="e-forn"
+              value={form.supplierId}
+              onChange={set("supplierId")}
+              options={reference.suppliers.map((s) => ({ id: s.id, label: `${s.nickname} · ${s.name}` }))}
+            />
+          </Field>
+        )}
+        <Field label="Categoria" id="e-cat">
+          <Choice
+            id="e-cat"
+            value={form.categoryId}
+            onChange={set("categoryId")}
+            options={expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
+          />
+        </Field>
+        <Field label="Centro de custo" id="e-cc">
+          <Choice
+            id="e-cc"
+            value={form.costCenterId}
+            onChange={set("costCenterId")}
+            options={reference.costCenters.map((c) => ({ id: c.id, label: c.name }))}
+          />
+        </Field>
+        <Field label="Forma de pagamento" id="e-forma">
+          <Choice
+            id="e-forma"
+            value={form.paymentMethodId}
+            onChange={set("paymentMethodId")}
+            options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
+          />
+        </Field>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Documento" id="e-doc">
+          <Choice
+            id="e-doc"
+            value={form.documentType}
+            onChange={set("documentType")}
+            options={DOCUMENT_TYPES.map((type) => ({ id: type, label: type }))}
+          />
+        </Field>
+        <Field label="Número do documento" id="e-docn">
+          <Input id="e-docn" maxLength={50} {...input("documentNumber")} />
+        </Field>
+        <Field label="Emissão do documento" id="e-doce">
+          <Input id="e-doce" type="date" {...input("documentDate")} />
+        </Field>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Código de barras / linha digitável" id="e-barras">
+          <Input id="e-barras" className="font-mono text-xs" maxLength={60} {...input("barcode")} />
+        </Field>
+        <Field label="Documentação recebida em" id="e-docrec">
+          <Input id="e-docrec" type="date" {...input("docsReceivedOn")} />
+        </Field>
+      </div>
+      <Field label="Observações" id="e-obs">
+        <Textarea id="e-obs" maxLength={2000} {...input("notes")} />
+      </Field>
+      <p className="text-xs text-muted-foreground">
+        Empresa, unidade e projetos não mudam aqui: use <strong>Reclassificar</strong> na lista (projeto, categoria e centro
+        de custo) ou refaça a conta.
+      </p>
       <FormError message={localError ?? error} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={onClose}>

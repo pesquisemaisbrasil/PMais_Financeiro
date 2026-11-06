@@ -868,8 +868,15 @@ function PayablesContent() {
                     <Fragment key={row.id}>
                       <TableRow
                         data-state={selected.has(row.id) ? "selected" : undefined}
+                        // Clicar na linha abre a conta (baixas, documentos e edição). Quem clica num botão,
+                        // link, caixa de seleção ou campo dentro da linha continua só fazendo o que clicou.
+                        onClick={(event) => {
+                          if ((event.target as HTMLElement).closest("button, a, input, label, [role='checkbox']")) return;
+                          setViewing(row.id);
+                        }}
                         // Linhas alternadas em cinza: o índice vale só para as contas, e o painel de itens aberto não entra na conta.
                         className={cn(
+                          "cursor-pointer",
                           index % 2 === 1 && "bg-[#f1f5f9]",
                           "hover:bg-[#e6ecf4] data-[state=selected]:bg-accent"
                         )}
@@ -1232,10 +1239,11 @@ function PayablesContent() {
           }}
         />
       )}
-      {viewing && data && (
+      {viewing && data && reference && (
         <DetailDialog
           id={viewing}
           today={data.today}
+          reference={reference}
           onClose={() => setViewing(null)}
           onChanged={changed}
           onReplace={(payable) => {
