@@ -131,7 +131,13 @@ def test_the_export_has_the_gross_the_three_totals_and_the_net(
     lines = text.lstrip("﻿").split("\r\n")
     header = lines[1].split(";")
     row = dict(zip(header, lines[2].split(";"), strict=True))
-    assert (row["Bruto"], row["Acréscimos"], row["Descontos"], row["Impostos"], row["Líquido"]) == (
+    assert (
+        row["Valor principal"],
+        row["Acréscimos"],
+        row["Descontos"],
+        row["Impostos"],
+        row["Líquido"],
+    ) == (
         "1.000,00",
         "20,00",
         "50,00",

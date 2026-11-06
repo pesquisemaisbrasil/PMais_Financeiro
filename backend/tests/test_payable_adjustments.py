@@ -111,7 +111,7 @@ def test_the_export_has_the_gross_the_three_totals_and_the_net(
 ) -> None:
     create(client, auth, world, amount="1000.00", adjustments=LINES)
     lines = client.get("/payables/export?mode=tudo", headers=auth).text.lstrip("﻿").splitlines()
-    assert "Valor bruto;Acréscimos;Descontos;Impostos;Valor líquido;Pago;Pendente" in lines[1]
+    assert "Valor principal;Acréscimos;Descontos;Impostos;Valor líquido;Pago;Pendente" in lines[1]
     assert lines[2].endswith(";1.000,00;20,00;50,00;30,00;940,00;0,00;940,00") or lines[2].endswith(
         ";1000,00;20,00;50,00;30,00;940,00;0,00;940,00"
     )

@@ -351,7 +351,13 @@ def test_the_export_carries_the_filters_on_the_first_line_and_one_row_per_title(
         "Vencida",
         "4",
     )
-    assert (row["Bruto"], row["Acréscimos"], row["Descontos"], row["Impostos"], row["Líquido"]) == (
+    assert (
+        row["Valor principal"],
+        row["Acréscimos"],
+        row["Descontos"],
+        row["Impostos"],
+        row["Líquido"],
+    ) == (
         "1.000,00",
         "0,00",
         "0,00",
