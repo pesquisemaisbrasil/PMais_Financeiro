@@ -79,7 +79,7 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 7. **Nova conta a pagar**: um rateio que não fecha mostra a diferença e não salva. Corrija e lance.
 8. Selecione duas contas e dê baixa em lote. Tente excluir uma com baixa: o sistema recusa até estornar.
 9. Recolha o menu lateral pelo botão ao lado do logo: ficam só os ícones, e a escolha continua depois de recarregar.
-10. **Filtros** abre um painel lateral: a lista muda enquanto você escolhe, e o botão de baixo mostra quantas contas sobraram. Digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Unidade**, **Situação**, **Tipo** e **Período por**.
+10. **Filtros** abre um painel lateral: a lista muda enquanto você escolhe, e o botão de baixo mostra quantas contas sobraram. Digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Plano de contas** (o antigo "Categoria", com código e nome), **Unidade**, **Situação**, **Tipo** e **Período por**. Todos os filtros aceitam **mais de uma opção**: marque duas situações ou dois projetos e a lista traz as contas de qualquer um deles. A lista fica aberta enquanto você marca (Esc fecha), e a primeira linha, "Todos", limpa a marcação.
 11. Em **Colunas**, ligue mais colunas e escolha a densidade **Compacta**. A escolha fica guardada neste navegador.
 12. **Exportar** baixa um CSV com tudo o que os filtros mostram. Abra no Excel: os acentos aparecem certos, e os filtros estão na primeira linha.
 13. Selecione contas e use **Reclassificar**: sem escolher nada, o sistema pede o que vai mudar. O **Histórico** mostra o antes e o depois.
@@ -94,6 +94,7 @@ Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em
 4. **Copiar cronograma para o projeto** gera o texto para o e-mail. **Criar** abre os lançamentos na aba **Planilhas e agrupados**, com as pessoas na seta da linha.
 5. Na seta de um lançamento importado, cada pessoa mostra a **data da pesquisa** (incentivos), o número e a emissão da **nota**, o **bruto e o INSS** (RPA) e o **pagamento**: "A pagar" até a baixa do lançamento, e "Paga em dd/mm" depois dela.
 6. Em **Folha de campo**, use `Nome`, `Documento`, `Valor`, `Número da NF` e `Emissão`: RPA de R$ 1.000,00 entra como R$ 890,00, e NF sem número fica como pendente.
+7. **Uma planilha, vários projetos, empresas e centros de custo:** acrescente colunas com o nome cadastrado: `Projeto` (código, `1804` ou `PRJ-1804`), `Empresa`, `Unidade`, `Centro de custo`, `Categoria` e `Forma de pagamento`. Deixe os campos da tela em "Todos ... da planilha" e a conferência mostra um lançamento por combinação e data de pagamento, com a classificação de cada um e o prazo do projeto. Marque só alguns e as linhas dos outros aparecem como "Fora da seleção", sem virar erro. Nome que não existe, cadastro inativo ou projeto fechado fica de fora e diz o motivo. Campo sem coluna na planilha: marque um só na tela.
 
 Em **Cadastros**, no menu:
 
@@ -127,7 +128,7 @@ Com o sistema rodando. Em **Financeiro > Contas a receber**:
 
 1. Em **Cadastros > Plano de contas**, crie uma conta do tipo **Receita**; em **Cadastros > Clientes**, um cliente com CNPJ.
 2. **Nova conta a receber:** cliente, projeto, conta de receita, empresa, unidade, centro de custo, valor bruto e abatimentos. O líquido aparece enquanto você digita. Sem projeto, o sistema avisa "Informe o projeto da receita".
-3. Os seis cards (Total, Recebidos, Pendentes, Vencidos, Hoje e A vencer) abrem a lista já filtrada, com a mesma contagem e o mesmo total. O período e os **Filtros** (cliente, projeto, conta, empresa, unidade, centro de custo, situação e "período por") funcionam como no Contas a pagar.
+3. Os seis cards (Total, Recebidos, Pendentes, Vencidos, Hoje e A vencer) abrem a lista já filtrada, com a mesma contagem e o mesmo total. O período e os **Filtros** (cliente, projeto, conta, empresa, unidade, centro de custo, situação e "período por") funcionam como no Contas a pagar, inclusive com mais de uma opção por filtro (a situação "Cancelada" não combina com as outras).
 4. **Registrar recebimento** (botão da linha): data, valor, conta e forma. Menos que o saldo é recebimento parcial; mais que o saldo é recusado.
 5. **Ver detalhes:** resumo, recebimentos (com **Estornar**, que pede o motivo) e histórico. Dá para alterar, cancelar (sem recebimento) e excluir.
 6. **Inadimplência:** vencidos por cliente, com os dias de atraso e o total, e botão para abrir cada título.

@@ -72,7 +72,7 @@ Perguntas e consequências: [registro](../transcricoes/2026-11-03-kickoff-com-o-
 |---|---|---|---|
 | F22 | **Tabela de prazos do incentivo por tipo de projeto** (Health 10 dias úteis? "CLT"/CATI 3 ou 4? consumo?). Conta a partir da data da resposta? | Financeiro (Camila) | Prazo em dias úteis no projeto, contado da data da resposta |
 | F23 | Onde se marca **tipo de projeto, "tem incentivo" e prazo**: no Connect (coordenador) ou no Financeiro? | PO | Connect, lido pelo Financeiro; no protótipo, campo no cadastro de projeto (o futuro está no [spec](../specs/futuro/respondentes-e-incentivos-no-connect.md)) |
-| F24 | **Colunas padrão da planilha de incentivos** (nome, CPF?, chave Pix, valor, data da resposta, projeto) | Financeiro | Modelo fixo para importar |
+| F24 | **Colunas padrão da planilha de incentivos** (nome, CPF?, chave Pix, valor, data da resposta, projeto) | Financeiro | Modelo fixo para importar: `Nome`, `Valor`, `Data da pesquisa` e/ou `Data de pagamento`, e as colunas opcionais `Projeto`, `Empresa`, `Unidade`, `Centro de custo`, `Categoria` e `Forma de pagamento`, que permitem vários de cada numa planilha. CPF e chave Pix não são lidos |
 | F25 | Entrevistadores: **um lançamento por projeto × data de pagamento** ou um por ciclo com vários projetos? | PO + financeiro | Um por projeto × data de pagamento |
 
 ## Escopo futuro
