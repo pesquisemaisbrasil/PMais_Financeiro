@@ -242,23 +242,25 @@ def _upload(file: UploadFile) -> tuple[str, bytes]:
 
 def _import_fields(
     kind: Annotated[ImportKind, Form()],
-    projectId: Annotated[int, Form()],
-    categoryId: Annotated[int, Form()],
-    companyId: Annotated[int, Form()],
-    unitId: Annotated[int, Form()],
-    costCenterId: Annotated[int, Form()],
-    paymentMethodId: Annotated[int, Form()],
+    # Os cadastros marcados em cada campo, separados por vírgula ("3,5"). Vazio = todos os que
+    # a planilha trouxer na coluna de mesmo nome.
+    projectIds: Annotated[str | None, Form(max_length=400)] = None,
+    companyIds: Annotated[str | None, Form(max_length=400)] = None,
+    unitIds: Annotated[str | None, Form(max_length=400)] = None,
+    costCenterIds: Annotated[str | None, Form(max_length=400)] = None,
+    categoryIds: Annotated[str | None, Form(max_length=400)] = None,
+    paymentMethodIds: Annotated[str | None, Form(max_length=400)] = None,
     description: Annotated[str | None, Form(max_length=200)] = None,
     dueDate: Annotated[date | None, Form()] = None,
 ) -> ImportFields:
     return ImportFields(
         kind=kind,
-        projectId=projectId,
-        categoryId=categoryId,
-        companyId=companyId,
-        unitId=unitId,
-        costCenterId=costCenterId,
-        paymentMethodId=paymentMethodId,
+        projectIds=parse_ids(projectIds) or [],
+        companyIds=parse_ids(companyIds) or [],
+        unitIds=parse_ids(unitIds) or [],
+        costCenterIds=parse_ids(costCenterIds) or [],
+        categoryIds=parse_ids(categoryIds) or [],
+        paymentMethodIds=parse_ids(paymentMethodIds) or [],
         description=description,
         dueDate=dueDate,
     )
@@ -273,13 +275,12 @@ def _import_fields(
 def preview_import(
     request: Request,
     file: UploadFile,
-    kind: Annotated[ImportKind, Form()],
-    projectId: Annotated[int, Form()],
+    fields: Annotated[ImportFields, Depends(_import_fields)],
     db: DbSession,
     _: FinanceUser,
 ) -> dict[str, Any]:
     filename, content = _upload(file)
-    return _handle(lambda: payable_import.preview(db, kind, projectId, filename, content))
+    return _handle(lambda: payable_import.preview(db, fields, filename, content))
 
 
 @router.post(

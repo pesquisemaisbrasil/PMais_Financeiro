@@ -321,12 +321,14 @@ ImportKind = Literal["incentivos", "folha"]
 
 class ImportFields(BaseModel):
     kind: ImportKind
-    projectId: int
-    categoryId: int
-    companyId: int
-    unitId: int
-    costCenterId: int
-    paymentMethodId: int
+    # Cada campo aceita mais de um cadastro. Vazio = todos os que a planilha trouxer, na coluna
+    # de mesmo nome; sem a coluna, é preciso marcar exatamente um.
+    projectIds: list[int] = Field(default_factory=list, max_length=50)
+    companyIds: list[int] = Field(default_factory=list, max_length=50)
+    unitIds: list[int] = Field(default_factory=list, max_length=50)
+    costCenterIds: list[int] = Field(default_factory=list, max_length=50)
+    categoryIds: list[int] = Field(default_factory=list, max_length=50)
+    paymentMethodIds: list[int] = Field(default_factory=list, max_length=50)
     # Só a folha pede: no incentivo, a descrição e o vencimento saem do cronograma.
     description: str | None = Field(default=None, max_length=200)
     dueDate: date | None = None
@@ -342,10 +344,19 @@ class ImportLine(BaseModel):
     surveyDate: date | None
     payDate: date | None
     payDateGiven: bool
+    projectCode: str | None
+    # Empresa, unidade, centro de custo, categoria e forma que a planilha disse, só dos campos
+    # que vieram em coluna.
+    classification: str | None
+    skipped: bool
     errors: list[str]
 
 
 class ImportGroup(BaseModel):
+    projectId: int
+    projectCode: str
+    projectTitle: str
+    classification: str
     payDate: date
     surveyDates: list[date]
     count: int
@@ -353,15 +364,32 @@ class ImportGroup(BaseModel):
     source: str
 
 
-class ImportPreview(BaseModel):
-    kind: ImportKind
+class ImportProject(BaseModel):
+    id: int
+    code: str
+    title: str
     projectType: str | None
     deadlineDays: int | None
+    missingDeadline: bool
+    count: int
+    total: Decimal
+
+
+class ImportPreview(BaseModel):
+    kind: ImportKind
+    columns: list[str]
+    hasProjectColumn: bool
+    hasClassificationColumns: bool
+    projects: list[ImportProject]
     missingDeadline: bool
     alreadyImported: bool
     total: Decimal
     goodCount: int
     errorCount: int
+    skippedCount: int
+    # Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou um por
+    # classificação (folha).
+    payableCount: int
     groups: list[ImportGroup]
     lines: list[ImportLine]
 
