@@ -21,7 +21,7 @@ Nada disto anda sem uma resposta. A ordem é a de quem destrava mais coisa.
 
 | # | O que | Quem | Destrava | Jira |
 |---|---|---|---|---|
-| 1 | **Datas e responsáveis das entregas 1 a 8 da API do Connect** ([entregas-do-connect](../specs/entregas-do-connect.md)) | João e o dev do Connect | A baixa de verdade, a planilha de pagamento, a sincronização do espelho | PF-58, PF-6 |
+| 1 | **Datas e responsáveis das entregas 1 a 8 da API do Connect** ([entregas-do-connect](../specs/entregas-do-connect.md)). A pauta pronta para levar ao João está em [pauta-para-o-joao](pauta-para-o-joao.md) | João e o dev do Connect | A baixa de verdade, a planilha de pagamento, a sincronização do espelho | PF-58, PF-6 |
 | 2 | Q4 (cancelar baixa), Q18 a Q25 | João, DPO, financeiro | Cancelamento de baixa, onde guardar arquivos, regras de data e fornecedor | PF-58 |
 | 3 | **Q19 e Q5**: guardar ou não o PDF de comprovantes, e por quanto tempo | DPO | Hoje o PDF é só lido e descartado; se mudar, entra o armazenamento no MinIO | — |
 | 4 | **Q20**: a baixa exige reautenticação para quem entra por SSO? | João | Fecha a regra de MFA da confirmação | — |
