@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from datetime import date
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, TypeVar, get_args
 
 from fastapi import (
     APIRouter,
@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from core.limiter import limiter
 from core.permissions import require_finance
+from core.query_lists import parse_choices, parse_ids
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
@@ -122,15 +123,16 @@ class ListParams:
         dateField: DateField = "vencimento",
         indicator: Indicator = "total",
         tab: Tab = "todas",
-        supplier: int | None = None,
-        project: int | None = None,
-        category: int | None = None,
-        company: int | None = None,
-        unit: int | None = None,
-        costCenter: int | None = None,
-        paymentMethod: int | None = None,
-        situation: SituationFilter | None = None,
-        kind: KindFilter | None = None,
+        # Cada filtro aceita mais de uma opção, separadas por vírgula: project=3,5
+        supplier: Annotated[str | None, Query(max_length=400)] = None,
+        project: Annotated[str | None, Query(max_length=400)] = None,
+        category: Annotated[str | None, Query(max_length=400)] = None,
+        company: Annotated[str | None, Query(max_length=400)] = None,
+        unit: Annotated[str | None, Query(max_length=400)] = None,
+        costCenter: Annotated[str | None, Query(max_length=400)] = None,
+        paymentMethod: Annotated[str | None, Query(max_length=400)] = None,
+        situation: Annotated[str | None, Query(max_length=400)] = None,
+        kind: Annotated[str | None, Query(max_length=400)] = None,
         search: Annotated[str | None, Query(max_length=100)] = None,
         sort: SortColumn = "vencimento",
         descending: bool = False,
@@ -156,15 +158,15 @@ class ListParams:
             "indicator": indicator,
             "tab": tab,
             "filters": {
-                "supplier": supplier,
-                "project": project,
-                "category": category,
-                "company": company,
-                "unit": unit,
-                "costCenter": costCenter,
-                "paymentMethod": paymentMethod,
-                "situation": situation,
-                "kind": kind,
+                "supplier": parse_ids(supplier),
+                "project": parse_ids(project),
+                "category": parse_ids(category),
+                "company": parse_ids(company),
+                "unit": parse_ids(unit),
+                "costCenter": parse_ids(costCenter),
+                "paymentMethod": parse_ids(paymentMethod),
+                "situation": parse_choices(situation, get_args(SituationFilter)),
+                "kind": parse_choices(kind, get_args(KindFilter)),
             },
             "search": search,
             "sort": sort,

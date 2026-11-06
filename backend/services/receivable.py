@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, selectinload
 
+from core.query_lists import as_list
 from core.text import format_brl, format_brl_plain, format_date_br
 from models.receivable import Receivable, ReceivableEvent, ReceivablePayment
 from models.reference import (
@@ -224,9 +225,11 @@ def _filtered(
         "unit": Receivable.unit_id,
         "costCenter": Receivable.cost_center_id,
     }
+    # Cada filtro aceita mais de uma opção: dentro do filtro vale "ou", entre filtros vale "e".
     for key, column in columns.items():
-        if filters.get(key):
-            query = query.filter(column == filters[key])
+        chosen = as_list(filters.get(key))
+        if chosen:
+            query = query.filter(column.in_(chosen))
     term = (search or "").strip().lower()
     if term:
         like = lambda column: func.lower(column).contains(term, autoescape=True)  # noqa: E731
@@ -242,9 +245,9 @@ def _filtered(
     # shortcut: situação calculada em Python, com tudo do período em memória; mover para SQL
     # quando um período passar de dezenas de milhares de títulos.
     receivables: list[Receivable] = query.all()
-    wanted = filters.get("situation")
+    wanted = as_list(filters.get("situation"))
     if wanted:
-        receivables = [r for r in receivables if situation(r, on) == wanted]
+        receivables = [r for r in receivables if situation(r, on) in wanted]
     return on, start, end, receivables
 
 
@@ -369,12 +372,16 @@ def _filter_names(db: Session, filters: dict[str, Any]) -> list[str]:
     ]
     names = []
     for key, model, label in named:
-        if filters.get(key):
-            record = db.get(model, filters[key])
-            shown = getattr(record, "name", None) or getattr(record, "code", "—")
-            names.append(f"{label}={shown}")
+        chosen = as_list(filters.get(key))
+        if chosen:
+            shown: list[str] = []
+            for record_id in chosen:
+                record = db.get(model, record_id)
+                shown.append(str(getattr(record, "name", None) or getattr(record, "code", "—")))
+            names.append(f"{label}={' ou '.join(shown)}")
     if filters.get("situation"):
-        names.append(f"situação={SITUATION_NAMES[filters['situation']]}")
+        shown_situations = [SITUATION_NAMES[s] for s in as_list(filters["situation"])]
+        names.append(f"situação={' ou '.join(shown_situations)}")
     return names
 
 

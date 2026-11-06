@@ -1,12 +1,13 @@
 from collections.abc import Callable
 from datetime import date
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, TypeVar, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from core.limiter import limiter
 from core.permissions import require_finance
+from core.query_lists import parse_choices, parse_ids
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
@@ -80,13 +81,14 @@ class ListParams:
         end: date | None = None,
         dateField: ReceivableDateField = "vencimento",
         indicator: ReceivableIndicator = "total",
-        customer: int | None = None,
-        project: int | None = None,
-        category: int | None = None,
-        company: int | None = None,
-        unit: int | None = None,
-        costCenter: int | None = None,
-        situation: ReceivableSituation | None = None,
+        # Cada filtro aceita mais de uma opção, separadas por vírgula: project=3,5
+        customer: Annotated[str | None, Query(max_length=400)] = None,
+        project: Annotated[str | None, Query(max_length=400)] = None,
+        category: Annotated[str | None, Query(max_length=400)] = None,
+        company: Annotated[str | None, Query(max_length=400)] = None,
+        unit: Annotated[str | None, Query(max_length=400)] = None,
+        costCenter: Annotated[str | None, Query(max_length=400)] = None,
+        situation: Annotated[str | None, Query(max_length=400)] = None,
         search: Annotated[str | None, Query(max_length=100)] = None,
         sort: ReceivableSort = "vencimento",
         descending: bool = False,
@@ -111,13 +113,13 @@ class ListParams:
             "date_field": dateField,
             "indicator": indicator,
             "filters": {
-                "customer": customer,
-                "project": project,
-                "category": category,
-                "company": company,
-                "unit": unit,
-                "costCenter": costCenter,
-                "situation": situation,
+                "customer": parse_ids(customer),
+                "project": parse_ids(project),
+                "category": parse_ids(category),
+                "company": parse_ids(company),
+                "unit": parse_ids(unit),
+                "costCenter": parse_ids(costCenter),
+                "situation": parse_choices(situation, get_args(ReceivableSituation)),
             },
             "search": search,
             "sort": sort,
