@@ -48,7 +48,7 @@ class PayableCreate(BaseModel):
     documentNumber: str | None = Field(default=None, max_length=50)
     documentDate: date | None = None
     barcode: str | None = Field(default=None, max_length=60)
-    competence: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}$")
+    competence: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
     docsReceivedOn: date | None = None
     isTransfer: bool = False
     notes: str | None = Field(default=None, max_length=2000)
@@ -79,6 +79,20 @@ class PayableUpdate(BaseModel):
     description: ShortText
     amount: Money
     dueDate: date
+    # Os campos abaixo são opcionais: o que não vier não muda. Para limpar um texto ou uma data,
+    # mande o campo com null. Empresa, unidade e projeto não mudam aqui (veja Reclassificar).
+    supplierId: int | None = None
+    categoryId: int | None = None
+    costCenterId: int | None = None
+    paymentMethodId: int | None = None
+    documentType: DocumentType | None = None
+    documentNumber: str | None = Field(default=None, max_length=50)
+    documentDate: date | None = None
+    barcode: str | None = Field(default=None, max_length=60)
+    competence: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    docsReceivedOn: date | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+    isTransfer: bool | None = None
 
 
 class PaymentCreate(BaseModel):
@@ -226,6 +240,11 @@ class EventOut(BaseModel):
 
 class PayableDetail(PayableRow):
     company_id: int
+    # os cadastros pelo id, para a tela de edição já abrir preenchida
+    supplierId: int | None
+    categoryId: int
+    costCenterId: int
+    paymentMethodId: int
     unitName: str
     issueDate: date
     competence: str | None

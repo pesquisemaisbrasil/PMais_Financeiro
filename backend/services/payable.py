@@ -598,6 +598,10 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
     return {
         **row(payable, today(), len(payable.items)),
         "company_id": payable.company_id,
+        "supplierId": payable.supplier_id,
+        "categoryId": payable.category_id,
+        "costCenterId": payable.cost_center_id,
+        "paymentMethodId": payable.payment_method_id,
         "unitName": payable.unit.name,
         "issueDate": payable.issueDate,
         "competence": payable.competence,
@@ -797,8 +801,112 @@ def apply_update(db: Session, payable: Payable, data: PayableUpdate, user: User)
     if data.description != payable.description:
         changes.append(f"descrição {payable.description} → {data.description}")
         payable.description = data.description
+    changes += _update_classification(db, payable, data)
+    changes += _update_document(payable, data)
+    changes += _update_extras(payable, data)
     if changes:
         audit(db, payable, user, "Alterada: " + "; ".join(changes))
+
+
+def _update_classification(db: Session, payable: Payable, data: PayableUpdate) -> list[str]:
+    """Fornecedor, categoria, centro de custo e forma de pagamento, só se vierem na requisição."""
+    provided = data.model_fields_set
+    changes: list[str] = []
+    if "supplierId" in provided and data.supplierId != payable.supplier_id:
+        if payable.items:
+            raise PayableConflict("Lançamento com itens: o fornecedor não muda aqui")
+        if data.supplierId is None:
+            if payable.type == "real":
+                raise PayableInvalid("Escolha o fornecedor")
+            changes.append("fornecedor removido")
+            payable.supplier_id = None
+        else:
+            supplier = _active(db, Supplier, data.supplierId, "Fornecedor")
+            changes.append(f"fornecedor {payee_name(payable)} → {supplier.name}")
+            payable.supplier_id = supplier.id
+            payable.supplier = supplier
+            if payable.type == "provisao":
+                payable.payeeName = None  # "Provisão" era só o nome enquanto não havia fornecedor
+    wanted = [
+        ("categoryId", "category_id", "category", ExpenseCategory, "Categoria", "categoria"),
+        ("costCenterId", "cost_center_id", "cost_center", CostCenter, "Centro de custo", "centro"),
+        (
+            "paymentMethodId",
+            "payment_method_id",
+            "payment_method",
+            PaymentMethod,
+            "Forma de pagamento",
+            "forma",
+        ),
+    ]
+    for field_name, column, relation, model, label, short in wanted:
+        value = getattr(data, field_name)
+        if field_name not in provided or value is None or value == getattr(payable, column):
+            continue
+        if field_name != "paymentMethodId" and any(
+            a.project.status == "encerrado" for a in payable.allocations
+        ):
+            raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+        record = _active(db, model, value, label)
+        if field_name == "categoryId" and record.kind != "despesa":
+            raise PayableInvalid("Contas a pagar usam conta de despesa")
+        changes.append(f"{short} {getattr(payable, relation).name} → {record.name}")
+        setattr(payable, column, record.id)
+        setattr(payable, relation, record)
+    return changes
+
+
+def _update_document(payable: Payable, data: PayableUpdate) -> list[str]:
+    """Tipo, número e emissão do documento. Nota fiscal exige número e emissão."""
+    provided = data.model_fields_set
+    kind = data.documentType if data.documentType is not None else payable.documentType
+    number = (
+        (data.documentNumber or None) if "documentNumber" in provided else payable.documentNumber
+    )
+    issued = data.documentDate if "documentDate" in provided else payable.documentDate
+    if kind == "NF" and (not number or not issued):
+        raise PayableInvalid("Informe o número e a data de emissão da nota")
+    changes: list[str] = []
+    if kind != payable.documentType:
+        changes.append(f"documento {payable.documentType} → {kind}")
+        payable.documentType = kind
+    if number != payable.documentNumber:
+        changes.append(f"número do documento {payable.documentNumber or '—'} → {number or '—'}")
+        payable.documentNumber = number
+    if issued != payable.documentDate:
+        before = format_date_br(payable.documentDate) if payable.documentDate else "—"
+        after = format_date_br(issued) if issued else "—"
+        changes.append(f"emissão do documento {before} → {after}")
+        payable.documentDate = issued
+    return changes
+
+
+def _update_extras(payable: Payable, data: PayableUpdate) -> list[str]:
+    """Código de barras, competência, documentação recebida, observações e transferência."""
+    provided = data.model_fields_set
+    changes: list[str] = []
+    if "barcode" in provided and (data.barcode or None) != payable.barcode:
+        changes.append("código de barras alterado")
+        payable.barcode = data.barcode or None
+    if "competence" in provided:
+        competence = data.competence or payable.dueDate.strftime("%Y-%m")
+        if competence != payable.competence:
+            changes.append(f"competência {payable.competence or '—'} → {competence}")
+            payable.competence = competence
+    if "docsReceivedOn" in provided and data.docsReceivedOn != payable.docsReceivedOn:
+        before = format_date_br(payable.docsReceivedOn) if payable.docsReceivedOn else "—"
+        after = format_date_br(data.docsReceivedOn) if data.docsReceivedOn else "—"
+        changes.append(f"documentação recebida em {before} → {after}")
+        payable.docsReceivedOn = data.docsReceivedOn
+    if "notes" in provided and (data.notes or None) != payable.notes:
+        changes.append("observações alteradas")
+        payable.notes = data.notes or None
+    if data.isTransfer is not None and data.isTransfer != payable.isTransfer:
+        changes.append(
+            "marcada como transferência" if data.isTransfer else "deixou de ser transferência"
+        )
+        payable.isTransfer = data.isTransfer
+    return changes
 
 
 def _check_payable(payable: Payable) -> None:
