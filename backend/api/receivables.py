@@ -1,10 +1,11 @@
 from collections.abc import Callable
 from datetime import date
-from typing import Annotated, Any, TypeVar, get_args
+from typing import Annotated, Any, Literal, TypeVar, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
+from core import xlsx
 from core.limiter import limiter
 from core.permissions import require_finance
 from core.query_lists import parse_choices, parse_ids
@@ -157,10 +158,25 @@ def delinquency(request: Request, db: DbSession, _: FinanceUser) -> list[dict[st
 @router.get(
     "/receivables/export",
     response_class=Response,
-    description="Os títulos dos filtros em CSV, com os filtros na primeira linha",
+    description="Os títulos dos filtros em CSV ou Excel (.xlsx), com os filtros na primeira linha",
 )
 @limiter.limit(READ_LIMIT)
-def export_receivables(request: Request, db: DbSession, _: FinanceUser, params: Params) -> Response:
+def export_receivables(
+    request: Request,
+    db: DbSession,
+    _: FinanceUser,
+    params: Params,
+    file_format: Annotated[Literal["csv", "xlsx"], Query(alias="format")] = "csv",
+) -> Response:
+    if file_format == "xlsx":
+        return Response(
+            receivable_service.export_xlsx(db, **params.values),
+            media_type=xlsx.MEDIA_TYPE,
+            headers={
+                "Content-Disposition": 'attachment; filename="contas-a-receber.xlsx"',
+                "Cache-Control": "no-store",
+            },
+        )
     return Response(
         receivable_service.export_csv(db, **params.values),
         media_type="text/csv; charset=utf-8",

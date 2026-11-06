@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from core.query_lists import as_list
 from core.text import format_brl, format_brl_plain, format_date_br
+from core.xlsx import build_xlsx
 from models.receivable import Receivable, ReceivableEvent, ReceivablePayment
 from models.reference import (
     BankAccount,
@@ -414,7 +415,7 @@ def _filter_names(db: Session, filters: dict[str, Any]) -> list[str]:
     return names
 
 
-def export_csv(
+def _export_table(
     db: Session,
     *,
     mode: str,
@@ -426,8 +427,9 @@ def export_csv(
     search: str | None,
     sort: str,
     descending: bool,
-) -> str:
-    """Tudo o que os filtros trazem, sem paginar, com os filtros na primeira linha."""
+) -> tuple[str, list[str], list[list[Any]]]:
+    """O que as exportações levam: título com os filtros, cabeçalhos e uma linha por título, com
+    data, dinheiro e texto nos tipos de verdade (cada formato decide como escrever)."""
     on, start, end, receivables = _filtered(
         db,
         mode=mode,
@@ -451,56 +453,90 @@ def export_csv(
     if (search or "").strip():
         header.append(f"busca: {search}")
 
-    output = io.StringIO()
-    writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
-    writer.writerow([_csv_cell(" · ".join(header))])
-    writer.writerow(
-        [
-            "Vencimento",
-            "Cliente",
-            "Descrição",
-            "Contrato",
-            "Documento",
-            "Projeto",
-            "Conta de receita",
-            "Empresa",
-            "Situação",
-            "Dias de atraso",
-            "Bruto",
-            "Abatimentos",
-            "Líquido",
-            "Recebido",
-            "Pendente",
-        ]
-    )
+    headers = [
+        "Vencimento",
+        "Cliente",
+        "Descrição",
+        "Contrato",
+        "Documento",
+        "Projeto",
+        "Conta de receita",
+        "Empresa",
+        "Situação",
+        "Dias de atraso",
+        "Bruto",
+        "Abatimentos",
+        "Líquido",
+        "Recebido",
+        "Pendente",
+    ]
+    rows: list[list[Any]] = []
     for r in selected:
         document = (
             f"{r.documentType} {r.documentNumber or ''}".strip()
             if r.documentType != "Sem documento"
             else r.documentType
         )
-        late = days_late(r, on)
-        writer.writerow(
+        rows.append(
             [
-                format_date_br(r.dueDate),
-                _csv_cell(r.customer.name),
-                _csv_cell(r.description),
-                _csv_cell(r.contract or ""),
-                _csv_cell(document),
+                r.dueDate,
+                r.customer.name,
+                r.description,
+                r.contract or "",
+                document,
                 f"PRJ-{r.project.code}",
-                _csv_cell(r.category.name),
-                _csv_cell(r.company.name),
+                r.category.name,
+                r.company.name,
                 SITUATION_NAMES[situation(r, on)],
-                "" if late is None else late,
-                format_brl_plain(r.amount),
-                format_brl_plain(r.withheld),
-                format_brl_plain(net_amount(r)),
-                format_brl_plain(received_amount(r)),
-                format_brl_plain(pending_amount(r)),
+                days_late(r, on),
+                r.amount,
+                r.withheld,
+                net_amount(r),
+                received_amount(r),
+                pending_amount(r),
             ]
         )
+    return " · ".join(header), headers, rows
+
+
+EXPORT_MONEY_COLUMNS = (10, 11, 12, 13, 14)
+
+
+def _csv_value(value: Any) -> Any:
+    if value is None:
+        return ""
+    if isinstance(value, date):
+        return format_date_br(value)
+    if isinstance(value, Decimal):
+        return format_brl_plain(value)
+    if isinstance(value, int):
+        return value
+    return _csv_cell(str(value))
+
+
+def export_csv(db: Session, **query: Any) -> str:
+    """Tudo o que os filtros trazem, sem paginar, com os filtros na primeira linha."""
+    title, headers, rows = _export_table(db, **query)
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
+    writer.writerow([_csv_cell(title)])
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow([_csv_value(value) for value in row])
     # BOM: o Excel só lê os acentos com ele.
     return "\ufeff" + output.getvalue()
+
+
+def export_xlsx(db: Session, **query: Any) -> bytes:
+    """O mesmo da exportação em CSV, em .xlsx, com os totais no fim."""
+    title, headers, rows = _export_table(db, **query)
+    return build_xlsx(
+        sheet="Contas a receber",
+        title=title,
+        headers=headers,
+        rows=rows,
+        total_columns=EXPORT_MONEY_COLUMNS,
+    )
 
 
 # ---- Detalhe ----
