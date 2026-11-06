@@ -23,7 +23,9 @@ def net(amount: Decimal, rows: Iterable[Any]) -> Decimal:
 
 
 def lines(rows: Iterable[Any]) -> list[tuple[str, str, Decimal]]:
-    return [(row.kind, row.description, row.amount) for row in rows]
+    """As linhas na ordem dos tipos (a ordem dentro de cada tipo é mantida)."""
+    ordered = sorted(rows, key=lambda row: KINDS.index(row.kind))
+    return [(row.kind, row.description, row.amount) for row in ordered]
 
 
 def describe_changes(before: Iterable[Any], after: Iterable[Any]) -> list[str]:
