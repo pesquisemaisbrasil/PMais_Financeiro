@@ -37,6 +37,7 @@ import {
   payBatch,
   payPayable,
   reclassifyBatch,
+  removeDocument,
   replaceProvision,
   reversePayment,
   updatePayable,
@@ -55,6 +56,7 @@ import {
   toCents,
   toField,
   type AllocationRow,
+  type Attachment,
   type PayableDetail,
   type PayableRow,
   type Payment,
@@ -63,6 +65,7 @@ import {
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
+import { DocumentsPanel } from "./documents-panel";
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
 const NO_PROJECT = "sem-projeto";
@@ -1131,6 +1134,7 @@ export function DetailDialog({
     | { kind: "edit" }
     | { kind: "cancel" }
     | { kind: "reverse"; payment: Payment; type: "estorno" | "devolucao" }
+    | { kind: "remove-document"; attachment: Attachment }
     | null
   >(null);
 
@@ -1214,6 +1218,7 @@ export function DetailDialog({
               <TabsList>
                 <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
                 <TabsTrigger value="baixas">Baixas ({payable.payments.length})</TabsTrigger>
+                <TabsTrigger value="documentos">Documentos ({payable.attachments.length})</TabsTrigger>
                 {payable.items.length > 0 && <TabsTrigger value="itens">Itens ({payable.items.length})</TabsTrigger>}
                 <TabsTrigger value="historico">Histórico</TabsTrigger>
               </TabsList>
@@ -1292,6 +1297,16 @@ export function DetailDialog({
                   <p className="py-4 text-center text-sm text-muted-foreground">Nenhuma baixa ainda.</p>
                 )}
               </TabsContent>
+              <TabsContent value="documentos" className="pt-3">
+                <DocumentsPanel
+                  payable={payable}
+                  onChanged={(next, message) => {
+                    setPayable(next);
+                    if (message) toast.success(message);
+                  }}
+                  onRemove={(attachment) => setAction({ kind: "remove-document", attachment })}
+                />
+              </TabsContent>
               {payable.items.length > 0 && (
                 <TabsContent value="itens" className="pt-3">
                   <ItemsPanel payable={payable} />
@@ -1320,6 +1335,16 @@ export function DetailDialog({
                 onClose={() => setAction(null)}
                 submit={(reason) => cancelPayable(payable.id, reason)}
                 onDone={(next) => updated(next, "Conta cancelada.")}
+              />
+            )}
+            {action?.kind === "remove-document" && (
+              <ReasonForm
+                title={`Tirar o documento ${action.attachment.name}`}
+                hint="Ele sai da conta, mas o arquivo continua guardado. Quem tirou e o motivo ficam no histórico."
+                confirm="Tirar documento"
+                onClose={() => setAction(null)}
+                submit={(reason) => removeDocument(payable.id, action.attachment.id, reason)}
+                onDone={(next) => updated(next, "Documento tirado da conta.")}
               />
             )}
             {action?.kind === "reverse" && (

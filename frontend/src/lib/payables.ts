@@ -168,6 +168,15 @@ export interface PayableEvent {
   createdAt: string;
 }
 
+export interface Attachment {
+  id: number;
+  name: string;
+  size: number;
+  contentType: string;
+  uploadedBy: string;
+  createdAt: string;
+}
+
 export interface PayableDetail extends PayableRow {
   company_id: number;
   supplierId: number | null;
@@ -184,6 +193,7 @@ export interface PayableDetail extends PayableRow {
   items: PayableItem[];
   payments: Payment[];
   events: PayableEvent[];
+  attachments: Attachment[];
 }
 
 interface Named {

@@ -338,6 +338,21 @@ export function cancelPayable(id: number, reason: string): Promise<PayableDetail
   return send<PayableDetail>(`/payables/${id}/cancel`, "POST", { reason });
 }
 
+/** Anexa um documento à conta. Devolve a conta já com ele na lista. */
+export function attachDocument(id: number, file: File): Promise<PayableDetail> {
+  const form = new FormData();
+  form.append("file", file);
+  return upload<PayableDetail>(`/payables/${id}/attachments`, "POST", form);
+}
+
+export function downloadDocument(id: number, attachmentId: number): Promise<Blob> {
+  return fetchBlob(`/payables/${id}/attachments/${attachmentId}/download`);
+}
+
+export function removeDocument(id: number, attachmentId: number, reason: string): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/attachments/${attachmentId}/remove`, "POST", { reason });
+}
+
 export function payPayable(id: number, body: unknown): Promise<PayableDetail> {
   return send<PayableDetail>(`/payables/${id}/payments`, "POST", body);
 }
