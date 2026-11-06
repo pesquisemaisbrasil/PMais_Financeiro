@@ -352,27 +352,30 @@ export interface ParsedAllocations {
   error: string | null;
 }
 
-/** Rateio colado da planilha: uma linha por projeto, com "código;valor" ou separado por tabulação. */
-export function parseAllocations(text: string, projects: Project[], amount: string): ParsedAllocations {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+/** Uma linha da divisão entre projetos, como está nos campos da tela. */
+export interface AllocationRow {
+  projectId: string;
+  amount: string;
+}
+
+/**
+ * Confere as linhas da divisão entre projetos: projeto escolhido, valor só em números, nenhum projeto
+ * repetido e a soma igual ao valor do lançamento. Linha totalmente vazia é ignorada.
+ */
+export function buildAllocations(rows: AllocationRow[], amount: string): ParsedAllocations {
   const allocations: ParsedAllocations["allocations"] = [];
-  for (const [index, line] of lines.entries()) {
+  for (const [index, row] of rows.entries()) {
+    if (!row.projectId && !row.amount.trim()) continue;
     const number = index + 1;
-    const [code = "", value = ""] = line.split(/[;\t]/).map((part) => part.trim());
-    const digits = code.replace(/\D/g, "");
-    const project = projects.find((candidate) => candidate.code === digits);
-    if (!project) return { allocations: [], error: `Projeto ${code} não encontrado (linha ${number})` };
-    if (project.status === "encerrado") {
-      return { allocations: [], error: `Projeto ${project.code} fechado — peça a reabertura a um administrador` };
-    }
-    const parsed = parseMoney(value);
+    if (!row.projectId) return { allocations: [], error: `Linha ${number}: escolha o projeto` };
+    const parsed = parseMoney(row.amount);
     if (!parsed || toCents(parsed) === 0) {
       return { allocations: [], error: `Linha ${number}: use só números no valor` };
     }
-    allocations.push({ projectId: project.id, amount: parsed });
+    allocations.push({ projectId: Number(row.projectId), amount: parsed });
+  }
+  if (new Set(allocations.map((allocation) => allocation.projectId)).size !== allocations.length) {
+    return { allocations: [], error: "O mesmo projeto aparece mais de uma vez no rateio" };
   }
   const total = allocations.reduce((sum, allocation) => sum + toCents(allocation.amount), 0);
   if (allocations.length && total !== toCents(amount)) {
@@ -382,6 +385,59 @@ export function parseAllocations(text: string, projects: Project[], amount: stri
     };
   }
   return { allocations, error: null };
+}
+
+/** Quanto a divisão soma e quanto falta (ou passou) para fechar com o valor, em centavos. */
+export function allocationDiff(rows: AllocationRow[], amount: string): { total: number; diff: number } | null {
+  const target = parseMoney(amount);
+  if (!target) return null;
+  const total = rows.reduce((sum, row) => {
+    const value = parseMoney(row.amount);
+    return sum + (value ? toCents(value) : 0);
+  }, 0);
+  return { total, diff: toCents(target) - total };
+}
+
+/**
+ * Linhas coladas da planilha, uma por projeto: o código e o valor separados por tabulação (como
+ * o Excel cola), ponto e vírgula ou espaço. Vira as linhas da tela, sem conferir a soma.
+ */
+export function parsePastedAllocations(
+  text: string,
+  projects: Project[]
+): { rows: AllocationRow[]; error: string | null } {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const rows: AllocationRow[] = [];
+  for (const [index, line] of lines.entries()) {
+    const number = index + 1;
+    const separated = /[;\t]/.test(line);
+    const parts = (separated ? line.split(/[;\t]/) : line.split(/\s+/)).map((part) => part.trim());
+    const code = parts[0] ?? "";
+    // Com ; ou tabulação o valor é a segunda coluna; sem eles, é tudo o que vem depois do código.
+    const value = separated ? (parts[1] ?? "") : parts.slice(1).join(" ");
+    const digits = code.replace(/\D/g, "");
+    const project = projects.find((candidate) => candidate.code === digits);
+    if (!project) return { rows: [], error: `Projeto ${code} não encontrado (linha ${number})` };
+    if (project.status === "encerrado") {
+      return { rows: [], error: `Projeto ${project.code} fechado — peça a reabertura a um administrador` };
+    }
+    const parsed = parseMoney(value);
+    if (!parsed || toCents(parsed) === 0) {
+      return { rows: [], error: `Linha ${number}: use só números no valor` };
+    }
+    rows.push({ projectId: String(project.id), amount: toField(parsed) });
+  }
+  return { rows, error: null };
+}
+
+/** Rateio colado da planilha, já conferido contra o valor do lançamento. */
+export function parseAllocations(text: string, projects: Project[], amount: string): ParsedAllocations {
+  const pasted = parsePastedAllocations(text, projects);
+  if (pasted.error) return { allocations: [], error: pasted.error };
+  return buildAllocations(pasted.rows, amount);
 }
 
 export function greeting(now: Date): string {

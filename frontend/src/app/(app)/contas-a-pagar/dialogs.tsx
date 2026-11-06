@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { ProjectSplit } from "@/components/ProjectSplit";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import {
   ApiError,
@@ -48,11 +49,12 @@ import {
   inssAmount,
   itemPaymentLabel,
   occurrenceEdits,
-  parseAllocations,
+  buildAllocations,
   parseMoney,
   plural,
   toCents,
   toField,
+  type AllocationRow,
   type PayableDetail,
   type PayableRow,
   type Payment,
@@ -82,6 +84,8 @@ export function NewPayableDialog({
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
   const [recurrence, setRecurrence] = useState<RecurrenceState>(NO_RECURRENCE);
+  // A divisão do valor entre projetos, linha a linha. Vazia = vale o campo Projeto.
+  const [split, setSplit] = useState<AllocationRow[]>([]);
   const [form, setForm] = useState({
     issueDate: today,
     dueDate: addDays(today, 7),
@@ -95,7 +99,6 @@ export function NewPayableDialog({
     costCenterId: "",
     paymentMethodId: "",
     projectId: "",
-    allocationText: "",
     documentType: "Sem documento",
     documentNumber: "",
     documentDate: "",
@@ -142,10 +145,10 @@ export function NewPayableDialog({
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
     let allocations: { projectId: number; amount: string }[] = [];
-    if (form.allocationText.trim()) {
-      const parsed = parseAllocations(form.allocationText, reference.projects, amount);
-      if (parsed.error) return setLocalError(parsed.error);
-      allocations = parsed.allocations;
+    const divided = buildAllocations(split, amount);
+    if (divided.error) return setLocalError(divided.error);
+    if (divided.allocations.length) {
+      allocations = divided.allocations;
     } else if (form.projectId) {
       allocations = [{ projectId: Number(form.projectId), amount }];
     }
@@ -287,7 +290,11 @@ export function NewPayableDialog({
                   options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
                 />
               </Field>
-              <Field label="Projeto" id="p-proj" hint="Ou divida entre projetos logo abaixo.">
+              <Field
+                label="Projeto"
+                id="p-proj"
+                hint={split.length ? "Vale a divisão abaixo." : "Ou divida entre projetos logo abaixo."}
+              >
                 <Choice
                   id="p-proj"
                   value={form.projectId || NO_PROJECT}
@@ -301,18 +308,13 @@ export function NewPayableDialog({
                 />
               </Field>
             </div>
-            <Field
-              label="Dividir entre projetos (opcional)"
-              id="p-rateio"
-              hint="Uma linha por projeto: código e valor, só números. Pode colar da planilha."
-            >
-              <Textarea
-                id="p-rateio"
-                className="font-mono text-xs"
-                placeholder={"1804;600,00\n1790;400,00"}
-                {...input("allocationText")}
-              />
-            </Field>
+            <ProjectSplit
+              rows={split}
+              onChange={setSplit}
+              projects={reference.projects.filter((project) => project.status !== "encerrado")}
+              amount={parseMoney(form.amount) ?? ""}
+              disabled={submitting}
+            />
             <RecurrenceFields
               value={recurrence}
               onChange={setRecurrence}
