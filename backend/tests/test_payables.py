@@ -1214,7 +1214,7 @@ def test_export_brings_all_filtered_rows_with_filters_on_top(
     assert "fornecedor=Gráfica Ponto Certo" in lines[0]
     assert lines[1].startswith("Vencimento;Fornecedor;")
     assert len(lines) == 16
-    assert lines[2].endswith(";Vence hoje;1,00;0,00;1,00")
+    assert lines[2].endswith(";Vence hoje;1,00;0,00;0,00;0,00;1,00;0,00;1,00")
 
 
 def _sheet(content: bytes) -> Any:
@@ -1252,8 +1252,8 @@ def test_export_to_excel_keeps_numbers_dates_and_the_filters_on_top(
     totals = [cell.value for cell in sheet[6]]
     assert totals[0] == "Total"
     assert Decimal(str(totals[10])) == Decimal("61.50")
-    assert Decimal(str(totals[12])) == Decimal("61.50")
-    assert sheet.auto_filter.ref == "A2:M5"
+    assert Decimal(str(totals[16])) == Decimal("61.50")
+    assert sheet.auto_filter.ref == "A2:Q5"
     assert sheet.freeze_panes == "A3"
 
 
