@@ -76,7 +76,7 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 4. Na linha de **14 entrevistados**, abra a seta: as pessoas aparecem na própria lista, com busca por nome.
 5. Provisão e **Do Connect** não têm o botão de baixa. Na conta de passagens, **Dar baixa**: a situação vira "Paga" e o contador do menu diminui.
 6. Em **Ver detalhes → Baixas**, estorne com motivo: as duas linhas ficam visíveis, e o valor volta a pendente. O **Histórico** mostra quem fez o quê.
-7. **Nova conta a pagar**: um rateio que não fecha mostra a diferença e não salva. Corrija e lance.
+7. **Nova conta a pagar**: em **Dividir entre projetos**, clique em **Adicionar projeto** e escolha o projeto e o valor de cada parte; a tela diz quanto falta para fechar. Um rateio que não fecha não salva. Para muitas linhas, abra **Colar várias linhas da planilha**, cole o código e o valor (separados por espaço, tabulação ou ponto e vírgula) e clique em **Passar para os campos**.
 8. Selecione duas contas e dê baixa em lote. Tente excluir uma com baixa: o sistema recusa até estornar.
 9. Recolha o menu lateral pelo botão ao lado do logo: ficam só os ícones, e a escolha continua depois de recarregar.
 10. **Filtros** abre um painel lateral: a lista muda enquanto você escolhe, e o botão de baixo mostra quantas contas sobraram. Digite na lista de **Fornecedor** para achar sem rolar, sem precisar de acento. Experimente **Plano de contas** (o antigo "Categoria", com código e nome), **Unidade**, **Situação**, **Tipo** e **Período por**. Todos os filtros aceitam **mais de uma opção**: marque duas situações ou dois projetos e a lista traz as contas de qualquer um deles. A lista fica aberta enquanto você marca (Esc fecha), e a primeira linha, "Todos", limpa a marcação.
