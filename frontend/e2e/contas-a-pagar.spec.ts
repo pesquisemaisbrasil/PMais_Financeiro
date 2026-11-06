@@ -219,6 +219,9 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(opened.getByRole("tab", { name: /Baixas/ })).toBeVisible();
   await expect(opened.getByText("Incluído em:")).toBeVisible(); // Detalhes em blocos, como no sistema antigo
   await expect(opened.getByText("Valor líquido:")).toBeVisible();
+  // O resumo (valor, pago e pendente) fica acima das abas
+  await expect(opened.getByText("falta pagar")).toBeVisible();
+  await expect(opened.getByText("0% pago", { exact: true })).toBeVisible();
   await opened.getByRole("button", { name: "Editar conta" }).click();
   // Na edição, os valores vêm depois da classificação e antes do documento
   const editPayment = await box(opened.getByRole("combobox", { name: "Forma de pagamento", exact: true }));
@@ -227,8 +230,11 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   expect(editGross.y).toBeGreaterThan(editPayment.y);
   expect(editDocument.y).toBeGreaterThan(editGross.y);
   await opened.getByLabel("Observações").fill("Combinado por telefone");
+  // Documentação que chegou menos de 3 dias antes do vencimento (a conta vence hoje) vira aviso na conta
+  await opened.getByLabel("Documentação recebida em").fill(today);
   await opened.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Conta alterada.")).toBeVisible();
+  await expect(opened.getByText("Documentação atrasada")).toBeVisible();
   await opened.getByRole("tab", { name: "Histórico" }).click();
   await expect(opened.getByText(/observações alteradas/)).toBeVisible();
 

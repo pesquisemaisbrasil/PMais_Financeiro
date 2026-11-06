@@ -210,6 +210,22 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   await expect(page.getByRole("row", { name: /Receita parcelada de teste/ })).toHaveCount(1);
   await expect(page.getByRole("row", { name: /Receita renegociada/ })).toHaveCount(2);
 
+  // O detalhe do título mostra o resumo e a série inteira na aba Repetir
+  await page.getByRole("row", { name: /2\/3/ }).getByRole("button", { name: "Ver detalhes" }).click();
+  const opened = page.getByRole("dialog");
+  await expect(opened.getByText("falta receber")).toBeVisible();
+  await expect(opened.getByText("0% recebido", { exact: true })).toBeVisible();
+  await opened.getByRole("tab", { name: "Repetir (3)" }).click();
+  await expect(opened.getByRole("row", { name: /2\/3.*Aberta aqui/ })).toBeVisible();
+  await expect(opened.getByRole("row", { name: /1\/3.*R\$\s300,00/ })).toBeVisible();
+  await expect(opened.getByRole("row", { name: /3\/3.*R\$\s350,00/ })).toBeVisible();
+  // Abrir leva a outro título da série sem fechar a janela, e a aba continua a mesma
+  await opened.getByRole("row", { name: /1\/3/ }).getByRole("button", { name: "Abrir" }).click();
+  await expect(opened.getByRole("heading", { name: "Receita parcelada de teste" })).toBeVisible();
+  await expect(opened.getByRole("row", { name: /1\/3.*Aberta aqui/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(opened).toHaveCount(0);
+
   // Exportar leva os filtros e a busca na primeira linha
   await page.getByRole("button", { name: "Exportar" }).click();
   const downloading = page.waitForEvent("download");

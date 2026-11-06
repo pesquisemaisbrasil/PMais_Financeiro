@@ -9,6 +9,7 @@ import {
   monthRange,
   nextRange,
   occurrenceEdits,
+  percentOf,
   seriesLabel,
   allocationDiff,
   buildAllocations,
@@ -424,5 +425,24 @@ describe("detalhes da conta", () => {
 
   it("sem baixa, não há juros nem desconto", () => {
     expect(paymentExtras([])).toEqual({ surcharge: "0.00", discount: "0.00" });
+  });
+});
+
+describe("barra de quanto já foi pago", () => {
+  it("é a parte sobre o total, arredondada para o inteiro mais próximo", () => {
+    expect(percentOf("400.00", "1000.00")).toBe(40);
+    expect(percentOf("333.33", "1000.00")).toBe(33);
+    expect(percentOf("666.67", "1000.00")).toBe(67);
+  });
+
+  it("vai de 0 a 100 e nunca passa disso, mesmo com juros pagos a mais", () => {
+    expect(percentOf("0.00", "1000.00")).toBe(0);
+    expect(percentOf("1000.00", "1000.00")).toBe(100);
+    expect(percentOf("1050.00", "1000.00")).toBe(100);
+  });
+
+  it("sem valor a pagar não há barra (evita dividir por zero)", () => {
+    expect(percentOf("0.00", "0.00")).toBe(0);
+    expect(percentOf("10.00", "0.00")).toBe(0);
   });
 });
