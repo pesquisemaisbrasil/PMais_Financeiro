@@ -55,8 +55,21 @@ export async function refreshCookie(page: Page) {
   return cookies.find((cookie) => cookie.name === "refresh_token");
 }
 
+/** Espera acabar as animações que têm fim (como a de abrir a janela), para medir o desenho já assentado. */
+async function settle(page: Page) {
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => Number.isFinite(Number(animation.effect?.getComputedTiming().endTime ?? 0)))
+        .map((animation) => animation.finished.catch(() => undefined))
+    )
+  );
+}
+
 /** Posição e tamanho de um elemento na tela, para conferir a ordem dos campos do formulário. */
 export async function box(locator: Locator) {
+  await settle(locator.page());
   const found = await locator.boundingBox();
   if (!found) throw new Error("O elemento não está visível");
   return found;
