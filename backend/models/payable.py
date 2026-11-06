@@ -129,6 +129,7 @@ class Payable(Base):
     items = relationship("PayableItem", cascade="all, delete-orphan", order_by="PayableItem.id")
     payments = relationship("PayablePayment", order_by="PayablePayment.id")
     events = relationship("PayableEvent", order_by="PayableEvent.id")
+    attachments = relationship("PayableAttachment", order_by="PayableAttachment.id")
 
 
 class PayableAllocation(Base):
@@ -229,3 +230,30 @@ class PayableEvent(Base):
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     user = relationship("User")
+
+
+class PayableAttachment(Base):
+    """Documento anexado à conta (nota, boleto, comprovante de incentivo...). O arquivo mora no
+    cofre cifrado (core/file_vault.py); aqui ficam só os dados para achá-lo e conferi-lo.
+    Remover é **lógico**: a linha fica, com quem tirou e por quê, e o arquivo não é apagado."""
+
+    __tablename__ = "payable_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    payable_id = Column(
+        Integer, ForeignKey("payables.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    name = Column(String(200), nullable=False)
+    contentType = Column(String(100), nullable=False)
+    size = Column(Integer, nullable=False)
+    fileKey = Column(String(200), nullable=False, unique=True)
+    fileSha256 = Column(String(64), nullable=False)
+    uploaded_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deletedAt = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    deletedReason = Column(String(500), nullable=True)
+
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])

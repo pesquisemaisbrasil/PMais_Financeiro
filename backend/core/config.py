@@ -42,6 +42,25 @@ CONNECT_BASE_URL = os.getenv("CONNECT_BASE_URL", "")
 CONNECT_CLIENT_ID = os.getenv("CONNECT_CLIENT_ID", "")
 CONNECT_CLIENT_SECRET = os.getenv("CONNECT_CLIENT_SECRET", "")
 
+# Cofre de arquivos dos anexos (core/file_vault.py): um bucket S3, no MinIO. Sem a configuração,
+# anexar fica indisponível. "memory" é um cofre de mentira, só fora de produção (testes de tela).
+FILES_MODE = os.getenv("FILES_MODE", "off")
+FILES_ENDPOINT_URL = os.getenv("FILES_ENDPOINT_URL", "")
+FILES_BUCKET = os.getenv("FILES_BUCKET", "financeiro-arquivos")
+FILES_ACCESS_KEY = os.getenv("FILES_ACCESS_KEY", "")
+FILES_SECRET_KEY = os.getenv("FILES_SECRET_KEY", "")
+# Chave que embrulha a chave de cada arquivo (32 bytes em base64, diferente da ENCRYPTION_KEY).
+# Permanente: sem ela, os arquivos já guardados não abrem. Guardar com backup próprio.
+FILES_MASTER_KEY = os.getenv("FILES_MASTER_KEY", "")
+if FILES_MASTER_KEY and len(base64.b64decode(FILES_MASTER_KEY)) != 32:
+    raise ValueError("FILES_MASTER_KEY precisa decodificar para 32 bytes (AES-256)")
+if (
+    ENVIRONMENT == "production"
+    and FILES_ENDPOINT_URL
+    and not FILES_ENDPOINT_URL.startswith("https://")
+):
+    raise ValueError("Em produção, FILES_ENDPOINT_URL precisa ser https")
+
 # Limite de requisições (slowapi, core/limiter.py). Ligado sempre em produção;
 # só os testes de tela (e2e) desligam, porque fazem vários logins por minuto.
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"

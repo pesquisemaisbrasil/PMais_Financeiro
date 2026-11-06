@@ -238,6 +238,15 @@ class EventOut(BaseModel):
     createdAt: datetime
 
 
+class AttachmentOut(BaseModel):
+    id: int
+    name: str
+    size: int
+    contentType: str
+    uploadedBy: str
+    createdAt: datetime
+
+
 class PayableDetail(PayableRow):
     company_id: int
     # os cadastros pelo id, para a tela de edição já abrir preenchida
@@ -255,6 +264,7 @@ class PayableDetail(PayableRow):
     items: list[PayableItemOut]
     payments: list[PaymentOut]
     events: list[EventOut]
+    attachments: list[AttachmentOut]
 
 
 class CodeName(BaseModel):

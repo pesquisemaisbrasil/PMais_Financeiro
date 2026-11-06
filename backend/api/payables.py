@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, Literal, TypeVar, get_args
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -15,7 +16,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from core import xlsx
+from core import file_vault, xlsx
 from core.limiter import limiter
 from core.permissions import require_finance
 from core.query_lists import parse_choices, parse_ids
@@ -58,8 +59,8 @@ from schemas.payable import (
     SortColumn,
     Tab,
 )
+from services import attachments, payable_import, recurrence
 from services import payable as payable_service
-from services import payable_import, recurrence
 from services.auth import get_current_user
 
 router = APIRouter(tags=["contas a pagar"])
@@ -84,8 +85,20 @@ def _handle(action: Callable[[], T]) -> T:
     """Traduz as recusas do serviço em HTTP. A sessão volta atrás: nada fica pela metade."""
     try:
         return action()
+    except attachments.AttachmentNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento não encontrado") from exc
     except payable_service.PayableNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta não encontrada") from exc
+    except file_vault.FilesUnavailable as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Os anexos não estão disponíveis agora. Avise quem cuida do sistema.",
+        ) from exc
+    except file_vault.FileCorrupted as exc:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "Não foi possível abrir o documento: ele não confere com o que foi guardado.",
+        ) from exc
     except payable_service.PayableConflict as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except payable_service.PayableInvalid as exc:
@@ -315,6 +328,74 @@ def import_payables(
 ) -> dict[str, Any]:
     filename, content = _upload(file)
     return _in_transaction(db, lambda: payable_import.confirm(db, fields, filename, content, user))
+
+
+def _attachment_content(file: UploadFile) -> tuple[str, bytes]:
+    content = file.file.read(attachments.MAX_BYTES + 1)
+    if not content or len(content) > attachments.MAX_BYTES:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, attachments.INVALID_FILE)
+    return file.filename or "", content
+
+
+@router.post(
+    "/payables/{payable_id}/attachments",
+    response_model=PayableDetail,
+    status_code=status.HTTP_201_CREATED,
+    description="Anexa um documento à conta (PDF, imagem, planilha, documento ou XML, até 20 MB)",
+)
+@limiter.limit(WRITE_LIMIT)
+def add_attachment(
+    request: Request, payable_id: int, file: UploadFile, db: DbSession, user: FinanceUser
+) -> dict[str, Any]:
+    filename, content = _attachment_content(file)
+    _in_transaction(db, lambda: attachments.add(db, payable_id, filename, content, user))
+    return _handle(lambda: payable_service.detail(db, payable_id))
+
+
+@router.get(
+    "/payables/{payable_id}/attachments/{attachment_id}/download",
+    response_class=Response,
+    description="Baixa o documento, decifrado aqui; cada download fica no histórico da conta",
+)
+@limiter.limit(READ_LIMIT)
+def download_attachment(
+    request: Request, payable_id: int, attachment_id: int, db: DbSession, user: FinanceUser
+) -> Response:
+    name, content_type, content = _in_transaction(
+        db, lambda: attachments.download(db, payable_id, attachment_id, user)
+    )
+    fallback = name.encode("ascii", "replace").decode().replace('"', "").replace("?", "_")
+    return Response(
+        content,
+        media_type=content_type,
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(name)}"
+            ),
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post(
+    "/payables/{payable_id}/attachments/{attachment_id}/remove",
+    response_model=PayableDetail,
+    description="Tira o documento da conta, com o motivo; o arquivo continua guardado",
+)
+@limiter.limit(WRITE_LIMIT)
+def remove_attachment(
+    request: Request,
+    payable_id: int,
+    attachment_id: int,
+    data: ReasonIn,
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    _in_transaction(
+        db, lambda: attachments.remove(db, payable_id, attachment_id, data.reason, user)
+    )
+    return _handle(lambda: payable_service.detail(db, payable_id))
 
 
 @router.post(

@@ -18,3 +18,4 @@ pyotp==2.10.0
 requests==2.33.0
 tzdata==2025.2
 pypdf==6.21.4
+boto3==1.43.125

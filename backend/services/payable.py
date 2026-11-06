@@ -645,6 +645,18 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
             {"userName": e.user.name, "text": e.text, "createdAt": e.createdAt}
             for e in reversed(payable.events)
         ],
+        "attachments": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "size": a.size,
+                "contentType": a.contentType,
+                "uploadedBy": a.uploaded_by.name,
+                "createdAt": a.createdAt,
+            }
+            for a in payable.attachments
+            if a.deletedAt is None
+        ],
     }
 
 
