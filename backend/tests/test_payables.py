@@ -2830,3 +2830,18 @@ def test_the_database_keeps_who_and_when_but_never_the_file(
     assert row.fileKey.startswith(f"payable/{created['id']}/") and row.fileKey.endswith(".bin")
     assert len(row.fileSha256) == 64
     assert row.deletedAt is None
+
+
+def test_the_detail_says_who_created_and_who_changed_last_and_a_download_is_not_a_change(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], vault: MemoryFileStore
+) -> None:
+    created = create(client, auth, world)
+    detail = client.get(f"/payables/{created['id']}", headers=auth).json()
+    assert (detail["createdBy"], detail["updatedBy"]) == ("Ana", "Ana")
+    assert detail["createdAt"] and detail["updatedAt"]
+    document = _attach(client, auth, created["id"]).json()["attachments"][0]
+    client.get(f"/payables/{created['id']}/attachments/{document['id']}/download", headers=auth)
+    after = client.get(f"/payables/{created['id']}", headers=auth).json()
+    included = next(e for e in after["events"] if e["text"].startswith("Documento incluído"))
+    assert after["events"][0]["text"].startswith("Documento baixado")
+    assert after["updatedAt"] == included["createdAt"]
