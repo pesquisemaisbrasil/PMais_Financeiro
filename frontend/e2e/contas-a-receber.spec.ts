@@ -197,8 +197,9 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   await expect(page.getByRole("row", { name: /Receita renegociada/ })).toHaveCount(2);
 
   // Exportar leva os filtros e a busca na primeira linha
-  const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exportar" }).click();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: /CSV/ }).click();
   const download = await downloading;
   expect(download.suggestedFilename()).toMatch(/^contas-a-receber-.*\.csv$/);
   const csv = await readFile((await download.path()) as string, "utf8");
@@ -206,4 +207,13 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   expect(csv).toContain("busca: receita");
   // uma linha por título dos três da série, e mais nenhum
   expect(csv.split("\r\n").filter((line) => /Receita (parcelada|renegociada)/.test(line)).length).toBe(3);
+
+  // O mesmo em Excel: um arquivo .xlsx de verdade
+  await page.getByRole("button", { name: "Exportar" }).click();
+  const excelDownloading = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: /Excel/ }).click();
+  const excel = await excelDownloading;
+  expect(excel.suggestedFilename()).toMatch(/^contas-a-receber-.*\.xlsx$/);
+  const book = await readFile((await excel.path()) as string);
+  expect(book.subarray(0, 2).toString("latin1")).toBe("PK");
 });

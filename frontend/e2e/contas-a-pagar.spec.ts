@@ -182,15 +182,26 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(total).toContainText("1 conta");
   await page.getByRole("button", { name: "Hoje", exact: true }).click();
 
-  // Exportar traz o que os filtros mostram
+  // Exportar traz o que os filtros mostram, em CSV ou em Excel
+  await page.getByRole("button", { name: "Exportar" }).click();
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("button", { name: "Exportar" }).click(),
+    page.getByRole("menuitem", { name: /CSV/ }).click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/^contas-a-pagar-.*\.csv$/);
   const csv = await readFile(await download.path(), "utf-8");
   expect(csv).toContain("Vencimento;Fornecedor;");
   expect(csv).toContain("Consultoria de teste");
+  await page.getByRole("button", { name: "Exportar" }).click();
+  const [excel] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: /Excel/ }).click(),
+  ]);
+  expect(excel.suggestedFilename()).toMatch(/^contas-a-pagar-.*\.xlsx$/);
+  // .xlsx é um zip: começa com "PK", e o texto da conta está lá dentro
+  const excelFile = await readFile(await excel.path());
+  expect(excelFile.subarray(0, 2).toString("latin1")).toBe("PK");
+  expect(excelFile.length).toBeGreaterThan(2000);
 
   // Reclassificar pede o que muda, e o projeto fica 100%
   await page.getByRole("checkbox", { name: "Selecionar Consultoria de teste" }).check();
