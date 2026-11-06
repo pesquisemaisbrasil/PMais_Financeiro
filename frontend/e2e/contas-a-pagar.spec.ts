@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import { addDays } from "../src/lib/payables";
-import { signIn } from "./fixtures";
+import { box, signIn } from "./fixtures";
 
 async function choose(page: Page, label: string, option: string | RegExp) {
   await page.getByRole("dialog").getByRole("combobox", { name: label }).click();
@@ -85,11 +85,21 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   // Lançar conta nova, que já aparece no dia
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
   const form = page.getByRole("dialog");
+  // Os valores vêm primeiro, alinhados à esquerda como os outros campos; depois, a divisão entre projetos
+  // (com o "Colar várias linhas"); e só então "Repetir esta conta"
+  const payment = await box(form.getByRole("combobox", { name: "Forma de pagamento *" }));
+  const grossField = await box(form.getByLabel("Valor principal (R$) *"));
+  const netField = await box(form.getByLabel("Valor líquido"));
+  const paste = await box(form.getByText("Colar várias linhas da planilha"));
+  const repeat = await box(form.getByLabel("Repetir esta conta"));
+  expect(Math.abs(grossField.x - payment.x)).toBeLessThan(2);
+  expect(paste.y).toBeGreaterThan(netField.y + netField.height);
+  expect(repeat.y).toBeGreaterThan(paste.y + paste.height);
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Informe um valor maior que zero.")).toBeVisible();
   const today = await form.getByLabel("Data *").inputValue();
   await form.getByLabel("Vencimento *").fill(today);
-  await form.getByLabel("Valor bruto (R$) *").fill("1.000,50");
+  await form.getByLabel("Valor principal (R$) *").fill("1.000,50");
   await choose(page, "Fornecedor *", /Exata/);
   await choose(page, "Categoria *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Consultoria de teste");
@@ -210,6 +220,12 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(opened.getByText("Incluído em:")).toBeVisible(); // Detalhes em blocos, como no sistema antigo
   await expect(opened.getByText("Valor líquido:")).toBeVisible();
   await opened.getByRole("button", { name: "Editar conta" }).click();
+  // Na edição, os valores vêm depois da classificação e antes do documento
+  const editPayment = await box(opened.getByRole("combobox", { name: "Forma de pagamento", exact: true }));
+  const editGross = await box(opened.getByLabel("Valor principal (R$)", { exact: true }));
+  const editDocument = await box(opened.getByRole("combobox", { name: "Documento", exact: true }));
+  expect(editGross.y).toBeGreaterThan(editPayment.y);
+  expect(editDocument.y).toBeGreaterThan(editGross.y);
   await opened.getByLabel("Observações").fill("Combinado por telefone");
   await opened.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Conta alterada.")).toBeVisible();
@@ -466,7 +482,7 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Vencimento *").fill("2027-03-15");
-  await form.getByLabel("Valor bruto (R$) *").fill("1.000,00");
+  await form.getByLabel("Valor principal (R$) *").fill("1.000,00");
   await choose(page, "Fornecedor *", /Exata/);
   await choose(page, "Categoria *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Conta com ajustes");
@@ -504,24 +520,24 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await taxes.getByLabel("Valor da linha 1").fill("30,00");
   await taxes.getByRole("button", { name: "Salvar impostos" }).click();
   // 1.000,00 + 25,00 − 50,00 − 30,00
-  await expect(form.getByText(/Valor líquido:\s*R\$\s945,00/)).toBeVisible();
+  await expect(form.getByLabel("Valor líquido")).toHaveValue(/945,00/);
   await form.getByRole("button", { name: "Lançar conta" }).click();
 
-  // A lista mostra o líquido, e a conta aberta mostra o bruto, os três totais e as linhas
+  // A lista mostra o líquido, e a conta aberta mostra o valor principal, os três totais e as linhas
   await page.getByLabel("Buscar conta, fornecedor ou NF").fill("Conta com ajustes");
   const row = page.getByRole("row", { name: /Conta com ajustes/ });
   await expect(row).toContainText(/R\$\s945,00/);
   await row.getByText("Conta com ajustes").first().click();
   const opened = page.getByRole("dialog");
-  await expect(opened.getByText("Valor bruto:")).toBeVisible();
-  await expect(opened.getByText("Valor bruto:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s1\.000,00/);
+  await expect(opened.getByText("Valor principal:")).toBeVisible();
+  await expect(opened.getByText("Valor principal:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s1\.000,00/);
   await expect(opened.getByText("Valor líquido:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s945,00/);
   await expect(opened.getByText(/Multa por atraso R\$\s20,00 · Juros R\$\s5,00/)).toBeVisible();
   await expect(opened.getByText(/ISS retido R\$\s30,00/)).toBeVisible();
 
-  // Editar abre com o bruto (não o líquido) e as linhas já lançadas
+  // Editar abre com o valor principal (não o líquido) e as linhas já lançadas
   await opened.getByRole("button", { name: "Editar conta" }).click();
-  await expect(opened.getByLabel("Valor bruto (R$)")).toHaveValue("1000,00");
+  await expect(opened.getByLabel("Valor principal (R$)")).toHaveValue("1000,00");
   await expect(opened.getByLabel("(−) Total de impostos")).toHaveValue(/30,00/);
   // Desconto que zera o valor é barrado na hora
   await opened.getByRole("button", { name: /Descontos/ }).click();

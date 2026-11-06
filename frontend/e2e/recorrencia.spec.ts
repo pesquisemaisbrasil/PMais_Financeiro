@@ -14,7 +14,7 @@ test("repetir uma conta, ajustar a tabela, alterar e cancelar a série", async (
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
   const form = page.getByRole("dialog");
   await form.getByLabel("Vencimento *").fill("2027-01-31");
-  await form.getByLabel("Valor bruto (R$) *").fill("150,00");
+  await form.getByLabel("Valor principal (R$) *").fill("150,00");
   await choose(page, "Fornecedor *", /Batel/);
   await choose(page, "Categoria *", /Aluguel/);
   await form.getByLabel("Descrição *").fill("Aluguel da sala de teste");

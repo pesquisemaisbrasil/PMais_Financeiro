@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 // Os mesmos valores FICTÍCIOS de backend/scripts/seed_e2e.py.
 export const PASSWORD = "E2e!Fictic1a";
@@ -53,4 +53,11 @@ export async function expectHome(page: Page) {
 export async function refreshCookie(page: Page) {
   const cookies = await page.context().cookies(`${API_URL}/auth/token`);
   return cookies.find((cookie) => cookie.name === "refresh_token");
+}
+
+/** Posição e tamanho de um elemento na tela, para conferir a ordem dos campos do formulário. */
+export async function box(locator: Locator) {
+  const found = await locator.boundingBox();
+  if (!found) throw new Error("O elemento não está visível");
+  return found;
 }
