@@ -262,6 +262,219 @@ def test_edit_keeps_before_and_after(
     assert "descrição" in text and "vencimento" in text
 
 
+def _patch(client: TestClient, auth: dict[str, str], payable: dict[str, Any], **fields: Any) -> Any:
+    """Edita mantendo descrição, valor e vencimento da conta, e mudando só o que for passado."""
+    body = {
+        "description": payable["description"],
+        "amount": payable["amount"],
+        "dueDate": payable["dueDate"],
+        **fields,
+    }
+    return client.patch(f"/payables/{payable['id']}", json=body, headers=auth)
+
+
+@pytest.fixture
+def other_registers(world: dict[str, Any], db_session: Session) -> dict[str, Any]:
+    extra = {
+        "supplier": Supplier(nickname="Papel Forte", name="Papel Forte Ltda"),
+        "category": ExpenseCategory(code="2.05", name="Transporte"),
+        "revenue": ExpenseCategory(code="1.01", name="Receita", kind="receita"),
+        "center": CostCenter(name="Tecnologia"),
+        "method": PaymentMethod(name="Boleto"),
+        "inactive": CostCenter(name="Antigo", active=False),
+    }
+    db_session.add_all(extra.values())
+    db_session.commit()
+    return extra
+
+
+def test_edit_changes_the_classification_document_and_extras_with_one_audit_line(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    other_registers: dict[str, Any],
+) -> None:
+    created = create(client, auth, world)
+    response = _patch(
+        client,
+        auth,
+        created,
+        supplierId=other_registers["supplier"].id,
+        categoryId=other_registers["category"].id,
+        costCenterId=other_registers["center"].id,
+        paymentMethodId=other_registers["method"].id,
+        documentType="NF",
+        documentNumber="123",
+        documentDate="2026-11-01",
+        barcode="23793381286000000000000000000000000000000000",
+        competence="2026-12",
+        docsReceivedOn="2026-11-02",
+        notes="Combinado por telefone",
+        isTransfer=True,
+    )
+    assert response.status_code == 200, response.text
+    detail = response.json()
+    assert detail["payee"] == "Papel Forte Ltda"
+    assert detail["supplierId"] == other_registers["supplier"].id
+    assert (detail["categoryName"], detail["costCenterName"], detail["paymentMethodName"]) == (
+        "Transporte",
+        "Tecnologia",
+        "Boleto",
+    )
+    assert (detail["documentType"], detail["documentNumber"], detail["documentDate"]) == (
+        "NF",
+        "123",
+        "2026-11-01",
+    )
+    assert (detail["competence"], detail["docsReceivedOn"], detail["notes"]) == (
+        "2026-12",
+        "2026-11-02",
+        "Combinado por telefone",
+    )
+    assert detail["isTransfer"] is True
+    assert detail["barcode"] == "23793381286000000000000000000000000000000000"
+    # uma só linha de auditoria, com o antes e o depois
+    text = detail["events"][0]["text"]
+    assert text.startswith("Alterada: ")
+    for piece in (
+        "fornecedor Gráfica Ponto Certo → Papel Forte Ltda",
+        "categoria Material e gráfica → Transporte",
+        "centro Campo → Tecnologia",
+        "forma Pix → Boleto",
+        "documento Sem documento → NF",
+        "competência",
+        "observações alteradas",
+        "marcada como transferência",
+    ):
+        assert piece in text
+    assert len(detail["events"]) == 2  # a criação e esta alteração
+
+
+def test_edit_sends_only_what_changes_and_leaves_the_rest(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world, notes="Obs", barcode="123")
+    detail = _patch(client, auth, created, description="Só a descrição").json()
+    assert detail["description"] == "Só a descrição"
+    assert (detail["notes"], detail["barcode"], detail["categoryName"]) == (
+        "Obs",
+        "123",
+        "Material e gráfica",
+    )
+    # mandar o mesmo valor não gera linha de auditoria
+    same = _patch(client, auth, detail, categoryId=world["category"].id)
+    assert same.status_code == 200
+    assert len(same.json()["events"]) == len(detail["events"])
+
+
+def test_edit_can_clear_text_and_dates_with_null(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(
+        client,
+        auth,
+        world,
+        notes="Obs",
+        barcode="123",
+        documentNumber="9",
+        docsReceivedOn="2026-11-02",
+    )
+    detail = _patch(
+        client, auth, created, notes=None, barcode=None, documentNumber=None, docsReceivedOn=None
+    ).json()
+    assert (detail["notes"], detail["barcode"], detail["documentNumber"]) == (None, None, None)
+    assert detail["docsReceivedOn"] is None
+
+
+def test_edit_refuses_what_the_launch_would_refuse(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    other_registers: dict[str, Any],
+) -> None:
+    created = create(client, auth, world)
+    nf = _patch(client, auth, created, documentType="NF")
+    assert (nf.status_code, nf.json()["detail"]) == (
+        422,
+        "Informe o número e a data de emissão da nota",
+    )
+    revenue = _patch(client, auth, created, categoryId=other_registers["revenue"].id)
+    assert revenue.json()["detail"] == "Contas a pagar usam conta de despesa"
+    inactive = _patch(client, auth, created, costCenterId=other_registers["inactive"].id)
+    assert inactive.json()["detail"] == "Centro de custo não encontrado ou inativo"
+    no_supplier = _patch(client, auth, created, supplierId=None)
+    assert no_supplier.json()["detail"] == "Escolha o fornecedor"
+    assert _patch(client, auth, created, competence="2026-13").status_code == 422
+    # nada disso gravou: a conta continua como estava
+    again = client.get(f"/payables/{created['id']}", headers=auth).json()
+    assert (again["documentType"], again["categoryName"], again["costCenterName"]) == (
+        "Sem documento",
+        "Material e gráfica",
+        "Campo",
+    )
+
+
+def test_edit_does_not_change_the_classification_of_a_closed_project(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    other_registers: dict[str, Any],
+    db_session: Session,
+) -> None:
+    allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
+    created = create(client, auth, world, allocations=allocations)
+    world["project"].status = "encerrado"
+    db_session.commit()
+    refused = _patch(client, auth, created, categoryId=other_registers["category"].id)
+    assert refused.status_code == 409
+    assert "Projeto fechado" in refused.json()["detail"]
+    # a forma de pagamento, que não mexe na carteira do projeto, continua livre
+    assert (
+        _patch(client, auth, created, paymentMethodId=other_registers["method"].id).status_code
+        == 200
+    )
+
+
+def test_a_provision_gets_a_supplier_and_loses_the_provision_name(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    other_registers: dict[str, Any],
+) -> None:
+    provision = create(client, auth, world, type="provisao", supplierId=None)
+    assert provision["payee"] == "Provisão"
+    detail = _patch(client, auth, provision, supplierId=other_registers["supplier"].id).json()
+    assert detail["payee"] == "Papel Forte Ltda"
+    # provisão pode ficar sem fornecedor; a conta real não
+    assert _patch(client, auth, detail, supplierId=None).status_code == 200
+
+
+def test_the_supplier_of_a_payable_with_items_is_not_changed_here(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    other_registers: dict[str, Any],
+    db_session: Session,
+) -> None:
+    created = create(client, auth, world)
+    db_session.add(
+        PayableItem(
+            payable_id=created["id"], name="Pessoa", documentType="NF", amount=Decimal("1000")
+        )
+    )
+    db_session.commit()
+    response = _patch(
+        client,
+        auth,
+        created,
+        supplierId=other_registers["supplier"].id,
+        description="Mesma",
+    )
+    # o valor não mudou, então só o fornecedor é recusado
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Lançamento com itens: o fornecedor não muda aqui"
+
+
 def test_edit_cannot_go_below_paid(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
