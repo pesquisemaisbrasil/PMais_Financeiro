@@ -135,6 +135,10 @@ def test_a_user_without_the_finance_role_is_refused(
 # ---- Lançar ----
 
 
+def tax(amount: str) -> list[dict[str, str]]:
+    return [{"kind": "imposto", "description": "Retenção na nota", "amount": amount}]
+
+
 def test_creating_keeps_the_gross_the_withholding_and_the_net(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
@@ -143,15 +147,14 @@ def test_creating_keeps_the_gross_the_withholding_and_the_net(
         auth,
         world,
         amount="1000.00",
-        withheld="115.00",
+        adjustments=tax("115.00"),
         contract="CT-2026-14",
         documentType="NF",
         documentNumber="5521",
         documentDate=today().isoformat(),
     )
-    assert (Decimal(title["amount"]), Decimal(title["withheld"]), Decimal(title["net"])) == (
+    assert (Decimal(title["amount"]), Decimal(title["net"])) == (
         Decimal("1000.00"),
-        Decimal("115.00"),
         Decimal("885.00"),
     )
     assert Decimal(title["pending"]) == Decimal("885.00")
@@ -169,9 +172,9 @@ def test_creating_keeps_the_gross_the_withholding_and_the_net(
     [
         ({"projectId": None}, 422, "Informe o projeto da receita"),
         (
-            {"withheld": "1000.00"},
+            {"adjustments": tax("1000.00")},
             422,
-            "Os abatimentos não podem ser iguais nem maiores que o valor",
+            "O valor líquido precisa ser maior que zero: os descontos e impostos passam do valor",
         ),
         ({"documentType": "NF"}, 422, "Informe o número e a data de emissão da nota"),
         ({"customerId": 9999}, 422, "Cliente não encontrado ou inativo"),
@@ -434,7 +437,7 @@ def test_export_names_every_chosen_option(
 def test_export_to_excel_has_real_numbers_totals_and_the_filters_on_top(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
-    create(client, auth, world, dueDate=days(-5), amount="1000.00", withheld="100.00")
+    create(client, auth, world, dueDate=days(-5), amount="1000.00", adjustments=tax("100.00"))
     create(client, auth, world, dueDate=days(9), amount="500.00")
     response = client.get(
         f"/receivables/export?format=xlsx&mode=tudo&customer={world['customer'].id}", headers=auth
@@ -529,7 +532,7 @@ def test_period_validations(client: TestClient, auth: dict[str, str]) -> None:
 def test_receiving_more_than_the_balance_is_refused(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
-    title = create(client, auth, world, amount="1000.00", withheld="100.00")
+    title = create(client, auth, world, amount="1000.00", adjustments=tax("100.00"))
     response = client.post(
         f"/receivables/{title['id']}/receipts", json=receipt(world, amount="950.00"), headers=auth
     )
@@ -668,7 +671,7 @@ def test_editing_changes_value_due_date_and_description_and_records_it(
         json={
             "description": "Nova descrição",
             "amount": "1200.00",
-            "withheld": "100.00",
+            "adjustments": tax("100.00"),
             "dueDate": days(15),
         },
         headers=auth,
@@ -692,7 +695,7 @@ def test_the_value_cannot_drop_below_what_was_received(
     )
     response = client.patch(
         f"/receivables/{title['id']}",
-        json={"description": "x", "amount": "500.00", "withheld": "0", "dueDate": days(3)},
+        json={"description": "x", "amount": "500.00", "dueDate": days(3)},
         headers=auth,
     )
     assert (response.status_code, response.json()["detail"]) == (
@@ -746,7 +749,7 @@ def test_canceling_twice_and_unknown_titles(
     assert client.get("/receivables/9999", headers=auth).status_code == 404
     edit = client.patch(
         f"/receivables/{title['id']}",
-        json={"description": "x", "amount": "10", "withheld": "0", "dueDate": days(1)},
+        json={"description": "x", "amount": "10", "dueDate": days(1)},
         headers=auth,
     )
     assert (edit.status_code, edit.json()["detail"]) == (

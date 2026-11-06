@@ -39,7 +39,7 @@ from models.notification import Notification  # noqa: E402,F401
 from models.payable import PayableItem  # noqa: E402
 from models.project_ref import ProjectRef  # noqa: E402
 from models.receipt import PaymentRequest, ReceiptBatch  # noqa: E402,F401
-from models.receivable import Receivable  # noqa: E402
+from models.receivable import Receivable, ReceivableAdjustment  # noqa: E402
 from models.reference import (  # noqa: E402
     BusinessUnit,
     Company,
@@ -121,6 +121,15 @@ def seed_receivables(db) -> None:  # type: ignore[no-untyped-def]
 
     def title(customer, description, days, amount, withheld="0.00"):  # type: ignore[no-untyped-def]
         due = on + timedelta(days=days)
+        adjustments = (
+            [
+                ReceivableAdjustment(
+                    kind="imposto", description="Retenção na nota", amount=Decimal(withheld)
+                )
+            ]
+            if Decimal(withheld) > 0
+            else []
+        )
         db.add(
             Receivable(
                 customer_id=customer.id,
@@ -134,7 +143,7 @@ def seed_receivables(db) -> None:  # type: ignore[no-untyped-def]
                 dueDate=due,
                 competence=due.strftime("%Y-%m"),
                 amount=Decimal(amount),
-                withheld=Decimal(withheld),
+                adjustments=adjustments,
             )
         )
 

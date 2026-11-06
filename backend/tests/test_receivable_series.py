@@ -55,7 +55,6 @@ def test_a_revenue_split_in_three_has_its_own_number_due_date_value_and_status(
         kind="parcelado",
         count=3,
         amount="1000.00",
-        withheld="100.00",
         dueDate="2026-12-15",
     )
     rows = [detail(client, auth, i) for i in ids]
@@ -68,9 +67,8 @@ def test_a_revenue_split_in_three_has_its_own_number_due_date_value_and_status(
         Decimal("333.33"),
         Decimal("333.34"),
     ]
-    # as soma das parcelas fecha com o título, nos abatimentos também
+    # a soma das parcelas fecha com o título
     assert sum(Decimal(str(r["amount"])) for r in rows) == Decimal("1000.00")
-    assert sum(Decimal(str(r["withheld"])) for r in rows) == Decimal("100.00")
     assert {r["situation"] for r in rows} == {"a_vencer"}
     assert db_session.query(PayableSeries).one().count == 3
 
@@ -128,7 +126,7 @@ def test_a_monthly_revenue_repeats_the_whole_value_each_month(
         kind="mensal",
         count=4,
         amount="800.00",
-        withheld="50.00",
+        adjustments=[{"kind": "imposto", "description": "Retenção", "amount": "50.00"}],
         dueDate="2026-11-30",
         documentType="NF",
         documentNumber="55",
@@ -138,7 +136,7 @@ def test_a_monthly_revenue_repeats_the_whole_value_each_month(
     # 30/11 → 30/12 → 30/01 (sábado, vai para segunda 01/02) → 28/02 (domingo, vai para 01/03)
     assert [r["dueDate"] for r in rows] == ["2026-11-30", "2026-12-30", "2027-02-01", "2027-03-01"]
     assert {Decimal(str(r["amount"])) for r in rows} == {Decimal("800.00")}
-    assert {Decimal(str(r["withheld"])) for r in rows} == {Decimal("50.00")}
+    assert {Decimal(str(r["net"])) for r in rows} == {Decimal("750.00")}
     assert [r["competence"] for r in rows] == ["2026-11", "2026-12", "2027-02", "2027-03"]
     # só a primeira leva a nota
     assert [(r["documentType"], r["documentNumber"]) for r in rows] == [
@@ -175,7 +173,12 @@ def test_installments_may_not_swallow_the_value_in_withholdings(
 ) -> None:
     response = client.post(
         "/receivables/recurrence",
-        json=recurring(world, kind="mensal", amount="100.00", withheld="100.00"),
+        json=recurring(
+            world,
+            kind="mensal",
+            amount="100.00",
+            adjustments=[{"kind": "imposto", "description": "Retenção", "amount": "100.00"}],
+        ),
         headers=auth,
     )
     assert response.status_code == 422
@@ -257,7 +260,7 @@ def test_a_value_that_would_leave_nothing_to_receive_changes_nothing(
         kind="mensal",
         count=2,
         amount="100.00",
-        withheld="40.00",
+        adjustments=[{"kind": "imposto", "description": "Retenção", "amount": "40.00"}],
         dueDate="2026-12-15",
     )
     response = edit(client, auth, ids[0], scope="open", amount="30.00")
@@ -317,7 +320,13 @@ def test_the_export_carries_the_filters_on_the_first_line_and_one_row_per_title(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
     create(
-        client, auth, world, dueDate=days(-4), amount="1000.00", withheld="100.00", contract="CT-9"
+        client,
+        auth,
+        world,
+        dueDate=days(-4),
+        amount="1000.00",
+        adjustments=[{"kind": "imposto", "description": "Retenção", "amount": "100.00"}],
+        contract="CT-9",
     )
     create(client, auth, world, dueDate=days(3), customerId=world["other_customer"].id)
     response = export(client, auth, customer=world["customer"].id, search="satisfação")
@@ -342,7 +351,13 @@ def test_the_export_carries_the_filters_on_the_first_line_and_one_row_per_title(
         "Vencida",
         "4",
     )
-    assert (row["Bruto"], row["Abatimentos"], row["Líquido"]) == ("1.000,00", "100,00", "900,00")
+    assert (row["Bruto"], row["Acréscimos"], row["Descontos"], row["Impostos"], row["Líquido"]) == (
+        "1.000,00",
+        "0,00",
+        "0,00",
+        "100,00",
+        "900,00",
+    )
 
 
 def test_the_export_follows_the_indicator_and_neutralizes_formulas(
@@ -360,3 +375,22 @@ def test_an_export_with_a_bad_period_is_refused_like_the_list(
 ) -> None:
     response = client.get("/receivables/export", params={"mode": "periodo"}, headers=auth)
     assert response.status_code == 422
+
+
+def test_installments_refuse_adjustments_and_monthly_repeats_them(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    lines = [{"kind": "acrescimo", "description": "Correção", "amount": "10.00"}]
+    refused = client.post(
+        "/receivables/recurrence",
+        json=recurring(world, kind="parcelado", count=3, amount="900.00", adjustments=lines),
+        headers=auth,
+    )
+    assert (refused.status_code, refused.json()["detail"]) == (
+        422,
+        "Em título parcelado, lance acréscimos, descontos e impostos em cada parcela depois",
+    )
+    ids = make_series(
+        client, auth, world, kind="mensal", count=2, amount="900.00", adjustments=lines
+    )
+    assert {Decimal(str(detail(client, auth, i)["net"])) for i in ids} == {Decimal("910.00")}
