@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, Literal, TypeVar, get_args
-from urllib.parse import quote
 
 from fastapi import (
     APIRouter,
@@ -16,6 +15,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from api import attachment_http
 from core import file_vault, xlsx
 from core.limiter import limiter
 from core.permissions import require_finance
@@ -23,6 +23,7 @@ from core.query_lists import parse_choices, parse_ids
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
+    AttachmentUpdate,
     BatchCount,
     BatchDeleteResult,
     BatchIds,
@@ -87,18 +88,16 @@ def _handle(action: Callable[[], T]) -> T:
     try:
         return action()
     except attachments.AttachmentNotFound as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Documento não encontrado") from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, attachment_http.NOT_FOUND) from exc
     except payable_service.PayableNotFound as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta não encontrada") from exc
     except file_vault.FilesUnavailable as exc:
         raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Os anexos não estão disponíveis agora. Avise quem cuida do sistema.",
+            status.HTTP_503_SERVICE_UNAVAILABLE, attachment_http.UNAVAILABLE
         ) from exc
     except file_vault.FileCorrupted as exc:
         raise HTTPException(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "Não foi possível abrir o documento: ele não confere com o que foi guardado.",
+            status.HTTP_500_INTERNAL_SERVER_ERROR, attachment_http.CORRUPTED
         ) from exc
     except payable_service.PayableConflict as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
@@ -331,13 +330,6 @@ def import_payables(
     return _in_transaction(db, lambda: payable_import.confirm(db, fields, filename, content, user))
 
 
-def _attachment_content(file: UploadFile) -> tuple[str, bytes]:
-    content = file.file.read(attachments.MAX_BYTES + 1)
-    if not content or len(content) > attachments.MAX_BYTES:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, attachments.INVALID_FILE)
-    return file.filename or "", content
-
-
 @router.post(
     "/payables/{payable_id}/attachments",
     response_model=PayableDetail,
@@ -346,10 +338,18 @@ def _attachment_content(file: UploadFile) -> tuple[str, bytes]:
 )
 @limiter.limit(WRITE_LIMIT)
 def add_attachment(
-    request: Request, payable_id: int, file: UploadFile, db: DbSession, user: FinanceUser
+    request: Request,
+    payable_id: int,
+    file: UploadFile,
+    db: DbSession,
+    user: FinanceUser,
+    kind: Annotated[str, Form(max_length=20)] = attachments.DEFAULT_KIND,
 ) -> dict[str, Any]:
-    filename, content = _attachment_content(file)
-    _in_transaction(db, lambda: attachments.add(db, payable_id, filename, content, user))
+    filename, content = attachment_http.read_upload(file)
+    _in_transaction(
+        db,
+        lambda: attachments.add(db, attachments.PAYABLE, payable_id, filename, content, kind, user),
+    )
     return _handle(lambda: payable_service.detail(db, payable_id))
 
 
@@ -363,20 +363,32 @@ def download_attachment(
     request: Request, payable_id: int, attachment_id: int, db: DbSession, user: FinanceUser
 ) -> Response:
     name, content_type, content = _in_transaction(
-        db, lambda: attachments.download(db, payable_id, attachment_id, user)
+        db, lambda: attachments.download(db, attachments.PAYABLE, payable_id, attachment_id, user)
     )
-    fallback = name.encode("ascii", "replace").decode().replace('"', "").replace("?", "_")
-    return Response(
-        content,
-        media_type=content_type,
-        headers={
-            "Content-Disposition": (
-                f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(name)}"
-            ),
-            "Cache-Control": "no-store",
-            "X-Content-Type-Options": "nosniff",
-        },
+    return attachment_http.download_response(name, content_type, content)
+
+
+@router.patch(
+    "/payables/{payable_id}/attachments/{attachment_id}",
+    response_model=PayableDetail,
+    description="Renomeia o documento e/ou muda o tipo dele; o arquivo guardado não é tocado",
+)
+@limiter.limit(WRITE_LIMIT)
+def update_attachment(
+    request: Request,
+    payable_id: int,
+    attachment_id: int,
+    data: AttachmentUpdate,
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    _in_transaction(
+        db,
+        lambda: attachments.update(
+            db, attachments.PAYABLE, payable_id, attachment_id, data.name, data.kind, user
+        ),
     )
+    return _handle(lambda: payable_service.detail(db, payable_id))
 
 
 @router.post(
@@ -394,7 +406,10 @@ def remove_attachment(
     user: FinanceUser,
 ) -> dict[str, Any]:
     _in_transaction(
-        db, lambda: attachments.remove(db, payable_id, attachment_id, data.reason, user)
+        db,
+        lambda: attachments.remove(
+            db, attachments.PAYABLE, payable_id, attachment_id, data.reason, user
+        ),
     )
     return _handle(lambda: payable_service.detail(db, payable_id))
 

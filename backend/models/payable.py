@@ -263,6 +263,8 @@ class PayableAttachment(Base):
         Integer, ForeignKey("payables.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     name = Column(String(200), nullable=False)
+    # um dos KINDS (services/attachments.KINDS)
+    kind = Column(String(20), nullable=False, server_default="outro")
     contentType = Column(String(100), nullable=False)
     size = Column(Integer, nullable=False)
     fileKey = Column(String(200), nullable=False, unique=True)

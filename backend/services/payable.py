@@ -678,6 +678,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
             {
                 "id": a.id,
                 "name": a.name,
+                "kind": a.kind,
                 "size": a.size,
                 "contentType": a.contentType,
                 "uploadedBy": a.uploaded_by.name,

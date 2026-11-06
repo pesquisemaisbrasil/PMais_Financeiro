@@ -600,6 +600,19 @@ def detail(db: Session, receivable_id: int) -> dict[str, Any]:
             {"userName": e.user.name, "text": e.text, "createdAt": e.createdAt}
             for e in reversed(receivable.events)
         ],
+        "attachments": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "kind": a.kind,
+                "size": a.size,
+                "contentType": a.contentType,
+                "uploadedBy": a.uploaded_by.name,
+                "createdAt": a.createdAt,
+            }
+            for a in receivable.attachments
+            if a.deletedAt is None
+        ],
     }
 
 

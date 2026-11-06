@@ -100,6 +100,7 @@ class Receivable(Base):
     )
     payments = relationship("ReceivablePayment", order_by="ReceivablePayment.id")
     events = relationship("ReceivableEvent", order_by="ReceivableEvent.id")
+    attachments = relationship("ReceivableAttachment", order_by="ReceivableAttachment.id")
 
 
 class ReceivableAdjustment(Base):
@@ -154,6 +155,34 @@ class ReceivablePayment(Base):
 
     bank_account = relationship(BankAccount)
     payment_method = relationship(PaymentMethod)
+
+
+class ReceivableAttachment(Base):
+    """Documento anexado ao título (nota emitida, contrato, comprovante de recebimento...). Igual ao
+    da conta a pagar: o arquivo mora no cofre cifrado (core/file_vault.py), aqui ficam só os dados
+    para achá-lo e conferi-lo, e remover é **lógico**."""
+
+    __tablename__ = "receivable_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    receivable_id = Column(
+        Integer, ForeignKey("receivables.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    name = Column(String(200), nullable=False)
+    kind = Column(String(20), nullable=False, server_default="outro")
+    contentType = Column(String(100), nullable=False)
+    size = Column(Integer, nullable=False)
+    fileKey = Column(String(200), nullable=False, unique=True)
+    fileSha256 = Column(String(64), nullable=False)
+    uploaded_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deletedAt = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    deletedReason = Column(String(500), nullable=True)
+
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])
 
 
 class ReceivableEvent(Base):

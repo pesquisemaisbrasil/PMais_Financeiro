@@ -1,8 +1,8 @@
-"""Anexos das contas a pagar (spec baixas-recorrencia-e-anexos, regra 6).
+"""Anexos das contas a pagar e dos títulos a receber (spec baixas-recorrencia-e-anexos, regra 6).
 
 O arquivo é conferido pelo conteúdo (não só pela extensão), cifrado e guardado no cofre
-(`core/file_vault.py`). Ficam na trilha da conta quem incluiu, quem baixou e quem removeu,
-e por quê. Remover é lógico: o arquivo continua no cofre.
+(`core/file_vault.py`). Ficam na trilha da conta (ou do título) quem incluiu, quem baixou, quem
+renomeou e quem removeu, e por quê. Remover é lógico: o arquivo continua no cofre.
 
 Ainda não existe: antivírus (a spec pede) e prazo de guarda (Q5, DPO). Está em `scan()`, que hoje
 não recusa nada, para o dia em que houver um scanner.
@@ -12,21 +12,39 @@ import hashlib
 import io
 import re
 import zipfile
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from defusedxml import ElementTree
 from sqlalchemy.orm import Session
 
 from core import file_vault
-from models.payable import Payable, PayableAttachment
+from models.payable import PayableAttachment
+from models.receivable import ReceivableAttachment
 from models.user import User
 from services import payable as payable_service
+from services import receivable as receivable_service
 from services.payable import PayableConflict, PayableInvalid, PayableNotFound
 
 MAX_BYTES = 20 * 1024 * 1024
-MAX_PER_PAYABLE = 50
+MAX_PER_OWNER = 50
 MAX_UNZIPPED_BYTES = 100 * 1024 * 1024
 INVALID_FILE = "Envie PDF, imagem, planilha, documento ou XML de até 20 MB"
+
+# O tipo do documento, para achar a nota ou o boleto sem abrir um por um.
+# O que não se sabe é "outro".
+KINDS = {
+    "nota": "Nota fiscal",
+    "boleto": "Boleto",
+    "contrato": "Contrato",
+    "comprovante": "Comprovante",
+    "recibo": "Recibo",
+    "planilha": "Planilha",
+    "outro": "Outro",
+}
+DEFAULT_KIND = "outro"
 
 ALLOWED = {
     ".pdf": "application/pdf",
@@ -44,6 +62,41 @@ class AttachmentNotFound(PayableNotFound):
     pass
 
 
+@dataclass(frozen=True)
+class Target:
+    """A quem o documento pertence: a conta a pagar ou o título a receber."""
+
+    # prefixo da chave no cofre; amarra o arquivo ao dono (copiar para outro dono não abre)
+    vault_kind: str
+    get: Callable[..., Any]
+    audit: Callable[[Session, Any, User, str], None]
+    model: type
+    foreign_key: str
+    # as palavras das mensagens
+    this: str
+    to_this: str
+
+
+PAYABLE = Target(
+    "payable",
+    payable_service._get,
+    payable_service.audit,
+    PayableAttachment,
+    "payable_id",
+    "Esta conta",
+    "a esta conta",
+)
+RECEIVABLE = Target(
+    "receivable",
+    receivable_service._get,
+    receivable_service.audit,
+    ReceivableAttachment,
+    "receivable_id",
+    "Este título",
+    "a este título",
+)
+
+
 def _clean_name(filename: str) -> str:
     """Só o nome do arquivo, sem pasta nem caractere de controle, em até 200 letras."""
     name = re.split(r"[\\/]", filename)[-1]
@@ -53,6 +106,23 @@ def _clean_name(filename: str) -> str:
         stem, dot, ext = name.rpartition(".")
         name = (stem[: 200 - len(ext) - 1] + dot + ext) if dot and len(ext) < 10 else name[:200]
     return name
+
+
+def _renamed(new: str, current: str) -> str:
+    """O nome novo, limpo e com a extensão que o arquivo já tem: renomear não troca o tipo dele."""
+    dot = current.rfind(".")
+    extension = current[dot:].lower() if dot >= 0 else ""
+    name = _clean_name(new)
+    if not name:
+        raise PayableInvalid("Informe o nome do documento")
+    if not name.lower().endswith(extension):
+        name = _clean_name(name + extension)
+    return name
+
+
+def _check_kind(kind: str) -> None:
+    if kind not in KINDS:
+        raise PayableInvalid("Escolha o tipo do documento")
 
 
 def _is_xml(data: bytes) -> bool:
@@ -108,28 +178,38 @@ def _size_text(size: int) -> str:
     return f"{size / 1024:.0f} KB" if size < 1024 * 1024 else f"{size / 1024 / 1024:.1f} MB"
 
 
-def _active(payable: Payable, attachment_id: int) -> PayableAttachment:
-    for attachment in payable.attachments:
+def _active(owner: Any, attachment_id: int) -> Any:
+    for attachment in owner.attachments:
         if attachment.id == attachment_id and attachment.deletedAt is None:
             return attachment
     raise AttachmentNotFound
 
 
-def add(db: Session, payable_id: int, filename: str, data: bytes, user: User) -> None:
-    """Anexa o arquivo, cifrado, e registra na trilha da conta."""
-    payable = payable_service._get(db, payable_id, lock=True)
+def add(
+    db: Session,
+    target: Target,
+    owner_id: int,
+    filename: str,
+    data: bytes,
+    kind: str,
+    user: User,
+) -> None:
+    """Anexa o arquivo, cifrado, e registra na trilha."""
+    owner = target.get(db, owner_id, lock=True)
+    _check_kind(kind)
     name, content_type = validate_upload(filename, data)
-    current = [a for a in payable.attachments if a.deletedAt is None]
-    if len(current) >= MAX_PER_PAYABLE:
-        raise PayableConflict(f"Esta conta já tem {MAX_PER_PAYABLE} documentos")
+    current = [a for a in owner.attachments if a.deletedAt is None]
+    if len(current) >= MAX_PER_OWNER:
+        raise PayableConflict(f"{target.this} já tem {MAX_PER_OWNER} documentos")
     digest = hashlib.sha256(data).hexdigest()
     if any(a.fileSha256 == digest for a in current):
-        raise PayableConflict("Este arquivo já está anexado a esta conta")
-    stored = file_vault.store_file("payable", payable.id, data)
+        raise PayableConflict(f"Este arquivo já está anexado {target.to_this}")
+    stored = file_vault.store_file(target.vault_kind, owner.id, data)
     db.add(
-        PayableAttachment(
-            payable_id=payable.id,
+        target.model(
+            **{target.foreign_key: owner.id},
             name=name,
+            kind=kind,
             contentType=content_type,
             size=stored.size,
             fileKey=stored.key,
@@ -137,30 +217,64 @@ def add(db: Session, payable_id: int, filename: str, data: bytes, user: User) ->
             uploaded_by_user_id=user.id,
         )
     )
-    payable_service.audit(
-        db, payable, user, f"Documento incluído: {name} ({_size_text(stored.size)})"
-    )
+    target.audit(db, owner, user, f"Documento incluído: {name} ({_size_text(stored.size)})")
     db.commit()
 
 
 def download(
-    db: Session, payable_id: int, attachment_id: int, user: User
+    db: Session, target: Target, owner_id: int, attachment_id: int, user: User
 ) -> tuple[str, str, bytes]:
-    """(nome, tipo, conteúdo) do documento. Cada download fica na trilha da conta."""
-    payable = payable_service._get(db, payable_id)
-    attachment = _active(payable, attachment_id)
-    data = file_vault.read_file("payable", payable.id, attachment.fileKey, attachment.fileSha256)
-    payable_service.audit(db, payable, user, f"Documento baixado: {attachment.name}")
+    """(nome, tipo, conteúdo) do documento. Cada download fica na trilha."""
+    owner = target.get(db, owner_id)
+    attachment = _active(owner, attachment_id)
+    data = file_vault.read_file(
+        target.vault_kind, owner.id, attachment.fileKey, attachment.fileSha256
+    )
+    target.audit(db, owner, user, f"Documento baixado: {attachment.name}")
     db.commit()
     return attachment.name, attachment.contentType, data
 
 
-def remove(db: Session, payable_id: int, attachment_id: int, reason: str, user: User) -> None:
-    """Remove da conta (lógico): o arquivo fica no cofre, e a trilha guarda quem tirou e por quê."""
-    payable = payable_service._get(db, payable_id, lock=True)
-    attachment = _active(payable, attachment_id)
+def update(
+    db: Session,
+    target: Target,
+    owner_id: int,
+    attachment_id: int,
+    name: str | None,
+    kind: str | None,
+    user: User,
+) -> None:
+    """Renomeia e/ou muda o tipo. Quem mudou e o que mudou ficam na trilha; o arquivo não muda."""
+    if name is None and kind is None:
+        raise PayableInvalid("Mude o nome ou o tipo do documento")
+    owner = target.get(db, owner_id, lock=True)
+    attachment = _active(owner, attachment_id)
+    new_name = _renamed(name, attachment.name) if name is not None else attachment.name
+    if kind is not None:
+        _check_kind(kind)
+    if new_name != attachment.name:
+        target.audit(db, owner, user, f"Documento renomeado: {attachment.name} → {new_name}")
+        attachment.name = new_name
+    if kind is not None and kind != attachment.kind:
+        target.audit(
+            db,
+            owner,
+            user,
+            f"Tipo do documento mudou: {attachment.name} "
+            f"({KINDS[attachment.kind]} → {KINDS[kind]})",
+        )
+        attachment.kind = kind
+    db.commit()
+
+
+def remove(
+    db: Session, target: Target, owner_id: int, attachment_id: int, reason: str, user: User
+) -> None:
+    """Remove (lógico): o arquivo fica no cofre, e a trilha guarda quem tirou e por quê."""
+    owner = target.get(db, owner_id, lock=True)
+    attachment = _active(owner, attachment_id)
     attachment.deletedAt = datetime.now(UTC)
     attachment.deleted_by_user_id = user.id
     attachment.deletedReason = reason
-    payable_service.audit(db, payable, user, f"Documento removido: {attachment.name} — {reason}")
+    target.audit(db, owner, user, f"Documento removido: {attachment.name} — {reason}")
     db.commit()

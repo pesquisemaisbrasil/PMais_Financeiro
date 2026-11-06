@@ -248,10 +248,18 @@ class EventOut(BaseModel):
 class AttachmentOut(BaseModel):
     id: int
     name: str
+    kind: str
     size: int
     contentType: str
     uploadedBy: str
     createdAt: datetime
+
+
+class AttachmentUpdate(BaseModel):
+    """Renomear o documento e/ou mudar o tipo dele. O que não vier fica como está."""
+
+    name: Annotated[str, StringConstraints(max_length=255)] | None = None
+    kind: str | None = None
 
 
 class PayableDetail(PayableRow):

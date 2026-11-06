@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, StringConstraints
 
 from schemas.adjustment import AdjustmentIn, AdjustmentOut
 from schemas.payable import (
+    AttachmentOut,
     EventOut,
     Money,
     RecurrenceIn,
@@ -137,6 +138,7 @@ class ReceivableDetail(ReceivableRow):
     payments: list[ReceiptOut]
     events: list[EventOut]
     adjustments: list[AdjustmentOut]
+    attachments: list[AttachmentOut]
 
 
 class DelinquentTitle(BaseModel):

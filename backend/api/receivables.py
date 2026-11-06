@@ -2,16 +2,28 @@ from collections.abc import Callable
 from datetime import date
 from typing import Annotated, Any, Literal, TypeVar, get_args
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
-from core import xlsx
+from api import attachment_http
+from core import file_vault, xlsx
 from core.limiter import limiter
 from core.permissions import require_finance
 from core.query_lists import parse_choices, parse_ids
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
+    AttachmentUpdate,
     PeriodMode,
     ReasonIn,
     SeriesCancel,
@@ -34,9 +46,9 @@ from schemas.receivable import (
     ReceivableUpdate,
     RecurringReceivableCreate,
 )
+from services import attachments, receivable_series
 from services import payable as payable_service
 from services import receivable as receivable_service
-from services import receivable_series
 from services.auth import get_current_user
 
 router = APIRouter(tags=["contas a receber"])
@@ -61,9 +73,22 @@ def _handle(db: Session, action: Callable[[], T]) -> T:
     """Traduz as recusas do serviço em HTTP. A sessão volta atrás: nada fica pela metade."""
     try:
         return action()
+    except attachments.AttachmentNotFound as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, attachment_http.NOT_FOUND) from exc
     except payable_service.PayableNotFound as exc:
         db.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Título não encontrado") from exc
+    except file_vault.FilesUnavailable as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, attachment_http.UNAVAILABLE
+        ) from exc
+    except file_vault.FileCorrupted as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, attachment_http.CORRUPTED
+        ) from exc
     except payable_service.PayableConflict as exc:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
@@ -243,6 +268,95 @@ def cancel_series(
 ) -> dict[str, int]:
     count = _handle(db, lambda: receivable_series.cancel_series(db, receivable_id, data, user))
     return {"count": count}
+
+
+@router.post(
+    "/receivables/{receivable_id}/attachments",
+    response_model=ReceivableDetail,
+    status_code=status.HTTP_201_CREATED,
+    description="Anexa um documento ao título (PDF, imagem, planilha, documento ou XML, até 20 MB)",
+)
+@limiter.limit(WRITE_LIMIT)
+def add_attachment(
+    request: Request,
+    receivable_id: int,
+    file: UploadFile,
+    db: DbSession,
+    user: FinanceUser,
+    kind: Annotated[str, Form(max_length=20)] = attachments.DEFAULT_KIND,
+) -> dict[str, Any]:
+    filename, content = attachment_http.read_upload(file)
+    _handle(
+        db,
+        lambda: attachments.add(
+            db, attachments.RECEIVABLE, receivable_id, filename, content, kind, user
+        ),
+    )
+    return receivable_service.detail(db, receivable_id)
+
+
+@router.get(
+    "/receivables/{receivable_id}/attachments/{attachment_id}/download",
+    response_class=Response,
+    description="Baixa o documento, decifrado aqui; cada download fica no histórico do título",
+)
+@limiter.limit(READ_LIMIT)
+def download_attachment(
+    request: Request, receivable_id: int, attachment_id: int, db: DbSession, user: FinanceUser
+) -> Response:
+    name, content_type, content = _handle(
+        db,
+        lambda: attachments.download(
+            db, attachments.RECEIVABLE, receivable_id, attachment_id, user
+        ),
+    )
+    return attachment_http.download_response(name, content_type, content)
+
+
+@router.patch(
+    "/receivables/{receivable_id}/attachments/{attachment_id}",
+    response_model=ReceivableDetail,
+    description="Renomeia o documento e/ou muda o tipo dele; o arquivo guardado não é tocado",
+)
+@limiter.limit(WRITE_LIMIT)
+def update_attachment(
+    request: Request,
+    receivable_id: int,
+    attachment_id: int,
+    data: AttachmentUpdate,
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    _handle(
+        db,
+        lambda: attachments.update(
+            db, attachments.RECEIVABLE, receivable_id, attachment_id, data.name, data.kind, user
+        ),
+    )
+    return receivable_service.detail(db, receivable_id)
+
+
+@router.post(
+    "/receivables/{receivable_id}/attachments/{attachment_id}/remove",
+    response_model=ReceivableDetail,
+    description="Tira o documento do título, com o motivo; o arquivo continua guardado",
+)
+@limiter.limit(WRITE_LIMIT)
+def remove_attachment(
+    request: Request,
+    receivable_id: int,
+    attachment_id: int,
+    data: ReasonIn,
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    _handle(
+        db,
+        lambda: attachments.remove(
+            db, attachments.RECEIVABLE, receivable_id, attachment_id, data.reason, user
+        ),
+    )
+    return receivable_service.detail(db, receivable_id)
 
 
 @router.post(
