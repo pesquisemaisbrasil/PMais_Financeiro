@@ -1290,12 +1290,12 @@ def _incentives(*dates: tuple[str, int], value: Any = 120, pay: str = "") -> byt
 def _import_fields(world: dict[str, Any], **overrides: Any) -> dict[str, Any]:
     return {
         "kind": "incentivos",
-        "projectId": world["project"].id,
-        "categoryId": world["category"].id,
-        "companyId": world["company"].id,
-        "unitId": world["unit"].id,
-        "costCenterId": world["cost_center"].id,
-        "paymentMethodId": world["method"].id,
+        "projectIds": str(world["project"].id),
+        "categoryIds": str(world["category"].id),
+        "companyIds": str(world["company"].id),
+        "unitIds": str(world["unit"].id),
+        "costCenterIds": str(world["cost_center"].id),
+        "paymentMethodIds": str(world["method"].id),
         **overrides,
     }
 
@@ -1497,12 +1497,12 @@ def test_closed_project_and_empty_results_are_refused(
         client,
         auth,
         "/payables/import",
-        _import_fields(world, projectId=world["closed"].id),
+        _import_fields(world, projectIds=str(world["closed"].id)),
         content,
     )
     assert closed.status_code == 409
     missing = _send(
-        client, auth, "/payables/import/preview", _import_fields(world, projectId=99999), content
+        client, auth, "/payables/import/preview", _import_fields(world, projectIds="99999"), content
     )
     assert missing.status_code == 422
     nothing = _xlsx([INCENTIVE_HEADER, ["", None, None, 100, "2026-10-30", None]])
@@ -1511,6 +1511,551 @@ def test_closed_project_and_empty_results_are_refused(
     assert (
         empty.json()["detail"] == "Nenhuma linha da planilha pode entrar. Corrija e envie de novo"
     )
+
+
+# ---- Importar planilha com vários projetos ----
+
+PROJECT_HEADER = ["Nome", "Valor", "Data da pesquisa", "Projeto"]
+
+
+@pytest.fixture
+def two_incentive_projects(
+    world: dict[str, Any], incentive_project: Project, db_session: Session
+) -> tuple[Project, Project]:
+    other = world["other_project"]
+    other.hasIncentive = True
+    other.incentiveDays = 5
+    db_session.commit()
+    return incentive_project, other
+
+
+def _by_project(db_session: Session) -> dict[str, list[tuple[date, Decimal]]]:
+    found: dict[str, list[tuple[date, Decimal]]] = {}
+    for payable in db_session.query(Payable).order_by(Payable.dueDate, Payable.id).all():
+        code = payable.allocations[0].project.code
+        found.setdefault(code, []).append((payable.dueDate, payable.amount))
+    return found
+
+
+def test_a_project_column_splits_one_sheet_into_one_payable_per_project_and_date(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    two_incentive_projects: tuple[Project, Project],
+    db_session: Session,
+) -> None:
+    content = _xlsx(
+        [
+            PROJECT_HEADER,
+            ["Ana", 100, "2026-10-30", "1804"],
+            ["Bia", 100, "2026-10-30", "PRJ-1804"],  # com o prefixo
+            ["Caio", 50, "2026-10-30", 1790],  # célula numérica
+            ["Dani", 50, "2026-10-30", 1790.0],  # xlsx guarda número como decimal
+        ]
+    )
+    fields = _import_fields(world, projectIds="")  # nada marcado = todos os da planilha
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert preview["hasProjectColumn"] is True
+    assert preview["goodCount"] == 4
+    assert [
+        (p["code"], p["count"], p["total"], p["deadlineDays"]) for p in preview["projects"]
+    ] == [
+        ("1790", 2, "100.00", 5),
+        ("1804", 2, "200.00", 10),
+    ]
+    # Cada projeto conta o seu prazo: 5 e 10 dias úteis depois de 30/10 (02/11 é feriado)
+    assert [(g["projectCode"], g["payDate"], g["count"]) for g in preview["groups"]] == [
+        ("1790", "2026-11-09", 2),
+        ("1804", "2026-11-16", 2),
+    ]
+    assert db_session.query(Payable).count() == 0
+
+    result = _send(client, auth, "/payables/import", fields, content).json()
+    assert result == {"count": 2, "items": 4, "total": "300.00"}
+    assert _by_project(db_session) == {
+        "1790": [(date(2026, 11, 9), Decimal("100.00"))],
+        "1804": [(date(2026, 11, 16), Decimal("200.00"))],
+    }
+    descriptions = sorted(p.description for p in db_session.query(Payable).all())
+    assert descriptions == [
+        "Incentivos · PRJ-1790 · pagar 09/11",
+        "Incentivos · PRJ-1804 · pagar 16/11",
+    ]
+
+
+def test_choosing_some_projects_leaves_the_others_out_without_calling_them_errors(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    two_incentive_projects: tuple[Project, Project],
+    db_session: Session,
+) -> None:
+    content = _xlsx(
+        [
+            PROJECT_HEADER,
+            ["Ana", 100, "2026-10-30", "1804"],
+            ["Caio", 50, "2026-10-30", "1790"],
+            ["Eli", 70, "2026-10-30", "1790"],
+        ]
+    )
+    fields = _import_fields(world, projectIds=str(world["other_project"].id))
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert (preview["goodCount"], preview["errorCount"], preview["skippedCount"]) == (2, 0, 1)
+    skipped = [line for line in preview["lines"] if line["skipped"]]
+    assert [(line["name"], line["errors"]) for line in skipped] == [("Ana", [])]
+    result = _send(client, auth, "/payables/import", fields, content).json()
+    assert result == {"count": 1, "items": 2, "total": "120.00"}
+    assert list(_by_project(db_session)) == ["1790"]
+
+    # Marcando os dois, entra tudo
+    both = f"{world['project'].id},{world['other_project'].id}"
+    preview = _send(
+        client, auth, "/payables/import/preview", _import_fields(world, projectIds=both), content
+    ).json()
+    assert (preview["goodCount"], preview["skippedCount"]) == (3, 0)
+
+
+def test_blank_project_cell_uses_the_single_chosen_project_and_is_an_error_otherwise(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    two_incentive_projects: tuple[Project, Project],
+) -> None:
+    content = _xlsx(
+        [
+            PROJECT_HEADER,
+            ["Ana", 100, "2026-10-30", None],
+            ["Caio", 50, "2026-10-30", "1790"],
+        ]
+    )
+    url = "/payables/import/preview"
+    one = _send(client, auth, url, _import_fields(world), content).json()  # só o 1804 marcado
+    assert (one["goodCount"], one["skippedCount"]) == (1, 1)
+    assert [(g["projectCode"], g["count"]) for g in one["groups"]] == [("1804", 1)]
+
+    none = _send(client, auth, url, _import_fields(world, projectIds=""), content).json()
+    assert none["goodCount"] == 1
+    assert none["lines"][0]["errors"] == ["Sem projeto na linha"]
+
+
+def test_unknown_and_closed_projects_in_the_sheet_are_line_errors(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    two_incentive_projects: tuple[Project, Project],
+) -> None:
+    content = _xlsx(
+        [
+            PROJECT_HEADER,
+            ["Ana", 100, "2026-10-30", "1804"],
+            ["Bia", 100, "2026-10-30", "9999"],
+            ["Caio", 100, "2026-10-30", "1700"],  # encerrado
+        ]
+    )
+    preview = _send(
+        client,
+        auth,
+        "/payables/import/preview",
+        _import_fields(world, projectIds=""),
+        content,
+    ).json()
+    assert preview["goodCount"] == 1
+    assert [line["errors"] for line in preview["lines"]] == [
+        [],
+        ["Projeto 9999 não existe"],
+        ["Projeto PRJ-1700 está fechado"],
+    ]
+
+
+def test_sheet_without_a_project_column_needs_exactly_one_chosen_project(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    two_incentive_projects: tuple[Project, Project],
+) -> None:
+    content = _incentives(("2026-10-30", 1))
+    url = "/payables/import/preview"
+    expected = (
+        'A planilha não tem a coluna "projeto". Escolha um só projeto na tela '
+        "ou inclua a coluna na planilha"
+    )
+    for chosen in ("", f"{world['project'].id},{world['other_project'].id}"):
+        response = _send(client, auth, url, _import_fields(world, projectIds=chosen), content)
+        assert response.status_code == 422
+        assert response.json()["detail"] == expected
+    assert (
+        _send(client, auth, url, _import_fields(world), content).json()["hasProjectColumn"] is False
+    )
+
+
+def test_a_project_without_deadline_blocks_only_when_it_has_lines_that_need_it(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+) -> None:
+    # O 1790 não tem prazo; a linha dele sem data de pagamento não tem como ser calculada.
+    content = _xlsx(
+        [PROJECT_HEADER, ["Ana", 100, "2026-10-30", "1804"], ["Caio", 50, "2026-10-30", "1790"]]
+    )
+    fields = _import_fields(world, projectIds="")
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert preview["missingDeadline"] is True
+    assert [(p["code"], p["missingDeadline"]) for p in preview["projects"]] == [
+        ("1790", True),
+        ("1804", False),
+    ]
+    response = _send(client, auth, "/payables/import", fields, content)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Defina o prazo do incentivo no projeto antes de importar a planilha"
+    )
+    assert db_session.query(Payable).count() == 0
+    # Marcando só o 1804, a planilha entra: o 1790 ficou fora
+    only = _import_fields(world, projectIds=str(world["project"].id))
+    assert _send(client, auth, "/payables/import", only, content).status_code == 201
+
+
+def test_two_projects_without_deadline_are_named_together(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    content = _xlsx(
+        [PROJECT_HEADER, ["Ana", 100, "2026-10-30", "1804"], ["Caio", 50, "2026-10-30", "1790"]]
+    )
+    response = _send(
+        client, auth, "/payables/import", _import_fields(world, projectIds=""), content
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Defina o prazo do incentivo nos projetos PRJ-1790, PRJ-1804 antes de importar a planilha"
+    )
+
+
+def test_payroll_with_several_projects_makes_one_payable_per_project(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Documento", "Valor", "Projeto"],
+            ["Ana", "NF", 600, "1804"],
+            ["Bia", "RPA", 1000, "1804"],
+            ["Caio", "Sem NF", 300, "1790"],
+        ]
+    )
+    fields = _import_fields(
+        world,
+        kind="folha",
+        projectIds="",
+        description="Equipe de campo · novembro",
+        dueDate="2026-11-20",
+    )
+    result = _send(client, auth, "/payables/import", fields, content).json()
+    assert result == {"count": 2, "items": 3, "total": "1790.00"}
+    payables = {p.allocations[0].project.code: p for p in db_session.query(Payable).all()}
+    assert payables["1804"].description == "Equipe de campo · novembro · PRJ-1804"
+    assert payables["1804"].amount == Decimal("1490.00")  # 600 + 1000 menos 11% de INSS
+    assert payables["1790"].amount == Decimal("300.00")
+    assert payables["1790"].payeeName == "Folha de campo (1 pessoa)"
+
+
+# ---- Importar planilha com empresa, unidade, centro de custo, categoria e forma em coluna ----
+
+
+@pytest.fixture
+def more_registers(world: dict[str, Any], db_session: Session) -> dict[str, Any]:
+    """Um segundo cadastro de cada campo, e uma conta de receita que não serve ao Contas a pagar."""
+    other_company = db_session.query(Company).filter_by(name="MC").one()  # já vem do `world`
+    extra = {
+        "other_company": other_company,
+        "unit_mc": BusinessUnit(company_id=other_company.id, name="Consumo SP"),  # mesmo nome
+        "other_unit": BusinessUnit(company_id=world["company"].id, name="Health"),
+        "other_center": CostCenter(name="Administrativo"),
+        "other_category": ExpenseCategory(code="2.05", name="Transporte"),
+        "revenue": ExpenseCategory(code="1.01", name="Receita de pesquisa", kind="receita"),
+        "inactive_center": CostCenter(name="Antigo", active=False),
+        "other_method": PaymentMethod(name="Boleto"),
+    }
+    db_session.add_all([value for key, value in extra.items() if key != "other_company"])
+    db_session.commit()
+    return extra
+
+
+COLUMNS_HEADER = [
+    "Nome",
+    "Valor",
+    "Data de pagamento",
+    "Empresa",
+    "Unidade",
+    "Centro de custo",
+    "Categoria",
+    "Forma de pagamento",
+]
+
+
+def _classified(
+    world: dict[str, Any], rows: list[list[Any]], **over: Any
+) -> tuple[dict[str, Any], bytes]:
+    """Planilha com as cinco colunas de classificação; por padrão nada marcado na tela."""
+    cleared = {
+        "companyIds": "",
+        "unitIds": "",
+        "costCenterIds": "",
+        "categoryIds": "",
+        "paymentMethodIds": "",
+    }
+    return _import_fields(world, **{**cleared, **over}), _xlsx([COLUMNS_HEADER, *rows])
+
+
+def test_each_classification_column_splits_the_sheet_into_payables(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    more_registers: dict[str, Any],
+    db_session: Session,
+) -> None:
+    fields, content = _classified(
+        world,
+        [
+            ["Ana", 100, "2026-11-20", "PPlus", "Consumo SP", "Campo", "2.04", "Pix"],
+            ["Bia", 50, "2026-11-20", "PPlus", "Health", "Campo", "2.04 Material e gráfica", "pix"],
+            [
+                "Caio",
+                70,
+                "2026-11-20",
+                "MC",
+                "Consumo SP",
+                "Administrativo",
+                "Transporte",
+                "Boleto",
+            ],
+            ["Dani", 30, "2026-11-20", "PPlus", "Consumo SP", "Campo", "2.04", "Pix"],
+        ],
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert preview["columns"] == [
+        "empresa",
+        "unidade",
+        "centro de custo",
+        "categoria",
+        "forma de pagamento",
+    ]
+    assert preview["hasClassificationColumns"] is True
+    assert preview["goodCount"] == 4
+    assert preview["payableCount"] == 3
+    # Ana e Dani têm a mesma classificação e a mesma data: um lançamento só
+    assert sorted((g["classification"], g["count"]) for g in preview["groups"]) == [
+        ("MC · Consumo SP · Administrativo · 2.05 Transporte · Boleto", 1),
+        ("PPlus · Consumo SP · Campo · 2.04 Material e gráfica · Pix", 2),
+        ("PPlus · Health · Campo · 2.04 Material e gráfica · Pix", 1),
+    ]
+    assert preview["lines"][0]["classification"] == "PPlus · Consumo SP · Campo · 2.04 · Pix"
+
+    result = _send(client, auth, "/payables/import", fields, content).json()
+    assert result == {"count": 3, "items": 4, "total": "250.00"}
+    made = {
+        (p.company.name, p.unit.name, p.cost_center.name, p.category.code, p.payment_method.name): p
+        for p in db_session.query(Payable).all()
+    }
+    assert set(made) == {
+        ("PPlus", "Consumo SP", "Campo", "2.04", "Pix"),
+        ("PPlus", "Health", "Campo", "2.04", "Pix"),
+        ("MC", "Consumo SP", "Administrativo", "2.05", "Boleto"),
+    }
+    assert made[("PPlus", "Consumo SP", "Campo", "2.04", "Pix")].amount == Decimal("130.00")
+
+
+def test_choosing_some_registers_leaves_the_other_lines_out(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    more_registers: dict[str, Any],
+) -> None:
+    fields, content = _classified(
+        world,
+        [
+            ["Ana", 100, "2026-11-20", "PPlus", "Consumo SP", "Campo", "2.04", "Pix"],
+            [
+                "Caio",
+                70,
+                "2026-11-20",
+                "MC",
+                "Consumo SP",
+                "Administrativo",
+                "Transporte",
+                "Boleto",
+            ],
+        ],
+        companyIds=str(more_registers["other_company"].id),
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert (preview["goodCount"], preview["errorCount"], preview["skippedCount"]) == (1, 0, 1)
+    assert [line["skipped"] for line in preview["lines"]] == [True, False]
+    # O mesmo vale para a categoria e para a forma de pagamento
+    both_methods = f"{world['method'].id},{more_registers['other_method'].id}"
+    fields["companyIds"] = ""
+    fields["paymentMethodIds"] = both_methods
+    kept = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert (kept["goodCount"], kept["skippedCount"]) == (2, 0)
+
+
+def test_blank_cells_use_the_single_chosen_register(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
+) -> None:
+    fields, content = _classified(
+        world,
+        [["Ana", 100, "2026-11-20", "PPlus", "Consumo SP", None, None, None]],
+        costCenterIds=str(world["cost_center"].id),
+        categoryIds=str(world["category"].id),
+        paymentMethodIds="",
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    # centro de custo e categoria vêm do que foi marcado; a forma não tem de onde vir
+    assert preview["lines"][0]["errors"] == ["Sem forma de pagamento na linha"]
+    fields["paymentMethodIds"] = str(world["method"].id)
+    ok = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert ok["goodCount"] == 1
+    assert ok["groups"][0]["classification"] == (
+        "PPlus · Consumo SP · Campo · 2.04 Material e gráfica · Pix"
+    )
+
+
+def test_unknown_inactive_and_wrong_kind_registers_are_line_errors(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
+) -> None:
+    fields, content = _classified(
+        world,
+        [
+            ["Ana", 100, "2026-11-20", "PPlus", "Consumo SP", "Campo", "2.04", "Pix"],
+            ["Bia", 100, "2026-11-20", "Fantasma", "Consumo SP", "Campo", "2.04", "Pix"],
+            ["Caio", 100, "2026-11-20", "PPlus", "Consumo SP", "Antigo", "2.04", "Pix"],
+            ["Dani", 100, "2026-11-20", "PPlus", "Consumo SP", "Campo", "1.01", "Pix"],
+            ["Eli", 100, "2026-11-20", "PPlus", "Inexistente", "Campo", "2.04", "Pix"],
+        ],
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert preview["goodCount"] == 1
+    assert [line["errors"] for line in preview["lines"]] == [
+        [],
+        ["Empresa Fantasma não existe"],
+        ["Centro de custo Antigo: cadastro inativo"],
+        ["Categoria Receita de pesquisa: contas a pagar usam conta de despesa"],
+        ["Unidade Inexistente não existe"],
+    ]
+
+
+def test_a_unit_is_looked_up_inside_its_company_and_must_belong_to_it(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
+) -> None:
+    fields, content = _classified(
+        world,
+        [
+            # "Consumo SP" existe nas duas empresas: a empresa da linha decide
+            ["Ana", 100, "2026-11-20", "MC", "Consumo SP", "Campo", "2.04", "Pix"],
+            # "Health" só existe na PPlus
+            ["Bia", 100, "2026-11-20", "MC", "Health", "Campo", "2.04", "Pix"],
+        ],
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert preview["goodCount"] == 1
+    assert preview["lines"][0]["errors"] == []
+    assert preview["lines"][1]["errors"] == ["Unidade Health não existe"]
+    # Sem a coluna da empresa, a empresa marcada na tela decide qual "Consumo SP" vale
+    no_company = _xlsx(
+        [
+            ["Nome", "Valor", "Data de pagamento", "Unidade"],
+            ["Ana", 100, "2026-11-20", "Consumo SP"],
+        ]
+    )
+    plain = _import_fields(world, unitIds="")
+    chosen = _send(client, auth, "/payables/import/preview", plain, no_company).json()
+    assert chosen["goodCount"] == 1
+    assert chosen["groups"][0]["classification"].startswith("PPlus · Consumo SP")
+
+
+def test_fields_without_a_column_need_exactly_one_chosen_register(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
+) -> None:
+    content = _incentives(("2026-10-30", 1), pay="2026-11-20")
+    url = "/payables/import/preview"
+    for field, label, article in (
+        ("companyIds", "empresa", "uma só empresa"),
+        ("unitIds", "unidade", "uma só unidade"),
+        ("costCenterIds", "centro de custo", "um só centro de custo"),
+        ("categoryIds", "categoria", "uma só categoria"),
+        ("paymentMethodIds", "forma de pagamento", "uma só forma de pagamento"),
+    ):
+        response = _send(client, auth, url, _import_fields(world, **{field: ""}), content)
+        assert response.status_code == 422
+        assert response.json()["detail"] == (
+            f'A planilha não tem a coluna "{label}". '
+            f"Escolha {article} na tela ou inclua a coluna na planilha"
+        )
+    # Marcados a unidade de uma empresa e a empresa de outra: recusa, como sempre foi
+    wrong = _import_fields(world, unitIds=str(more_registers["unit_mc"].id))
+    refused = _send(client, auth, url, wrong, content)
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == "A unidade não é dessa empresa"
+
+
+def test_selected_registers_are_checked(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
+) -> None:
+    content = _incentives(("2026-10-30", 1), pay="2026-11-20")
+    url = "/payables/import/preview"
+    inactive = _send(
+        client,
+        auth,
+        url,
+        _import_fields(world, costCenterIds=str(more_registers["inactive_center"].id)),
+        content,
+    )
+    assert (inactive.status_code, inactive.json()["detail"]) == (
+        422,
+        "Centro de custo não encontrado ou inativo",
+    )
+    revenue = _send(
+        client,
+        auth,
+        url,
+        _import_fields(world, categoryIds=str(more_registers["revenue"].id)),
+        content,
+    )
+    assert revenue.json()["detail"] == "Contas a pagar usam conta de despesa"
+    missing = _send(client, auth, url, _import_fields(world, paymentMethodIds="99999"), content)
+    assert missing.json()["detail"] == "Forma de pagamento não encontrado ou inativo"
+
+
+def test_payroll_with_two_companies_makes_one_payable_per_combination(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    more_registers: dict[str, Any],
+    db_session: Session,
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Documento", "Valor", "Empresa", "Unidade"],
+            ["Ana", "NF", 600, "PPlus", "Consumo SP"],
+            ["Bia", "NF", 400, "MC", "Consumo SP"],
+        ]
+    )
+    fields = _import_fields(
+        world,
+        kind="folha",
+        companyIds="",
+        unitIds="",
+        description="Equipe de campo",
+        dueDate="2026-11-20",
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert (preview["payableCount"], preview["groups"]) == (2, [])
+    result = _send(client, auth, "/payables/import", fields, content).json()
+    assert result == {"count": 2, "items": 2, "total": "1000.00"}
+    # Mesmo projeto nos dois: a classificação entra na descrição para diferenciar
+    descriptions = sorted(p.description for p in db_session.query(Payable).all())
+    assert descriptions[0].startswith("Equipe de campo · PRJ-1804 · MC · Consumo SP")
+    assert descriptions[1].startswith("Equipe de campo · PRJ-1804 · PPlus · Consumo SP")
 
 
 def test_same_file_warns_that_it_was_imported(
@@ -1600,6 +2145,9 @@ def test_csv_saved_by_excel_is_accepted(
             "surveyDate": "2026-10-30",
             "payDate": "2026-11-16",
             "payDateGiven": False,
+            "projectCode": "1804",
+            "classification": None,
+            "skipped": False,
             "errors": [],
         }
     ]
