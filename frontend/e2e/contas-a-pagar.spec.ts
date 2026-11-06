@@ -323,6 +323,19 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("button", { name: /Limpar filtros/ }).click();
   await expect(consultoria).toBeVisible();
 
+  expect(blocked).toEqual([]);
+});
+
+test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ page }) => {
+  const blocked: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) blocked.push(message.text());
+  });
+
+  // outra conta: o mesmo código do autenticador não vale duas vezes no mesmo período
+  await signIn(page, "cadastros@e2e.invalid");
+  await page.goto("/contas-a-pagar");
+
   // Importar planilha: confere antes, e cria um lançamento por data de pagamento
   const sheet = [
     "Nome;CPF;Chave Pix;Valor;Data da pesquisa",
