@@ -8,7 +8,7 @@
 |---|---|
 | Login por senha com MFA, Google e Microsoft | Entregue. Google funcionando; Microsoft configurada, falta o João liberar o teste (autenticador dele) |
 | Identificador fixo do SSO (PF-49) | Entregue |
-| Inventário de dados e ROPA do login (PF-55) | Escritos; falta o DPO definir o prazo de guarda (Q26) |
+| Inventário de dados e ROPA do login (PF-55) | Escritos, e a rotina de limpeza (`scripts/purge_login_data.py`) já existe, desligada; falta o DPO definir o prazo de guarda (Q26) e alguém ligar a rotina |
 | Corpo grande em `/auth` (PF-52) | **Entregue** em 06/11/2026: FastAPI 0.162.0 e Starlette 1.10.0 ([ADR 0011](../architecture/adr/0011-fastapi-e-starlette-novos-fora-da-versao-do-connect.md)), `pip-audit` sem exceções; o `pypdf` também subiu (7 avisos). Falta avisar o Connect e rodar a simulação de CI em Linux antes do push |
 | Pedidos simultâneos de login em Postgres (PF-54) | Teste escrito e provado localmente (falha sem o `FOR UPDATE`); falta rodar no CI, que passa a ter o passo novo em `tests.yml` |
 | Início e Contas a pagar | Entregue: lista, filtros, importar planilha, detalhes por pessoa, menu lateral em 4 seções e recorrência (PF-57) |
@@ -25,7 +25,7 @@ Nada disto anda sem uma resposta. A ordem é a de quem destrava mais coisa.
 | 2 | Q4 (cancelar baixa), Q18 a Q25 | João, DPO, financeiro | Cancelamento de baixa, onde guardar arquivos, regras de data e fornecedor | PF-58 |
 | 3 | **Q19 e Q5**: guardar ou não o PDF de comprovantes, e por quanto tempo | DPO | Hoje o PDF é só lido e descartado; se mudar, entra o armazenamento no MinIO | — |
 | 4 | **Q20**: a baixa exige reautenticação para quem entra por SSO? | João | Fecha a regra de MFA da confirmação | — |
-| 5 | **Q26**: prazo de guarda de `login_events` e `refresh_tokens` | DPO | Escrever a rotina de limpeza e fechar o PF-55 | PF-55 |
+| 5 | **Q26**: prazo de guarda de `login_events` e `refresh_tokens` | DPO | Ligar a rotina de limpeza (já escrita) com os prazos aprovados e fechar o PF-55 | PF-55 |
 | 6 | **Regra do bloqueio de login** (10 falhas por hora por e-mail deixa qualquer um travar a conta de outra pessoa) | João e Vivi | PF-53 e PF-54 (teste de concorrência no CI) | PF-53, PF-54 |
 | 7 | Teste do SSO Microsoft com a conta da empresa e a verificação em duas etapas obrigatória nas contas | João (autenticador) | Fecha o login para produção | PF-50, PF-51 |
 

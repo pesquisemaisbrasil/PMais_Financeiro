@@ -17,4 +17,4 @@ Senha só em hash; chave do autenticador cifrada (AES-256-GCM); IP mascarado; e-
 
 ## Pendências
 
-- Prazos de FIN-L2 e a rotina de limpeza: Q26 (DPO).
+- Prazos de FIN-L2: Q26 (DPO). A rotina de limpeza já existe (`scripts/purge_login_data.py`), desligada até os prazos serem aprovados.

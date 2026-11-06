@@ -25,7 +25,7 @@ O que o Financeiro guarda para a pessoa entrar e manter a sessão. Os dados de C
 
 ## Hoje o banco só cresce
 
-Nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza segue o prazo que o DPO decidir (Q26). Enquanto isso, o crescimento é pequeno (duas pessoas usando todo dia).
+Hoje nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza **já existe e está desligada**: `backend/scripts/purge_login_data.py`, sobre `services/retention.py`. Sem prazo configurado ela não faz nada; com prazo, **só conta** o que apagaria, e apaga apenas com `--apply`. Tentativa de login passa do prazo contado da data em que aconteceu; sessão, da data em que **expirou** (sessão revogada só entra depois de expirar). Os prazos entram em `LOGIN_EVENTS_RETENTION_DAYS` e `REFRESH_TOKENS_RETENTION_DAYS` quando o DPO decidir (Q26). Enquanto isso, o crescimento é pequeno (duas pessoas usando todo dia).
 
 ## Comprovantes Pix (PF-56)
 
