@@ -4,6 +4,7 @@ import { Copy, FileUp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
+import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,13 +19,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { importPayables, previewImport } from "@/lib/api";
+import { choiceIds } from "@/lib/choices";
 import {
   addDays,
   brl,
   expenseCategories,
   formatDate,
   plural,
-  scheduleText,
+  schedulesText,
   type ImportPreview,
   type ImportResult,
   type Reference,
@@ -64,18 +66,18 @@ export function ImportDialog({
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [form, setForm] = useState({
     kind: "incentivos",
-    projectId: "",
-    categoryId: "",
-    companyId: "",
-    unitId: "",
-    costCenterId: "",
-    paymentMethodId: "",
+    // Cada campo guarda os ids marcados, separados por vírgula. Vazio = todos os da planilha.
+    projectIds: "",
+    categoryIds: "",
+    paymentMethodIds: "",
+    companyIds: "",
+    unitIds: "",
+    costCenterIds: "",
     description: "",
     dueDate: addDays(today, 10),
   });
   const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
   const payroll = form.kind === "folha";
-  const project = reference.projects.find((p) => String(p.id) === form.projectId);
 
   function formData(): FormData {
     const data = new FormData();
@@ -90,8 +92,7 @@ export function ImportDialog({
 
   async function read(event: FormEvent) {
     event.preventDefault();
-    const required = [form.projectId, form.categoryId, form.companyId, form.unitId, form.costCenterId, form.paymentMethodId];
-    if (required.some((value) => !value) || (payroll && (!form.description.trim() || !form.dueDate))) {
+    if (payroll && (!form.description.trim() || !form.dueDate)) {
       return setLocalError("Preencha os campos com *.");
     }
     if (!file) return setLocalError("Escolha a planilha.");
@@ -101,15 +102,38 @@ export function ImportDialog({
 
   async function copySchedule(current: ImportPreview) {
     try {
-      await navigator.clipboard.writeText(scheduleText(current, project?.code ?? "", project?.title ?? ""));
-      toast.success("Cronograma copiado. Cole no e-mail ou no grupo do projeto.");
+      await navigator.clipboard.writeText(schedulesText(current));
+      toast.success(
+        current.projects.length > 1
+          ? "Cronogramas copiados, um por projeto. Cole no e-mail ou no grupo de cada projeto."
+          : "Cronograma copiado. Cole no e-mail ou no grupo do projeto."
+      );
     } catch {
       toast.error("Não foi possível copiar.");
     }
   }
 
   const blocked = !preview || preview.goodCount === 0 || preview.missingDeadline;
-  const payableCount = preview ? (payroll ? 1 : preview.groups.length) : 0;
+  const manyProjects = (preview?.projects.length ?? 0) > 1;
+  // Com mais de um projeto, ou com colunas de empresa, unidade etc., sai mais de um lançamento por data.
+  const splitting = manyProjects || Boolean(preview?.hasClassificationColumns);
+  const missingDeadline = preview?.projects.filter((p) => p.missingDeadline) ?? [];
+  const payableCount = preview?.payableCount ?? 0;
+  // Com empresas marcadas, a unidade marcada precisa ser de uma delas: ao mudar as empresas, as
+  // unidades que ficaram sem a sua empresa saem da seleção.
+  const chosenCompanies = choiceIds(form.companyIds);
+  function changeCompanies(value: string) {
+    const companies = choiceIds(value);
+    const belongs = (unitId: string) => {
+      const unit = reference.units.find((u) => String(u.id) === unitId);
+      return !companies.length || (unit !== undefined && companies.includes(String(unit.companyId)));
+    };
+    setForm((current) => ({
+      ...current,
+      companyIds: value,
+      unitIds: choiceIds(current.unitIds).filter(belongs).join(","),
+    }));
+  }
 
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
@@ -127,11 +151,12 @@ export function ImportDialog({
                 <Field label="Tipo *" id="i-tipo">
                   <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={KINDS} />
                 </Field>
-                <Field label="Projeto *" id="i-proj">
-                  <Choice
+                <Field label="Projeto" id="i-proj">
+                  <MultiSearchSelect
                     id="i-proj"
-                    value={form.projectId}
-                    onChange={set("projectId")}
+                    value={form.projectIds}
+                    onChange={set("projectIds")}
+                    allLabel="Todos os projetos da planilha"
                     options={reference.projects
                       .filter((p) => p.status !== "encerrado")
                       .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
@@ -139,52 +164,67 @@ export function ImportDialog({
                 </Field>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Categoria *" id="i-cat">
-                  <Choice
+                <Field label="Categoria" id="i-cat">
+                  <MultiSearchSelect
                     id="i-cat"
-                    value={form.categoryId}
-                    onChange={set("categoryId")}
+                    value={form.categoryIds}
+                    onChange={set("categoryIds")}
+                    allLabel="Todas as categorias da planilha"
                     options={expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
                   />
                 </Field>
-                <Field label="Forma de pagamento *" id="i-forma">
-                  <Choice
+                <Field label="Forma de pagamento" id="i-forma">
+                  <MultiSearchSelect
                     id="i-forma"
-                    value={form.paymentMethodId}
-                    onChange={set("paymentMethodId")}
+                    value={form.paymentMethodIds}
+                    onChange={set("paymentMethodIds")}
+                    allLabel="Todas as formas da planilha"
                     options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
                   />
                 </Field>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Empresa *" id="i-emp">
-                  <Choice
+                <Field label="Empresa" id="i-emp">
+                  <MultiSearchSelect
                     id="i-emp"
-                    value={form.companyId}
-                    onChange={(value) => setForm((current) => ({ ...current, companyId: value, unitId: "" }))}
+                    value={form.companyIds}
+                    onChange={changeCompanies}
+                    allLabel="Todas as empresas da planilha"
                     options={reference.companies.map((c) => ({ id: c.id, label: c.name }))}
                   />
                 </Field>
-                <Field label="Unidade *" id="i-uni">
-                  <Choice
+                <Field label="Unidade" id="i-uni">
+                  <MultiSearchSelect
                     id="i-uni"
-                    value={form.unitId}
-                    onChange={set("unitId")}
-                    placeholder={form.companyId ? "Selecione" : "Escolha a empresa"}
+                    value={form.unitIds}
+                    onChange={set("unitIds")}
+                    allLabel="Todas as unidades da planilha"
                     options={reference.units
-                      .filter((u) => String(u.companyId) === form.companyId)
-                      .map((u) => ({ id: u.id, label: u.name }))}
+                      .filter((u) => !chosenCompanies.length || chosenCompanies.includes(String(u.companyId)))
+                      .map((u) => ({
+                        id: u.id,
+                        // sem empresa marcada, o nome dela ajuda a distinguir unidades de mesmo nome
+                        label: chosenCompanies.length
+                          ? u.name
+                          : `${u.name} · ${reference.companies.find((c) => c.id === u.companyId)?.name ?? ""}`,
+                      }))}
                   />
                 </Field>
-                <Field label="Centro de custo *" id="i-cc">
-                  <Choice
+                <Field label="Centro de custo" id="i-cc">
+                  <MultiSearchSelect
                     id="i-cc"
-                    value={form.costCenterId}
-                    onChange={set("costCenterId")}
+                    value={form.costCenterIds}
+                    onChange={set("costCenterIds")}
+                    allLabel="Todos os centros da planilha"
                     options={reference.costCenters.map((c) => ({ id: c.id, label: c.name }))}
                   />
                 </Field>
               </div>
+              <p className="-mt-1 text-xs text-muted-foreground">
+                Em cada campo, marque um, vários ou deixe em “Todos”. Para valer linha a linha, a planilha traz uma
+                coluna com o mesmo nome (projeto, categoria, forma de pagamento, empresa, unidade ou centro de custo)
+                com o nome cadastrado. Sem a coluna, marque um só.
+              </p>
               {payroll && (
                 <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
                   <Field label="Descrição *" id="i-desc">
@@ -239,7 +279,8 @@ export function ImportDialog({
             <DialogHeader>
               <DialogTitle>Conferir antes de importar</DialogTitle>
               <DialogDescription>
-                {file?.name} · {payroll ? "Folha de campo" : "Incentivos"} · PRJ-{project?.code}
+                {file?.name} · {payroll ? "Folha de campo" : "Incentivos"} ·{" "}
+                {preview.projects.map((p) => `PRJ-${p.code}`).join(", ") || "nenhum projeto"}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3.5 py-2">
@@ -253,14 +294,31 @@ export function ImportDialog({
                 <Count label="Linhas lidas" value={String(preview.lines.length)} />
                 <Count label="Entram" value={String(preview.goodCount)} detail={brl(preview.total)} />
                 <Count label="Com erro" value={String(preview.errorCount)} detail="ficam de fora" />
+                {preview.skippedCount > 0 && (
+                  <Count label="Fora da seleção" value={String(preview.skippedCount)} detail="de outro projeto" />
+                )}
+                {preview.projects.length > 1 && (
+                  <Count label="Projetos" value={String(preview.projects.length)} detail="na planilha" />
+                )}
                 {!payroll && (
-                  <Count label="Lançamentos" value={String(preview.groups.length)} detail="um por data de pagamento" />
+                  <Count
+                    label="Lançamentos"
+                    value={String(preview.groups.length)}
+                    detail={splitting ? "por classificação e data de pagamento" : "um por data de pagamento"}
+                  />
                 )}
               </div>
               {preview.missingDeadline && (
                 <Alert variant="destructive">
-                  <AlertTitle>Este projeto não tem incentivo ou prazo marcado</AlertTitle>
-                  <AlertDescription>Defina o prazo do incentivo no projeto antes de importar a planilha.</AlertDescription>
+                  <AlertTitle>
+                    {missingDeadline.length > 1
+                      ? "Estes projetos não têm incentivo ou prazo marcado"
+                      : "Este projeto não tem incentivo ou prazo marcado"}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {missingDeadline.map((p) => `PRJ-${p.code}`).join(", ")}: defina o prazo do incentivo no projeto
+                    antes de importar a planilha, ou use uma planilha com a data de pagamento.
+                  </AlertDescription>
                 </Alert>
               )}
               {preview.groups.length > 0 && (
@@ -268,6 +326,8 @@ export function ImportDialog({
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        {manyProjects && <TableHead className={TH}>Projeto</TableHead>}
+                        {preview.hasClassificationColumns && <TableHead className={TH}>Classificação</TableHead>}
                         <TableHead className={TH}>Pagar em</TableHead>
                         <TableHead className={TH}>Pesquisas de</TableHead>
                         <TableHead className={TH}>Data de pagamento</TableHead>
@@ -277,7 +337,13 @@ export function ImportDialog({
                     </TableHeader>
                     <TableBody>
                       {preview.groups.map((group) => (
-                        <TableRow key={group.payDate}>
+                        <TableRow key={`${group.projectId}-${group.classification}-${group.payDate}`}>
+                          {manyProjects && (
+                            <TableCell className={cn(TD, "whitespace-nowrap font-semibold")}>PRJ-{group.projectCode}</TableCell>
+                          )}
+                          {preview.hasClassificationColumns && (
+                            <TableCell className={cn(TD, "whitespace-normal text-xs")}>{group.classification}</TableCell>
+                          )}
                           <TableCell className={cn(TD, "font-semibold")}>{formatDate(group.payDate)}</TableCell>
                           <TableCell className={TD}>
                             {group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ") || "—"}
@@ -290,8 +356,11 @@ export function ImportDialog({
                     </TableBody>
                     <TableFooter>
                       <TableRow>
-                        <TableCell colSpan={3} className={cn(TD, "font-bold")}>
-                          {plural(preview.groups.length, "lançamento", "lançamentos")}
+                        <TableCell
+                          colSpan={3 + (manyProjects ? 1 : 0) + (preview.hasClassificationColumns ? 1 : 0)}
+                          className={cn(TD, "font-bold")}
+                        >
+                          {plural(preview.payableCount, "lançamento", "lançamentos")}
                         </TableCell>
                         <TableCell className={cn(TD, NUM, "font-bold")}>{preview.goodCount}</TableCell>
                         <TableCell className={cn(TD, NUM, "font-bold")}>{brl(preview.total)}</TableCell>
@@ -305,6 +374,8 @@ export function ImportDialog({
                   <TableHeader>
                     <TableRow>
                       <TableHead className={TH}>Linha</TableHead>
+                      {preview.hasProjectColumn && <TableHead className={TH}>Projeto</TableHead>}
+                      {preview.hasClassificationColumns && <TableHead className={TH}>Classificação</TableHead>}
                       <TableHead className={TH}>Pessoa</TableHead>
                       {payroll ? (
                         <TableHead className={TH}>Documento</TableHead>
@@ -319,6 +390,14 @@ export function ImportDialog({
                     {preview.lines.map((line) => (
                       <TableRow key={line.line}>
                         <TableCell className={TD}>{line.line}</TableCell>
+                        {preview.hasProjectColumn && (
+                          <TableCell className={cn(TD, "whitespace-nowrap")}>
+                            {line.projectCode ? `PRJ-${line.projectCode}` : "—"}
+                          </TableCell>
+                        )}
+                        {preview.hasClassificationColumns && (
+                          <TableCell className={cn(TD, "whitespace-normal text-xs")}>{line.classification ?? "—"}</TableCell>
+                        )}
                         <TableCell className={cn(TD, "whitespace-normal font-semibold")}>{line.name || "—"}</TableCell>
                         <TableCell className={TD}>
                           {payroll ? (
@@ -342,6 +421,8 @@ export function ImportDialog({
                         <TableCell className={cn(TD, "whitespace-normal")}>
                           {line.errors.length ? (
                             <span className="text-xs font-semibold text-[#b91c1c]">{line.errors.join("; ")}</span>
+                          ) : line.skipped ? (
+                            <Tag color="cinza">Fora da seleção</Tag>
                           ) : (
                             <Tag color="verde">Ok</Tag>
                           )}

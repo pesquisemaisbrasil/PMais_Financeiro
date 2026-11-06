@@ -430,6 +430,11 @@ export function replacedMessage(real: string, provision: string): string {
 }
 
 export interface ImportGroup {
+  projectId: number;
+  projectCode: string;
+  projectTitle: string;
+  /** Empresa · unidade · centro de custo · categoria · forma de pagamento deste lançamento. */
+  classification: string;
   payDate: string;
   surveyDates: string[];
   count: number;
@@ -447,18 +452,41 @@ export interface ImportLine {
   surveyDate: string | null;
   payDate: string | null;
   payDateGiven: boolean;
+  /** O código que a linha traz (ou o do projeto marcado, quando a célula está vazia). */
+  projectCode: string | null;
+  /** Empresa, unidade, centro de custo, categoria e forma que a planilha disse (só as colunas que vieram). */
+  classification: string | null;
+  /** De um cadastro que a pessoa não marcou: fica de fora, sem ser erro. */
+  skipped: boolean;
   errors: string[];
+}
+
+export interface ImportProject {
+  id: number;
+  code: string;
+  title: string;
+  projectType: string | null;
+  deadlineDays: number | null;
+  missingDeadline: boolean;
+  count: number;
+  total: string;
 }
 
 export interface ImportPreview {
   kind: "incentivos" | "folha";
-  projectType: string | null;
-  deadlineDays: number | null;
+  /** Os campos que a planilha trouxe em coluna: "projeto", "empresa", "unidade"... */
+  columns: string[];
+  hasProjectColumn: boolean;
+  hasClassificationColumns: boolean;
+  projects: ImportProject[];
   missingDeadline: boolean;
   alreadyImported: boolean;
   total: string;
   goodCount: number;
   errorCount: number;
+  skippedCount: number;
+  /** Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou por classificação (folha). */
+  payableCount: number;
   groups: ImportGroup[];
   lines: ImportLine[];
 }
@@ -469,26 +497,34 @@ export interface ImportResult {
   total: string;
 }
 
-/** O texto que o financeiro devolve ao projeto, hoje calculado à mão (kickoff de 03/11, K6). */
-export function scheduleText(preview: ImportPreview, code: string, title: string): string {
-  const deadline = preview.deadlineDays
-    ? `Prazo: ${plural(preview.deadlineDays, "dia útil", "dias úteis")} depois da data da pesquisa${
-        preview.projectType ? ` (${preview.projectType})` : ""
+/** O texto que o financeiro devolve a um projeto, hoje calculado à mão (kickoff de 03/11, K6). */
+export function scheduleText(preview: ImportPreview, project: ImportProject): string {
+  const deadline = project.deadlineDays
+    ? `Prazo: ${plural(project.deadlineDays, "dia útil", "dias úteis")} depois da data da pesquisa${
+        project.projectType ? ` (${project.projectType})` : ""
       }, quando a planilha não traz a data de pagamento.`
     : "Datas de pagamento informadas na planilha.";
-  const groups = preview.groups.map((group) => {
-    const days = group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ");
-    const from = days ? `Pesquisas de ${days}` : "Pesquisas";
-    return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})`;
-  });
+  const groups = preview.groups
+    .filter((group) => group.projectId === project.id)
+    .map((group) => {
+      const days = group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ");
+      const from = days ? `Pesquisas de ${days}` : "Pesquisas";
+      const where = preview.hasClassificationColumns ? ` · ${group.classification}` : "";
+      return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})${where}`;
+    });
   return [
-    `Cronograma de pagamento dos incentivos · PRJ-${code} ${title}`,
+    `Cronograma de pagamento dos incentivos · PRJ-${project.code} ${project.title}`,
     deadline,
     "",
     ...groups,
     "",
-    `Total: ${plural(preview.goodCount, "incentivo", "incentivos")} · ${brl(preview.total)}`,
+    `Total: ${plural(project.count, "incentivo", "incentivos")} · ${brl(project.total)}`,
   ].join("\n");
+}
+
+/** Um cronograma por projeto, separados por uma linha em branco, para colar de uma vez. */
+export function schedulesText(preview: ImportPreview): string {
+  return preview.projects.map((project) => scheduleText(preview, project)).join("\n\n");
 }
 
 export type RecordKind =
