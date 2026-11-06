@@ -35,6 +35,8 @@ import {
 import {
   DOCUMENT_TYPES,
   SITUATION_LABELS,
+  bandLabel,
+  bandTotals,
   cancelReceivable,
   createReceivable,
   createReceivableSeries,
@@ -872,6 +874,7 @@ export function DelinquencyDialog({ onClose, onOpenTitle }: { onClose: () => voi
   }, []);
 
   const total = (rows ?? []).reduce((sum, row) => sum + toCents(row.total), 0);
+  const bands = bandTotals(rows ?? []);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
@@ -891,6 +894,25 @@ export function DelinquencyDialog({ onClose, onOpenTitle }: { onClose: () => voi
         {rows && rows.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">Nenhum título vencido. Ninguém está em atraso.</p>
         )}
+        {rows && rows.length > 0 && (
+          <div
+            role="group"
+            aria-label="Total por faixa de atraso"
+            className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          >
+            {bands.map((band) => (
+              <div key={band.id} className="rounded-xl border border-border px-3 py-2.5">
+                <span className="block text-[11px] font-semibold uppercase tracking-[.04em] text-muted-foreground">
+                  {bandLabel(band.id)}
+                </span>
+                <span className="block text-[15px] font-bold tabular-nums">{brl(band.cents / 100)}</span>
+                <span className="block text-[11px] text-muted-foreground">
+                  {plural(band.count, "título", "títulos")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         {rows?.map((customer) => (
           <section key={customer.customerId} className="rounded-xl border border-border">
             <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border px-3.5 py-2.5">
@@ -907,6 +929,7 @@ export function DelinquencyDialog({ onClose, onOpenTitle }: { onClose: () => voi
                     <TableCell className={TD}>{title.description}</TableCell>
                     <TableCell className={TD}>{formatDate(title.dueDate)}</TableCell>
                     <TableCell className={TD}>{daysLateText(title.daysLate)}</TableCell>
+                    <TableCell className={`${TD} text-xs text-muted-foreground`}>{bandLabel(title.band)}</TableCell>
                     <TableCell className={`${TD} ${NUM}`}>{brl(title.pending)}</TableCell>
                     <TableCell className={`${TD} text-right`}>
                       <Button variant="ghost" size="sm" onClick={() => onOpenTitle(title.id)}>

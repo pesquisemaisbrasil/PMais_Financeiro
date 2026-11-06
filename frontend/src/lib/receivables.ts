@@ -1,5 +1,5 @@
 import { fetchBlob, remove, request, send } from "./api";
-import type { PeriodMode, SeriesInfo } from "./payables";
+import { toCents, type PeriodMode, type SeriesInfo } from "./payables";
 
 // ---- Tipos (iguais aos do backend: schemas/receivable.py) ----
 
@@ -71,13 +71,46 @@ export interface ReceivableDetail extends ReceivableRow {
   events: { userName: string; text: string; createdAt: string }[];
 }
 
+export interface DelinquencyBand {
+  id: string;
+  count: number;
+  total: string;
+}
+
 export interface DelinquentCustomer {
   customerId: number;
   customer: string;
   count: number;
   maxDaysLate: number;
   total: string;
-  titles: { id: number; description: string; dueDate: string; daysLate: number; pending: string }[];
+  /** Todas as faixas, mesmo vazias, na ordem do atraso (limites no backend). */
+  bands: DelinquencyBand[];
+  titles: { id: number; description: string; dueDate: string; daysLate: number; band: string; pending: string }[];
+}
+
+const BAND_LABELS: Record<string, string> = {
+  "1-30": "1 a 30 dias",
+  "31-60": "31 a 60 dias",
+  "61-90": "61 a 90 dias",
+  "90+": "Mais de 90 dias",
+};
+
+export function bandLabel(id: string): string {
+  return BAND_LABELS[id] ?? id;
+}
+
+/** O que está em cada faixa somando todos os clientes, em centavos, na ordem que a API mandou. */
+export function bandTotals(rows: DelinquentCustomer[]): { id: string; count: number; cents: number }[] {
+  const totals = new Map<string, { id: string; count: number; cents: number }>();
+  for (const row of rows) {
+    for (const band of row.bands) {
+      const current = totals.get(band.id) ?? { id: band.id, count: 0, cents: 0 };
+      current.count += band.count;
+      current.cents += toCents(band.total);
+      totals.set(band.id, current);
+    }
+  }
+  return [...totals.values()];
 }
 
 export interface ReceivableQuery {
