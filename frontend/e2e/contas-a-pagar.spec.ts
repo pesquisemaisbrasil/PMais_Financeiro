@@ -203,6 +203,19 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   expect(excelFile.subarray(0, 2).toString("latin1")).toBe("PK");
   expect(excelFile.length).toBeGreaterThan(2000);
 
+  // Clicar na conta abre os detalhes, onde dá para editar e ver as baixas
+  await page.getByRole("row", { name: /Consultoria de teste/ }).getByText("Consultoria de teste").first().click();
+  const opened = page.getByRole("dialog");
+  await expect(opened.getByRole("tab", { name: /Baixas/ })).toBeVisible();
+  await opened.getByRole("button", { name: "Editar conta" }).click();
+  await opened.getByLabel("Observações").fill("Combinado por telefone");
+  await opened.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Conta alterada.")).toBeVisible();
+  await opened.getByRole("tab", { name: "Histórico" }).click();
+  await expect(opened.getByText(/observações alteradas/)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(opened).toHaveCount(0);
+
   // Reclassificar pede o que muda, e o projeto fica 100%
   await page.getByRole("checkbox", { name: "Selecionar Consultoria de teste" }).check();
   await page.getByRole("button", { name: "Reclassificar" }).click();
