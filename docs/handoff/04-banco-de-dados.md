@@ -331,6 +331,8 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **`payable_attachments`**: `payable_id` (RESTRICT), `name`, `contentType`, `size`, `fileKey` (único: o nome do objeto no bucket), `fileSha256`, `uploaded_by_user_id` (RESTRICT), `createdAt`, e a remoção lógica `deletedAt`, `deleted_by_user_id` (RESTRICT) e `deletedReason`. O arquivo cifrado mora no bucket, nunca no banco. A role da app não tem `DELETE` nesta tabela.
 
+**`payable_adjustments`** e **`receivable_adjustments`**: acréscimos, descontos e impostos lançados um a um na conta ou no título. `payable_id` / `receivable_id` (CASCADE), `kind` (`acrescimo`, `desconto` ou `imposto`), `description` e `amount` (positivo). O líquido (bruto + acréscimos − descontos − impostos) não é gravado: sai destas linhas. Quem mexe nas listas troca a lista inteira, e o histórico da conta guarda o antes e o depois dos totais.
+
 **`payment_requests`** (no código, no lugar do `outbox_events` para a baixa): um pedido de baixa ao Connect por comprovante pago. `receipt_id` (RESTRICT, único), `paymentRef` (único, `fin-pay-NNNNNN`, é o `Idempotency-Key`), `status` (`pendente_envio → enviada → aplicada | recusada`), `attempts`, `lastError` (só o código do erro), `sentAt`, `appliedAt`. `receipt_batches.payable_id` (RESTRICT, nulo) liga o lote ao lançamento de onde o PDF foi enviado.
 
 **`notifications`**: avisos dentro do sistema. `user_id` (CASCADE), `type`, `title`, `body`, `link`, `readAt`. Só texto de tela, sem dado pessoal de entrevistador.
@@ -422,6 +424,6 @@ As credenciais do Financeiro **no Connect** ficam no `.env` (`CONNECT_CLIENT_ID`
 - [ ] Arquivo guardado só com envelope AES-GCM + SSE-KMS e linha em `stored_files`; download só pela API, com `file_access_logs`.
 - [ ] `outbox_events.idempotencyKey` e `inbound_events.eventId` únicos.
 
-**Contas a receber (código, fatia 1):** `customers` (apelido, nome, CNPJ único entre os ativos, contato; sem CPF), `receivables` (cliente, projeto único, empresa, unidade, centro de custo, conta de receita, contrato, documento, emissão, vencimento, competência, `amount` bruto e `withheld` abatimentos; `canceledAt` e `deletedAt` lógicos), `receivable_payments` (recebimento e estorno, `reverses_id` único, nunca apagado) e `receivable_events` (histórico). `expense_categories.kind` (`despesa` ou `receita`).
+**Contas a receber (código, fatia 1):** `customers` (apelido, nome, CNPJ único entre os ativos, contato; sem CPF), `receivables` (cliente, projeto único, empresa, unidade, centro de custo, conta de receita, contrato, documento, emissão, vencimento, competência, `amount` bruto (e `withheld`, o campo antigo de abatimentos, hoje sem uso: os abatimentos viraram impostos em `receivable_adjustments`); `canceledAt` e `deletedAt` lógicos), `receivable_payments` (recebimento e estorno, `reverses_id` único, nunca apagado) e `receivable_events` (histórico). `expense_categories.kind` (`despesa` ou `receita`).
 
 `receivables.series_id` (RESTRICT, nulo em título avulso) e `receivables.seriesIndex` ligam o título à mesma `payable_series` do Contas a pagar (parcelas e recorrência da receita).

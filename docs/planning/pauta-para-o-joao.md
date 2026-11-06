@@ -135,6 +135,7 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 - **Q21:** provisão conta em "Hoje" e "Vencidos"? **Q24:** as datas do lançamento precisam seguir emissão ≤ competência ≤ vencimento? **Q25:** fornecedor com nome parecido só avisa ou bloqueia? **Q27:** existe receita sem projeto? **Q28:** aviso de inadimplência ao comercial depois de quantos dias?
 - **Faixas de atraso:** a inadimplência mostra 1 a 30, 31 a 60, 61 a 90 e mais de 90 dias (faixas-padrão). Confirmar os limites.
+- **Acréscimos, descontos e impostos (Q29):** valem na conta comum, a pagar e a receber. Contas com pessoas (folha, incentivo) não aceitam, e o parcelado recusa na criação. Confirmar se o imposto lançado é retenção (reduz o líquido), como está hoje.
 
 ## O que o Bruno já decidiu nesta semana (pede só ciência)
 
@@ -143,6 +144,7 @@ Estas decisões foram tomadas no trabalho, dentro do que o projeto permite, e es
 - **Filtros com mais de uma opção** em todas as listas de Contas a pagar e de Contas a receber; o filtro "Categoria" passou a se chamar **Plano de contas**.
 - **Importar planilha:** projeto, empresa, unidade, centro de custo, categoria e forma de pagamento podem vir em **colunas opcionais**, e a tela aceita marcar vários de cada um. Sai um lançamento por combinação e data de pagamento. O tipo (incentivos ou folha) continua um só.
 - **Faixas de atraso** na inadimplência, com os limites-padrão acima.
+- **Acréscimos, descontos e impostos** em Contas a pagar e a receber, como listas de lançamentos. A lista mostra o **valor líquido**, e o antigo campo de abatimentos do Contas a receber virou a lista de impostos.
 - **Subida do FastAPI e do pypdf** (o `pypdf` tinha 7 avisos de segurança e lê os PDFs de comprovante).
 - **Quadro do Jira:** as subtarefas de preparação foram fechadas; as que não foram executadas (rodar o protótipo Manus; reunião e pedido do SGE4B) ficaram com comentário dizendo isso.
 

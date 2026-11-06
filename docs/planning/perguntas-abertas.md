@@ -31,6 +31,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q26 | Por quanto tempo guardar as **tentativas de login** (`login_events`) e as **sessões** (`refresh_tokens`)? | DPO | Guarda sem limite: nada apaga. A rotina de limpeza já existe e está **desligada** (simula por padrão e só apaga com prazo configurado e `--apply`). Proposta: 6 meses (Marco Civil, art. 15) e 30 dias depois de expirar |
 | Q27 | Existe **receita sem projeto**? Hoje o título a receber exige projeto (regra 2 da spec, marcada "a validar") | Financeiro (Vivi) | Projeto obrigatório: sem ele, 422 "Informe o projeto da receita" |
 | Q28 | O **aviso ao comercial** de inadimplência sai depois de quantos dias do vencimento? | Financeiro + comercial | Sem aviso: o sistema só lista a inadimplência por cliente |
+| Q29 | **Acréscimos, descontos e impostos** da conta: valem também para contas com pessoas (folha, incentivo) e para parcelas? O imposto lançado é **retenção** (reduz o que se paga ao fornecedor) ou só informação? | Financeiro (Vivi) | Valem na conta comum, a pagar e a receber. Conta com pessoas não aceita, e o parcelado recusa na criação (lance em cada parcela depois). O imposto reduz o valor líquido, que é o que a lista, o pendente e a baixa usam | pedido do PO, 06/11/2026 |
 
 ## Módulos 2 a 7
 

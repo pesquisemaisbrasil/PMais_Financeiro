@@ -44,6 +44,7 @@ Em ordem sugerida:
 7. **Débitos pequenos:**
    - ~~corrigir o handoff/07 §7~~ feito em 06/11/2026;
    - ~~cache `.next` separado para o E2E~~ feito em 06/11/2026 (`NEXT_DIST_DIR`);
+   - **acréscimos, descontos e impostos, o que falta:** soltar a coluna legada `receivables.withheld` numa migração futura; decidir com a Vivi se valem para contas com pessoas e para parcelas (Q29); e o campo "Novo valor" da edição de série continua sendo o bruto;
    - **anexos (ADR 0012), o que falta:** antivírus no gancho `scan()`, usuário do bucket restrito ao bucket, camada 2 (SSE via KES), rotina de troca da `FILES_MASTER_KEY`, separação por empresa, anexos no Contas a receber e um clipe com a contagem de documentos na lista;
    - ~~subir o FastAPI~~ feito em 06/11/2026 (PF-52); falta combinar com o time do Connect, que segue na 0.118.3;
    - ~~quadro do PF-1~~ arrumado em 06/11/2026: PF-20 a 23, 30 a 32 em Feito; PF-25 a 28 fechadas **sem execução** (escopo reduzido do PF-18) e PF-34/35 também **sem execução** (reunião das 11 bases e pedido de exportação ao fornecedor do SGE4B: a migração fica para mais adiante, e o pedido sai junto com ela); cada uma tem comentário dizendo isso. PF-19 e o épico PF-1 fechados;
