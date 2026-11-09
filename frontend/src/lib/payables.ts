@@ -57,6 +57,15 @@ export interface Occurrence {
   amount: string;
 }
 
+/** O que a impressão mostra: o título com os filtros, as colunas, as linhas e os totais. */
+export interface PrintTable {
+  title: string;
+  headers: string[];
+  rows: string[][];
+  /** Um por coluna; vazio onde não é dinheiro. */
+  totals: string[];
+}
+
 /** Uma linha da aba Repetir: a ocorrência da série como está hoje. */
 export interface SeriesOccurrence {
   id: number;

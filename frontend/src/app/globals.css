@@ -85,3 +85,9 @@
     @apply cursor-pointer;
   }
 }
+
+/* Imprimir resultados: a lista é larga, então a folha sai deitada. */
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}

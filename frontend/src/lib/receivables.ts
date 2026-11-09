@@ -1,7 +1,14 @@
 import type { Adjustment } from "./adjustments";
 import { fetchBlob, remove, request, send, upload, type ExportFormat } from "./api";
 import type { DocumentChange } from "./documents";
-import { toCents, type Attachment, type PeriodMode, type SeriesInfo, type SeriesOccurrence } from "./payables";
+import {
+  toCents,
+  type Attachment,
+  type PeriodMode,
+  type PrintTable,
+  type SeriesInfo,
+  type SeriesOccurrence,
+} from "./payables";
 
 // ---- Tipos (iguais aos do backend: schemas/receivable.py) ----
 
@@ -222,6 +229,13 @@ export function editReceivableSeries(id: number, body: unknown): Promise<{ count
 
 export function cancelReceivableSeries(id: number, body: unknown): Promise<{ count: number }> {
   return send<{ count: number }>(`/receivables/${id}/series/cancel`, "POST", body);
+}
+
+/** Tudo o que os filtros trazem, sem paginar, nas colunas que cabem numa folha. */
+export function printReceivables(query: ReceivableQuery): Promise<PrintTable> {
+  const params = receivableParams(query);
+  params.delete("page");
+  return request<PrintTable>(`/receivables/print?${params}`);
 }
 
 export function getReceivable(id: number): Promise<ReceivableDetail> {

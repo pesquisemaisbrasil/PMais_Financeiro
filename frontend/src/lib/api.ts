@@ -15,6 +15,7 @@ import type {
   Project,
   RecordKind,
   RecordRow,
+  PrintTable,
   SeriesOccurrence
 } from "./payables";
 
@@ -307,6 +308,11 @@ export async function exportPayables(query: PayableQuery, format: ExportFormat =
   params.set("format", format);
   const response = await fetchWithAuth(`/payables/export?${params}`);
   return response.blob();
+}
+
+/** Tudo o que os filtros trazem, sem paginar, nas colunas que cabem numa folha. */
+export function printPayables(query: PayableQuery): Promise<PrintTable> {
+  return request<PrintTable>(`/payables/print?${payableParams(query)}`);
 }
 
 export function getPayable(id: number): Promise<PayableDetail> {

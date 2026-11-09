@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
+import { PrintButton } from "@/components/PrintButton";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ import {
   ApiError,
   type ExportFormat,
   exportPayables,
+  printPayables,
   getPayable,
   getReference,
   listPayables,
@@ -736,6 +738,7 @@ function PayablesContent() {
                 <DropdownMenuItem onSelect={() => exportList("csv")}>CSV (para outros sistemas)</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <PrintButton load={() => printPayables(query)} />
             <Button variant="outline" className="h-9 gap-2 bg-card font-normal" onClick={() => setChoosingColumns(true)}>
               <Columns3 size={16} />
               Colunas
