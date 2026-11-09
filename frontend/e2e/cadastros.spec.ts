@@ -127,6 +127,33 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
     /^\d{4}$/
   );
 
+  // Centro de custo em árvore: principal e sub-centro, com o código gerado (001 e 001.001)
+  await page.goto("/cadastros?aba=costCenters");
+  await page.getByRole("button", { name: "Novo centro de custo" }).click();
+  const principal = page.getByRole("dialog");
+  await expect(principal.getByLabel("Código")).toBeDisabled();
+  await principal.getByLabel("Nome *").fill("Centro do teste de cadastros");
+  await principal.getByRole("button", { name: "Cadastrar" }).click();
+  const principalRow = page.getByRole("row", { name: /Centro do teste de cadastros/ });
+  await expect(principalRow.getByRole("cell").first()).toHaveText(/^\d{3}$/);
+  const centerCode = (await principalRow.getByRole("cell").first().innerText()).trim();
+  await page.getByRole("button", { name: "Novo centro de custo" }).click();
+  const sub = page.getByRole("dialog");
+  await sub.getByRole("combobox", { name: "Superior" }).click();
+  await page.getByRole("option", { name: `${centerCode} · Centro do teste de cadastros` }).click();
+  await sub.getByLabel("Nome *").fill("Sub do teste");
+  await sub.getByRole("button", { name: "Cadastrar" }).click();
+  const subRow = page.getByRole("row", { name: /Sub do teste/ });
+  await expect(subRow.getByRole("cell").first()).toHaveText(`${centerCode}.001`);
+  // o sub-centro fica embaixo do principal, e o superior não se muda na edição
+  expect((await box(subRow)).y).toBeGreaterThan((await box(principalRow)).y);
+  await subRow.getByRole("button", { name: /^Editar / }).click();
+  await expect(page.getByRole("dialog").getByLabel("Superior")).toBeDisabled();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
+  // com sub-centros, o principal não se exclui: o botão explica
+  await principalRow.getByRole("button", { name: /^Excluir / }).click();
+  await expect(page.getByText(/tem lançamentos ou sub-centros: inative em vez de excluir/)).toBeVisible();
+
   // Cliente MEI: o CPF que vem no fim da razão social nunca chega à tela
   await page.goto("/cadastros?aba=customers");
   await page.getByRole("button", { name: "Novo cliente" }).click();
@@ -155,4 +182,13 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await again.getByLabel("Nome / razão social *").fill("Outra com o mesmo CNPJ");
   await again.getByRole("button", { name: "Cadastrar" }).click();
   await expect(again.getByRole("alert")).toContainText("Já existe uma empresa ativa com esse documento");
+  await again.getByRole("button", { name: "Cancelar" }).click();
+
+  // Nas escolhas dos lançamentos, o centro de custo vem com o código e o caminho
+  await page.goto("/contas-a-pagar");
+  await page.getByRole("button", { name: "Nova conta a pagar" }).click();
+  await page.getByRole("dialog").getByRole("combobox", { name: "Centro de custo *" }).click();
+  await expect(
+    page.getByRole("option", { name: `${centerCode}.001 · Centro do teste de cadastros › Sub do teste` })
+  ).toBeVisible();
 });
