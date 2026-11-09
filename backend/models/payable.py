@@ -92,6 +92,8 @@ class Payable(Base):
     documentNumber = Column(String(50), nullable=True)
     documentDate = Column(Date, nullable=True)
     docsReceivedOn = Column(Date, nullable=True)
+    # "Pagar em": o dia em que o financeiro pretende pagar. Só informa: não muda lista nem baixa.
+    payOn = Column(Date, nullable=True)
     isTransfer = Column(Boolean, nullable=False, default=False, server_default="false")
     notes = Column(String, nullable=True)
     # Provisão trocada pelo lançamento real: sai das contas, e o real entra no lugar.

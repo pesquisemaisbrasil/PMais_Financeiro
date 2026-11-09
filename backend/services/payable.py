@@ -640,6 +640,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
         "competence": payable.competence,
         "documentDate": payable.documentDate,
         "docsReceivedOn": payable.docsReceivedOn,
+        "payOn": payable.payOn,
         "isTransfer": payable.isTransfer,
         "notes": payable.notes,
         "createdAt": payable.createdAt,
@@ -980,6 +981,11 @@ def _update_extras(payable: Payable, data: PayableUpdate) -> list[str]:
         after = format_date_br(data.docsReceivedOn) if data.docsReceivedOn else "—"
         changes.append(f"documentação recebida em {before} → {after}")
         payable.docsReceivedOn = data.docsReceivedOn
+    if "payOn" in provided and data.payOn != payable.payOn:
+        before = format_date_br(payable.payOn) if payable.payOn else "—"
+        after = format_date_br(data.payOn) if data.payOn else "—"
+        changes.append(f"pagar em {before} → {after}")
+        payable.payOn = data.payOn
     if "notes" in provided and (data.notes or None) != payable.notes:
         changes.append("observações alteradas")
         payable.notes = data.notes or None

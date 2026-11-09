@@ -94,6 +94,7 @@ class PayableUpdate(BaseModel):
     barcode: str | None = Field(default=None, max_length=60)
     competence: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
     docsReceivedOn: date | None = None
+    payOn: date | None = None
     notes: str | None = Field(default=None, max_length=2000)
     isTransfer: bool | None = None
     # Não vindo, não muda; vindo, troca a lista inteira (vazia tira todos).
@@ -274,6 +275,7 @@ class PayableDetail(PayableRow):
     competence: str | None
     documentDate: date | None
     docsReceivedOn: date | None
+    payOn: date | None
     isTransfer: bool
     notes: str | None
     # quem incluiu e quem mexeu por último (nulo em conta que veio do Connect, sem pessoa)
