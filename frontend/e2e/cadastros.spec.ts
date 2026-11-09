@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { signIn } from "./fixtures";
+import { box, signIn } from "./fixtures";
 
 // CNPJs inventados da consulta de mentira (CNPJ_LOOKUP_MODE=simulated):
 const GRAFICA = "11.444.777/0001-61"; // baixada na Receita
@@ -9,6 +9,24 @@ const SEM_CADASTRO = "99.887.766/0001-05"; // a Receita não conhece
 
 test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua editável", async ({ page }) => {
   await signIn(page, "cnpj@e2e.invalid");
+
+  // O menu de Cadastros na ordem pedida, e sem escolher o tipo abre o primeiro (Empresas)
+  await page.goto("/cadastros");
+  await expect(page.getByRole("button", { name: "Nova empresa" })).toBeVisible();
+  const menu = [
+    "Empresas",
+    "Unidades",
+    "Centros de custo",
+    "Clientes",
+    "Fornecedores",
+    "Plano de contas",
+    "Projetos",
+    "Contas bancárias",
+    "Formas de pagamento",
+  ];
+  const tops: number[] = [];
+  for (const name of menu) tops.push((await box(page.getByRole("link", { name, exact: true }))).y);
+  expect(tops).toEqual([...tops].sort((a, b) => a - b));
 
   // Fornecedor: a busca começa pelo CNPJ e preenche sozinha quando ele fecha
   await page.goto("/cadastros?aba=suppliers");
