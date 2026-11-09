@@ -97,7 +97,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   expect(repeat.y).toBeGreaterThan(paste.y + paste.height);
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Informe um valor maior que zero.")).toBeVisible();
-  const today = await form.getByLabel("Data *").inputValue();
+  const today = await form.getByLabel("Programação *").inputValue();
   await form.getByLabel("Vencimento *").fill(today);
   await form.getByLabel("Valor principal (R$) *").fill("1.000,50");
   await choose(page, "Fornecedor *", /Exata/);
