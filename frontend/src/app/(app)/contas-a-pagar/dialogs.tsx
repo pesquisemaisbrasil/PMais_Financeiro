@@ -242,7 +242,7 @@ export function NewPayableDialog({
               </Alert>
             )}
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Data *" id="p-data">
+              <Field label="Programação *" id="p-data">
                 <Input id="p-data" type="date" {...input("issueDate")} />
               </Field>
               <Field label="Vencimento *" id="p-venc">
