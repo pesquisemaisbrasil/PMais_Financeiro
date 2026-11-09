@@ -114,6 +114,19 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await person.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByRole("row", { name: /João Autônomo/ })).toContainText("Pessoa física");
 
+  // Unidade: o código também é gerado
+  await page.goto("/cadastros?aba=units");
+  await page.getByRole("button", { name: "Nova unidade" }).click();
+  const unit = page.getByRole("dialog");
+  await expect(unit.getByLabel("Código")).toBeDisabled();
+  await unit.getByRole("combobox", { name: "Empresa *" }).click();
+  await page.getByRole("option", { name: "PPlus" }).click();
+  await unit.getByLabel("Nome *").fill("Unidade do teste de cadastros");
+  await unit.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(page.getByRole("row", { name: /Unidade do teste de cadastros/ }).getByRole("cell").first()).toHaveText(
+    /^\d{4}$/
+  );
+
   // Cliente MEI: o CPF que vem no fim da razão social nunca chega à tela
   await page.goto("/cadastros?aba=customers");
   await page.getByRole("button", { name: "Novo cliente" }).click();
