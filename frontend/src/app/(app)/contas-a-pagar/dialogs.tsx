@@ -1208,9 +1208,7 @@ export function DetailDialog({
   const [version, setVersion] = useState(0);
   const [tab, setTab] = useState("detalhes");
   const [action, setAction] = useState<
-    | { kind: "edit" }
     | { kind: "pay" }
-    | { kind: "cancel" }
     | { kind: "series"; mode: "edit" | "cancel" }
     | { kind: "reverse"; payment: Payment; type: "estorno" | "devolucao" }
     | { kind: "remove-document"; attachment: Attachment }
@@ -1236,6 +1234,15 @@ export function DetailDialog({
   // Enquanto a outra ocorrência carrega, a anterior não aparece no lugar dela.
   const payable = loaded?.id === currentId ? loaded : null;
   const failure = loadError?.id === currentId ? loadError.message : null;
+  // Editar e cancelar só existem enquanto a conta aceita: cancelada, substituída e do Connect não têm.
+  const canEdit =
+    payable !== null &&
+    payable.situation !== "cancelado" &&
+    payable.situation !== "substituido" &&
+    payable.origin !== "connect";
+  const canCancel = canEdit && Number(payable?.paid) === 0;
+  // Se a aba escolhida deixou de existir (conta cancelada, por exemplo), volta para Detalhes.
+  const shownTab = (tab === "editar" && !canEdit) || (tab === "cancelar" && !canCancel) ? "detalhes" : tab;
 
   function updated(next: PayableDetail, message: string) {
     setLoaded(next);
@@ -1299,53 +1306,46 @@ export function DetailDialog({
                 </AlertDescription>
               </Alert>
             )}
-            {payable.situation !== "cancelado" && payable.situation !== "substituido" && payable.origin !== "connect" && (
-              <div className="flex flex-wrap gap-2">
-                {payable.canPayDirectly && (
-                  <Button size="sm" onClick={() => setAction({ kind: "pay" })}>
-                    <Check size={14} />
-                    Dar baixa
-                  </Button>
-                )}
-                <Button size="sm" variant={action?.kind === "edit" ? "secondary" : "outline"} onClick={() => setAction({ kind: "edit" })}>
-                  <Pencil size={14} />
-                  Editar conta
+            {canEdit && payable.canReplace && (
+              <div className="flex">
+                <Button variant="outline" size="sm" onClick={() => onReplace(payable)}>
+                  <Replace size={14} />
+                  Substituir pelo valor real
                 </Button>
-                {payable.canReplace && (
-                  <Button variant="outline" size="sm" onClick={() => onReplace(payable)}>
-                    <Replace size={14} />
-                    Substituir pelo valor real
-                  </Button>
-                )}
-                {Number(payable.paid) === 0 && (
-                  <Button variant="outline" size="sm" onClick={() => setAction({ kind: "cancel" })}>
-                    Cancelar conta
-                  </Button>
-                )}
               </div>
             )}
-            {action?.kind === "edit" && (
-              <EditForm
-                key={payable.events.length}
-                payable={payable}
-                reference={reference}
-                onClose={() => setAction(null)}
-                onDone={(next) => updated(next, "Conta alterada.")}
-              />
-            )}
-            <Tabs value={tab} onValueChange={setTab}>
-              <TabsList>
+            <Tabs value={shownTab} onValueChange={setTab}>
+              <TabsList className="group-data-[orientation=horizontal]/tabs:h-auto flex-wrap justify-start">
                 <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+                {canEdit && (
+                  <TabsTrigger value="editar">
+                    <Pencil size={14} />
+                    Editar conta
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="baixas">Baixas ({payable.payments.length})</TabsTrigger>
                 <TabsTrigger value="documentos">Documentos ({payable.attachments.length})</TabsTrigger>
-                {payable.series && <TabsTrigger value="repetir">Repetir ({payable.series.count})</TabsTrigger>}
                 {payable.items.length > 0 && <TabsTrigger value="itens">Itens ({payable.items.length})</TabsTrigger>}
+                {payable.series && <TabsTrigger value="repetir">Repetir ({payable.series.count})</TabsTrigger>}
+                {canCancel && (
+                  <TabsTrigger value="cancelar" className="text-[#b91c1c] data-[state=active]:text-[#b91c1c]">
+                    Cancelar conta
+                  </TabsTrigger>
+                )}
                 <TabsTrigger value="historico">Histórico</TabsTrigger>
               </TabsList>
               <TabsContent value="detalhes" className="pt-3">
                 <DetailFields payable={payable} />
               </TabsContent>
-              <TabsContent value="baixas" className="pt-3">
+              <TabsContent value="baixas" className="flex flex-col gap-3 pt-3">
+                {payable.canPayDirectly && (
+                  <div className="flex">
+                    <Button size="sm" onClick={() => setAction({ kind: "pay" })}>
+                      <Check size={14} />
+                      Registrar baixa
+                    </Button>
+                  </div>
+                )}
                 {payable.payments.length ? (
                   <ul className="flex flex-col gap-2">
                     {payable.payments.map((payment) => (
@@ -1442,6 +1442,34 @@ export function DetailDialog({
                   <ItemsPanel payable={payable} />
                 </TabsContent>
               )}
+              {canEdit && (
+                <TabsContent value="editar" className="pt-3">
+                  <EditForm
+                    key={payable.events.length}
+                    payable={payable}
+                    reference={reference}
+                    onClose={() => setTab("detalhes")}
+                    onDone={(next) => {
+                      updated(next, "Conta alterada.");
+                      setTab("detalhes");
+                    }}
+                  />
+                </TabsContent>
+              )}
+              {canCancel && (
+                <TabsContent value="cancelar" className="pt-3">
+                  <ReasonForm
+                    title="Cancelar conta"
+                    confirm="Cancelar conta"
+                    onClose={() => setTab("detalhes")}
+                    submit={(reason) => cancelPayable(payable.id, reason)}
+                    onDone={(next) => {
+                      updated(next, "Conta cancelada.");
+                      setTab("detalhes");
+                    }}
+                  />
+                </TabsContent>
+              )}
               <TabsContent value="historico" className="pt-3">
                 <ul className="flex flex-col gap-2">
                   {payable.events.map((event, index) => (
@@ -1458,15 +1486,6 @@ export function DetailDialog({
                 </ul>
               </TabsContent>
             </Tabs>
-            {action?.kind === "cancel" && (
-              <ReasonForm
-                title="Cancelar conta"
-                confirm="Cancelar conta"
-                onClose={() => setAction(null)}
-                submit={(reason) => cancelPayable(payable.id, reason)}
-                onDone={(next) => updated(next, "Conta cancelada.")}
-              />
-            )}
             {action?.kind === "remove-document" && (
               <ReasonForm
                 title={`Tirar o documento ${action.attachment.name}`}
