@@ -1,13 +1,14 @@
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Path, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
 from schemas.payable import ProjectOut
-from schemas.records import ActiveIn, ProjectIncentive, RecordIn, RecordKind, RecordOut
+from schemas.records import ActiveIn, CnpjOut, ProjectIncentive, RecordIn, RecordKind, RecordOut
+from services import cnpj_lookup
 from services import records as records_service
 from services.payable import PayableConflict, PayableInvalid
 
@@ -37,6 +38,36 @@ def _write(db: DbSession, action: Callable[[], T]) -> T:
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Já existe um cadastro com esses dados"
         ) from exc
+
+
+@router.get(
+    "/lookups/cnpj/{cnpj}",
+    response_model=CnpjOut,
+    description="Dados públicos do CNPJ (BrasilAPI) para preencher o cadastro; não grava nada",
+)
+@limiter.limit("20/minute")
+def lookup_cnpj(
+    request: Request, cnpj: Annotated[str, Path(max_length=30)], _: FinanceUser
+) -> dict[str, str]:
+    try:
+        info = cnpj_lookup.lookup(cnpj)
+    except PayableInvalid as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except cnpj_lookup.CnpjNotFound as exc:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "CNPJ não encontrado na Receita. Confira ou preencha à mão."
+        ) from exc
+    except cnpj_lookup.CnpjUnavailable as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "A consulta de CNPJ não respondeu agora. Preencha à mão ou tente de novo.",
+        ) from exc
+    return {
+        "cnpj": info.cnpj,
+        "name": info.name,
+        "nickname": info.nickname,
+        "situation": info.situation,
+    }
 
 
 @router.get(

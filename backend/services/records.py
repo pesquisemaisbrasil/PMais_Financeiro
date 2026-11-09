@@ -71,7 +71,9 @@ KINDS: dict[str, Kind] = {
         ),
     ),
 }
-_ARTICLE = {"suppliers": "um", "customers": "um"}
+_ARTICLE = {"suppliers": "um", "customers": "um", "companies": "uma"}
+_ACTIVE = {"suppliers": "ativo", "customers": "ativo", "companies": "ativa"}
+PARTY_KINDS = ("suppliers", "customers", "companies")
 IN_USE_DETAIL = "Esse cadastro tem lançamentos — inative em vez de excluir"
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 PHONE = re.compile(r"\+\d{2} \d{2} [\d-]{8,10}")
@@ -138,7 +140,7 @@ def _taken(db: Session, kind: str, record_id: int | None, *conditions: Any) -> b
 
 
 def _party_document(db: Session, kind: str, record_id: int | None, value: str | None) -> str | None:
-    """CNPJ de fornecedor ou de cliente: só CNPJ, válido, e único entre os ativos."""
+    """CNPJ de fornecedor, cliente ou empresa do Grupo: só CNPJ, válido, e único entre os ativos."""
     if not _filled(value):
         return None
     document = clean_cnpj(value or "")
@@ -149,7 +151,7 @@ def _party_document(db: Session, kind: str, record_id: int | None, value: str | 
     model = KINDS[kind].model
     if _taken(db, kind, record_id, model.document == document, model.active.is_(True)):
         raise PayableConflict(
-            f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} ativo com esse documento"
+            f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} {_ACTIVE[kind]} com esse documento"
         )
     return document
 
@@ -159,6 +161,14 @@ def _company(db: Session, company_id: int | None) -> int:
     if record is None or not record.active:
         raise PayableInvalid("Escolha a empresa")
     return record.id
+
+
+def _code(model: Any, data: RecordIn) -> str | None:
+    """O código é opcional; quando vem, cabe no campo."""
+    code = _filled(data.code)
+    if code:
+        _check_length(model, "code", code, "O código")
+    return code
 
 
 def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> dict[str, Any]:
@@ -182,6 +192,7 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if phone and not PHONE.fullmatch(phone):
             raise PayableInvalid("Telefone no formato +55 41 99999-0000")
         fields.update(
+            code=_code(model, data),
             nickname=nickname,
             document=_party_document(db, kind, record_id, data.document),
             contactName=_filled(data.contactName),
@@ -206,6 +217,15 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         fields["company_id"] = company_id
     elif _taken(db, kind, record_id, same_name):
         raise PayableConflict(f"Já existe {KINDS[kind].one} com esse nome")
+    elif kind == "companies":
+        short_name = _filled(data.nickname)
+        if short_name:
+            _check_length(model, "nickname", short_name, "O apelido")
+        fields.update(
+            code=_code(model, data),
+            nickname=short_name,
+            document=_party_document(db, kind, record_id, data.document),
+        )
     return fields
 
 
@@ -239,7 +259,7 @@ def set_active(db: Session, kind: str, record_id: int, active: bool, user: User)
     record = _get(db, kind, record_id)
     if (
         active
-        and kind in ("suppliers", "customers")
+        and kind in PARTY_KINDS
         and record.document
         and _taken(
             db,
@@ -250,7 +270,7 @@ def set_active(db: Session, kind: str, record_id: int, active: bool, user: User)
         )
     ):
         raise PayableConflict(
-            f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} ativo com esse documento"
+            f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} {_ACTIVE[kind]} com esse documento"
         )
     if record.active != active:
         record.active = active

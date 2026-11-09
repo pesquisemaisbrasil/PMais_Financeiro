@@ -18,9 +18,24 @@ class Company(Base):
     """Empresa do Grupo. Cada lançamento pertence a uma."""
 
     __tablename__ = "companies"
+    # O banco segura dois pedidos ao mesmo tempo com o mesmo documento.
+    __table_args__ = (
+        Index(
+            "uq_companies_active_document",
+            "document",
+            unique=True,
+            postgresql_where=text("active AND document IS NOT NULL"),
+            sqlite_where=text("active AND document IS NOT NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True)
+    # Razão social: até 200 letras, que é o que a Receita devolve na consulta de CNPJ.
+    name = Column(String(200), nullable=False, unique=True)
+    nickname = Column(String(100), nullable=True)
+    code = Column(String(20), nullable=True)
+    # Só CNPJ: CPF não é guardado (pergunta Q23).
+    document = Column(String(14), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 
@@ -91,6 +106,7 @@ class Customer(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), nullable=True)
     nickname = Column(String(100), nullable=False)
     name = Column(String(200), nullable=False)
     document = Column(String(14), nullable=True)
@@ -114,6 +130,7 @@ class Supplier(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), nullable=True)
     nickname = Column(String(100), nullable=False)
     name = Column(String(200), nullable=False)
     # Só CNPJ: CPF não é guardado (pergunta Q23).

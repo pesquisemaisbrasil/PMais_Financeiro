@@ -28,6 +28,15 @@ class RecordIn(BaseModel):
     kind: Literal["despesa", "receita"] | None = None
 
 
+class CnpjOut(BaseModel):
+    """O que a Receita diz do CNPJ, para a tela preencher e a pessoa editar antes de salvar."""
+
+    cnpj: str
+    name: str
+    nickname: str
+    situation: str
+
+
 class RecordOut(BaseModel):
     id: int
     name: str

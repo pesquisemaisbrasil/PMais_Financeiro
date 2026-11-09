@@ -42,6 +42,11 @@ CONNECT_BASE_URL = os.getenv("CONNECT_BASE_URL", "")
 CONNECT_CLIENT_ID = os.getenv("CONNECT_CLIENT_ID", "")
 CONNECT_CLIENT_SECRET = os.getenv("CONNECT_CLIENT_SECRET", "")
 
+# Consulta de CNPJ para preencher o cadastro (services/cnpj_lookup.py): "brasilapi" (padrão, dados
+# públicos da Receita, sem chave), "simulated" (dados de mentira, só fora de produção) ou outro
+# valor para desligar.
+CNPJ_LOOKUP_MODE = os.getenv("CNPJ_LOOKUP_MODE", "brasilapi")
+
 # Cofre de arquivos dos anexos (core/file_vault.py): um bucket S3, no MinIO. Sem a configuração,
 # anexar fica indisponível. "memory" é um cofre de mentira, só fora de produção (testes de tela).
 FILES_MODE = os.getenv("FILES_MODE", "off")
