@@ -99,6 +99,9 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   expect(paste.y).toBeGreaterThan(description.y + description.height);
   expect(Math.abs(grossField.x - payment.x)).toBeLessThan(2);
   expect(paste.y).toBeGreaterThan(netField.y + netField.height);
+  // Palavra comprida, sem espaço, quebra dentro da caixa e não empurra a janela para o lado
+  await form.getByLabel("Descrição *").fill("a".repeat(255));
+  expect(await form.evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
   expect(repeat.y).toBeGreaterThan(paste.y + paste.height);
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Informe um valor maior que zero.")).toBeVisible();
