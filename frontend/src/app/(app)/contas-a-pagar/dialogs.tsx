@@ -313,6 +313,7 @@ export function NewPayableDialog({
               <Field label="Forma de pagamento *" id="p-forma">
                 <Choice
                   id="p-forma"
+                  searchable
                   value={form.paymentMethodId}
                   onChange={set("paymentMethodId")}
                   options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
@@ -325,6 +326,7 @@ export function NewPayableDialog({
               >
                 <Choice
                   id="p-proj"
+                  searchable
                   value={form.projectId || NO_PROJECT}
                   onChange={(value) => set("projectId")(value === NO_PROJECT ? "" : value)}
                   options={[
@@ -1647,6 +1649,7 @@ function EditForm({
         <Field label="Forma de pagamento" id="e-forma">
           <Choice
             id="e-forma"
+            searchable
             value={form.paymentMethodId}
             onChange={set("paymentMethodId")}
             options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}

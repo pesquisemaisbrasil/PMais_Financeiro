@@ -19,6 +19,7 @@ export function SearchSelect({
   placeholder = "Selecione",
   ariaLabel,
   className,
+  searchable = false,
 }: {
   id?: string;
   value: string;
@@ -27,6 +28,8 @@ export function SearchSelect({
   placeholder?: string;
   ariaLabel?: string;
   className?: string;
+  /** Mostra a busca mesmo com poucas opções (sem isso, só a partir de 6). */
+  searchable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
@@ -65,7 +68,7 @@ export function SearchSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-(--radix-popover-trigger-width) min-w-[240px] p-1">
-        {options.length >= SEARCH_FROM && (
+        {(searchable || options.length >= SEARCH_FROM) && (
           <Input
             autoFocus
             aria-label="Buscar na lista"
