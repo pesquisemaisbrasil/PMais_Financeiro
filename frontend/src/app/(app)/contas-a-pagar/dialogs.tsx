@@ -277,9 +277,6 @@ export function NewPayableDialog({
                 />
               </Field>
             </div>
-            <Field label="Descrição *" id="p-desc">
-              <Input id="p-desc" placeholder="Ex.: Aluguel do escritório · novembro" {...input("description")} />
-            </Field>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Empresa *" id="p-emp">
                 <Choice
@@ -346,6 +343,15 @@ export function NewPayableDialog({
               drafts={adjustments}
               onChange={setAdjustments}
             />
+            <Field label="Descrição *" id="p-desc">
+              <Textarea
+                id="p-desc"
+                className="min-h-28"
+                maxLength={255}
+                placeholder="Ex.: Aluguel do escritório · novembro"
+                {...input("description")}
+              />
+            </Field>
             <ProjectSplit
               rows={split}
               onChange={setSplit}
