@@ -501,3 +501,31 @@ def test_the_person_type_can_change_and_an_individual_loses_the_document(
 
 def test_an_unknown_person_type_is_refused(client: TestClient, auth: dict[str, str]) -> None:
     assert _post(client, auth, "suppliers", **_supplier(personType="XX")).status_code == 422
+
+
+# ---- Código gerado das unidades ----
+
+
+def test_units_get_a_generated_code_that_never_repeats_or_comes_back(
+    client: TestClient, auth: dict[str, str], db_session: Session
+) -> None:
+    company = Company(name="PPlus")
+    db_session.add(company)
+    db_session.commit()
+    body = {"companyId": company.id}
+    first = _post(client, auth, "units", name="Matriz", code="MEU", **body).json()
+    second = _post(client, auth, "units", name="Filial", **body).json()
+    assert (first["code"], second["code"]) == ("0001", "0002")
+    # outro cadastro conta por conta própria, e editar não muda o código
+    assert _post(client, auth, "suppliers", **_supplier()).json()["code"] == "0001"
+    edited = client.patch(
+        f"/records/units/{second['id']}",
+        json={"name": "Filial nova", "code": "X", **body},
+        headers=auth,
+    ).json()
+    assert edited["code"] == "0002"
+    # excluir o último e cadastrar de novo: o 0002 não volta
+    assert client.delete(f"/records/units/{second['id']}", headers=auth).status_code == 204
+    assert _post(client, auth, "units", name="Outra", **body).json()["code"] == "0003"
+    listed = {r["name"]: r["code"] for r in client.get("/records/units", headers=auth).json()}
+    assert listed == {"Matriz": "0001", "Outra": "0003"}
