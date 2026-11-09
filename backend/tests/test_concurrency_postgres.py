@@ -17,9 +17,9 @@ do banco local em DATABASE_URL, que o conftest deixa como SQLite quando a variá
 import threading
 import time
 import uuid
-from types import SimpleNamespace
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pyotp
@@ -34,12 +34,11 @@ from core.limiter import limiter
 from core.security import hash_password
 from db.connection import engine, get_db
 from main import app
-from models.reference import Supplier
 from models.user import User
+from schemas.records import RecordIn
 from services import auth as auth_service
 from services import mfa as mfa_service
 from services import records as records_service
-from schemas.records import RecordIn
 from tests.conftest import PASSWORD, TOTP_SECRET
 
 pytestmark = pytest.mark.skipif(

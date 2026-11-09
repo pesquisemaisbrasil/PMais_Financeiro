@@ -444,3 +444,60 @@ def test_a_group_company_never_keeps_a_cpf_a_bad_cnpj_or_a_repeated_one(
         409,
         "Já existe uma empresa ativa com esse documento",
     )
+
+
+# ---- Tipo de pessoa (física ou jurídica) ----
+
+
+@pytest.mark.parametrize("kind", ["suppliers", "customers", "companies"])
+def test_the_person_type_is_kept_and_only_a_legal_entity_has_a_cnpj(
+    client: TestClient, auth: dict[str, str], kind: str
+) -> None:
+    legal = _post(
+        client, auth, kind, **_supplier(name="Com CNPJ", personType="PJ", document=VALID_CNPJ)
+    )
+    assert legal.status_code == 201, legal.text
+    assert (legal.json()["personType"], legal.json()["document"]) == ("PJ", "11222333000181")
+    person = _post(client, auth, kind, **_supplier(name="Pessoa", personType="PF")).json()
+    assert (person["personType"], person["document"]) == ("PF", None)
+    unknown = _post(client, auth, kind, **_supplier(name="Sem tipo")).json()
+    assert unknown["personType"] is None
+    listed = {
+        r["name"]: r["personType"] for r in client.get(f"/records/{kind}", headers=auth).json()
+    }
+    assert listed == {"Com CNPJ": "PJ", "Pessoa": "PF", "Sem tipo": None}
+
+
+@pytest.mark.parametrize("document", [VALID_CNPJ, "123.456.789-09"])
+def test_an_individual_never_has_a_document_not_even_a_cnpj_by_mistake(
+    client: TestClient, auth: dict[str, str], document: str
+) -> None:
+    refused = _post(client, auth, "suppliers", **_supplier(personType="PF", document=document))
+    assert (refused.status_code, refused.json()["detail"]) == (
+        422,
+        "Pessoa física fica sem documento: o CPF não é guardado aqui",
+    )
+    assert client.get("/records/suppliers", headers=auth).json() == []
+
+
+def test_the_person_type_can_change_and_an_individual_loses_the_document(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    created = _post(
+        client, auth, "suppliers", **_supplier(personType="PJ", document=VALID_CNPJ)
+    ).json()
+    url = f"/records/suppliers/{created['id']}"
+    still_with_document = client.patch(
+        url, json=_supplier(personType="PF", document=VALID_CNPJ), headers=auth
+    )
+    assert still_with_document.status_code == 422
+    individual = client.patch(url, json=_supplier(personType="PF"), headers=auth).json()
+    assert (individual["personType"], individual["document"]) == ("PF", None)
+    back = client.patch(
+        url, json=_supplier(personType="PJ", document=OTHER_CNPJ), headers=auth
+    ).json()
+    assert (back["personType"], back["document"]) == ("PJ", "11444777000161")
+
+
+def test_an_unknown_person_type_is_refused(client: TestClient, auth: dict[str, str]) -> None:
+    assert _post(client, auth, "suppliers", **_supplier(personType="XX")).status_code == 422
