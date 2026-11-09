@@ -706,6 +706,25 @@ export function revenueCategories(reference: Reference) {
 }
 
 /** "11222333000181" vira "11.222.333/0001-81". O CNPJ alfanumérico segue a mesma máscara. */
+/** O CNPJ sem pontuação, em maiúsculas (a Receita já emite CNPJ com letras). */
+export function cleanCnpj(value: string): string {
+  return value.replace(/[\s./-]/g, "").toUpperCase();
+}
+
+/** Só a forma: 12 letras ou números e 2 dígitos. Os dígitos verificadores, o servidor confere. */
+export function looksLikeCnpj(value: string): boolean {
+  return /^[0-9A-Z]{12}\d{2}$/.test(cleanCnpj(value));
+}
+
+/** O que a Receita diz do CNPJ, para preencher o cadastro (a pessoa edita antes de salvar). */
+export interface CnpjInfo {
+  cnpj: string;
+  name: string;
+  nickname: string;
+  /** "ATIVA", "BAIXADA", "INAPTA"... */
+  situation: string;
+}
+
 export function formatCnpj(document: string): string {
   return document.replace(/^(.{2})(.{3})(.{3})(.{4})(.{2})$/, "$1.$2.$3/$4-$5");
 }

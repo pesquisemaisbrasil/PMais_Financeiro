@@ -16,7 +16,8 @@ import type {
   RecordKind,
   RecordRow,
   PrintTable,
-  SeriesOccurrence
+  SeriesOccurrence,
+  CnpjInfo
 } from "./payables";
 
 import type { DocumentChange } from "./documents";
@@ -417,6 +418,11 @@ export function importPayables(form: FormData): Promise<ImportResult> {
 
 export function listRecords(kind: RecordKind): Promise<RecordRow[]> {
   return request<RecordRow[]>(`/records/${kind}`);
+}
+
+/** Dados públicos do CNPJ (BrasilAPI, pelo nosso servidor). Não grava nada. */
+export function lookupCnpj(cnpj: string): Promise<CnpjInfo> {
+  return request<CnpjInfo>(`/lookups/cnpj/${encodeURIComponent(cnpj)}`);
 }
 
 export function createRecord(kind: RecordKind, body: unknown): Promise<RecordRow> {

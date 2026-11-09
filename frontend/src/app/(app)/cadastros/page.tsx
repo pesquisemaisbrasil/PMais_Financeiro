@@ -2,7 +2,7 @@
 
 import { Archive, ArchiveRestore, BookUser, Pencil, Plus, Search, Trash2, type LucideIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { SearchSelect } from "@/components/SearchSelect";
@@ -25,13 +25,16 @@ import {
   deleteRecord,
   getReference,
   listRecords,
+  lookupCnpj,
   setRecordActive,
   updateProjectIncentive,
   updateRecord,
 } from "@/lib/api";
 import {
+  cleanCnpj,
   filterOptions,
   formatCnpj,
+  looksLikeCnpj,
   plural,
   type Project,
   type RecordKind,
@@ -106,6 +109,68 @@ function RecordDialog({
   });
   const needsCompany = kind === "units" || kind === "bankAccounts";
   const isParty = kind === "suppliers" || kind === "customers";
+  // Fornecedor, cliente e empresa do Grupo começam pelo CNPJ: a Receita preenche, e a pessoa edita.
+  const withCnpj = isParty || kind === "companies";
+  const [lookup, setLookup] = useState<{ busy: boolean; tone: "info" | "ok" | "warn" | "error"; message: string }>({
+    busy: false,
+    tone: "info",
+    message: "",
+  });
+  // o último CNPJ consultado (para não repetir) e o que a consulta pôs em Nome e Apelido (para
+  // saber se a pessoa mexeu: o que ela escreveu a consulta não troca)
+  const searched = useRef("");
+  const filled = useRef({ name: "", nickname: "" });
+
+  /** `replace`: o botão Buscar troca nome e apelido; a consulta automática só completa o que está vazio. */
+  async function search(raw: string, replace: boolean) {
+    if (!looksLikeCnpj(raw)) {
+      setLookup({ busy: false, tone: "error", message: "Digite os 14 caracteres do CNPJ para buscar." });
+      return;
+    }
+    const cnpj = cleanCnpj(raw);
+    searched.current = cnpj;
+    setLookup({ busy: true, tone: "info", message: "Consultando a Receita…" });
+    try {
+      const info = await lookupCnpj(cnpj);
+      if (searched.current !== cnpj) return; // a pessoa já mudou o CNPJ
+      const before = filled.current;
+      filled.current = { name: info.name, nickname: info.nickname };
+      setForm((current) => ({
+        ...current,
+        document: formatCnpj(info.cnpj),
+        name: replace || !current.name.trim() || current.name === before.name ? info.name : current.name,
+        nickname:
+          replace || !current.nickname.trim() || current.nickname === before.nickname
+            ? info.nickname
+            : current.nickname,
+      }));
+      const closed = info.situation && info.situation !== "ATIVA";
+      setLookup({
+        busy: false,
+        tone: closed ? "warn" : "ok",
+        message: closed
+          ? `Situação na Receita: ${info.situation}. Confira antes de cadastrar.`
+          : "Dados da Receita preenchidos. Confira e edite o que precisar.",
+      });
+    } catch (err) {
+      if (searched.current !== cnpj) return;
+      setLookup({
+        busy: false,
+        tone: "error",
+        message: err instanceof ApiError ? err.message : "Não foi possível consultar o CNPJ. Preencha à mão.",
+      });
+    }
+  }
+
+  function changeDocument(value: string) {
+    setForm((current) => ({ ...current, document: value }));
+    if (!looksLikeCnpj(value)) {
+      searched.current = "";
+      setLookup({ busy: false, tone: "info", message: "" });
+    } else if (cleanCnpj(value) !== searched.current) {
+      void search(value, false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -125,37 +190,81 @@ function RecordDialog({
             <DialogDescription>Os campos com * são obrigatórios.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
+            {withCnpj && (
+              <>
+                <Field label="CNPJ" id="c-doc">
+                  <div className="flex gap-2">
+                    <Input
+                      id="c-doc"
+                      autoFocus
+                      placeholder="00.000.000/0000-00"
+                      value={form.document}
+                      onChange={(event) => changeDocument(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void search(form.document, true);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={lookup.busy}
+                      onClick={() => void search(form.document, true)}
+                    >
+                      {lookup.busy ? <Spinner aria-label="Consultando" className="size-4" /> : <Search size={16} />}
+                      Buscar
+                    </Button>
+                  </div>
+                  <p
+                    role="status"
+                    className={cn(
+                      "text-xs",
+                      lookup.tone === "error" && "text-[#b91c1c]",
+                      lookup.tone === "warn" && "text-amber-700",
+                      lookup.tone === "ok" && "text-[#047857]",
+                      lookup.tone === "info" && "text-muted-foreground"
+                    )}
+                  >
+                    {lookup.message ||
+                      "Digite o CNPJ para a Receita preencher o nome e o apelido; você pode editar. Pessoa física fica sem documento por enquanto."}
+                  </p>
+                </Field>
+                <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
+                  <Field label="Código" id="c-cod">
+                    <Input id="c-cod" {...input("code")} />
+                  </Field>
+                  <Field label={isParty ? "Apelido *" : "Apelido"} id="c-apelido">
+                    <Input id="c-apelido" {...input("nickname")} />
+                  </Field>
+                </div>
+                <Field label="Nome / razão social *" id="c-nome">
+                  <Input id="c-nome" {...input("name")} />
+                </Field>
+              </>
+            )}
             {isParty && (
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Apelido *" id="c-apelido">
-                    <Input id="c-apelido" autoFocus {...input("nickname")} />
-                  </Field>
-                  <Field label="Nome / razão social *" id="c-nome">
-                    <Input id="c-nome" {...input("name")} />
-                  </Field>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="CNPJ" id="c-doc" hint={`${kind === "customers" ? "Cliente" : "Fornecedor"} pessoa física fica sem documento por enquanto.`}>
-                    <Input id="c-doc" {...input("document")} />
-                  </Field>
                   <Field label="Contato responsável" id="c-contato">
                     <Input id="c-contato" {...input("contactName")} />
                   </Field>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Telefone" id="c-tel">
                     <Input id="c-tel" placeholder="+55 41 99999-0000" {...input("phone")} />
                   </Field>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="E-mail" id="c-email">
                     <Input id="c-email" type="email" {...input("email")} />
                   </Field>
+                  {kind === "suppliers" && (
+                    <Field label="Condição de pagamento" id="c-cond">
+                      <Input id="c-cond" {...input("paymentTerms")} />
+                    </Field>
+                  )}
                 </div>
-                {kind === "suppliers" && (
-                  <Field label="Condição de pagamento" id="c-cond">
-                    <Input id="c-cond" {...input("paymentTerms")} />
-                  </Field>
-                )}
               </>
             )}
             {kind === "categories" && (
@@ -181,7 +290,7 @@ function RecordDialog({
                 </Field>
               </>
             )}
-            {!isParty && kind !== "categories" && (
+            {!withCnpj && kind !== "categories" && (
               <>
                 {needsCompany && (
                   <Field label="Empresa *" id="c-emp">
@@ -371,6 +480,7 @@ function RecordsByUrl() {
 
 function Records({ tab }: { tab: TabId }) {
   const isParty = tab === "suppliers" || tab === "customers";
+  const withCnpj = isParty || tab === "companies";
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
@@ -527,11 +637,11 @@ function Records({ tab }: { tab: TabId }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {tab === "categories" && <TableHead className={TH}>Código</TableHead>}
+                  {(tab === "categories" || withCnpj) && <TableHead className={TH}>Código</TableHead>}
                   {(tab === "units" || tab === "bankAccounts") && <TableHead className={TH}>Empresa</TableHead>}
-                  <TableHead className={TH}>{isParty ? "Apelido · nome" : "Nome"}</TableHead>
+                  <TableHead className={TH}>{withCnpj ? "Apelido · nome" : "Nome"}</TableHead>
                   {tab === "categories" && <TableHead className={TH}>Tipo</TableHead>}
-                  {isParty && <TableHead className={TH}>CNPJ</TableHead>}
+                  {withCnpj && <TableHead className={TH}>CNPJ</TableHead>}
                   {isParty && <TableHead className={TH}>Contato</TableHead>}
                   {tab === "suppliers" && <TableHead className={TH}>Condição</TableHead>}
                   <TableHead className={TH}>Situação</TableHead>
@@ -541,7 +651,9 @@ function Records({ tab }: { tab: TabId }) {
               <TableBody>
                 {visible.map((row) => (
                   <TableRow key={row.id}>
-                    {tab === "categories" && <TableCell className={cn(TD, "font-mono text-xs")}>{row.code}</TableCell>}
+                    {(tab === "categories" || withCnpj) && (
+                      <TableCell className={cn(TD, "font-mono text-xs")}>{row.code ?? "—"}</TableCell>
+                    )}
                     {(tab === "units" || tab === "bankAccounts") && (
                       <TableCell className={TD}>{companyName(row.companyId)}</TableCell>
                     )}
@@ -554,7 +666,7 @@ function Records({ tab }: { tab: TabId }) {
                         <Tag color={row.kind === "receita" ? "azul" : "cinza"}>{row.kind === "receita" ? "Receita" : "Despesa"}</Tag>
                       </TableCell>
                     )}
-                    {isParty && (
+                    {withCnpj && (
                       <TableCell className={cn(TD, "tabular-nums")}>{row.document ? formatCnpj(row.document) : "—"}</TableCell>
                     )}
                     {isParty && (
