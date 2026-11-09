@@ -236,6 +236,10 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(opened.getByRole("tab", { name: /Baixas/ })).toBeVisible();
   await expect(opened.getByText("Incluído em:")).toBeVisible(); // Detalhes em blocos, como no sistema antigo
   await expect(opened.getByText("Valor líquido:")).toBeVisible();
+  // Rótulos e valores alinhados à esquerda
+  for (const label of ["Status:", "Incluído em:", "Valor líquido:"]) {
+    expect(await opened.getByText(label).evaluate((element) => getComputedStyle(element).textAlign)).toBe("left");
+  }
   // O resumo (valor, pago e pendente) fica acima das abas
   await expect(opened.getByText("falta pagar")).toBeVisible();
   await expect(opened.getByText("0% pago", { exact: true })).toBeVisible();
