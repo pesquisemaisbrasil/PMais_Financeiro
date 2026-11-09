@@ -32,6 +32,8 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q27 | Existe **receita sem projeto**? Hoje o título a receber exige projeto (regra 2 da spec, marcada "a validar") | Financeiro (Vivi) | Projeto obrigatório: sem ele, 422 "Informe o projeto da receita" |
 | Q28 | O **aviso ao comercial** de inadimplência sai depois de quantos dias do vencimento? | Financeiro + comercial | Sem aviso: o sistema só lista a inadimplência por cliente |
 | Q29 | **Acréscimos, descontos e impostos** da conta: valem também para contas com pessoas (folha, incentivo) e para parcelas? O imposto lançado é **retenção** (reduz o que se paga ao fornecedor) ou só informação? | Financeiro (Vivi) | Valem na conta comum, a pagar e a receber. Conta com pessoas não aceita, e o parcelado recusa na criação (lance em cada parcela depois). O imposto reduz o valor líquido, que é o que a lista, o pendente e a baixa usam | pedido do PO, 06/11/2026 |
+| Q30 | O **Pagar em** (data prevista de pagamento) deve passar a mandar em alguma coisa: sugerir a data da baixa, ou ser a data das visões dia, semana e mês? E ele entra na nova conta? | Financeiro (Vivi) + PO | Só informa e só na edição; lista, indicadores e baixa continuam pelo vencimento | PO, 09/11/2026 |
+| Q31 | A lista de **tipos de documento** (nota fiscal, boleto, contrato, comprovante, recibo, planilha e outro) está certa? A spec não tinha "planilha"; falta algum? | Financeiro (Vivi) | Usa essa lista; sem escolha, o tipo é "outro" | protótipo e kickoff (K2), 09/11/2026 |
 
 ## Módulos 2 a 7
 
