@@ -597,4 +597,21 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await expect(opened.getByText("Alterada: impostos R$ 30,00 → R$ 0,00")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("row", { name: /Conta com ajustes/ })).toContainText(/R\$\s975,00/);
+
+  // Imprimir resultados: busca tudo o que os filtros trazem e abre a impressão; na folha só sai o relatório
+  await page.evaluate(() => {
+    const flags = window as unknown as { printed?: number };
+    window.print = () => {
+      flags.printed = (flags.printed ?? 0) + 1;
+    };
+  });
+  await page.getByRole("button", { name: "Imprimir resultados" }).click();
+  await page.waitForFunction(() => (window as unknown as { printed?: number }).printed === 1);
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByRole("heading", { name: /^Contas a pagar · / })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Conta com ajustes.*975,00/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /^Total/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Contas a receber/ })).toBeHidden(); // o menu não sai no papel
+  await page.emulateMedia({ media: "screen" });
+  await expect(page.getByRole("heading", { name: /^Contas a pagar · / })).toBeHidden(); // e a folha some da tela
 });

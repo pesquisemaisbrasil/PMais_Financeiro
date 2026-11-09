@@ -329,4 +329,23 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await expect(opened.getByText("Documento baixado: nota-emitida.pdf")).toBeVisible();
   await expect(opened.getByText("Documento renomeado: nota-emitida.pdf → NF 12 emitida.pdf")).toBeVisible();
   await expect(opened.getByText("Documento removido: NF 12 emitida.pdf — Nota trocada")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(opened).toHaveCount(0);
+
+  // Imprimir resultados: busca tudo o que os filtros trazem e abre a impressão; na folha só sai o relatório
+  await page.evaluate(() => {
+    const flags = window as unknown as { printed?: number };
+    window.print = () => {
+      flags.printed = (flags.printed ?? 0) + 1;
+    };
+  });
+  await page.getByRole("button", { name: "Imprimir resultados" }).click();
+  await page.waitForFunction(() => (window as unknown as { printed?: number }).printed === 1);
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByRole("heading", { name: /^Contas a receber · / })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Receita com ajustes.*1\.880,00/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /^Total/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Contas a pagar/ })).toBeHidden(); // o menu não sai no papel
+  await page.emulateMedia({ media: "screen" });
+  await expect(page.getByRole("heading", { name: /^Contas a receber · / })).toBeHidden(); // e a folha some da tela
 });
