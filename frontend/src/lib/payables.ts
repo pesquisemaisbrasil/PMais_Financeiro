@@ -689,6 +689,8 @@ export interface RecordRow {
   code: string | null;
   companyId: number | null;
   document: string | null;
+  /** PF (pessoa física, sem documento) ou PJ (pessoa jurídica, com CNPJ). */
+  personType: "PF" | "PJ" | null;
   contactName: string | null;
   phone: string | null;
   email: string | null;

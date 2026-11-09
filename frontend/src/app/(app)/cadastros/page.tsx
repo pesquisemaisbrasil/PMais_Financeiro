@@ -98,15 +98,29 @@ function CountCard({
   );
 }
 
-function RowButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
+function RowButton({
+  icon: Icon,
+  label,
+  onClick,
+  muted = false,
+  hint,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  /** Esmaecido: o botão está lá, mas a ação vai explicar por que não dá. */
+  muted?: boolean;
+  /** O texto ao passar o mouse, quando é diferente do nome do botão. */
+  hint?: string;
+}) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={label} onClick={onClick}>
+        <Button variant="ghost" size="icon-sm" aria-label={label} className={cn(muted && "opacity-45")} onClick={onClick}>
           <Icon size={16} />
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent>{hint ?? label}</TooltipContent>
     </Tooltip>
   );
 }
@@ -133,6 +147,8 @@ function RecordDialog({
     code: record?.code ?? "",
     companyId: record?.companyId ? String(record.companyId) : "",
     document: record?.document ? formatCnpj(record.document) : "",
+    // cadastro novo começa como pessoa jurídica (o caminho do CNPJ); o antigo sem tipo fica em branco
+    personType: record?.personType ?? (record ? (record.document ? "PJ" : "") : "PJ"),
     contactName: record?.contactName ?? "",
     phone: record?.phone ?? "",
     email: record?.email ?? "",
@@ -198,6 +214,15 @@ function RecordDialog({
     }
   }
 
+  /** Pessoa física não tem documento (CPF não é guardado): o CNPJ some e a consulta para. */
+  function changePersonType(value: string) {
+    setForm((current) => ({ ...current, personType: value, document: value === "PF" ? "" : current.document }));
+    if (value === "PF") {
+      searched.current = "";
+      setLookup({ busy: false, tone: "info", message: "" });
+    }
+  }
+
   function changeDocument(value: string) {
     setForm((current) => ({ ...current, document: value }));
     if (!looksLikeCnpj(value)) {
@@ -211,7 +236,7 @@ function RecordDialog({
   async function submit(event: FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const body = { ...form, companyId: form.companyId ? Number(form.companyId) : null };
+      const body = { ...form, companyId: form.companyId ? Number(form.companyId) : null, personType: form.personType || null };
       await (record ? updateRecord(kind, record.id, body) : createRecord(kind, body));
       onDone();
     });
@@ -228,11 +253,24 @@ function RecordDialog({
           <div className="flex flex-col gap-3.5 py-4">
             {withCnpj && (
               <>
+                <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
+                <Field label="Tipo" id="c-pessoa">
+                  <SearchSelect
+                    id="c-pessoa"
+                    value={form.personType}
+                    onChange={changePersonType}
+                    options={[
+                      { id: "PJ", label: "Pessoa jurídica" },
+                      { id: "PF", label: "Pessoa física" },
+                    ]}
+                  />
+                </Field>
                 <Field label="CNPJ" id="c-doc">
                   <div className="flex gap-2">
                     <Input
                       id="c-doc"
                       autoFocus
+                      disabled={form.personType === "PF"}
                       placeholder="00.000.000/0000-00"
                       value={form.document}
                       onChange={(event) => changeDocument(event.target.value)}
@@ -247,7 +285,7 @@ function RecordDialog({
                       type="button"
                       variant="outline"
                       className="shrink-0"
-                      disabled={lookup.busy}
+                      disabled={lookup.busy || form.personType === "PF"}
                       onClick={() => void search(form.document, true)}
                     >
                       {lookup.busy ? <Spinner aria-label="Consultando" className="size-4" /> : <Search size={16} />}
@@ -264,10 +302,13 @@ function RecordDialog({
                       lookup.tone === "info" && "text-muted-foreground"
                     )}
                   >
-                    {lookup.message ||
-                      "Digite o CNPJ para a Receita preencher o nome e o apelido; você pode editar. Pessoa física fica sem documento por enquanto."}
+                    {form.personType === "PF"
+                      ? "Pessoa física fica sem documento: o CPF não é guardado."
+                      : lookup.message ||
+                        "Digite o CNPJ para a Receita preencher o nome e o apelido; você pode editar."}
                   </p>
                 </Field>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
                   <Field label="Código" id="c-cod" hint={record?.code ? undefined : "Gerado ao salvar"}>
                     <Input
@@ -732,7 +773,7 @@ function Records({ tab }: { tab: TabId }) {
                       </TableCell>
                     )}
                     {withCnpj && (
-                      <TableCell className={cn(TD, "tabular-nums")}>{row.document ? formatCnpj(row.document) : "—"}</TableCell>
+                      <TableCell className={cn(TD, "tabular-nums")}>{row.document ? formatCnpj(row.document) : row.personType === "PF" ? "Pessoa física" : "—"}</TableCell>
                     )}
                     {isParty && (
                       <TableCell className={cn(TD, "whitespace-normal")}>
@@ -753,7 +794,17 @@ function Records({ tab }: { tab: TabId }) {
                         label={`${row.active ? "Inativar" : "Reativar"} ${row.name}`}
                         onClick={() => toggleActive(row)}
                       />
-                      {!row.inUse && <RowButton icon={Trash2} label={`Excluir ${row.name}`} onClick={() => setDeleting(row)} />}
+                      <RowButton
+                        icon={Trash2}
+                        label={`Excluir ${row.name}`}
+                        muted={row.inUse}
+                        hint={row.inUse ? "Tem lançamentos: inative em vez de excluir" : undefined}
+                        onClick={() =>
+                          row.inUse
+                            ? toast.error(`${row.name} tem lançamentos: inative em vez de excluir.`)
+                            : setDeleting(row)
+                        }
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
