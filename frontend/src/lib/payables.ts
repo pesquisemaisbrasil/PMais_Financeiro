@@ -213,6 +213,8 @@ export interface PayableDetail extends PayableRow {
   competence: string | null;
   documentDate: string | null;
   docsReceivedOn: string | null;
+  /** "Pagar em": o dia previsto para pagar. Só informa. */
+  payOn: string | null;
   isTransfer: boolean;
   notes: string | null;
   createdAt: string;

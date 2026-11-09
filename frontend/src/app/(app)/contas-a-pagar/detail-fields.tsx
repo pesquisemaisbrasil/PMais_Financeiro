@@ -98,6 +98,7 @@ export function DetailFields({ payable }: { payable: PayableDetail }) {
       <Group>
         <Row label="Competência">{formatCompetence(payable.competence)}</Row>
         <Row label="Vencimento">{formatDate(payable.dueDate)}</Row>
+        <Row label="Pagar em">{payable.payOn && formatDate(payable.payOn)}</Row>
         {payable.docsReceivedOn && <Row label="Documentação recebida">{formatDate(payable.docsReceivedOn)}</Row>}
       </Group>
 

@@ -1564,6 +1564,7 @@ function EditForm({
     barcode: payable.barcode ?? "",
     competence: payable.competence ?? "",
     docsReceivedOn: payable.docsReceivedOn ?? "",
+    payOn: payable.payOn ?? "",
     notes: payable.notes ?? "",
   });
   const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
@@ -1603,6 +1604,7 @@ function EditForm({
           barcode: form.barcode.trim() || null,
           competence: form.competence || null,
           docsReceivedOn: form.docsReceivedOn || null,
+          payOn: form.payOn || null,
           notes: form.notes.trim() || null,
           // conta com pessoas não tem acréscimos, descontos nem impostos
           ...(editSupplier ? { adjustments: adjusted.lines } : {}),
@@ -1617,9 +1619,12 @@ function EditForm({
       <Field label="Descrição" id="e-desc">
         <Input id="e-desc" maxLength={255} {...input("description")} />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Vencimento" id="e-venc">
           <Input id="e-venc" type="date" {...input("dueDate")} />
+        </Field>
+        <Field label="Pagar em" id="e-pagar-em">
+          <Input id="e-pagar-em" type="date" {...input("payOn")} />
         </Field>
         <Field label="Competência" id="e-comp">
           <Input id="e-comp" type="month" {...input("competence")} />
