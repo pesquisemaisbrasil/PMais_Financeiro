@@ -217,7 +217,7 @@ export function ImportDialog({
                     value={form.costCenterIds}
                     onChange={set("costCenterIds")}
                     allLabel="Todos os centros da planilha"
-                    options={reference.costCenters.map((c) => ({ id: c.id, label: c.name }))}
+                    options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
                   />
                 </Field>
               </div>

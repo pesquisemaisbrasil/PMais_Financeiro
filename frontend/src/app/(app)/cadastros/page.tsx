@@ -110,6 +110,11 @@ function CountCard({
   );
 }
 
+/** Como o centro de custo aparece na escolha do superior: "001 · Administrativo". */
+function centerLabel(center: RecordRow | undefined): string {
+  return center ? [center.code, center.name].filter(Boolean).join(" · ") : "";
+}
+
 /** O código só aparece: quem gera é o sistema, ao criar, e ele nunca muda. */
 function GeneratedCodeField({ code, isNew }: { code: string; isNew: boolean }) {
   return (
@@ -151,6 +156,7 @@ function RecordDialog({
   one,
   record,
   companies,
+  centers,
   onClose,
   onDone,
 }: {
@@ -158,6 +164,8 @@ function RecordDialog({
   one: string;
   record: RecordRow | null;
   companies: { id: number; name: string }[];
+  /** Os centros de custo já cadastrados (para escolher o superior). */
+  centers: RecordRow[];
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -167,6 +175,7 @@ function RecordDialog({
     nickname: record?.nickname ?? "",
     code: record?.code ?? "",
     companyId: record?.companyId ? String(record.companyId) : "",
+    parentId: record?.parentId ? String(record.parentId) : "",
     document: record?.document ? formatCnpj(record.document) : "",
     // cadastro novo começa como pessoa jurídica (o caminho do CNPJ); o antigo sem tipo fica em branco
     personType: record?.personType ?? (record ? (record.document ? "PJ" : "") : "PJ"),
@@ -257,7 +266,12 @@ function RecordDialog({
   async function submit(event: FormEvent) {
     event.preventDefault();
     await run(async () => {
-      const body = { ...form, companyId: form.companyId ? Number(form.companyId) : null, personType: form.personType || null };
+      const body = {
+        ...form,
+        companyId: form.companyId ? Number(form.companyId) : null,
+        parentId: form.parentId ? Number(form.parentId) : null,
+        personType: form.personType || null,
+      };
       await (record ? updateRecord(kind, record.id, body) : createRecord(kind, body));
       onDone();
     });
@@ -398,7 +412,42 @@ function RecordDialog({
                     />
                   </Field>
                 )}
-                {kind === "units" && <GeneratedCodeField code={form.code} isNew={!record} />}
+                {kind === "costCenters" && (
+                  <Field
+                    label="Superior"
+                    id="c-sup"
+                    hint={
+                      record
+                        ? "O superior não muda depois de cadastrado: o código depende dele."
+                        : "Deixe em branco para criar um centro principal."
+                    }
+                  >
+                    {record ? (
+                      <Input
+                        id="c-sup"
+                        disabled
+                        readOnly
+                        value={centerLabel(centers.find((center) => center.id === record.parentId)) || "Nenhum: é um centro principal"}
+                      />
+                    ) : (
+                      <SearchSelect
+                        id="c-sup"
+                        searchable
+                        value={form.parentId}
+                        onChange={(value) => setForm((current) => ({ ...current, parentId: value }))}
+                        options={[
+                          { id: "", label: "Nenhum: centro principal" },
+                          ...centers
+                            .filter((center) => center.parentId === null && center.active)
+                            .map((center) => ({ id: center.id, label: centerLabel(center) })),
+                        ]}
+                      />
+                    )}
+                  </Field>
+                )}
+                {(kind === "units" || kind === "costCenters") && (
+                  <GeneratedCodeField code={form.code} isNew={!record} />
+                )}
                 <Field label="Nome *" id="c-nome">
                   <Input id="c-nome" autoFocus={!needsCompany} {...input("name")} />
                 </Field>
@@ -578,6 +627,8 @@ function RecordsByUrl() {
 function Records({ tab }: { tab: TabId }) {
   const isParty = tab === "suppliers" || tab === "customers";
   const withCnpj = isParty || tab === "companies";
+  // o que impede excluir: lançamento e, no centro de custo, também ter sub-centros embaixo
+  const inUseWhat = tab === "costCenters" ? "lançamentos ou sub-centros" : "lançamentos";
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
@@ -611,12 +662,17 @@ function Records({ tab }: { tab: TabId }) {
   const companyName = (id: number | null) => companies.find((c) => c.id === id)?.name ?? "Empresa inativa";
 
   const shown = useMemo(() => {
-    const labeled = (rows ?? []).map((row) => ({
+    // Centro de custo em árvore: o principal e, embaixo, os sub-centros dele (a ordem do código)
+    const byCode = (a: RecordRow, b: RecordRow) =>
+      (a.code ?? "\uffff").localeCompare(b.code ?? "\uffff", "pt-BR", { numeric: true });
+    const ordered = tab === "costCenters" ? [...(rows ?? [])].sort(byCode) : (rows ?? []);
+    const parentName = (row: RecordRow) => ordered.find((other) => other.id === row.parentId)?.name;
+    const labeled = ordered.map((row) => ({
       row,
-      label: [row.name, row.nickname, row.code, row.document].filter(Boolean).join(" "),
+      label: [row.name, row.nickname, row.code, row.document, parentName(row)].filter(Boolean).join(" "),
     }));
     return filterOptions(labeled, term).map(({ row }) => row);
-  }, [rows, term]);
+  }, [rows, term, tab]);
   const projects = useMemo(
     () =>
       filterOptions(
@@ -773,7 +829,9 @@ function Records({ tab }: { tab: TabId }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {(tab === "categories" || withCnpj || tab === "units") && <TableHead className={TH}>Código</TableHead>}
+                  {(tab === "categories" || withCnpj || tab === "units" || tab === "costCenters") && (
+                    <TableHead className={TH}>Código</TableHead>
+                  )}
                   {(tab === "units" || tab === "bankAccounts") && <TableHead className={TH}>Empresa</TableHead>}
                   <TableHead className={TH}>{withCnpj ? "Apelido · nome" : "Nome"}</TableHead>
                   {tab === "categories" && <TableHead className={TH}>Tipo</TableHead>}
@@ -787,14 +845,16 @@ function Records({ tab }: { tab: TabId }) {
               <TableBody>
                 {visible.map((row) => (
                   <TableRow key={row.id}>
-                    {(tab === "categories" || withCnpj || tab === "units") && (
+                    {(tab === "categories" || withCnpj || tab === "units" || tab === "costCenters") && (
                       <TableCell className={cn(TD, "font-mono text-xs")}>{row.code ?? "—"}</TableCell>
                     )}
                     {(tab === "units" || tab === "bankAccounts") && (
                       <TableCell className={TD}>{companyName(row.companyId)}</TableCell>
                     )}
-                    <TableCell className={cn(TD, "whitespace-normal")}>
-                      <span className="font-semibold text-brand-cinza-escuro">{row.nickname ?? row.name}</span>
+                    <TableCell className={cn(TD, "whitespace-normal", row.parentId !== null && "pl-9")}>
+                      <span className={cn("text-brand-cinza-escuro", row.parentId !== null ? "font-normal" : "font-semibold")}>
+                        {row.nickname ?? row.name}
+                      </span>
                       {row.nickname && <span className="block text-xs text-muted-foreground">{row.name}</span>}
                     </TableCell>
                     {tab === "categories" && (
@@ -828,10 +888,10 @@ function Records({ tab }: { tab: TabId }) {
                         icon={Trash2}
                         label={`Excluir ${row.name}`}
                         muted={row.inUse}
-                        hint={row.inUse ? "Tem lançamentos: inative em vez de excluir" : undefined}
+                        hint={row.inUse ? `Tem ${inUseWhat}: inative em vez de excluir` : undefined}
                         onClick={() =>
                           row.inUse
-                            ? toast.error(`${row.name} tem lançamentos: inative em vez de excluir.`)
+                            ? toast.error(`${row.name} tem ${inUseWhat}: inative em vez de excluir.`)
                             : setDeleting(row)
                         }
                       />
@@ -870,6 +930,7 @@ function Records({ tab }: { tab: TabId }) {
           one={current.one}
           record={editing.record}
           companies={companies}
+          centers={rows ?? []}
           onClose={() => setEditing(null)}
           onDone={() => {
             toast.success(editing.record ? "Alterações salvas." : "Cadastro criado.");

@@ -294,7 +294,7 @@ export function NewReceivableDialog({
                   id="r-cc"
                   value={form.costCenterId}
                   onChange={set("costCenterId")}
-                  options={reference.costCenters.map((c) => ({ id: c.id, label: c.name }))}
+                  options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
                 />
               </Field>
             </div>

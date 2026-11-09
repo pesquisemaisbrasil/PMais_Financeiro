@@ -243,10 +243,17 @@ export interface Project {
   incentiveDays: number | null;
 }
 
+/** Centro de custo nas escolhas: `label` traz o código e o caminho (001.001 · Administrativo › Adm_Geral). */
+export interface CostCenterRef extends Named {
+  code: string | null;
+  parentId: number | null;
+  label: string;
+}
+
 export interface Reference {
   companies: Named[];
   units: (Named & { companyId: number })[];
-  costCenters: Named[];
+  costCenters: CostCenterRef[];
   categories: (Named & { code: string; kind: "despesa" | "receita" })[];
   paymentMethods: Named[];
   bankAccounts: (Named & { companyId: number })[];
@@ -688,6 +695,8 @@ export interface RecordRow {
   nickname: string | null;
   code: string | null;
   companyId: number | null;
+  /** Só no centro de custo: o principal em que ele fica embaixo (nulo = é um principal). */
+  parentId: number | null;
   document: string | null;
   /** PF (pessoa física, sem documento) ou PJ (pessoa jurídica, com CNPJ). */
   personType: "PF" | "PJ" | null;

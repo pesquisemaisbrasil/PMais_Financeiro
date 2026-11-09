@@ -315,7 +315,7 @@ export function NewPayableDialog({
                   id="p-cc"
                   value={form.costCenterId}
                   onChange={set("costCenterId")}
-                  options={reference.costCenters.map((c) => ({ id: c.id, label: c.name }))}
+                  options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
                 />
               </Field>
             </div>
@@ -843,7 +843,7 @@ export function ReclassifyDialog({
                 onChange={set("costCenterId")}
                 options={[
                   { id: KEEP, label: "Não mudar" },
-                  ...reference.costCenters.map((c) => ({ id: c.id, label: c.name })),
+                  ...reference.costCenters.map((c) => ({ id: c.id, label: c.label })),
                 ]}
               />
             </Field>
@@ -1686,7 +1686,7 @@ function EditForm({
             id="e-cc"
             value={form.costCenterId}
             onChange={set("costCenterId")}
-            options={reference.costCenters.map((c) => ({ id: c.id, label: c.name }))}
+            options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
           />
         </Field>
         <Field label="Forma de pagamento" id="e-forma">

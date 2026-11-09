@@ -773,7 +773,7 @@ export default function ReceivablesPage() {
             <FilterSelect
               label="Centro de custo"
               value={filters.costCenter ?? ""}
-              options={(reference?.costCenters ?? []).map((c) => ({ id: c.id, label: c.name }))}
+              options={(reference?.costCenters ?? []).map((c) => ({ id: c.id, label: c.label }))}
               onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, costCenter: value })))}
             />
             <FilterSelect
