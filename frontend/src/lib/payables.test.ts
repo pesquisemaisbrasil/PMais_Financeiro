@@ -9,6 +9,8 @@ import {
   monthRange,
   nextRange,
   occurrenceEdits,
+  cleanCnpj,
+  looksLikeCnpj,
   percentOf,
   seriesLabel,
   allocationDiff,
@@ -444,5 +446,22 @@ describe("barra de quanto já foi pago", () => {
   it("sem valor a pagar não há barra (evita dividir por zero)", () => {
     expect(percentOf("0.00", "0.00")).toBe(0);
     expect(percentOf("10.00", "0.00")).toBe(0);
+  });
+});
+
+describe("CNPJ digitado", () => {
+  it("tira a pontuação e põe em maiúsculas", () => {
+    expect(cleanCnpj("11.222.333/0001-81")).toBe("11222333000181");
+    expect(cleanCnpj(" 12.abc.345/01de-35 ")).toBe("12ABC34501DE35");
+  });
+
+  it("só vale a consulta quando a forma é a de um CNPJ completo (os dígitos, o servidor confere)", () => {
+    expect(looksLikeCnpj("11.222.333/0001-81")).toBe(true);
+    expect(looksLikeCnpj("11222333000182")).toBe(true); // forma certa, dígito errado: o servidor recusa
+    expect(looksLikeCnpj("12.ABC.345/01DE-35")).toBe(true); // CNPJ com letras
+    expect(looksLikeCnpj("11.222.333/0001")).toBe(false);
+    expect(looksLikeCnpj("123.456.789-09")).toBe(false); // CPF
+    expect(looksLikeCnpj("11222333000181 9")).toBe(false);
+    expect(looksLikeCnpj("")).toBe(false);
   });
 });

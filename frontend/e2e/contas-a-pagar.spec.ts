@@ -459,7 +459,7 @@ test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ 
   await supplier.getByLabel("Nome / razão social *").fill("Fornecedor de Teste Ltda");
   await supplier.getByLabel("CNPJ").fill("11.222.333/0001-82");
   await supplier.getByRole("button", { name: "Cadastrar" }).click();
-  await expect(supplier.getByText("CNPJ inválido. Confira os dígitos")).toBeVisible();
+  await expect(supplier.getByRole("alert")).toContainText("CNPJ inválido. Confira os dígitos");
   await supplier.getByLabel("CNPJ").fill("11.222.333/0001-81");
   await supplier.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
