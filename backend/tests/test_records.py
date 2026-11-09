@@ -323,24 +323,61 @@ def test_project_incentive_is_marked_and_logged(
     )
 
 
-# ---- Código, apelido e CNPJ (fornecedor, cliente e empresa do Grupo) ----
+# ---- Código gerado, apelido e CNPJ (fornecedor, cliente e empresa do Grupo) ----
 
 
-@pytest.mark.parametrize("kind", ["suppliers", "customers"])
-def test_suppliers_and_customers_keep_an_optional_code(
+@pytest.mark.parametrize("kind", ["suppliers", "customers", "companies"])
+def test_the_code_is_generated_in_order_and_what_the_screen_sends_is_ignored(
     client: TestClient, auth: dict[str, str], kind: str
 ) -> None:
-    created = _post(client, auth, kind, **_supplier(code="F-001")).json()
-    assert created["code"] == "F-001"
+    first = _post(client, auth, kind, **_supplier(name="Primeiro", code="MEU-CODIGO")).json()
+    second = _post(client, auth, kind, **_supplier(name="Segundo")).json()
+    assert (first["code"], second["code"]) == ("0001", "0002")
+    listed = {r["name"]: r["code"] for r in client.get(f"/records/{kind}", headers=auth).json()}
+    assert (listed["Primeiro"], listed["Segundo"]) == ("0001", "0002")
+
+
+def test_each_registry_counts_on_its_own(client: TestClient, auth: dict[str, str]) -> None:
+    assert _post(client, auth, "suppliers", **_supplier()).json()["code"] == "0001"
+    assert _post(client, auth, "customers", **_supplier(name="C")).json()["code"] == "0001"
+    assert _post(client, auth, "companies", name="Empresa nova").json()["code"] == "0001"
+    assert _post(client, auth, "suppliers", **_supplier(name="Outro")).json()["code"] == "0002"
+
+
+def test_the_code_never_changes_and_is_never_reused_even_after_deleting_the_last_one(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    _post(client, auth, "suppliers", **_supplier(name="A"))
+    second = _post(client, auth, "suppliers", **_supplier(name="B")).json()
     edited = client.patch(
-        f"/records/{kind}/{created['id']}", json=_supplier(code="  "), headers=auth
+        f"/records/suppliers/{second['id']}", json=_supplier(name="B novo", code="X"), headers=auth
     ).json()
-    assert edited["code"] is None
-    # o código passa de 20 letras: o formulário já recusa antes de chegar ao cadastro
-    assert _post(client, auth, kind, **_supplier(name="Outra", code="x" * 21)).status_code == 422
+    assert edited["code"] == "0002"
+    off = client.post(
+        f"/records/suppliers/{second['id']}/active", json={"active": False}, headers=auth
+    ).json()
+    assert off["code"] == "0002"
+    # excluir o último e cadastrar de novo: o número 0002 não volta
+    assert client.delete(f"/records/suppliers/{second['id']}", headers=auth).status_code == 204
+    assert _post(client, auth, "suppliers", **_supplier(name="C")).json()["code"] == "0003"
 
 
-def test_a_group_company_keeps_code_nickname_and_cnpj_and_the_old_ones_still_work(
+def test_a_hand_typed_code_from_before_never_collides_with_a_new_one(
+    client: TestClient, auth: dict[str, str], db_session: Session
+) -> None:
+    db_session.add(Supplier(nickname="Antigo", name="Antigo", code="0001"))
+    db_session.commit()
+    assert _post(client, auth, "suppliers", **_supplier()).json()["code"] == "0002"
+
+
+def test_the_plan_of_accounts_still_has_the_code_the_person_picks(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    created = _post(client, auth, "categories", name="Material de escritório", code="2.77")
+    assert (created.status_code, created.json()["code"]) == (201, "2.77")
+
+
+def test_a_group_company_keeps_nickname_and_cnpj_and_the_old_ones_still_work(
     client: TestClient, auth: dict[str, str], db_session: Session
 ) -> None:
     db_session.add(Company(name="PPlus"))
@@ -356,20 +393,19 @@ def test_a_group_company_keeps_code_nickname_and_cnpj_and_the_old_ones_still_wor
         "companies",
         name="PESQUISE MAIS COMERCIO DE PESQUISAS LTDA",
         nickname="Pesquise+",
-        code="01",
         document=VALID_CNPJ,
     )
     assert created.status_code == 201, created.text
     body = created.json()
     assert (body["code"], body["nickname"], body["document"]) == (
-        "01",
+        "0001",
         "Pesquise+",
         "11222333000181",
     )
 
     other = _post(client, auth, "companies", name="Outra empresa", document=OTHER_CNPJ)
     assert other.status_code == 201
-    assert (other.json()["nickname"], other.json()["code"]) == (None, None)
+    assert (other.json()["nickname"], other.json()["code"]) == (None, "0002")
 
 
 def test_a_group_company_name_can_be_as_long_as_a_legal_name(

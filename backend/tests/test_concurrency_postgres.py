@@ -17,6 +17,7 @@ do banco local em DATABASE_URL, que o conftest deixa como SQLite quando a variá
 import threading
 import time
 import uuid
+from types import SimpleNamespace
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime
 from typing import Any
@@ -33,9 +34,12 @@ from core.limiter import limiter
 from core.security import hash_password
 from db.connection import engine, get_db
 from main import app
+from models.reference import Supplier
 from models.user import User
 from services import auth as auth_service
 from services import mfa as mfa_service
+from services import records as records_service
+from schemas.records import RecordIn
 from tests.conftest import PASSWORD, TOTP_SECRET
 
 pytestmark = pytest.mark.skipif(
@@ -189,3 +193,42 @@ def test_same_refresh_token_sent_twice_at_once_renews_only_once(
     statuses = sorted(race(send))
 
     assert statuses == [200, 401], "o mesmo refresh token renovou a sessão duas vezes"
+
+
+def test_registries_created_at_the_same_time_get_different_codes(
+    postgres_users: Callable[[], User],
+) -> None:
+    """O contador do código fica travado até o fim da transação: sem a trava, dois cadastros ao
+    mesmo tempo leem o mesmo último número e um deles bate no índice único."""
+    user_id = postgres_users().id
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    start = threading.Barrier(8)
+    codes: list[str | None] = [None] * 8
+    errors: list[BaseException] = []
+
+    def create(index: int) -> None:
+        try:
+            with session_factory() as db:
+                start.wait(timeout=10)
+                data = RecordIn(name=f"Simultâneo {uuid.uuid4().hex[:8]}", nickname=f"Sim {index}")
+                created = records_service.create(db, "suppliers", data, SimpleNamespace(id=user_id))  # type: ignore[arg-type]
+                codes[index] = created["code"]
+        except BaseException as exc:  # noqa: BLE001  o teste confere o que deu errado depois
+            errors.append(exc)
+
+    threads = [threading.Thread(target=create, args=(index,)) for index in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    try:
+        assert errors == []
+        assert len(set(codes)) == 8  # nenhum repetido
+        numbers = sorted(int(code) for code in codes if code)
+        assert numbers == list(range(numbers[0], numbers[0] + 8))  # e sem buraco
+    finally:
+        with session_factory() as db:
+            db.execute(text("DELETE FROM suppliers WHERE name LIKE 'Simultâneo %'"))
+            db.execute(text("DELETE FROM record_events WHERE user_id = :id"), {"id": user_id})
+            db.commit()
