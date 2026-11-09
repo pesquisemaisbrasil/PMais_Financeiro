@@ -110,6 +110,15 @@ function CountCard({
   );
 }
 
+/** O código só aparece: quem gera é o sistema, ao criar, e ele nunca muda. */
+function GeneratedCodeField({ code, isNew }: { code: string; isNew: boolean }) {
+  return (
+    <Field label="Código" id="c-cod" hint={isNew ? "Gerado ao salvar" : undefined}>
+      <Input id="c-cod" disabled readOnly placeholder={isNew ? "Automático" : "Sem código"} value={code} />
+    </Field>
+  );
+}
+
 function RowButton({
   icon: Icon,
   label,
@@ -322,15 +331,7 @@ function RecordDialog({
                 </Field>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-                  <Field label="Código" id="c-cod" hint={record?.code ? undefined : "Gerado ao salvar"}>
-                    <Input
-                      id="c-cod"
-                      disabled
-                      placeholder={record ? "Sem código" : "Automático"}
-                      value={form.code}
-                      readOnly
-                    />
-                  </Field>
+                  <GeneratedCodeField code={form.code} isNew={!record} />
                   <Field label={isParty ? "Apelido *" : "Apelido"} id="c-apelido">
                     <Input id="c-apelido" {...input("nickname")} />
                   </Field>
@@ -397,6 +398,7 @@ function RecordDialog({
                     />
                   </Field>
                 )}
+                {kind === "units" && <GeneratedCodeField code={form.code} isNew={!record} />}
                 <Field label="Nome *" id="c-nome">
                   <Input id="c-nome" autoFocus={!needsCompany} {...input("name")} />
                 </Field>
@@ -771,7 +773,7 @@ function Records({ tab }: { tab: TabId }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {(tab === "categories" || withCnpj) && <TableHead className={TH}>Código</TableHead>}
+                  {(tab === "categories" || withCnpj || tab === "units") && <TableHead className={TH}>Código</TableHead>}
                   {(tab === "units" || tab === "bankAccounts") && <TableHead className={TH}>Empresa</TableHead>}
                   <TableHead className={TH}>{withCnpj ? "Apelido · nome" : "Nome"}</TableHead>
                   {tab === "categories" && <TableHead className={TH}>Tipo</TableHead>}
@@ -785,7 +787,7 @@ function Records({ tab }: { tab: TabId }) {
               <TableBody>
                 {visible.map((row) => (
                   <TableRow key={row.id}>
-                    {(tab === "categories" || withCnpj) && (
+                    {(tab === "categories" || withCnpj || tab === "units") && (
                       <TableCell className={cn(TD, "font-mono text-xs")}>{row.code ?? "—"}</TableCell>
                     )}
                     {(tab === "units" || tab === "bankAccounts") && (
