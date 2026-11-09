@@ -3031,3 +3031,52 @@ def test_print_with_no_result_has_no_rows_and_zeroed_totals(
     table = client.get("/payables/print?search=nada-assim-existe", headers=auth).json()
     assert table["rows"] == []
     assert table["totals"][6:] == ["0,00", "0,00", "0,00"]
+
+
+# ---- Pagar em ----
+
+
+def test_pay_on_starts_empty_and_is_set_only_by_editing(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # a nova conta não pede nem guarda "Pagar em": ele entra só na edição
+    created = create(client, auth, world, payOn="2026-11-12")
+    assert client.get(f"/payables/{created['id']}", headers=auth).json()["payOn"] is None
+
+    edited = _patch(client, auth, created, payOn="2026-11-12")
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["payOn"] == "2026-11-12"
+    assert edited.json()["events"][0]["text"] == "Alterada: pagar em — → 12/11/2026"
+
+
+def test_pay_on_can_change_be_cleared_and_is_left_alone_when_not_sent(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world)
+    _patch(client, auth, created, payOn="2026-11-12")
+
+    untouched = _patch(client, auth, created, notes="Só uma observação").json()
+    assert untouched["payOn"] == "2026-11-12"
+
+    again = _patch(client, auth, created, payOn="2026-11-12").json()  # igual: nada a registrar
+    assert not any("pagar em" in e["text"] for e in again["events"][:1])
+
+    moved = _patch(client, auth, created, payOn="2026-11-20").json()
+    assert moved["events"][0]["text"] == "Alterada: pagar em 12/11/2026 → 20/11/2026"
+
+    cleared = _patch(client, auth, created, payOn=None).json()
+    assert cleared["payOn"] is None
+    assert cleared["events"][0]["text"] == "Alterada: pagar em 20/11/2026 → —"
+
+
+def test_pay_on_only_informs_it_does_not_move_the_due_date_the_list_or_the_situation(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    created = create(client, auth, world)
+    before = client.get("/payables", headers=auth).json()
+    _patch(client, auth, created, payOn="2030-01-31")
+    after = client.get("/payables", headers=auth).json()
+    assert after["items"] == before["items"]
+    assert after["indicators"] == before["indicators"]
+    detail = client.get(f"/payables/{created['id']}", headers=auth).json()
+    assert (detail["dueDate"], detail["situation"]) == (created["dueDate"], created["situation"])
