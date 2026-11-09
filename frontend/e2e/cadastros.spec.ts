@@ -33,12 +33,13 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await expect(supplier.getByRole("status")).toContainText("Situação na Receita: BAIXADA");
   // as informações são editáveis, e o código é opcional
   await supplier.getByLabel("Apelido *").fill("Gráfica Exemplo");
-  await supplier.getByLabel("Código").fill("F-01");
+  // o código é gerado pelo sistema: o campo só mostra
+  await expect(supplier.getByLabel("Código")).toBeDisabled();
   await supplier.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
   await expect(total.getByText(/^\d+$/)).toHaveText(String(before + 1));
   const row = page.getByRole("row", { name: /Gráfica Exemplo/ });
-  await expect(row).toContainText("F-01");
+  await expect(row.getByRole("cell").first()).toHaveText(/^\d{4}$/); // 0001, 0002...
   await expect(row).toContainText("GRAFICA EXEMPLO LTDA");
   await expect(row).toContainText("11.444.777/0001-61");
 
@@ -78,11 +79,11 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   const company = page.getByRole("dialog");
   await company.getByLabel("CNPJ").fill(ALFA);
   await expect(company.getByLabel("Nome / razão social *")).toHaveValue("ALFA PESQUISAS LTDA");
-  await company.getByLabel("Código").fill("02");
+  await expect(company.getByLabel("Código")).toBeDisabled();
   await company.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
   const companyRow = page.getByRole("row", { name: /Alfa Pesquisas/ });
-  await expect(companyRow).toContainText("02");
+  await expect(companyRow.getByRole("cell").first()).toHaveText(/^\d{4}$/);
   await expect(companyRow).toContainText("11.222.333/0001-81");
   await page.getByRole("button", { name: "Nova empresa" }).click();
   const again = page.getByRole("dialog");
