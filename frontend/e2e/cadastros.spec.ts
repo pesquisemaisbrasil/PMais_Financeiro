@@ -12,6 +12,18 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
 
   // Fornecedor: a busca começa pelo CNPJ e preenche sozinha quando ele fecha
   await page.goto("/cadastros?aba=suppliers");
+  // No alto da aba: o que a busca mostra e o total de cadastros da aba (com ativos e inativos)
+  const total = page.getByRole("group", { name: "Total de fornecedores" });
+  const showing = page.getByRole("group", { name: "Exibindo" });
+  await expect(total.getByText(/^\d+$/)).toBeVisible();
+  const before = Number(await total.getByText(/^\d+$/).innerText());
+  await expect(total).toContainText(/\d+ ativos · \d+ inativos/);
+  await expect(showing.getByText(/^\d+$/)).toHaveText(String(before));
+  await page.getByLabel("Buscar em fornecedores").fill("nada-assim-existe");
+  await expect(showing.getByText(/^\d+$/)).toHaveText("0");
+  await expect(total.getByText(/^\d+$/)).toHaveText(String(before)); // o total não depende da busca
+  await page.getByLabel("Buscar em fornecedores").fill("");
+
   await page.getByRole("button", { name: "Novo fornecedor" }).click();
   const supplier = page.getByRole("dialog");
   await supplier.getByLabel("CNPJ").fill(GRAFICA);
@@ -24,6 +36,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await supplier.getByLabel("Código").fill("F-01");
   await supplier.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
+  await expect(total.getByText(/^\d+$/)).toHaveText(String(before + 1));
   const row = page.getByRole("row", { name: /Gráfica Exemplo/ });
   await expect(row).toContainText("F-01");
   await expect(row).toContainText("GRAFICA EXEMPLO LTDA");
