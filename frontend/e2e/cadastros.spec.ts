@@ -28,6 +28,18 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   for (const name of menu) tops.push((await box(page.getByRole("link", { name, exact: true }))).y);
   expect(tops).toEqual([...tops].sort((a, b) => a - b));
 
+  // As três ações (editar, inativar e excluir) aparecem em todas as linhas; com lançamentos, o excluir explica
+  await page.goto("/cadastros?aba=suppliers");
+  const editButtons = page.getByRole("button", { name: /^Editar / });
+  await expect(editButtons.first()).toBeVisible();
+  const lines = await editButtons.count();
+  await expect(page.getByRole("button", { name: /^(Inativar|Reativar) / })).toHaveCount(lines);
+  await expect(page.getByRole("button", { name: /^Excluir / })).toHaveCount(lines);
+  const inUse = page.getByRole("row", { name: /Ponto Certo/ });
+  await inUse.getByRole("button", { name: /^Excluir / }).click();
+  await expect(page.getByText(/tem lançamentos: inative em vez de excluir/)).toBeVisible();
+  await expect(inUse).toHaveCount(1);
+
   // Fornecedor: a busca começa pelo CNPJ e preenche sozinha quando ele fecha
   await page.goto("/cadastros?aba=suppliers");
   // No alto da aba: o que a busca mostra e o total de cadastros da aba (com ativos e inativos)
@@ -80,6 +92,22 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await expect(unknown.getByRole("status")).toContainText("CNPJ não encontrado na Receita");
   await expect(unknown.getByLabel("Nome / razão social *")).toHaveValue("");
   await unknown.getByRole("button", { name: "Cancelar" }).click();
+
+  // Pessoa física: sem documento (o CPF não é guardado), e trocar o tipo limpa o CNPJ
+  await page.getByRole("button", { name: "Novo fornecedor" }).click();
+  const person = page.getByRole("dialog");
+  await expect(person.getByRole("combobox", { name: "Tipo" })).toContainText("Pessoa jurídica");
+  await person.getByLabel("CNPJ").fill(ALFA);
+  await person.getByRole("combobox", { name: "Tipo" }).click();
+  await page.getByRole("option", { name: "Pessoa física" }).click();
+  await expect(person.getByLabel("CNPJ")).toBeDisabled();
+  await expect(person.getByLabel("CNPJ")).toHaveValue("");
+  await expect(person.getByRole("button", { name: "Buscar" })).toBeDisabled();
+  await expect(person.getByRole("status")).toContainText("o CPF não é guardado");
+  await person.getByLabel("Apelido *").fill("João Autônomo");
+  await person.getByLabel("Nome / razão social *").fill("João da Silva Autônomo");
+  await person.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(page.getByRole("row", { name: /João Autônomo/ })).toContainText("Pessoa física");
 
   // Cliente MEI: o CPF que vem no fim da razão social nunca chega à tela
   await page.goto("/cadastros?aba=customers");
