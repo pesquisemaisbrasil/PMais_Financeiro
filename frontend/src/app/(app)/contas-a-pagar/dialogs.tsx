@@ -24,6 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { AmountSummary } from "@/components/AmountSummary";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { ProjectSplit } from "@/components/ProjectSplit";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
@@ -31,11 +32,13 @@ import { ValuesCard } from "@/components/ValuesCard";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import {
   ApiError,
+  attachDocument,
   cancelPayable,
   cancelSeries,
   createPayable,
   createSeries,
   deleteBatch,
+  downloadDocument,
   duplicateBatch,
   editSeries,
   getPayable,
@@ -45,6 +48,7 @@ import {
   payPayable,
   reclassifyBatch,
   removeDocument,
+  renameDocument,
   replaceProvision,
   reversePayment,
   updatePayable,
@@ -82,7 +86,6 @@ import {
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { DetailFields } from "./detail-fields";
-import { DocumentsPanel } from "./documents-panel";
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
 const NO_PROJECT = "sem-projeto";
@@ -1382,7 +1385,14 @@ export function DetailDialog({
               </TabsContent>
               <TabsContent value="documentos" className="pt-3">
                 <DocumentsPanel
-                  payable={payable}
+                  attachments={payable.attachments}
+                  from="da conta"
+                  api={{
+                    attach: (file, kind) => attachDocument(payable.id, file, kind),
+                    download: (attachmentId) => downloadDocument(payable.id, attachmentId),
+                    rename: (attachmentId, change) => renameDocument(payable.id, attachmentId, change),
+                    reload: () => getPayable(payable.id),
+                  }}
                   onChanged={(next, message) => {
                     setLoaded(next);
                     if (message) toast.success(message);

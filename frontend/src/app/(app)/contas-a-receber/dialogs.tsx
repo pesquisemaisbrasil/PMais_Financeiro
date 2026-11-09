@@ -4,6 +4,7 @@ import { CircleCheck, Hourglass, Undo2, Wallet } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AmountSummary } from "@/components/AmountSummary";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
@@ -36,11 +37,13 @@ import {
   plural,
   revenueCategories,
   toCents,
+  type Attachment,
   type Reference,
 } from "@/lib/payables";
 import {
   DOCUMENT_TYPES,
   SITUATION_LABELS,
+  attachReceivableDocument,
   bandLabel,
   bandTotals,
   cancelReceivable,
@@ -49,11 +52,14 @@ import {
   createReceivableSeries,
   daysLateText,
   deleteReceivable,
+  downloadReceivableDocument,
   editReceivableSeries,
   getReceivable,
   listDelinquency,
   listReceivableSeries,
   receive,
+  removeReceivableDocument,
+  renameReceivableDocument,
   reverseReceipt,
   updateReceivable,
   type DelinquentCustomer,
@@ -708,6 +714,7 @@ export function DetailDialog({
   const [deleting, setDeleting] = useState(false);
   const [reversing, setReversing] = useState<number | null>(null);
   const [changingSeries, setChangingSeries] = useState<"edit" | "cancel" | null>(null);
+  const [removing, setRemoving] = useState<Attachment | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -756,6 +763,7 @@ export function DetailDialog({
             <TabsList>
               <TabsTrigger value="resumo">Resumo</TabsTrigger>
               <TabsTrigger value="recebimentos">Recebimentos ({detail.payments.length})</TabsTrigger>
+              <TabsTrigger value="documentos">Documentos ({detail.attachments.length})</TabsTrigger>
               {detail.series && <TabsTrigger value="repetir">Repetir ({detail.series.count})</TabsTrigger>}
               <TabsTrigger value="historico">Histórico</TabsTrigger>
             </TabsList>
@@ -851,6 +859,23 @@ export function DetailDialog({
                   </TableBody>
                 </Table>
               )}
+            </TabsContent>
+            <TabsContent value="documentos" className="pt-3">
+              <DocumentsPanel
+                attachments={detail.attachments}
+                from="do título"
+                api={{
+                  attach: (file, kind) => attachReceivableDocument(detail.id, file, kind),
+                  download: (attachmentId) => downloadReceivableDocument(detail.id, attachmentId),
+                  rename: (attachmentId, change) => renameReceivableDocument(detail.id, attachmentId, change),
+                  reload: () => getReceivable(detail.id),
+                }}
+                onChanged={(next, message) => {
+                  setLoaded(next);
+                  if (message) toast.success(message);
+                }}
+                onRemove={setRemoving}
+              />
             </TabsContent>
             {detail.series && (
               <TabsContent value="repetir" className="pt-3">
@@ -950,6 +975,20 @@ export function DetailDialog({
               const next = await reverseReceipt(detail.id, reversing, reason);
               setReversing(null);
               apply(next);
+            }}
+          />
+        )}
+        {detail && removing && (
+          <ReasonDialog
+            title={`Tirar o documento ${removing.name}`}
+            description="Ele sai do título, mas o arquivo continua guardado. Quem tirou e o motivo ficam no histórico."
+            confirm="Tirar documento"
+            onClose={() => setRemoving(null)}
+            onConfirm={async (reason) => {
+              const next = await removeReceivableDocument(detail.id, removing.id, reason);
+              setRemoving(null);
+              setLoaded(next);
+              toast.success("Documento tirado do título.");
             }}
           />
         )}

@@ -5,6 +5,29 @@ export const DOCUMENT_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".xlsx", ".
 export const DOCUMENT_ACCEPT = DOCUMENT_EXTENSIONS.join(",");
 export const DOCUMENT_HINT = "PDF, imagem (JPG ou PNG), planilha (XLSX), documento (DOCX) ou XML, até 20 MB cada";
 
+/** O tipo do documento, para achar a nota ou o boleto sem abrir um por um. A lista é a do servidor. */
+export const DOCUMENT_KINDS = [
+  { id: "nota", label: "Nota fiscal" },
+  { id: "boleto", label: "Boleto" },
+  { id: "contrato", label: "Contrato" },
+  { id: "comprovante", label: "Comprovante" },
+  { id: "recibo", label: "Recibo" },
+  { id: "planilha", label: "Planilha" },
+  { id: "outro", label: "Outro" },
+];
+export const DEFAULT_DOCUMENT_KIND = "outro";
+
+/** O nome do tipo para mostrar; o que não está na lista é "Outro". */
+export function kindLabel(kind: string): string {
+  return DOCUMENT_KINDS.find((option) => option.id === kind)?.label ?? "Outro";
+}
+
+/** O que muda ao renomear: só o que veio é alterado. */
+export interface DocumentChange {
+  name?: string;
+  kind?: string;
+}
+
 /** Texto de erro do arquivo, ou null se pode seguir. */
 export function checkDocument(file: { name: string; size: number }): string | null {
   const dot = file.name.lastIndexOf(".");

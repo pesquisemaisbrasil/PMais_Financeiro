@@ -186,6 +186,7 @@ import type { Adjustment } from "./adjustments";
 export interface Attachment {
   id: number;
   name: string;
+  kind: string;
   size: number;
   contentType: string;
   uploadedBy: string;

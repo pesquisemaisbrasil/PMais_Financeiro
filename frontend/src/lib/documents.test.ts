@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_DOCUMENT_BYTES, checkDocument, fileSize } from "./documents";
+import { DEFAULT_DOCUMENT_KIND, DOCUMENT_KINDS, MAX_DOCUMENT_BYTES, checkDocument, fileSize, kindLabel } from "./documents";
 
 describe("checkDocument", () => {
   it("aceita os tipos permitidos, em qualquer caixa", () => {
@@ -28,5 +28,22 @@ describe("fileSize", () => {
     expect(fileSize(340 * 1024)).toBe("340 KB");
     expect(fileSize(1.4 * 1024 * 1024)).toBe("1,4 MB");
     expect(fileSize(20 * 1024 * 1024)).toBe("20,0 MB");
+  });
+});
+
+describe("tipo do documento", () => {
+  it("dá o nome de cada tipo e chama de Outro o que não conhece", () => {
+    expect(kindLabel("nota")).toBe("Nota fiscal");
+    expect(kindLabel("planilha")).toBe("Planilha");
+    expect(kindLabel("outro")).toBe("Outro");
+    expect(kindLabel("")).toBe("Outro");
+    expect(kindLabel("foto")).toBe("Outro");
+  });
+
+  it("tem uma lista sem repetição, e o tipo de quem não escolheu está nela", () => {
+    const ids = DOCUMENT_KINDS.map((option) => option.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain(DEFAULT_DOCUMENT_KIND);
+    expect(DEFAULT_DOCUMENT_KIND).toBe("outro");
   });
 });

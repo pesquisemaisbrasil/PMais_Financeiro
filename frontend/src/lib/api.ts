@@ -18,6 +18,8 @@ import type {
   SeriesOccurrence
 } from "./payables";
 
+import type { DocumentChange } from "./documents";
+
 export const DEFAULT_API_URL = "http://localhost:8010";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 
@@ -345,14 +347,20 @@ export function cancelPayable(id: number, reason: string): Promise<PayableDetail
 }
 
 /** Anexa um documento à conta. Devolve a conta já com ele na lista. */
-export function attachDocument(id: number, file: File): Promise<PayableDetail> {
+export function attachDocument(id: number, file: File, kind: string): Promise<PayableDetail> {
   const form = new FormData();
   form.append("file", file);
+  form.append("kind", kind);
   return upload<PayableDetail>(`/payables/${id}/attachments`, "POST", form);
 }
 
 export function downloadDocument(id: number, attachmentId: number): Promise<Blob> {
   return fetchBlob(`/payables/${id}/attachments/${attachmentId}/download`);
+}
+
+/** Muda o nome e/ou o tipo do documento; o arquivo guardado não é tocado. */
+export function renameDocument(id: number, attachmentId: number, change: DocumentChange): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/attachments/${attachmentId}`, "PATCH", change);
 }
 
 export function removeDocument(id: number, attachmentId: number, reason: string): Promise<PayableDetail> {

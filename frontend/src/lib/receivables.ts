@@ -1,6 +1,7 @@
 import type { Adjustment } from "./adjustments";
-import { fetchBlob, remove, request, send, type ExportFormat } from "./api";
-import { toCents, type PeriodMode, type SeriesInfo, type SeriesOccurrence } from "./payables";
+import { fetchBlob, remove, request, send, upload, type ExportFormat } from "./api";
+import type { DocumentChange } from "./documents";
+import { toCents, type Attachment, type PeriodMode, type SeriesInfo, type SeriesOccurrence } from "./payables";
 
 // ---- Tipos (iguais aos do backend: schemas/receivable.py) ----
 
@@ -70,6 +71,7 @@ export interface ReceivableDetail extends ReceivableRow {
   payments: Receipt[];
   events: { userName: string; text: string; createdAt: string }[];
   adjustments: Adjustment[];
+  attachments: Attachment[];
 }
 
 export interface DelinquencyBand {
@@ -224,6 +226,31 @@ export function cancelReceivableSeries(id: number, body: unknown): Promise<{ cou
 
 export function getReceivable(id: number): Promise<ReceivableDetail> {
   return request<ReceivableDetail>(`/receivables/${id}`);
+}
+
+/** Anexa um documento ao título. Devolve o título já com ele na lista. */
+export function attachReceivableDocument(id: number, file: File, kind: string): Promise<ReceivableDetail> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  return upload<ReceivableDetail>(`/receivables/${id}/attachments`, "POST", form);
+}
+
+export function downloadReceivableDocument(id: number, attachmentId: number): Promise<Blob> {
+  return fetchBlob(`/receivables/${id}/attachments/${attachmentId}/download`);
+}
+
+/** Muda o nome e/ou o tipo do documento; o arquivo guardado não é tocado. */
+export function renameReceivableDocument(
+  id: number,
+  attachmentId: number,
+  change: DocumentChange,
+): Promise<ReceivableDetail> {
+  return send<ReceivableDetail>(`/receivables/${id}/attachments/${attachmentId}`, "PATCH", change);
+}
+
+export function removeReceivableDocument(id: number, attachmentId: number, reason: string): Promise<ReceivableDetail> {
+  return send<ReceivableDetail>(`/receivables/${id}/attachments/${attachmentId}/remove`, "POST", { reason });
 }
 
 export function createReceivable(body: unknown): Promise<ReceivableDetail> {
