@@ -17,3 +17,9 @@ Variáveis do `backend/.env` (modelo em `backend/.env.example`). Sem elas, anexa
 | `FILES_MODE` | Deixe vazio. `memory` é um cofre de mentira só para teste de tela e é recusado em produção |
 
 Detalhes e limites: [ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrados-por-arquivo.md).
+
+| Variável | O que é |
+|---|---|
+| `CNPJ_LOOKUP_MODE` | Consulta de CNPJ no Cadastros. Padrão `brasilapi` (dados públicos da Receita, sem chave). `simulated` usa CNPJs inventados, só para teste de tela, e é recusado em produção. Qualquer outro valor desliga a consulta: o cadastro continua à mão |
+
+Só o CNPJ sai do sistema, pelo servidor: [ADR 0013](../architecture/adr/0013-consulta-de-cnpj-pela-brasilapi.md).

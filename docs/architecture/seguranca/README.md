@@ -15,6 +15,7 @@ O inventário completo e o ROPA são a PF-55. Enquanto eles não existem, cada d
 | Data da pesquisa de cada respondente, ligada ao nome | Planilha de incentivos | `payable_items` | Calcular a data de pagamento e devolver o cronograma ao projeto | A definir com o DPO (Q5) |
 | Contato do fornecedor: nome, telefone e e-mail | Tela de cadastros | `suppliers` | Falar com o fornecedor | A definir com o DPO (Q5) |
 | Quem alterou cada cadastro | Tela de cadastros | `record_events` | Auditoria | A definir com o DPO (Q5) |
+| Consulta pública de CNPJ (só sai o CNPJ; voltam razão social, nome fantasia e situação cadastral) | Cadastros: fornecedor, cliente e empresa | Nada: a consulta não grava; o cadastro só existe depois que a pessoa salva | Evitar erro de digitação e conferir a situação na Receita | Não se aplica: não guarda ([ADR 0013](../adr/0013-consulta-de-cnpj-pela-brasilapi.md)) |
 | Documentos anexados à conta a pagar ou ao título a receber (nota, boleto, contrato), com o nome do arquivo, o tipo e quem anexou | Aba Documentos da conta e do título | Arquivo cifrado no bucket `financeiro-arquivos`; dados do arquivo em `payable_attachments` e `receivable_attachments` | Guardar a prova de cada conta | A definir com o DPO (Q5, F6). Ver o [inventário](inventario-de-dados.md) |
 
 **O que a importação não guarda:** o arquivo, a chave Pix e o CPF. A chave Pix depende da Q22. O resumo do arquivo (`payables.importHash`) só serve para avisar quando a mesma planilha vier de novo e não permite recuperar o conteúdo.

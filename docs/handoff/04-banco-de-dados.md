@@ -331,6 +331,8 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **`payables.payOn`** (Date, nulo): o "Pagar em", a data prevista de pagamento. Só informa; nada usa para filtrar ou pagar.
 
+**`suppliers.code`** e **`customers.code`** (String(20), nulos): o código do cadastro, opcional e sem unicidade. **`companies`** ganhou `code` (String(20)), `nickname` (String(100)) e `document` (String(14), só CNPJ, índice único parcial `uq_companies_active_document` entre as ativas), e `name` passou a String(200).
+
 **`receivable_attachments`**: igual a `payable_attachments`, com `receivable_id` (RESTRICT) no lugar de `payable_id`; o arquivo vai para a chave `receivable/{id}/...` do mesmo bucket. As duas tabelas têm `kind` (`nota`, `boleto`, `contrato`, `comprovante`, `recibo`, `planilha` ou `outro`, padrão `outro`). A role do app não apaga linha de nenhuma delas.
 
 **`payable_attachments`**: `payable_id` (RESTRICT), `name`, `contentType`, `size`, `fileKey` (único: o nome do objeto no bucket), `fileSha256`, `uploaded_by_user_id` (RESTRICT), `createdAt`, e a remoção lógica `deletedAt`, `deleted_by_user_id` (RESTRICT) e `deletedReason`. O arquivo cifrado mora no bucket, nunca no banco. A role da app não tem `DELETE` nesta tabela.

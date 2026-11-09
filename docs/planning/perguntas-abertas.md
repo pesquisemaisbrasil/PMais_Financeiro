@@ -34,6 +34,8 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q29 | **Acréscimos, descontos e impostos** da conta: valem também para contas com pessoas (folha, incentivo) e para parcelas? O imposto lançado é **retenção** (reduz o que se paga ao fornecedor) ou só informação? | Financeiro (Vivi) | Valem na conta comum, a pagar e a receber. Conta com pessoas não aceita, e o parcelado recusa na criação (lance em cada parcela depois). O imposto reduz o valor líquido, que é o que a lista, o pendente e a baixa usam | pedido do PO, 06/11/2026 |
 | Q30 | O **Pagar em** (data prevista de pagamento) deve passar a mandar em alguma coisa: sugerir a data da baixa, ou ser a data das visões dia, semana e mês? E ele entra na nova conta? | Financeiro (Vivi) + PO | Só informa e só na edição; lista, indicadores e baixa continuam pelo vencimento | PO, 09/11/2026 |
 | Q31 | A lista de **tipos de documento** (nota fiscal, boleto, contrato, comprovante, recibo, planilha e outro) está certa? A spec não tinha "planilha"; falta algum? | Financeiro (Vivi) | Usa essa lista; sem escolha, o tipo é "outro" | protótipo e kickoff (K2), 09/11/2026 |
+| Q32 | O **código** do cadastro (fornecedor, cliente e empresa) deve ser **único**, ou gerado pelo sistema? | Financeiro (Vivi) | Opcional, digitado à mão e sem unicidade | PO, 09/11/2026 |
+| Q33 | A consulta de CNPJ na **BrasilAPI** (que recebe só o CNPJ) está de acordo com a LGPD? O CNPJ de MEI identifica uma pessoa. Convém um contrato ou trocar por uma API paga? | DPO | Consulta ligada, sem guardar nada; o DPO pode pedir para desligar com `CNPJ_LOOKUP_MODE` | PO, 09/11/2026 |
 
 ## Módulos 2 a 7
 
