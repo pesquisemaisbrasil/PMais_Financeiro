@@ -3080,3 +3080,18 @@ def test_pay_on_only_informs_it_does_not_move_the_due_date_the_list_or_the_situa
     assert after["indicators"] == before["indicators"]
     detail = client.get(f"/payables/{created['id']}", headers=auth).json()
     assert (detail["dueDate"], detail["situation"]) == (created["dueDate"], created["situation"])
+
+
+def test_a_payable_on_a_sub_center_shows_the_superior_in_front_of_the_name(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    sub = CostCenter(name="Geral", parent_id=world["cost_center"].id, code="001.001")
+    db_session.add(sub)
+    db_session.commit()
+    plain = create(client, auth, world)
+    on_sub = create(client, auth, world, costCenterId=sub.id)
+    assert plain["costCenterName"] == "Campo"  # o principal continua só com o nome
+    assert on_sub["costCenterName"] == "Campo › Geral"
+    items = client.get("/payables?mode=tudo", headers=auth).json()["items"]
+    row = next(r for r in items if r["id"] == on_sub["id"])
+    assert row["costCenterName"] == "Campo › Geral"

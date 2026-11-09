@@ -529,3 +529,145 @@ def test_units_get_a_generated_code_that_never_repeats_or_comes_back(
     assert _post(client, auth, "units", name="Outra", **body).json()["code"] == "0003"
     listed = {r["name"]: r["code"] for r in client.get("/records/units", headers=auth).json()}
     assert listed == {"Matriz": "0001", "Outra": "0003"}
+
+
+# ---- Centros de custo em árvore ----
+
+
+def _center(
+    client: TestClient, auth: dict[str, str], name: str, parent: int | None = None, **extra: Any
+) -> Any:
+    body: dict[str, Any] = {"name": name, **extra}
+    if parent is not None:
+        body["parentId"] = parent
+    return client.post("/records/costCenters", json=body, headers=auth)
+
+
+def test_principal_and_sub_centers_get_hierarchical_codes(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    adm = _center(client, auth, "Administrativo").json()
+    com = _center(client, auth, "Comercial").json()
+    assert (adm["code"], com["code"]) == ("001", "002")
+    assert (adm["parentId"], com["parentId"]) == (None, None)
+    geral = _center(client, auth, "Adm_Geral", adm["id"], code="DIGITADO").json()
+    ti = _center(client, auth, "Ti", adm["id"]).json()
+    cafe = _center(client, auth, "Cofee Break", com["id"]).json()
+    # o sub-centro leva o código do superior, e o digitado é ignorado
+    assert (geral["code"], ti["code"], cafe["code"]) == ("001.001", "001.002", "002.001")
+    assert geral["parentId"] == adm["id"]
+    # cada superior conta os sub-centros dele, e um novo principal continua a série dos principais
+    assert _center(client, auth, "Inovação").json()["code"] == "003"
+
+
+def test_the_same_name_is_allowed_under_different_superiors_but_not_under_the_same_one(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    first = _center(client, auth, "Latam").json()
+    second = _center(client, auth, "Pt").json()
+    assert _center(client, auth, "Geral", first["id"]).status_code == 201
+    assert _center(client, auth, "geral", second["id"]).status_code == 201  # o "Geral" de cada um
+    again = _center(client, auth, "GERAL", first["id"])
+    assert (again.status_code, again.json()["detail"]) == (
+        409,
+        "Esse superior já tem um centro de custo com esse nome",
+    )
+    principal = _center(client, auth, "LATAM")
+    assert (principal.status_code, principal.json()["detail"]) == (
+        409,
+        "Já existe centro de custo com esse nome",
+    )
+    # um principal pode ter o nome de um sub-centro de outro
+    assert _center(client, auth, "Geral").status_code == 201
+
+
+def test_a_sub_center_needs_an_active_principal_as_its_superior(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    principal = _center(client, auth, "Principal").json()
+    sub = _center(client, auth, "Sub", principal["id"]).json()
+    grandchild = _center(client, auth, "Neto", sub["id"])
+    assert (grandchild.status_code, grandchild.json()["detail"]) == (
+        422,
+        "O superior precisa ser um centro principal: só há dois níveis",
+    )
+    unknown = _center(client, auth, "Órfão", 99999)
+    assert (unknown.status_code, unknown.json()["detail"]) == (
+        422,
+        "Escolha um centro de custo superior ativo",
+    )
+    client.post(
+        f"/records/costCenters/{principal['id']}/active", json={"active": False}, headers=auth
+    )
+    inactive = _center(client, auth, "Outro sub", principal["id"])
+    assert (inactive.status_code, inactive.json()["detail"]) == (
+        422,
+        "Escolha um centro de custo superior ativo",
+    )
+
+
+def test_the_superior_never_changes_and_a_principal_with_sub_centers_is_not_deleted(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    adm = _center(client, auth, "Administrativo").json()
+    com = _center(client, auth, "Comercial").json()
+    _center(client, auth, "Primeiro", adm["id"])
+    second = _center(client, auth, "Segundo", adm["id"]).json()
+
+    moved = client.patch(
+        f"/records/costCenters/{second['id']}",
+        json={"name": "Segundo", "parentId": com["id"]},
+        headers=auth,
+    )
+    assert (moved.status_code, moved.json()["detail"]) == (
+        409,
+        "O superior não muda depois de cadastrado: o código depende dele",
+    )
+    renamed = client.patch(
+        f"/records/costCenters/{second['id']}",
+        json={"name": "Segundo (novo nome)", "parentId": adm["id"]},
+        headers=auth,
+    ).json()
+    assert (renamed["name"], renamed["code"]) == ("Segundo (novo nome)", "001.002")
+
+    listed = {r["name"]: r for r in client.get("/records/costCenters", headers=auth).json()}
+    assert listed["Administrativo"]["inUse"] is True  # tem sub-centros
+    assert listed["Comercial"]["inUse"] is False
+    refused = client.delete(f"/records/costCenters/{adm['id']}", headers=auth)
+    assert refused.status_code == 409
+    # o sub-centro sai, e o número dele não volta: o próximo é o 003
+    assert client.delete(f"/records/costCenters/{second['id']}", headers=auth).status_code == 204
+    assert _center(client, auth, "Terceiro", adm["id"]).json()["code"] == "001.003"
+
+
+def test_the_reference_lists_the_centers_by_code_with_the_path_in_the_label(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    adm = _center(client, auth, "Administrativo").json()
+    com = _center(client, auth, "Comercial").json()
+    _center(client, auth, "Adm_Geral", adm["id"])
+    _center(client, auth, "Despesas", com["id"])
+    centers = client.get("/reference", headers=auth).json()["costCenters"]
+    assert [c["label"] for c in centers] == [
+        "001 · Administrativo",
+        "001.001 · Administrativo › Adm_Geral",
+        "002 · Comercial",
+        "002.001 · Comercial › Despesas",
+    ]
+    assert [c["parentId"] for c in centers] == [None, adm["id"], None, com["id"]]
+
+
+def test_centers_that_exist_without_a_code_keep_their_plain_name_in_the_choices(
+    client: TestClient, auth: dict[str, str], db_session: Session
+) -> None:
+    db_session.add(CostCenter(name="Antigo sem código"))
+    db_session.commit()
+    centers = client.get("/reference", headers=auth).json()["costCenters"]
+    assert [(c["code"], c["label"]) for c in centers] == [(None, "Antigo sem código")]
+    # sem código no superior, não dá para numerar o sub-centro
+    old = client.get("/records/costCenters", headers=auth).json()[0]
+    refused = _center(client, auth, "Filho", old["id"])
+    assert (refused.status_code, refused.json()["detail"]) == (
+        422,
+        "Esse centro principal ainda não tem código",
+    )
