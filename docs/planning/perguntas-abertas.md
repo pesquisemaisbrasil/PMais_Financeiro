@@ -35,6 +35,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q30 | O **Pagar em** (data prevista de pagamento) deve passar a mandar em alguma coisa: sugerir a data da baixa, ou ser a data das visões dia, semana e mês? E ele entra na nova conta? | Financeiro (Vivi) + PO | Só informa e só na edição; lista, indicadores e baixa continuam pelo vencimento | PO, 09/11/2026 |
 | Q31 | A lista de **tipos de documento** (nota fiscal, boleto, contrato, comprovante, recibo, planilha e outro) está certa? A spec não tinha "planilha"; falta algum? | Financeiro (Vivi) | Usa essa lista; sem escolha, o tipo é "outro" | protótipo e kickoff (K2), 09/11/2026 |
 | Q33 | A consulta de CNPJ na **BrasilAPI** (que recebe só o CNPJ) está de acordo com a LGPD? O CNPJ de MEI identifica uma pessoa. Convém um contrato ou trocar por uma API paga? | DPO | Consulta ligada, sem guardar nada; o DPO pode pedir para desligar com `CNPJ_LOOKUP_MODE` | PO, 09/11/2026 |
+| Q34 | No **centro de custo em árvore**, inativar o principal deve inativar também os sub-centros dele? E o superior de um sub-centro poderia mudar (com o código sendo refeito)? | PO + financeiro | Inativar o principal não mexe nos sub-centros (eles continuam escolhíveis); o superior não muda depois de cadastrado | PO, 09/11/2026 |
 
 ## Módulos 2 a 7
 
