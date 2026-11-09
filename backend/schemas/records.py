@@ -20,6 +20,8 @@ class RecordIn(BaseModel):
     code: str | None = Field(default=None, max_length=20)
     companyId: int | None = None
     document: str | None = Field(default=None, max_length=30)
+    # pessoa física (PF) ou jurídica (PJ); PF não tem documento, porque CPF não é guardado
+    personType: Literal["PF", "PJ"] | None = None
     contactName: str | None = Field(default=None, max_length=120)
     phone: str | None = Field(default=None, max_length=30)
     email: str | None = Field(default=None, max_length=200)
@@ -46,6 +48,7 @@ class RecordOut(BaseModel):
     code: str | None
     companyId: int | None
     document: str | None
+    personType: str | None
     contactName: str | None
     phone: str | None
     email: str | None

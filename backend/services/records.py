@@ -99,6 +99,7 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "code": getattr(record, "code", None),
         "companyId": getattr(record, "company_id", None),
         "document": getattr(record, "document", None),
+        "personType": getattr(record, "personType", None),
         "contactName": getattr(record, "contactName", None),
         "phone": getattr(record, "phone", None),
         "email": getattr(record, "email", None),
@@ -142,10 +143,14 @@ def _taken(db: Session, kind: str, record_id: int | None, *conditions: Any) -> b
     return query.first() is not None
 
 
-def _party_document(db: Session, kind: str, record_id: int | None, value: str | None) -> str | None:
+def _party_document(
+    db: Session, kind: str, record_id: int | None, value: str | None, person_type: str | None
+) -> str | None:
     """CNPJ de fornecedor, cliente ou empresa do Grupo: só CNPJ, válido, e único entre os ativos."""
     if not _filled(value):
         return None
+    if person_type == "PF":
+        raise PayableInvalid("Pessoa física fica sem documento: o CPF não é guardado aqui")
     document = clean_cnpj(value or "")
     if is_cpf_shaped(document):
         raise PayableInvalid("Por enquanto, só CNPJ: CPF não é guardado aqui")
@@ -205,7 +210,8 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
             raise PayableInvalid("Telefone no formato +55 41 99999-0000")
         fields.update(
             nickname=nickname,
-            document=_party_document(db, kind, record_id, data.document),
+            personType=data.personType,
+            document=_party_document(db, kind, record_id, data.document, data.personType),
             contactName=_filled(data.contactName),
             phone=phone,
             email=email,
@@ -234,7 +240,8 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
             _check_length(model, "nickname", short_name, "O apelido")
         fields.update(
             nickname=short_name,
-            document=_party_document(db, kind, record_id, data.document),
+            personType=data.personType,
+            document=_party_document(db, kind, record_id, data.document, data.personType),
         )
     return fields
 

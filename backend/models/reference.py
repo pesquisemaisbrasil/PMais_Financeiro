@@ -34,6 +34,8 @@ class Company(Base):
     # Razão social: até 200 letras, que é o que a Receita devolve na consulta de CNPJ.
     name = Column(String(200), nullable=False, unique=True)
     nickname = Column(String(100), nullable=True)
+    # PF (pessoa física) ou PJ (pessoa jurídica). PF fica sem documento: CPF não é guardado (Q23).
+    personType = Column(String(2), nullable=True)
     code = Column(String(20), nullable=True)
     # Só CNPJ: CPF não é guardado (pergunta Q23).
     document = Column(String(14), nullable=True)
@@ -111,6 +113,8 @@ class Customer(Base):
     code = Column(String(20), nullable=True)
     nickname = Column(String(100), nullable=False)
     name = Column(String(200), nullable=False)
+    # PF (pessoa física) ou PJ (pessoa jurídica). PF fica sem documento: CPF não é guardado (Q23).
+    personType = Column(String(2), nullable=True)
     document = Column(String(14), nullable=True)
     contactName = Column(String(120), nullable=True)
     phone = Column(String(30), nullable=True)
@@ -136,6 +140,8 @@ class Supplier(Base):
     code = Column(String(20), nullable=True)
     nickname = Column(String(100), nullable=False)
     name = Column(String(200), nullable=False)
+    # PF (pessoa física) ou PJ (pessoa jurídica). PF fica sem documento: CPF não é guardado (Q23).
+    personType = Column(String(2), nullable=True)
     # Só CNPJ: CPF não é guardado (pergunta Q23).
     document = Column(String(14), nullable=True)
     contactName = Column(String(120), nullable=True)
