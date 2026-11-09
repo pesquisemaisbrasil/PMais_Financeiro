@@ -106,7 +106,16 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await choose(page, "Empresa *", "PPlus");
   await choose(page, "Unidade *", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
-  await choose(page, "Forma de pagamento *", "Pix");
+  // Forma de pagamento e Projeto têm busca, mesmo com poucas opções
+  await form.getByRole("combobox", { name: "Forma de pagamento *" }).click();
+  await page.getByLabel("Buscar na lista").fill("pi");
+  await expect(page.getByRole("option", { name: "Boleto" })).toHaveCount(0);
+  await page.getByRole("option", { name: "Pix" }).click();
+  await form.getByRole("combobox", { name: "Projeto", exact: true }).click();
+  await page.getByLabel("Buscar na lista").fill("1790");
+  await expect(page.getByRole("option", { name: /PRJ-1790/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: /PRJ-1804/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   // Dividir entre projetos nos campos, sem digitar separador: a tela diz quanto falta
   await form.getByRole("button", { name: "Adicionar projeto" }).click();
   await form.getByRole("combobox", { name: "Projeto da linha 1" }).click();
