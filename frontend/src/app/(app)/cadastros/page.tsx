@@ -48,15 +48,15 @@ import { cn } from "@/lib/utils";
 type TabId = RecordKind | "projects";
 
 const TABS: { id: TabId; label: string; one: string; many: string; create?: string }[] = [
-  { id: "suppliers", label: "Fornecedores", one: "fornecedor", many: "fornecedores", create: "Novo fornecedor" },
-  { id: "customers", label: "Clientes", one: "cliente", many: "clientes", create: "Novo cliente" },
-  { id: "categories", label: "Plano de contas", one: "conta", many: "contas do plano", create: "Nova conta" },
   { id: "companies", label: "Empresas", one: "empresa", many: "empresas", create: "Nova empresa" },
   { id: "units", label: "Unidades", one: "unidade", many: "unidades", create: "Nova unidade" },
   { id: "costCenters", label: "Centros de custo", one: "centro de custo", many: "centros de custo", create: "Novo centro de custo" },
+  { id: "customers", label: "Clientes", one: "cliente", many: "clientes", create: "Novo cliente" },
+  { id: "suppliers", label: "Fornecedores", one: "fornecedor", many: "fornecedores", create: "Novo fornecedor" },
+  { id: "categories", label: "Plano de contas", one: "conta", many: "contas do plano", create: "Nova conta" },
+  { id: "projects", label: "Projetos (Connect)", one: "projeto", many: "projetos" },
   { id: "bankAccounts", label: "Contas bancárias", one: "conta bancária", many: "contas bancárias", create: "Nova conta bancária" },
   { id: "paymentMethods", label: "Formas de pagamento", one: "forma de pagamento", many: "formas de pagamento", create: "Nova forma" },
-  { id: "projects", label: "Projetos (Connect)", one: "projeto", many: "projetos" },
 ];
 
 const PAGE_SIZE = 25;
@@ -516,7 +516,7 @@ export default function RecordsPage() {
 
 function RecordsByUrl() {
   const aba = useSearchParams().get("aba");
-  const tab = TABS.find((option) => option.id === aba)?.id ?? "suppliers";
+  const tab = TABS.find((option) => option.id === aba)?.id ?? TABS[0].id;
   return <Records key={tab} tab={tab} />;
 }
 

@@ -63,13 +63,13 @@ const NAV: Entry[] = [
     label: "Cadastros",
     icon: BookUser,
     children: [
-      { href: "/cadastros?aba=suppliers", label: "Fornecedores" },
-      { href: "/cadastros?aba=customers", label: "Clientes" },
-      { href: "/cadastros?aba=projects", label: "Projetos" },
-      { href: "/cadastros?aba=categories", label: "Plano de contas" },
       { href: "/cadastros?aba=companies", label: "Empresas" },
       { href: "/cadastros?aba=units", label: "Unidades" },
       { href: "/cadastros?aba=costCenters", label: "Centros de custo" },
+      { href: "/cadastros?aba=customers", label: "Clientes" },
+      { href: "/cadastros?aba=suppliers", label: "Fornecedores" },
+      { href: "/cadastros?aba=categories", label: "Plano de contas" },
+      { href: "/cadastros?aba=projects", label: "Projetos" },
       { href: "/cadastros?aba=bankAccounts", label: "Contas bancárias" },
       { href: "/cadastros?aba=paymentMethods", label: "Formas de pagamento" },
     ],
@@ -102,7 +102,7 @@ function isActive(href: string | undefined, pathname: string, aba: string | null
   if (!href) return false;
   const [path, query] = href.split("?");
   if (pathname !== path) return false;
-  return !query || (aba ?? "suppliers") === new URLSearchParams(query).get("aba");
+  return !query || (aba ?? "companies") === new URLSearchParams(query).get("aba");
 }
 
 /** Menu recolhido só tem o ícone: o nome aparece ao passar o mouse e ao focar pelo teclado. */
