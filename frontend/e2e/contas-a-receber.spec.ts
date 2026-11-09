@@ -104,7 +104,7 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   await page.getByRole("dialog").last().getByRole("button", { name: "Estornar" }).click();
   await expect(detail.getByText("Estornado")).toBeVisible();
   await expect(detail.getByText("Estorno", { exact: true })).toBeVisible();
-  await detail.getByRole("tab", { name: "Resumo" }).click();
+  await detail.getByRole("tab", { name: "Detalhes" }).click();
   await expect(detail.getByText("R$ 900,00").last()).toBeVisible();
 });
 
@@ -120,6 +120,16 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   const documentField = await box(form.getByRole("combobox", { name: "Documento", exact: true }));
   expect(grossField.y).toBeGreaterThan(costCenter.y);
   expect(documentField.y).toBeGreaterThan(grossField.y);
+  // A descrição vem logo abaixo do valor líquido, numa caixa de várias linhas, antes do documento
+  const netField = await box(form.getByLabel("Valor líquido"));
+  const description = await box(form.getByLabel("Descrição *"));
+  expect(description.y).toBeGreaterThan(netField.y + netField.height);
+  expect(description.height).toBeGreaterThan(80);
+  expect(documentField.y).toBeGreaterThan(description.y + description.height);
+  // O projeto tem busca, mesmo com poucas opções
+  await form.getByRole("combobox", { name: "Projeto *" }).click();
+  await expect(page.getByLabel("Buscar na lista")).toBeVisible();
+  await page.keyboard.press("Escape");
   await form.getByLabel("Valor principal (R$) *").fill("1.000,00");
   // Os impostos retidos entram pelo botão: uma linha por lançamento, e o líquido aparece na hora
   await form.getByRole("button", { name: "Impostos" }).click();
@@ -293,6 +303,19 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await expect(opened.getByText("(+) Acréscimos")).toBeVisible();
   await expect(opened.getByText("Correção monetária")).toBeVisible();
   await expect(opened.getByText("IR retido")).toBeVisible();
+  // Uma linha de abas com cara de botão, na ordem pedida, abrindo em Detalhes e alinhada à esquerda
+  await expect(opened.getByRole("tab")).toHaveText([
+    "Detalhes",
+    "Editar título",
+    "Recebimentos (0)",
+    "Documentos (0)",
+    "Cancelar título",
+    "Histórico",
+  ]);
+  await expect(opened.getByRole("tab", { name: "Detalhes" })).toHaveAttribute("aria-selected", "true");
+  expect(await opened.getByText("Valor líquido:").evaluate((element) => getComputedStyle(element).textAlign)).toBe("left");
+  await opened.getByRole("tab", { name: /Recebimentos/ }).click();
+  await expect(opened.getByRole("button", { name: "Registrar recebimento" })).toBeVisible();
 
   // Documentos do título: anexar com o tipo, baixar, renomear e tirar com motivo, tudo no histórico
   await opened.getByRole("tab", { name: "Documentos (0)" }).click();
@@ -348,4 +371,20 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await expect(page.getByRole("link", { name: /Contas a pagar/ })).toBeHidden(); // o menu não sai no papel
   await page.emulateMedia({ media: "screen" });
   await expect(page.getByRole("heading", { name: /^Contas a receber · / })).toBeHidden(); // e a folha some da tela
+
+  // Editar e cancelar o título, de dentro das abas
+  await page.getByRole("row", { name: /Receita com ajustes/ }).getByRole("button", { name: "Ver detalhes" }).click();
+  await opened.getByRole("tab", { name: "Editar título" }).click();
+  await opened.getByLabel("Descrição *").fill("Receita com ajustes (revisada)");
+  await opened.getByRole("button", { name: "Salvar alterações" }).click();
+  await expect(page.getByText("Título alterado.")).toBeVisible();
+  await expect(opened.getByRole("heading", { name: "Receita com ajustes (revisada)" })).toBeVisible();
+  await opened.getByRole("tab", { name: "Cancelar título" }).click();
+  await opened.getByRole("button", { name: "Cancelar título" }).click();
+  await expect(opened.getByText("Diga o motivo.")).toBeVisible();
+  await opened.getByLabel("Motivo *").fill("Cliente desistiu");
+  await opened.getByRole("button", { name: "Cancelar título" }).click();
+  await expect(page.getByText("Título cancelado.")).toBeVisible();
+  await expect(opened.getByRole("tab", { name: "Editar título" })).toHaveCount(0);
+  await expect(opened.getByRole("tab", { name: "Cancelar título" })).toHaveCount(0);
 });
