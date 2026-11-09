@@ -179,7 +179,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
 
   // Conta cancelada continua consultável
   await page.getByRole("row", { name: /Aluguel da sala/ }).getByRole("button", { name: "Ver detalhes" }).click();
-  await page.getByRole("button", { name: "Cancelar conta" }).click();
+  await page.getByRole("tab", { name: "Cancelar conta" }).click();
   await page.getByLabel("Motivo").fill("Lançada por engano");
   await page.getByRole("dialog").getByRole("button", { name: "Cancelar conta" }).last().click();
   await expect(page.getByText("Conta cancelada.")).toBeVisible();
@@ -239,7 +239,20 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   // O resumo (valor, pago e pendente) fica acima das abas
   await expect(opened.getByText("falta pagar")).toBeVisible();
   await expect(opened.getByText("0% pago", { exact: true })).toBeVisible();
-  await opened.getByRole("button", { name: "Editar conta" }).click();
+  // Uma linha só, na ordem pedida, abrindo em Detalhes; a baixa se registra dentro da aba Baixas
+  await expect(opened.getByRole("tab")).toHaveText([
+    "Detalhes",
+    "Editar conta",
+    "Baixas (0)",
+    "Documentos (0)",
+    "Cancelar conta",
+    "Histórico",
+  ]);
+  await expect(opened.getByRole("tab", { name: "Detalhes" })).toHaveAttribute("aria-selected", "true");
+  await expect(opened.getByRole("button", { name: "Dar baixa" })).toHaveCount(0);
+  await opened.getByRole("tab", { name: /Baixas/ }).click();
+  await expect(opened.getByRole("button", { name: "Registrar baixa" })).toBeVisible();
+  await opened.getByRole("tab", { name: "Editar conta" }).click();
   // Na edição, os valores vêm depois da classificação e antes do documento
   const editPayment = await box(opened.getByRole("combobox", { name: "Forma de pagamento", exact: true }));
   const editGross = await box(opened.getByLabel("Valor principal (R$)", { exact: true }));
@@ -593,7 +606,7 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await expect(opened.getByText(/ISS retido R\$\s30,00/)).toBeVisible();
 
   // Editar abre com o valor principal (não o líquido) e as linhas já lançadas
-  await opened.getByRole("button", { name: "Editar conta" }).click();
+  await opened.getByRole("tab", { name: "Editar conta" }).click();
   await expect(opened.getByLabel("Valor principal (R$)")).toHaveValue("1000,00");
   await expect(opened.getByLabel("(−) Total de impostos")).toHaveValue(/30,00/);
   // Desconto que zera o valor é barrado na hora

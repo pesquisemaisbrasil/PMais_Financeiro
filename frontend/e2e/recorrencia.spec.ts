@@ -123,12 +123,13 @@ test("a conta aberta mostra a série na aba Repetir e deixa alterar a série e d
   await expect(detail.getByRole("row", { name: /1\/3.*R\$\s200,00/ })).toBeVisible();
 
   // Dar baixa sem sair da conta: o resumo, as Baixas e a série mostram o que foi pago
-  await detail.getByRole("button", { name: "Dar baixa" }).click();
+  await detail.getByRole("tab", { name: /Baixas/ }).click();
+  await detail.getByRole("button", { name: "Registrar baixa" }).click();
   await page.getByRole("dialog").last().getByRole("button", { name: "Confirmar baixa" }).click();
   await expect(page.getByText("Conta paga: Mensalidade do detalhe.")).toBeVisible();
   await expect(detail.getByText("100% pago", { exact: true })).toBeVisible();
   await expect(detail.getByRole("tab", { name: "Baixas (1)" })).toBeVisible();
-  await expect(detail.getByRole("button", { name: "Dar baixa" })).toHaveCount(0);
+  await expect(detail.getByRole("button", { name: "Registrar baixa" })).toHaveCount(0);
   await detail.getByRole("tab", { name: "Repetir (3)" }).click();
   await expect(detail.getByRole("row", { name: /3\/3.*Paga/ })).toBeVisible();
 });
