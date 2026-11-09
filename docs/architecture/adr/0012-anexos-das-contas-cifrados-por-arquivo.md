@@ -28,6 +28,12 @@ O Bruno pediu, em 06/11/2026, anexar documentos às contas a pagar "igual ao sis
   - a camada 2 do handoff/04 (SSE no MinIO via KES);
   - o usuário do bucket restrito ao bucket, que o ADR 0010 prometia para o primeiro upload (o ambiente local usa o administrador do compose);
   - a separação por empresa que a spec pede (hoje um bucket só, com a chave `payable/{id}/...`);
-  - o prazo de guarda e a rotina que apague o que venceu (hoje nada apaga);
-  - anexos no Contas a receber.
+  - o prazo de guarda e a rotina que apague o que venceu (hoje nada apaga).
 - O sistema não lê o conteúdo do arquivo. Uma nota ou RPA que traga CPF o carrega dentro do arquivo cifrado; o campo de CPF continua inexistente no banco.
+
+## Atualização de 09/11/2026
+
+- **Contas a receber usa o mesmo cofre e o mesmo serviço.** `services/attachments.py` passou a trabalhar com um *alvo* (`PAYABLE` ou `RECEIVABLE`): o modelo, a trilha e o prefixo da chave (`payable/{id}/...` ou `receivable/{id}/...`) mudam; a cifra, os limites, a conferência do conteúdo e a remoção lógica são as mesmas. O prefixo entra na verificação da cifra, então um arquivo copiado de uma conta para um título não abre. A tabela `receivable_attachments` repete a `payable_attachments`, e a role do app também não apaga linha dela.
+- **Tipo do documento** (`kind`): metadado simples, sem dado pessoal, para achar a nota ou o boleto. Os que já existiam ficam como `outro`.
+- **Renomear** muda só o nome e o tipo no banco; o arquivo cifrado não é tocado, a extensão é mantida e a trilha guarda o nome antigo e o novo.
+- O que continua de fora é o que a lista acima já dizia: antivírus, camada 2, usuário restrito do bucket, separação por empresa e prazo de guarda.

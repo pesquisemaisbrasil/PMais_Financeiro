@@ -329,6 +329,10 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **`payable_series`** (PF-57): `kind` (`mensal`|`semanal`|`parcelado`), `count`, `startDate`, `estimated`, `created_by_user_id` (SET NULL). `payables.series_id` (RESTRICT, nulo em conta avulsa) e `payables.seriesIndex` ligam cada ocorrência à série.
 
+**`payables.payOn`** (Date, nulo): o "Pagar em", a data prevista de pagamento. Só informa; nada usa para filtrar ou pagar.
+
+**`receivable_attachments`**: igual a `payable_attachments`, com `receivable_id` (RESTRICT) no lugar de `payable_id`; o arquivo vai para a chave `receivable/{id}/...` do mesmo bucket. As duas tabelas têm `kind` (`nota`, `boleto`, `contrato`, `comprovante`, `recibo`, `planilha` ou `outro`, padrão `outro`). A role do app não apaga linha de nenhuma delas.
+
 **`payable_attachments`**: `payable_id` (RESTRICT), `name`, `contentType`, `size`, `fileKey` (único: o nome do objeto no bucket), `fileSha256`, `uploaded_by_user_id` (RESTRICT), `createdAt`, e a remoção lógica `deletedAt`, `deleted_by_user_id` (RESTRICT) e `deletedReason`. O arquivo cifrado mora no bucket, nunca no banco. A role da app não tem `DELETE` nesta tabela.
 
 **`payable_adjustments`** e **`receivable_adjustments`**: acréscimos, descontos e impostos lançados um a um na conta ou no título. `payable_id` / `receivable_id` (CASCADE), `kind` (`acrescimo`, `desconto` ou `imposto`), `description` e `amount` (positivo). O líquido (valor principal + acréscimos − descontos − impostos) não é gravado: sai destas linhas. Quem mexe nas listas troca a lista inteira, e o histórico da conta guarda o antes e o depois dos totais.
