@@ -293,4 +293,40 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await expect(opened.getByText("(+) Acréscimos")).toBeVisible();
   await expect(opened.getByText("Correção monetária")).toBeVisible();
   await expect(opened.getByText("IR retido")).toBeVisible();
+
+  // Documentos do título: anexar com o tipo, baixar, renomear e tirar com motivo, tudo no histórico
+  await opened.getByRole("tab", { name: "Documentos (0)" }).click();
+  await expect(opened.getByText("Nenhum documento anexado ainda.")).toBeVisible();
+  const pdf = Buffer.from("%PDF-1.4\n%nota emitida fictícia do teste\n");
+  await opened.getByRole("combobox", { name: "Tipo do documento" }).click();
+  await page.getByRole("option", { name: "Nota fiscal" }).click();
+  await opened.getByLabel("Anexar documentos").setInputFiles([
+    { name: "nota-emitida.pdf", mimeType: "application/pdf", buffer: pdf },
+    { name: "programa.exe", mimeType: "application/octet-stream", buffer: Buffer.from("MZ") },
+  ]);
+  await expect(page.getByText("Documento anexado.")).toBeVisible();
+  await expect(opened.getByRole("tab", { name: "Documentos (1)" })).toBeVisible();
+  await expect(opened.getByText(/programa\.exe: envie PDF/)).toBeVisible(); // recusado na tela
+  await expect(opened.getByRole("listitem").filter({ hasText: "nota-emitida.pdf" })).toContainText("Nota fiscal");
+  const [saved] = await Promise.all([
+    page.waitForEvent("download"),
+    opened.getByRole("button", { name: "Baixar nota-emitida.pdf" }).click(),
+  ]);
+  expect(saved.suggestedFilename()).toBe("nota-emitida.pdf");
+  expect(await readFile((await saved.path()) as string)).toEqual(pdf);
+  await opened.getByRole("button", { name: "Renomear nota-emitida.pdf" }).click();
+  const rename = page.getByRole("dialog", { name: "Renomear documento" });
+  await rename.getByLabel("Nome do documento").fill("NF 12 emitida");
+  await rename.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Documento atualizado.")).toBeVisible();
+  await opened.getByRole("button", { name: "Tirar NF 12 emitida.pdf do título" }).click();
+  await page.getByRole("dialog", { name: /Tirar o documento/ }).getByLabel("Motivo *").fill("Nota trocada");
+  await page.getByRole("dialog", { name: /Tirar o documento/ }).getByRole("button", { name: "Tirar documento" }).click();
+  await expect(page.getByText("Documento tirado do título.")).toBeVisible();
+  await expect(opened.getByRole("tab", { name: "Documentos (0)" })).toBeVisible();
+  await opened.getByRole("tab", { name: "Histórico" }).click();
+  await expect(opened.getByText("Documento incluído: nota-emitida.pdf")).toBeVisible();
+  await expect(opened.getByText("Documento baixado: nota-emitida.pdf")).toBeVisible();
+  await expect(opened.getByText("Documento renomeado: nota-emitida.pdf → NF 12 emitida.pdf")).toBeVisible();
+  await expect(opened.getByText("Documento removido: NF 12 emitida.pdf — Nota trocada")).toBeVisible();
 });

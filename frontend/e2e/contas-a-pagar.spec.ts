@@ -242,6 +242,8 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await opened.getByRole("tab", { name: /Documentos/ }).click();
   await expect(opened.getByText("Nenhum documento anexado ainda.")).toBeVisible();
   const pdf = Buffer.from("%PDF-1.4\n%nota fiscal fictícia do teste\n");
+  await opened.getByRole("combobox", { name: "Tipo do documento" }).click();
+  await page.getByRole("option", { name: "Nota fiscal" }).click();
   await opened.getByLabel("Anexar documentos").setInputFiles([
     { name: "nota-fiscal.pdf", mimeType: "application/pdf", buffer: pdf },
     { name: "programa.exe", mimeType: "application/octet-stream", buffer: Buffer.from("MZ") },
@@ -249,6 +251,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   ]);
   await expect(page.getByText("Documento anexado.")).toBeVisible();
   await expect(opened.getByRole("tab", { name: "Documentos (1)" })).toBeVisible();
+  await expect(opened.getByRole("listitem").filter({ hasText: "nota-fiscal.pdf" })).toContainText("Nota fiscal");
   await expect(opened.getByText(/programa\.exe: envie PDF/)).toBeVisible(); // recusado na tela
   await expect(opened.getByText(/falso\.pdf: Envie PDF/)).toBeVisible(); // recusado pelo conteúdo, no servidor
   const [saved] = await Promise.all([
@@ -259,15 +262,29 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   expect(await readFile(await saved.path())).toEqual(pdf);
   await opened.getByRole("tab", { name: "Histórico" }).click();
   await expect(opened.getByText("Documento baixado: nota-fiscal.pdf")).toBeVisible();
+  // Renomear e mudar o tipo: o arquivo é o mesmo, a extensão não muda e a trilha guarda os dois
   await opened.getByRole("tab", { name: /Documentos/ }).click();
-  await opened.getByRole("button", { name: "Tirar nota-fiscal.pdf da conta" }).click();
+  await opened.getByRole("button", { name: "Renomear nota-fiscal.pdf" }).click();
+  const rename = page.getByRole("dialog", { name: "Renomear documento" });
+  await rename.getByLabel("Nome do documento").fill("NF 58 março");
+  await rename.getByRole("combobox", { name: "Tipo" }).click();
+  await page.getByRole("option", { name: "Boleto" }).click();
+  await rename.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText("Documento atualizado.")).toBeVisible();
+  await expect(opened.getByRole("listitem").filter({ hasText: "NF 58 março.pdf" })).toContainText("Boleto");
+  await opened.getByRole("tab", { name: "Histórico" }).click();
+  await expect(opened.getByText("Documento renomeado: nota-fiscal.pdf → NF 58 março.pdf")).toBeVisible();
+  await expect(opened.getByText(/Tipo do documento mudou: NF 58 março\.pdf \(Nota fiscal → Boleto\)/)).toBeVisible();
+
+  await opened.getByRole("tab", { name: /Documentos/ }).click();
+  await opened.getByRole("button", { name: "Tirar NF 58 março.pdf da conta" }).click();
   await opened.getByLabel("Motivo").fill("Nota trocada");
   await opened.getByRole("button", { name: "Tirar documento", exact: true }).click();
   await expect(page.getByText("Documento tirado da conta.")).toBeVisible();
   await opened.getByRole("tab", { name: /Documentos/ }).click();
   await expect(opened.getByText("Nenhum documento anexado ainda.")).toBeVisible();
   await opened.getByRole("tab", { name: "Histórico" }).click();
-  await expect(opened.getByText("Documento removido: nota-fiscal.pdf — Nota trocada")).toBeVisible();
+  await expect(opened.getByText("Documento removido: NF 58 março.pdf — Nota trocada")).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(opened).toHaveCount(0);
