@@ -54,8 +54,11 @@ KINDS: dict[str, Kind] = {
         ),
     ),
     "units": Kind(BusinessUnit, "unidade", (Payable.unit_id, Receivable.unit_id)),
+    # tem lançamento, ou tem sub-centro embaixo (parent_id): nos dois casos não se exclui
     "costCenters": Kind(
-        CostCenter, "centro de custo", (Payable.cost_center_id, Receivable.cost_center_id)
+        CostCenter,
+        "centro de custo",
+        (Payable.cost_center_id, Receivable.cost_center_id, CostCenter.parent_id),
     ),
     "bankAccounts": Kind(
         BankAccount,
@@ -99,6 +102,7 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "nickname": getattr(record, "nickname", None),
         "code": getattr(record, "code", None),
         "companyId": getattr(record, "company_id", None),
+        "parentId": getattr(record, "parent_id", None),
         "document": getattr(record, "document", None),
         "personType": getattr(record, "personType", None),
         "contactName": getattr(record, "contactName", None),
@@ -172,18 +176,53 @@ def _company(db: Session, company_id: int | None) -> int:
     return record.id
 
 
+def _next_number(db: Session, key: str) -> int:
+    """O próximo número do contador, travado até o fim da transação (nunca repete nem volta)."""
+    counter = db.query(RecordCounter).filter_by(kind=key).with_for_update().first()
+    if counter is None:
+        counter = RecordCounter(kind=key, lastValue=0)
+        db.add(counter)
+        db.flush()
+    counter.lastValue += 1
+    return int(counter.lastValue)
+
+
+def _cost_center_parent(db: Session, record_id: int | None, parent_id: int | None) -> int | None:
+    """O superior do centro de custo: só um principal ativo. Sem superior, o centro é principal."""
+    if parent_id is None:
+        return None
+    if parent_id == record_id:
+        raise PayableInvalid("Um centro de custo não pode ser superior dele mesmo")
+    parent = db.get(CostCenter, parent_id)
+    if parent is None or not parent.active:
+        raise PayableInvalid("Escolha um centro de custo superior ativo")
+    if parent.parent_id is not None:
+        raise PayableInvalid("O superior precisa ser um centro principal: só há dois níveis")
+    return parent.id
+
+
+def _next_cost_center_code(db: Session, parent_id: int | None) -> str:
+    """Principal: 001, 002... Sub-centro: o código do superior, um ponto e a ordem dentro dele."""
+    if parent_id is None:
+        key, prefix, width = "costCenters", "", 3
+    else:
+        parent = db.get(CostCenter, parent_id)
+        if parent is None or not parent.code:
+            raise PayableInvalid("Esse centro principal ainda não tem código")
+        key, prefix, width = f"costCenters:{parent_id}", f"{parent.code}.", 3
+    while True:
+        code = f"{prefix}{_next_number(db, key):0{width}d}"
+        # um código que já exista (digitado antes do contador) não pode empatar com o novo
+        if not _taken(db, "costCenters", None, CostCenter.code == code):
+            return code
+
+
 def _next_code(db: Session, kind: str) -> str:
     """O próximo código do cadastro: 0001, 0002... Nunca repete nem volta atrás, nem ao excluir.
     O contador fica travado até o fim da transação: dois cadastros ao mesmo tempo não empatam."""
-    counter = db.query(RecordCounter).filter_by(kind=kind).with_for_update().first()
-    if counter is None:
-        counter = RecordCounter(kind=kind, lastValue=0)
-        db.add(counter)
-        db.flush()
     model = KINDS[kind].model
     while True:
-        counter.lastValue += 1
-        code = f"{counter.lastValue:04d}"
+        code = f"{_next_number(db, kind):04d}"
         # um código digitado à mão antes deste contador não pode empatar com o novo
         if not _taken(db, kind, None, model.code == code):
             return code
@@ -233,6 +272,16 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if _taken(db, kind, record_id, same_name, model.company_id == company_id):
             raise PayableConflict(f"Essa empresa já tem {KINDS[kind].one} com esse nome")
         fields["company_id"] = company_id
+    elif kind == "costCenters":
+        parent_id = _cost_center_parent(db, record_id, data.parentId)
+        same_parent = model.parent_id == parent_id if parent_id else model.parent_id.is_(None)
+        if _taken(db, kind, record_id, same_name, same_parent):
+            raise PayableConflict(
+                "Esse superior já tem um centro de custo com esse nome"
+                if parent_id
+                else "Já existe centro de custo com esse nome"
+            )
+        fields["parent_id"] = parent_id
     elif _taken(db, kind, record_id, same_name):
         raise PayableConflict(f"Já existe {KINDS[kind].one} com esse nome")
     elif kind == "companies":
@@ -252,9 +301,14 @@ def create(db: Session, kind: str, data: RecordIn, user: User) -> dict[str, Any]
     if kind in GENERATED_CODE:
         # o código vem do sistema; o que a tela mandar não vale. Depois de criado, nunca muda.
         fields["code"] = _next_code(db, kind)
+    elif kind == "costCenters":
+        fields["code"] = _next_cost_center_code(db, fields["parent_id"])
     record = KINDS[kind].model(**fields)
     db.add(record)
     db.flush()
+    if kind == "costCenters" and record.parent_id is None:
+        # o contador dos sub-centros deste principal já nasce com ele: sem corrida na primeira vez
+        db.add(RecordCounter(kind=f"costCenters:{record.id}", lastValue=0))
     _log(db, kind, record.id, user, f"Cadastrou {record.name}")
     db.commit()
     return _out(record, False)
@@ -264,6 +318,8 @@ def update(db: Session, kind: str, record_id: int, data: RecordIn, user: User) -
     record = _get(db, kind, record_id)
     fields = _fields(db, kind, record_id, data)
     in_use = record_id in _used_ids(db, kind)
+    if kind == "costCenters" and fields["parent_id"] != record.parent_id:
+        raise PayableConflict("O superior não muda depois de cadastrado: o código depende dele")
     if in_use and "company_id" in fields and fields["company_id"] != record.company_id:
         raise PayableConflict("Esse cadastro tem lançamentos — a empresa não pode mudar")
     if in_use and "kind" in fields and fields["kind"] != record.kind:

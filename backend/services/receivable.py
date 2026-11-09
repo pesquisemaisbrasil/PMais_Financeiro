@@ -584,7 +584,7 @@ def detail(db: Session, receivable_id: int) -> dict[str, Any]:
         **row(receivable, today()),
         "company_id": receivable.company_id,
         "unitName": receivable.unit.name,
-        "costCenterName": receivable.cost_center.name,
+        "costCenterName": receivable.cost_center.path,
         "issueDate": receivable.issueDate,
         "competence": receivable.competence,
         "documentDate": receivable.documentDate,

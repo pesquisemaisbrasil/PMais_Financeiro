@@ -258,7 +258,7 @@ def row(payable: Payable, on: date, item_count: int) -> dict[str, Any]:
             for a in payable.allocations
         ],
         "categoryName": payable.category.name,
-        "costCenterName": payable.cost_center.name,
+        "costCenterName": payable.cost_center.path,
         "paymentMethodName": payable.payment_method.name,
         "companyName": payable.company.name,
         "amount": net_amount(payable),
@@ -543,7 +543,7 @@ def _export_table(
                 document,
                 " ".join(f"PRJ-{a.project.code}" for a in p.allocations),
                 p.category.name,
-                p.cost_center.name,
+                p.cost_center.path,
                 p.payment_method.name,
                 p.company.name,
                 SITUATION_LABELS[situation(p, on)],
@@ -1265,7 +1265,7 @@ def _reopen_provisions(db: Session, real: Payable, user: User) -> None:
 
 def _classification(payable: Payable) -> str:
     projects = "+".join(f"PRJ-{a.project.code}" for a in payable.allocations) or "sem projeto"
-    return f"{projects} / {payable.category.name} / {payable.cost_center.name}"
+    return f"{projects} / {payable.category.name} / {payable.cost_center.path}"
 
 
 def reclassify_batch(db: Session, data: BatchReclassify, user: User) -> int:
@@ -1391,7 +1391,12 @@ def reference(db: Session) -> dict[str, Any]:
         "units": [
             {"id": u.id, "name": u.name, "companyId": u.company_id} for u in active(BusinessUnit)
         ],
-        "costCenters": active(CostCenter).all(),
+        "costCenters": [
+            {"id": c.id, "name": c.name, "code": c.code, "parentId": c.parent_id, "label": c.label}
+            for c in sorted(
+                active(CostCenter).all(), key=lambda c: (c.code is None, c.code or "", c.name)
+            )
+        ],
         "categories": db.query(ExpenseCategory)
         .filter(ExpenseCategory.active.is_(True))
         .order_by(ExpenseCategory.code)

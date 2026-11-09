@@ -10,6 +10,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.orm import relationship
 
 from db.connection import Base
 
@@ -57,11 +58,51 @@ class BusinessUnit(Base):
 
 
 class CostCenter(Base):
+    """Centro de custo em dois níveis: o principal (sem superior) e o sub-centro, embaixo de
+    um principal. O código nasce na criação e nunca muda: principal 001, 002...; sub-centro 001.001,
+    001.002... (o do superior, um ponto e a ordem dentro dele)."""
+
     __tablename__ = "cost_centers"
+    __table_args__ = (
+        Index("uq_cost_centers_code", "code", unique=True),
+        # O nome não repete entre os principais, nem dentro do mesmo superior; sub-centros de
+        # superiores diferentes podem ter o mesmo nome (o "Geral" de cada um).
+        Index(
+            "uq_cost_centers_name_root",
+            "name",
+            unique=True,
+            postgresql_where=text("parent_id IS NULL"),
+            sqlite_where=text("parent_id IS NULL"),
+        ),
+        Index(
+            "uq_cost_centers_name_parent",
+            "parent_id",
+            "name",
+            unique=True,
+            postgresql_where=text("parent_id IS NOT NULL"),
+            sqlite_where=text("parent_id IS NOT NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True)
+    code = Column(String(20), nullable=True)
+    parent_id = Column(
+        Integer, ForeignKey("cost_centers.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    name = Column(String(100), nullable=False)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+
+    parent = relationship("CostCenter", remote_side=[id], lazy="joined")
+
+    @property
+    def path(self) -> str:
+        """Como aparece nas listas: o principal pelo nome; o sub-centro com o superior na frente."""
+        return f"{self.parent.name} › {self.name}" if self.parent is not None else self.name
+
+    @property
+    def label(self) -> str:
+        """Nas escolhas: com o código e o caminho (001.001 · Administrativo › Adm_Geral)."""
+        return f"{self.code} · {self.path}" if self.code else self.path
 
 
 class ExpenseCategory(Base):

@@ -417,6 +417,8 @@ def _lookup(db: Session, dim: Dim) -> dict[str, list[Any]]:
         names = [_record_name(dim, record)]
         if dim.key == "category":
             names += [record.code, f"{record.code} {record.name}"]
+        elif dim.key == "center" and record.code:
+            names += [record.code, f"{record.code} {record.name}"]
         for name in dict.fromkeys(names):
             found.setdefault(_folded(name), []).append(record)
     return found

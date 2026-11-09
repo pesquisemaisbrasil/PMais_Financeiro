@@ -295,6 +295,13 @@ class CodeName(BaseModel):
     name: str
 
 
+class CostCenterOut(CodeName):
+    code: str | None
+    parentId: int | None
+    # com o código e o caminho: 001.001 · Administrativo › Adm_Geral
+    label: str
+
+
 class CategoryOut(CodeName):
     code: str
     kind: str
@@ -325,7 +332,7 @@ class ProjectOut(BaseModel):
 class Reference(BaseModel):
     companies: list[CodeName]
     units: list[UnitOut]
-    costCenters: list[CodeName]
+    costCenters: list[CostCenterOut]
     categories: list[CategoryOut]
     paymentMethods: list[CodeName]
     bankAccounts: list[BankAccountOut]
