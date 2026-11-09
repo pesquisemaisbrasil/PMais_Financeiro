@@ -27,6 +27,7 @@ class Company(Base):
             postgresql_where=text("active AND document IS NOT NULL"),
             sqlite_where=text("active AND document IS NOT NULL"),
         ),
+        Index("uq_companies_code", "code", unique=True),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -103,6 +104,7 @@ class Customer(Base):
             postgresql_where=text("active AND document IS NOT NULL"),
             sqlite_where=text("active AND document IS NOT NULL"),
         ),
+        Index("uq_customers_code", "code", unique=True),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -127,6 +129,7 @@ class Supplier(Base):
             postgresql_where=text("active AND document IS NOT NULL"),
             sqlite_where=text("active AND document IS NOT NULL"),
         ),
+        Index("uq_suppliers_code", "code", unique=True),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -156,6 +159,16 @@ class Project(Base):
     projectType = Column(String(40), nullable=True)
     hasIncentive = Column(Boolean, nullable=False, default=False, server_default=false())
     incentiveDays = Column(Integer, nullable=True)
+
+
+class RecordCounter(Base):
+    """Último código gerado de cada cadastro (fornecedor, cliente, empresa). Fica à parte da tabela
+    para o código nunca ser reaproveitado: excluir o último cadastro não devolve o número."""
+
+    __tablename__ = "record_counters"
+
+    kind = Column(String(20), primary_key=True)
+    lastValue = Column(Integer, nullable=False, default=0, server_default="0")
 
 
 class RecordEvent(Base):

@@ -19,6 +19,7 @@ from models.reference import (
     ExpenseCategory,
     PaymentMethod,
     Project,
+    RecordCounter,
     RecordEvent,
     Supplier,
 )
@@ -74,6 +75,8 @@ KINDS: dict[str, Kind] = {
 _ARTICLE = {"suppliers": "um", "customers": "um", "companies": "uma"}
 _ACTIVE = {"suppliers": "ativo", "customers": "ativo", "companies": "ativa"}
 PARTY_KINDS = ("suppliers", "customers", "companies")
+# Estes cadastros têm código gerado pelo sistema (o plano de contas tem o seu, escolhido à mão).
+GENERATED_CODE = PARTY_KINDS
 IN_USE_DETAIL = "Esse cadastro tem lançamentos — inative em vez de excluir"
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 PHONE = re.compile(r"\+\d{2} \d{2} [\d-]{8,10}")
@@ -163,12 +166,21 @@ def _company(db: Session, company_id: int | None) -> int:
     return record.id
 
 
-def _code(model: Any, data: RecordIn) -> str | None:
-    """O código é opcional; quando vem, cabe no campo."""
-    code = _filled(data.code)
-    if code:
-        _check_length(model, "code", code, "O código")
-    return code
+def _next_code(db: Session, kind: str) -> str:
+    """O próximo código do cadastro: 0001, 0002... Nunca repete nem volta atrás, nem ao excluir.
+    O contador fica travado até o fim da transação: dois cadastros ao mesmo tempo não empatam."""
+    counter = db.query(RecordCounter).filter_by(kind=kind).with_for_update().first()
+    if counter is None:
+        counter = RecordCounter(kind=kind, lastValue=0)
+        db.add(counter)
+        db.flush()
+    model = KINDS[kind].model
+    while True:
+        counter.lastValue += 1
+        code = f"{counter.lastValue:04d}"
+        # um código digitado à mão antes deste contador não pode empatar com o novo
+        if not _taken(db, kind, None, model.code == code):
+            return code
 
 
 def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> dict[str, Any]:
@@ -192,7 +204,6 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if phone and not PHONE.fullmatch(phone):
             raise PayableInvalid("Telefone no formato +55 41 99999-0000")
         fields.update(
-            code=_code(model, data),
             nickname=nickname,
             document=_party_document(db, kind, record_id, data.document),
             contactName=_filled(data.contactName),
@@ -222,7 +233,6 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if short_name:
             _check_length(model, "nickname", short_name, "O apelido")
         fields.update(
-            code=_code(model, data),
             nickname=short_name,
             document=_party_document(db, kind, record_id, data.document),
         )
@@ -230,7 +240,11 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
 
 
 def create(db: Session, kind: str, data: RecordIn, user: User) -> dict[str, Any]:
-    record = KINDS[kind].model(**_fields(db, kind, None, data))
+    fields = _fields(db, kind, None, data)
+    if kind in GENERATED_CODE:
+        # o código vem do sistema; o que a tela mandar não vale. Depois de criado, nunca muda.
+        fields["code"] = _next_code(db, kind)
+    record = KINDS[kind].model(**fields)
     db.add(record)
     db.flush()
     _log(db, kind, record.id, user, f"Cadastrou {record.name}")
