@@ -1,6 +1,18 @@
 "use client";
 
-import { Archive, ArchiveRestore, BookUser, Eye, Layers, Pencil, Plus, Search, Trash2, type LucideIcon } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  BookUser,
+  CircleCheck,
+  Eye,
+  Layers,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -612,6 +624,14 @@ function Records({ tab }: { tab: TabId }) {
     [reference, term]
   );
 
+  const totals = useMemo(() => {
+    if (tab === "projects") {
+      const all = reference?.projects ?? [];
+      return reference ? { all: all.length, active: all.filter((p) => p.status !== "encerrado").length } : null;
+    }
+    return rows ? { all: rows.length, active: rows.filter((row) => row.active).length } : null;
+  }, [tab, reference, rows]);
+
   const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
   const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -651,7 +671,7 @@ function Records({ tab }: { tab: TabId }) {
         </div>
       )}
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-[620px]">
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CountCard
           label="Exibindo"
           value={tab === "projects" ? (reference ? projects.length : null) : rows ? shown.length : null}
@@ -661,16 +681,24 @@ function Records({ tab }: { tab: TabId }) {
         />
         <CountCard
           label={`Total de ${current.many}`}
-          value={tab === "projects" ? (reference ? reference.projects.length : null) : rows ? rows.length : null}
-          hint={
-            tab === "projects"
-              ? "vêm do P+ Connect"
-              : rows
-                ? `${rows.filter((row) => row.active).length} ativos · ${rows.filter((row) => !row.active).length} inativos`
-                : ""
-          }
+          value={totals ? totals.all : null}
+          hint={tab === "projects" ? "vêm do P+ Connect" : "ativos e inativos"}
           icon={Layers}
+          tone="roxo"
+        />
+        <CountCard
+          label={tab === "projects" ? "Em andamento" : "Ativos"}
+          value={totals ? totals.active : null}
+          hint={tab === "projects" ? "recebem lançamento" : "aparecem nas listas de escolha"}
+          icon={CircleCheck}
           tone="verde"
+        />
+        <CountCard
+          label={tab === "projects" ? "Encerrados" : "Inativos"}
+          value={totals ? totals.all - totals.active : null}
+          hint={tab === "projects" ? "não recebem lançamento" : "somem das listas, ficam nos relatórios"}
+          icon={Archive}
+          tone="cinza"
         />
       </div>
 
