@@ -46,6 +46,7 @@ from schemas.payable import (
     PaymentCreate,
     PaymentReverse,
     PeriodMode,
+    PrintTable,
     ProvisionReplace,
     ReasonIn,
     RecurringCreate,
@@ -233,6 +234,18 @@ def export_payables(
             "Cache-Control": "no-store",
         },
     )
+
+
+@router.get(
+    "/payables/print",
+    response_model=PrintTable,
+    description="As contas dos filtros, sem paginar, nas colunas que cabem numa folha",
+)
+@limiter.limit(READ_LIMIT)
+def print_payables(
+    request: Request, db: DbSession, _: FinanceUser, params: Params
+) -> dict[str, Any]:
+    return payable_service.print_table(db, **params.values)
 
 
 @router.post(

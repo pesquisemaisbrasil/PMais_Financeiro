@@ -25,6 +25,7 @@ from models.user import User
 from schemas.payable import (
     AttachmentUpdate,
     PeriodMode,
+    PrintTable,
     ReasonIn,
     SeriesCancel,
     SeriesCreated,
@@ -211,6 +212,18 @@ def export_receivables(
             "Cache-Control": "no-store",
         },
     )
+
+
+@router.get(
+    "/receivables/print",
+    response_model=PrintTable,
+    description="Os títulos dos filtros, sem paginar, nas colunas que cabem numa folha",
+)
+@limiter.limit(READ_LIMIT)
+def print_receivables(
+    request: Request, db: DbSession, _: FinanceUser, params: Params
+) -> dict[str, Any]:
+    return receivable_service.print_table(db, **params.values)
 
 
 @router.post(

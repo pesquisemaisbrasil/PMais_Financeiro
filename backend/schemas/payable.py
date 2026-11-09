@@ -508,6 +508,16 @@ class SeriesResult(BaseModel):
     count: int
 
 
+class PrintTable(BaseModel):
+    """O que a impressão mostra: o título com os filtros, as colunas, as linhas e os totais."""
+
+    title: str
+    headers: list[str]
+    rows: list[list[str]]
+    # um por coluna; vazio onde não é dinheiro
+    totals: list[str]
+
+
 class SeriesOccurrence(BaseModel):
     """Uma linha da aba Repetir: a ocorrência da série como está hoje."""
 

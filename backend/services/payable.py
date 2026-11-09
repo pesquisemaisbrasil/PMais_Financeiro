@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, selectinload
 
+from core.print_table import build_print
 from core.query_lists import as_list
 from core.text import format_brl, format_brl_plain, format_date_br, launch_date
 from core.xlsx import build_xlsx
@@ -571,6 +572,17 @@ def _csv_value(value: Any) -> Any:
     if isinstance(value, int):
         return value
     return _csv_cell(str(value))
+
+
+# Vencimento, Fornecedor, Descrição, Documento, Projeto, Situação, Valor líquido, Pago e Pendente
+PRINT_COLUMNS = (0, 1, 2, 3, 4, 9, 14, 15, 16)
+PRINT_MONEY = (14, 15, 16)
+
+
+def print_table(db: Session, **query: Any) -> dict[str, Any]:
+    """Tudo o que os filtros trazem, sem paginar, nas colunas que cabem numa folha."""
+    title, headers, rows = _export_table(db, **query)
+    return build_print(title, headers, rows, PRINT_COLUMNS, PRINT_MONEY)
 
 
 def export_csv(db: Session, **query: Any) -> str:
