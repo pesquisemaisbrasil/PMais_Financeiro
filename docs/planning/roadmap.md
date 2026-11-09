@@ -93,6 +93,7 @@ Com o sistema rodando e as contas fictícias carregadas (`.venv/Scripts/python s
 21. **Imprimir resultados:** ao lado de Exportar, **Imprimir** abre a impressão com **todos** os resultados dos filtros (não só a página), folha deitada, com o total no fim. O menu e os filtros não saem no papel. Vale nas duas telas.
 22. **Nova conta a pagar:** o campo de data se chama **Programação**; a **Descrição** vem abaixo do valor líquido, numa caixa grande (palavra comprida quebra dentro dela); **Forma de pagamento** e **Projeto** têm busca.
 23. **Pagar em:** em **Editar conta**, preencha **Pagar em**. Ele aparece na aba Detalhes e no Histórico, e não muda o vencimento, a lista nem a baixa.
+24. **Título a receber aberto:** a mesma linha de abas da conta a pagar (**Detalhes**, **Editar título**, **Recebimentos**, **Documentos**, **Repetir**, **Cancelar título** e **Histórico**), abrindo em Detalhes, com rótulos e valores à esquerda. **Registrar recebimento** está na aba Recebimentos. Em **Nova conta a receber**, a Descrição vem abaixo do valor líquido, em caixa grande, e o Projeto tem busca.
 
 Para **importar planilha**, use um arquivo fictício, nunca uma planilha real em ambiente de teste. Em **Contas a pagar → Importar planilha**:
 
