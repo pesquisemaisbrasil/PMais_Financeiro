@@ -269,8 +269,14 @@ function RecordDialog({
                   </p>
                 </Field>
                 <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-                  <Field label="Código" id="c-cod">
-                    <Input id="c-cod" {...input("code")} />
+                  <Field label="Código" id="c-cod" hint={record?.code ? undefined : "Gerado ao salvar"}>
+                    <Input
+                      id="c-cod"
+                      disabled
+                      placeholder={record ? "Sem código" : "Automático"}
+                      value={form.code}
+                      readOnly
+                    />
                   </Field>
                   <Field label={isParty ? "Apelido *" : "Apelido"} id="c-apelido">
                     <Input id="c-apelido" {...input("nickname")} />
