@@ -92,6 +92,11 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   const netField = await box(form.getByLabel("Valor líquido"));
   const paste = await box(form.getByText("Colar várias linhas da planilha"));
   const repeat = await box(form.getByLabel("Repetir esta conta"));
+  // A descrição vem logo abaixo do valor líquido, numa caixa de várias linhas, antes da divisão entre projetos
+  const description = await box(form.getByLabel("Descrição *"));
+  expect(description.y).toBeGreaterThan(netField.y + netField.height);
+  expect(description.height).toBeGreaterThan(80);
+  expect(paste.y).toBeGreaterThan(description.y + description.height);
   expect(Math.abs(grossField.x - payment.x)).toBeLessThan(2);
   expect(paste.y).toBeGreaterThan(netField.y + netField.height);
   expect(repeat.y).toBeGreaterThan(paste.y + paste.height);
