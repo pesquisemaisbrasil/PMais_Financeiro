@@ -321,3 +321,90 @@ def test_project_incentive_is_marked_and_logged(
         ).status_code
         == 404
     )
+
+
+# ---- Código, apelido e CNPJ (fornecedor, cliente e empresa do Grupo) ----
+
+
+@pytest.mark.parametrize("kind", ["suppliers", "customers"])
+def test_suppliers_and_customers_keep_an_optional_code(
+    client: TestClient, auth: dict[str, str], kind: str
+) -> None:
+    created = _post(client, auth, kind, **_supplier(code="F-001")).json()
+    assert created["code"] == "F-001"
+    edited = client.patch(
+        f"/records/{kind}/{created['id']}", json=_supplier(code="  "), headers=auth
+    ).json()
+    assert edited["code"] is None
+    # o código passa de 20 letras: o formulário já recusa antes de chegar ao cadastro
+    assert _post(client, auth, kind, **_supplier(name="Outra", code="x" * 21)).status_code == 422
+
+
+def test_a_group_company_keeps_code_nickname_and_cnpj_and_the_old_ones_still_work(
+    client: TestClient, auth: dict[str, str], db_session: Session
+) -> None:
+    db_session.add(Company(name="PPlus"))
+    db_session.commit()
+    old = next(
+        r for r in client.get("/records/companies", headers=auth).json() if r["name"] == "PPlus"
+    )
+    assert (old["code"], old["nickname"], old["document"]) == (None, None, None)
+
+    created = _post(
+        client,
+        auth,
+        "companies",
+        name="PESQUISE MAIS COMERCIO DE PESQUISAS LTDA",
+        nickname="Pesquise+",
+        code="01",
+        document=VALID_CNPJ,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert (body["code"], body["nickname"], body["document"]) == (
+        "01",
+        "Pesquise+",
+        "11222333000181",
+    )
+
+    other = _post(client, auth, "companies", name="Outra empresa", document=OTHER_CNPJ)
+    assert other.status_code == 201
+    assert (other.json()["nickname"], other.json()["code"]) == (None, None)
+
+
+def test_a_group_company_name_can_be_as_long_as_a_legal_name(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    name = "N" * 200
+    assert _post(client, auth, "companies", name=name).status_code == 201
+    too_long = _post(client, auth, "companies", name="N" * 201)
+    assert too_long.status_code == 422
+
+
+def test_a_group_company_never_keeps_a_cpf_a_bad_cnpj_or_a_repeated_one(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    cpf = _post(client, auth, "companies", name="Pessoa", document="123.456.789-09")
+    assert (cpf.status_code, cpf.json()["detail"]) == (
+        422,
+        "Por enquanto, só CNPJ: CPF não é guardado aqui",
+    )
+    bad = _post(client, auth, "companies", name="Errada", document="11222333000182")
+    assert (bad.status_code, bad.json()["detail"]) == (422, "CNPJ inválido. Confira os dígitos")
+
+    first = _post(client, auth, "companies", name="Primeira", document=VALID_CNPJ).json()
+    again = _post(client, auth, "companies", name="Segunda", document=VALID_CNPJ)
+    assert (again.status_code, again.json()["detail"]) == (
+        409,
+        "Já existe uma empresa ativa com esse documento",
+    )
+    # inativa a primeira: a segunda passa, e a primeira não volta enquanto a segunda estiver ativa
+    client.post(f"/records/companies/{first['id']}/active", json={"active": False}, headers=auth)
+    assert _post(client, auth, "companies", name="Segunda", document=VALID_CNPJ).status_code == 201
+    back = client.post(
+        f"/records/companies/{first['id']}/active", json={"active": True}, headers=auth
+    )
+    assert (back.status_code, back.json()["detail"]) == (
+        409,
+        "Já existe uma empresa ativa com esse documento",
+    )
