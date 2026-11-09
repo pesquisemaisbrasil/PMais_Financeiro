@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, Hourglass, Undo2, Wallet } from "lucide-react";
+import { Check, CircleCheck, Hourglass, Pencil, Undo2, Wallet } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AmountSummary } from "@/components/AmountSummary";
@@ -10,7 +10,7 @@ import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
 import { ValuesCard } from "@/components/ValuesCard";
-import { ErrorBox, Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
+import { ErrorBox, Field, FormError, NUM, TAB_BUTTON, TAB_BUTTON_DANGER, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,13 +69,14 @@ import {
 } from "@/lib/receivables";
 import {
   NET_ZERO_MESSAGE,
-  adjustmentTotals,
   draftsFrom,
   netText,
   parseDrafts,
   type AdjustmentDraft,
 } from "@/lib/adjustments";
 import { useFormAction } from "@/lib/use-form-action";
+import { cn } from "@/lib/utils";
+import { ReceivableDetailFields } from "./detail-fields";
 
 const COLORS: Record<ReceivableSituation, "verde" | "azul" | "vermelho" | "ambar" | "cinza"> = {
   recebido: "verde",
@@ -235,6 +236,7 @@ export function NewReceivableDialog({
               <Field label="Projeto *" id="r-proj">
                 <Choice
                   id="r-proj"
+                  searchable
                   value={form.projectId}
                   onChange={set("projectId")}
                   options={reference.projects
@@ -243,9 +245,6 @@ export function NewReceivableDialog({
                 />
               </Field>
             </div>
-            <Field label="Descrição *" id="r-desc">
-              <Input id="r-desc" placeholder="Ex.: Pesquisa de satisfação · 1ª parcela" {...input("description")} />
-            </Field>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Emissão *" id="r-emi">
                 <Input id="r-emi" type="date" {...input("issueDate")} />
@@ -307,6 +306,15 @@ export function NewReceivableDialog({
               drafts={adjustments}
               onChange={setAdjustments}
             />
+            <Field label="Descrição *" id="r-desc">
+              <Textarea
+                id="r-desc"
+                className="min-h-28"
+                maxLength={255}
+                placeholder="Ex.: Pesquisa de satisfação · 1ª parcela"
+                {...input("description")}
+              />
+            </Field>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Documento" id="r-doc">
                 <Choice
@@ -564,9 +572,54 @@ function DeleteDialog({
   );
 }
 
-// ---- Alterar ----
+// ---- Editar e cancelar (dentro das abas do título) ----
 
-function EditDialog({
+/** Motivo para cancelar, na própria aba (o estorno e o documento seguem em janela). */
+function ReasonForm({
+  title,
+  description,
+  confirm,
+  onClose,
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  confirm: string;
+  onClose: () => void;
+  onConfirm: (reason: string) => Promise<void>;
+}) {
+  const { error, submitting, run } = useFormAction();
+  const [reason, setReason] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+      <strong className="text-[13px]">{title}</strong>
+      <p className="text-xs text-muted-foreground">{description}</p>
+      <Field label="Motivo *" id="rs-motivo-aba">
+        <Input id="rs-motivo-aba" value={reason} onChange={(event) => setReason(event.target.value)} />
+      </Field>
+      <FormError message={localError ?? error} />
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" disabled={submitting} onClick={onClose}>
+          Voltar
+        </Button>
+        <Button
+          variant="destructive"
+          disabled={submitting}
+          onClick={() => {
+            if (!reason.trim()) return setLocalError("Diga o motivo.");
+            setLocalError(null);
+            void run(() => onConfirm(reason.trim()));
+          }}
+        >
+          {confirm}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EditForm({
   row,
   onClose,
   onDone,
@@ -611,41 +664,33 @@ function EditDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="sm:max-w-[520px]">
-        <form onSubmit={submit} noValidate>
-          <DialogHeader>
-            <DialogTitle>Alterar título</DialogTitle>
-            <DialogDescription>O valor não pode ficar abaixo do que já foi recebido.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3.5 py-4">
-            <Field label="Descrição *" id="ed-desc">
-              <Input id="ed-desc" {...input("description")} />
-            </Field>
-            <Field label="Vencimento *" id="ed-venc">
-              <Input id="ed-venc" type="date" {...input("dueDate")} />
-            </Field>
-            <ValuesCard
-              grossId="ed-valor"
-              grossLabel="Valor principal (R$) *"
-              gross={form.amount}
-              onGrossChange={(value) => setForm((current) => ({ ...current, amount: value }))}
-              drafts={adjustments}
-              onChange={setAdjustments}
-            />
-            <FormError message={localError ?? error} />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              Salvar alterações
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <form onSubmit={submit} noValidate className="flex flex-col gap-3.5 rounded-xl border border-border p-4">
+      <strong className="text-[13px]">Editar título</strong>
+      <p className="text-xs text-muted-foreground">O valor não pode ficar abaixo do que já foi recebido.</p>
+      <Field label="Descrição *" id="ed-desc">
+        <Input id="ed-desc" {...input("description")} />
+      </Field>
+      <Field label="Vencimento *" id="ed-venc">
+        <Input id="ed-venc" type="date" {...input("dueDate")} />
+      </Field>
+      <ValuesCard
+        grossId="ed-valor"
+        grossLabel="Valor principal (R$) *"
+        gross={form.amount}
+        onGrossChange={(value) => setForm((current) => ({ ...current, amount: value }))}
+        drafts={adjustments}
+        onChange={setAdjustments}
+      />
+      <FormError message={localError ?? error} />
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          Salvar alterações
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -708,9 +753,7 @@ export function DetailDialog({
   const [failure, setFailure] = useState<{ id: number; message: string } | null>(null);
   // Sobe quando a série muda (valor, cancelamento): recarrega o título e a lista da aba Repetir.
   const [version, setVersion] = useState(0);
-  const [tab, setTab] = useState("resumo");
-  const [editing, setEditing] = useState(false);
-  const [canceling, setCanceling] = useState(false);
+  const [tab, setTab] = useState("detalhes");
   const [deleting, setDeleting] = useState(false);
   const [reversing, setReversing] = useState<number | null>(null);
   const [changingSeries, setChangingSeries] = useState<"edit" | "cancel" | null>(null);
@@ -741,7 +784,9 @@ export function DetailDialog({
     onChanged();
   }
 
-  const open = detail && detail.situation !== "cancelado";
+  // Editar e cancelar só existem enquanto o título está ativo; cancelado perde as duas abas.
+  const open = detail !== null && detail.situation !== "cancelado";
+  const shownTab = (tab === "editar" || tab === "cancelar") && !open ? "detalhes" : tab;
   return (
     <Dialog open onOpenChange={(value) => !value && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
@@ -759,60 +804,63 @@ export function DetailDialog({
         )}
         {detail && <ReceivableSummary detail={detail} />}
         {detail && (
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList>
-              <TabsTrigger value="resumo">Resumo</TabsTrigger>
-              <TabsTrigger value="recebimentos">Recebimentos ({detail.payments.length})</TabsTrigger>
-              <TabsTrigger value="documentos">Documentos ({detail.attachments.length})</TabsTrigger>
-              {detail.series && <TabsTrigger value="repetir">Repetir ({detail.series.count})</TabsTrigger>}
-              <TabsTrigger value="historico">Histórico</TabsTrigger>
-            </TabsList>
-            <TabsContent value="resumo" className="flex flex-col gap-3 pt-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <SituationBadge situation={detail.situation} />
-                {daysLateText(detail.daysLate) && (
-                  <span className="text-xs font-semibold text-[#b91c1c]">{daysLateText(detail.daysLate)}</span>
-                )}
-              </div>
-              <dl className="grid gap-x-6 gap-y-2.5 text-[13px] sm:grid-cols-2">
-                {[
-                  ["Valor principal", brl(detail.amount)],
-                  ["(+) Acréscimos", brl(adjustmentTotals(detail.adjustments).acrescimo)],
-                  ["(−) Descontos", brl(adjustmentTotals(detail.adjustments).desconto)],
-                  ["(−) Impostos", brl(adjustmentTotals(detail.adjustments).imposto)],
-                  ["Líquido a receber", brl(detail.net)],
-                  ["Recebido", brl(detail.received)],
-                  ["Pendente", brl(detail.pending)],
-                  ["Vencimento", formatDate(detail.dueDate)],
-                  ["Emissão", formatDate(detail.issueDate)],
-                  ["Competência", detail.competence],
-                  ["Conta de receita", detail.categoryName],
-                  ["Contrato", detail.contract ?? "—"],
-                  ["Documento", `${detail.documentType}${detail.documentNumber ? ` ${detail.documentNumber}` : ""}`],
-                  ["Empresa · unidade", `${detail.companyName} · ${detail.unitName}`],
-                  ["Centro de custo", detail.costCenterName],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <dt className="text-xs text-muted-foreground">{label}</dt>
-                    <dd className="font-medium">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-              {detail.adjustments.length > 0 && (
-                <ul className="flex flex-col gap-1 text-[13px]">
-                  {detail.adjustments.map((item) => (
-                    <li key={item.id} className="flex justify-between gap-3">
-                      <span>
-                        {item.kind === "acrescimo" ? "(+)" : "(−)"} {item.description}
-                      </span>
-                      <span className="tabular-nums">{brl(item.amount)}</span>
-                    </li>
-                  ))}
-                </ul>
+          <Tabs value={shownTab} onValueChange={setTab}>
+            <TabsList className="group-data-[orientation=horizontal]/tabs:h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
+              <TabsTrigger value="detalhes" className={TAB_BUTTON}>
+                Detalhes
+              </TabsTrigger>
+              {open && (
+                <TabsTrigger value="editar" className={TAB_BUTTON}>
+                  <Pencil size={14} />
+                  Editar título
+                </TabsTrigger>
               )}
-              {detail.notes && <p className="rounded-xl bg-muted/60 p-3 text-[13px]">{detail.notes}</p>}
+              <TabsTrigger value="recebimentos" className={TAB_BUTTON}>
+                Recebimentos ({detail.payments.length})
+              </TabsTrigger>
+              <TabsTrigger value="documentos" className={TAB_BUTTON}>
+                Documentos ({detail.attachments.length})
+              </TabsTrigger>
+              {detail.series && (
+                <TabsTrigger value="repetir" className={TAB_BUTTON}>
+                  Repetir ({detail.series.count})
+                </TabsTrigger>
+              )}
+              {open && (
+                <TabsTrigger value="cancelar" className={cn(TAB_BUTTON, TAB_BUTTON_DANGER)}>
+                  Cancelar título
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="historico" className={TAB_BUTTON}>
+                Histórico
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="detalhes" className="pt-3">
+              <ReceivableDetailFields detail={detail} status={<SituationBadge situation={detail.situation} />} />
             </TabsContent>
-            <TabsContent value="recebimentos" className="pt-3">
+            {open && (
+              <TabsContent value="editar" className="pt-3">
+                <EditForm
+                  key={detail.events.length}
+                  row={detail}
+                  onClose={() => setTab("detalhes")}
+                  onDone={(next) => {
+                    apply(next);
+                    toast.success("Título alterado.");
+                    setTab("detalhes");
+                  }}
+                />
+              </TabsContent>
+            )}
+            <TabsContent value="recebimentos" className="flex flex-col gap-3 pt-3">
+              {detail.canReceive && (
+                <div className="flex">
+                  <Button size="sm" onClick={() => onReceive(detail)}>
+                    <Check size={14} />
+                    Registrar recebimento
+                  </Button>
+                </div>
+              )}
               {detail.payments.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">Nenhum recebimento ainda.</p>
               ) : (
@@ -902,6 +950,22 @@ export function DetailDialog({
                 />
               </TabsContent>
             )}
+            {open && (
+              <TabsContent value="cancelar" className="pt-3">
+                <ReasonForm
+                  title="Cancelar título"
+                  description="O título sai dos totais e fica no histórico. Quem tem recebimento precisa de estorno antes."
+                  confirm="Cancelar título"
+                  onClose={() => setTab("detalhes")}
+                  onConfirm={async (reason) => {
+                    const next = await cancelReceivable(detail.id, reason);
+                    apply(next);
+                    toast.success("Título cancelado.");
+                    setTab("detalhes");
+                  }}
+                />
+              </TabsContent>
+            )}
             <TabsContent value="historico" className="pt-3">
               <ul className="flex flex-col gap-2 text-[13px]">
                 {detail.events.map((event, index) => (
@@ -918,52 +982,13 @@ export function DetailDialog({
         )}
         {detail && (
           <DialogFooter className="flex-wrap sm:justify-between">
-            <div className="flex flex-wrap gap-2">
-              {open && (
-                <Button variant="outline" onClick={() => setEditing(true)}>
-                  Alterar
-                </Button>
-              )}
-              {open && (
-                <Button variant="outline" onClick={() => setCanceling(true)}>
-                  Cancelar título
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setDeleting(true)}>
-                Excluir
-              </Button>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose}>
-                Fechar
-              </Button>
-              {detail.canReceive && <Button onClick={() => onReceive(detail)}>Receber</Button>}
-            </div>
+            <Button variant="outline" onClick={() => setDeleting(true)}>
+              Excluir
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Fechar
+            </Button>
           </DialogFooter>
-        )}
-        {detail && editing && (
-          <EditDialog
-            row={detail}
-            onClose={() => setEditing(false)}
-            onDone={(next) => {
-              setEditing(false);
-              apply(next);
-            }}
-          />
-        )}
-        {detail && canceling && (
-          <ReasonDialog
-            title="Cancelar título"
-            description="O título sai dos totais e fica no histórico. Quem tem recebimento precisa de estorno antes."
-            confirm="Cancelar título"
-            destructive
-            onClose={() => setCanceling(false)}
-            onConfirm={async (reason) => {
-              const next = await cancelReceivable(detail.id, reason);
-              setCanceling(false);
-              apply(next);
-            }}
-          />
         )}
         {detail && reversing !== null && (
           <ReasonDialog

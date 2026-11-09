@@ -169,3 +169,10 @@ export function FormError({ message }: { message: string | null }) {
     </Alert>
   );
 }
+
+// As abas da conta e do título têm cara de botão: separadas, com contorno, sobem um pouco ao passar o
+// mouse, e a escolhida fica na cor da marca. As classes ficam inteiras: o Tailwind não enxerga nome montado.
+export const TAB_BUTTON =
+  "h-9 flex-none gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground/70 shadow-[0_1px_2px_rgb(15_23_42/.06)] transition-all duration-150 hover:-translate-y-px hover:border-brand-azul-deep/40 hover:bg-accent hover:text-brand-azul-deep hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0 data-[state=active]:border-transparent data-[state=active]:bg-brand-azul-deep data-[state=active]:text-white";
+export const TAB_BUTTON_DANGER =
+  "border-red-200 text-[#b91c1c] hover:border-red-300 hover:bg-red-50 hover:text-[#b91c1c] data-[state=active]:bg-[#b91c1c] data-[state=active]:text-white";

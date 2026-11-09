@@ -4,7 +4,20 @@ import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Rep
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
-import { ErrorBox, Field, FormError, NUM, OriginTag, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
+import {
+  ErrorBox,
+  Field,
+  FormError,
+  NUM,
+  OriginTag,
+  ProvisionTag,
+  SituationTag,
+  TAB_BUTTON,
+  TAB_BUTTON_DANGER,
+  TD,
+  TH,
+  Tag,
+} from "@/components/finance";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -92,13 +105,6 @@ const NO_PROJECT = "sem-projeto";
 const KEEP = "nao-mudar";
 const NEW_REAL = "novo";
 const NO_ACCOUNT_HINT = "Esta empresa não tem conta bancária cadastrada.";
-
-// As abas da conta têm cara de botão: separadas, com contorno, sobem um pouco ao passar o mouse, e a
-// escolhida fica na cor da marca. As classes ficam inteiras: o Tailwind não enxerga nome montado.
-const TAB_BUTTON =
-  "h-9 flex-none gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground/70 shadow-[0_1px_2px_rgb(15_23_42/.06)] transition-all duration-150 hover:-translate-y-px hover:border-brand-azul-deep/40 hover:bg-accent hover:text-brand-azul-deep hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0 data-[state=active]:border-transparent data-[state=active]:bg-brand-azul-deep data-[state=active]:text-white";
-const TAB_BUTTON_DANGER =
-  "border-red-200 text-[#b91c1c] hover:border-red-300 hover:bg-red-50 hover:text-[#b91c1c] data-[state=active]:bg-[#b91c1c] data-[state=active]:text-white";
 
 export function NewPayableDialog({
   reference,
