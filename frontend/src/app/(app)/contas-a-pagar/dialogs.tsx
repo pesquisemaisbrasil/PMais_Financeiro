@@ -93,6 +93,13 @@ const KEEP = "nao-mudar";
 const NEW_REAL = "novo";
 const NO_ACCOUNT_HINT = "Esta empresa não tem conta bancária cadastrada.";
 
+// As abas da conta têm cara de botão: separadas, com contorno, sobem um pouco ao passar o mouse, e a
+// escolhida fica na cor da marca. As classes ficam inteiras: o Tailwind não enxerga nome montado.
+const TAB_BUTTON =
+  "h-9 flex-none gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground/70 shadow-[0_1px_2px_rgb(15_23_42/.06)] transition-all duration-150 hover:-translate-y-px hover:border-brand-azul-deep/40 hover:bg-accent hover:text-brand-azul-deep hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0 data-[state=active]:border-transparent data-[state=active]:bg-brand-azul-deep data-[state=active]:text-white";
+const TAB_BUTTON_DANGER =
+  "border-red-200 text-[#b91c1c] hover:border-red-300 hover:bg-red-50 hover:text-[#b91c1c] data-[state=active]:bg-[#b91c1c] data-[state=active]:text-white";
+
 export function NewPayableDialog({
   reference,
   today,
@@ -1315,24 +1322,24 @@ export function DetailDialog({
               </div>
             )}
             <Tabs value={shownTab} onValueChange={setTab}>
-              <TabsList className="group-data-[orientation=horizontal]/tabs:h-auto flex-wrap justify-start">
-                <TabsTrigger value="detalhes">Detalhes</TabsTrigger>
+              <TabsList className="group-data-[orientation=horizontal]/tabs:h-auto flex-wrap justify-start gap-2 bg-transparent p-0">
+                <TabsTrigger value="detalhes" className={TAB_BUTTON}>Detalhes</TabsTrigger>
                 {canEdit && (
-                  <TabsTrigger value="editar">
+                  <TabsTrigger value="editar" className={TAB_BUTTON}>
                     <Pencil size={14} />
                     Editar conta
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="baixas">Baixas ({payable.payments.length})</TabsTrigger>
-                <TabsTrigger value="documentos">Documentos ({payable.attachments.length})</TabsTrigger>
-                {payable.items.length > 0 && <TabsTrigger value="itens">Itens ({payable.items.length})</TabsTrigger>}
-                {payable.series && <TabsTrigger value="repetir">Repetir ({payable.series.count})</TabsTrigger>}
+                <TabsTrigger value="baixas" className={TAB_BUTTON}>Baixas ({payable.payments.length})</TabsTrigger>
+                <TabsTrigger value="documentos" className={TAB_BUTTON}>Documentos ({payable.attachments.length})</TabsTrigger>
+                {payable.items.length > 0 && <TabsTrigger value="itens" className={TAB_BUTTON}>Itens ({payable.items.length})</TabsTrigger>}
+                {payable.series && <TabsTrigger value="repetir" className={TAB_BUTTON}>Repetir ({payable.series.count})</TabsTrigger>}
                 {canCancel && (
-                  <TabsTrigger value="cancelar" className="text-[#b91c1c] data-[state=active]:text-[#b91c1c]">
+                  <TabsTrigger value="cancelar" className={cn(TAB_BUTTON, TAB_BUTTON_DANGER)}>
                     Cancelar conta
                   </TabsTrigger>
                 )}
-                <TabsTrigger value="historico">Histórico</TabsTrigger>
+                <TabsTrigger value="historico" className={TAB_BUTTON}>Histórico</TabsTrigger>
               </TabsList>
               <TabsContent value="detalhes" className="pt-3">
                 <DetailFields payable={payable} />
