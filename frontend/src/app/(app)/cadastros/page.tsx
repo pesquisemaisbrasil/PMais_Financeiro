@@ -1,10 +1,11 @@
 "use client";
 
-import { Archive, ArchiveRestore, BookUser, Pencil, Plus, Search, Trash2, type LucideIcon } from "lucide-react";
+import { Archive, ArchiveRestore, BookUser, Eye, Layers, Pencil, Plus, Search, Trash2, type LucideIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
+import { TONES, type IndicatorTone } from "@/components/IndicatorCard";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,21 +47,56 @@ import { cn } from "@/lib/utils";
 
 type TabId = RecordKind | "projects";
 
-const TABS: { id: TabId; label: string; one: string; create?: string }[] = [
-  { id: "suppliers", label: "Fornecedores", one: "fornecedor", create: "Novo fornecedor" },
-  { id: "customers", label: "Clientes", one: "cliente", create: "Novo cliente" },
-  { id: "categories", label: "Plano de contas", one: "conta", create: "Nova conta" },
-  { id: "companies", label: "Empresas", one: "empresa", create: "Nova empresa" },
-  { id: "units", label: "Unidades", one: "unidade", create: "Nova unidade" },
-  { id: "costCenters", label: "Centros de custo", one: "centro de custo", create: "Novo centro de custo" },
-  { id: "bankAccounts", label: "Contas bancárias", one: "conta bancária", create: "Nova conta bancária" },
-  { id: "paymentMethods", label: "Formas de pagamento", one: "forma de pagamento", create: "Nova forma" },
-  { id: "projects", label: "Projetos (Connect)", one: "projeto" },
+const TABS: { id: TabId; label: string; one: string; many: string; create?: string }[] = [
+  { id: "suppliers", label: "Fornecedores", one: "fornecedor", many: "fornecedores", create: "Novo fornecedor" },
+  { id: "customers", label: "Clientes", one: "cliente", many: "clientes", create: "Novo cliente" },
+  { id: "categories", label: "Plano de contas", one: "conta", many: "contas do plano", create: "Nova conta" },
+  { id: "companies", label: "Empresas", one: "empresa", many: "empresas", create: "Nova empresa" },
+  { id: "units", label: "Unidades", one: "unidade", many: "unidades", create: "Nova unidade" },
+  { id: "costCenters", label: "Centros de custo", one: "centro de custo", many: "centros de custo", create: "Novo centro de custo" },
+  { id: "bankAccounts", label: "Contas bancárias", one: "conta bancária", many: "contas bancárias", create: "Nova conta bancária" },
+  { id: "paymentMethods", label: "Formas de pagamento", one: "forma de pagamento", many: "formas de pagamento", create: "Nova forma" },
+  { id: "projects", label: "Projetos (Connect)", one: "projeto", many: "projetos" },
 ];
 
 const PAGE_SIZE = 25;
 const PROJECT_TYPES = ["Health", "CATI", "Consumo", "Outro"];
 const NO_TYPE = "sem-tipo";
+
+/** Um total no alto da aba: o que a busca está mostrando e quantos cadastros a aba tem ao todo. */
+function CountCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: number | null;
+  hint: string;
+  icon: LucideIcon;
+  tone: IndicatorTone;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-xl px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/.06)]",
+        TONES[tone].idle
+      )}
+    >
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <span className="text-2xl font-semibold tabular-nums">{value ?? "—"}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      </div>
+      <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", TONES[tone].chip)}>
+        <Icon size={18} aria-hidden="true" />
+      </span>
+    </div>
+  );
+}
 
 function RowButton({ icon: Icon, label, onClick }: { icon: LucideIcon; label: string; onClick: () => void }) {
   return (
@@ -567,6 +603,29 @@ function Records({ tab }: { tab: TabId }) {
           <ErrorBox message={error} onRetry={load} />
         </div>
       )}
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:max-w-[620px]">
+        <CountCard
+          label="Exibindo"
+          value={tab === "projects" ? (reference ? projects.length : null) : rows ? shown.length : null}
+          hint={term ? "na busca de agora" : "sem busca: todos"}
+          icon={Eye}
+          tone="azul"
+        />
+        <CountCard
+          label={`Total de ${current.many}`}
+          value={tab === "projects" ? (reference ? reference.projects.length : null) : rows ? rows.length : null}
+          hint={
+            tab === "projects"
+              ? "vêm do P+ Connect"
+              : rows
+                ? `${rows.filter((row) => row.active).length} ativos · ${rows.filter((row) => !row.active).length} inativos`
+                : ""
+          }
+          icon={Layers}
+          tone="verde"
+        />
+      </div>
 
       <div className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
