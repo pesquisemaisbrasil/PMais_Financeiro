@@ -44,8 +44,11 @@ class Company(Base):
 
 class BusinessUnit(Base):
     __tablename__ = "business_units"
+    __table_args__ = (Index("uq_business_units_code", "code", unique=True),)
 
     id = Column(Integer, primary_key=True, index=True)
+    # Gerado na criação (0001, 0002...), único e nunca reaproveitado: ver RecordCounter.
+    code = Column(String(20), nullable=True)
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True
     )

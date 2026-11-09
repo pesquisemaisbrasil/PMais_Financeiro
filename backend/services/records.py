@@ -75,8 +75,9 @@ KINDS: dict[str, Kind] = {
 _ARTICLE = {"suppliers": "um", "customers": "um", "companies": "uma"}
 _ACTIVE = {"suppliers": "ativo", "customers": "ativo", "companies": "ativa"}
 PARTY_KINDS = ("suppliers", "customers", "companies")
-# Estes cadastros têm código gerado pelo sistema (o plano de contas tem o seu, escolhido à mão).
-GENERATED_CODE = PARTY_KINDS
+# Estes cadastros têm código gerado pelo sistema (o plano de contas tem o seu, escolhido à mão;
+# os outros ainda não têm código).
+GENERATED_CODE = (*PARTY_KINDS, "units")
 IN_USE_DETAIL = "Esse cadastro tem lançamentos — inative em vez de excluir"
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 PHONE = re.compile(r"\+\d{2} \d{2} [\d-]{8,10}")
