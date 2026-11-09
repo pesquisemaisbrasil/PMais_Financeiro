@@ -249,11 +249,15 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await opened.getByLabel("Observações").fill("Combinado por telefone");
   // Documentação que chegou menos de 3 dias antes do vencimento (a conta vence hoje) vira aviso na conta
   await opened.getByLabel("Documentação recebida em").fill(today);
+  // "Pagar em": a data prevista de pagamento, só para informar
+  await opened.getByLabel("Pagar em", { exact: true }).fill(addDays(today, 3));
   await opened.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("Conta alterada.")).toBeVisible();
   await expect(opened.getByText("Documentação atrasada")).toBeVisible();
+  await expect(opened.getByText("Pagar em:")).toBeVisible();
   await opened.getByRole("tab", { name: "Histórico" }).click();
   await expect(opened.getByText(/observações alteradas/)).toBeVisible();
+  await expect(opened.getByText(/pagar em — → \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
 
   // Documentos: anexar, baixar o mesmo arquivo, recusar o que não é permitido e tirar com motivo
   await opened.getByRole("tab", { name: /Documentos/ }).click();
