@@ -118,6 +118,7 @@ def listing(client: TestClient, auth: dict[str, str], **params: Any) -> Any:
         ("post", "/receivables/1/receipts/1/reverse"),
         ("post", "/receivables/1/cancel"),
         ("delete", "/receivables/1"),
+        ("get", "/receivables/print"),
         ("get", "/receivables/1/series"),
         ("post", "/receivables/1/attachments"),
         ("get", "/receivables/1/attachments/1/download"),
@@ -956,3 +957,48 @@ def test_an_account_in_use_cannot_change_from_revenue_to_expense(
         response.json()["detail"]
         == "Essa conta tem lançamentos — o tipo (despesa ou receita) não pode mudar"
     )
+
+
+# ---- Imprimir resultados ----
+
+
+def test_print_brings_all_titles_in_the_columns_that_fit_a_page_with_totals(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    create(client, auth, world, dueDate=days(-5), amount="1000.00", adjustments=tax("100.00"))
+    create(client, auth, world, dueDate=days(9), amount="500.00")
+    response = client.get("/receivables/print?mode=tudo", headers=auth)
+    assert response.status_code == 200
+    table = response.json()
+    assert table["title"].startswith("Contas a receber · todo o período por vencimento")
+    assert table["headers"] == [
+        "Vencimento",
+        "Cliente",
+        "Descrição",
+        "Documento",
+        "Projeto",
+        "Situação",
+        "Líquido",
+        "Recebido",
+        "Pendente",
+    ]
+    assert sorted(row[6] for row in table["rows"]) == ["500,00", "900,00"]
+    assert {row[4] for row in table["rows"]} == {"PRJ-1804"}
+    assert table["totals"] == ["", "", "", "", "", "", "1.400,00", "0,00", "1.400,00"]
+
+
+def test_print_follows_the_filters_and_a_reader_cannot_print(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    make_user: Callable[..., User],
+) -> None:
+    create(client, auth, world, description="Parcela de março", dueDate=days(2))
+    create(client, auth, world, description="Parcela de abril", dueDate=days(3))
+    table = client.get("/receivables/print?mode=tudo&search=abril", headers=auth).json()
+    assert [row[2] for row in table["rows"]] == ["Parcela de abril"]
+    assert "busca: abril" in table["title"]
+
+    other = make_user(email="leitor@exemplo.com", role="leitor")
+    headers = {"Authorization": f"Bearer {create_access_token(other.id)}"}
+    assert client.get("/receivables/print", headers=headers).status_code == 403

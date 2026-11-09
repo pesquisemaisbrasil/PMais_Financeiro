@@ -136,6 +136,7 @@ def create(
         ("post", "/payables/batch/reclassify"),
         ("post", "/payables/batch/duplicate"),
         ("get", "/payables/export"),
+        ("get", "/payables/print"),
         ("post", "/payables/1/replace"),
         ("patch", "/payables/1"),
         ("post", "/payables/1/cancel"),
@@ -167,6 +168,7 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables/batch/reclassify"),
         ("post", "/payables/batch/duplicate"),
         ("get", "/payables/export"),
+        ("get", "/payables/print"),
         ("post", "/payables/1/replace"),
         ("patch", "/payables/1"),
         ("post", "/payables/1/cancel"),
@@ -2967,3 +2969,65 @@ def test_a_removed_or_foreign_document_cannot_be_renamed(
     assert (gone.status_code, gone.json()["detail"]) == (404, "Documento não encontrado")
     missing = client.patch("/payables/99999/attachments/1", json={"name": "x"}, headers=auth)
     assert (missing.status_code, missing.json()["detail"]) == (404, "Conta não encontrada")
+
+
+# ---- Imprimir resultados ----
+
+
+def test_print_brings_all_filtered_rows_in_the_columns_that_fit_a_page_with_totals(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    for value in range(1, 15):  # 14 contas: mais que uma página da lista
+        create(client, auth, world, amount=f"{value}.00")
+    response = client.get(f"/payables/print?supplier={world['supplier'].id}", headers=auth)
+    assert response.status_code == 200
+    table = response.json()
+    assert "fornecedor=Gráfica Ponto Certo" in table["title"]
+    assert table["headers"] == [
+        "Vencimento",
+        "Fornecedor",
+        "Descrição",
+        "Documento",
+        "Projeto",
+        "Situação",
+        "Valor líquido",
+        "Pago",
+        "Pendente",
+    ]
+    assert len(table["rows"]) == 14
+    first = table["rows"][0]
+    assert first[0] == today().strftime("%d/%m/%Y")
+    assert first[5:] == ["Vence hoje", "1,00", "0,00", "1,00"]
+    assert table["totals"] == ["", "", "", "", "", "", "105,00", "0,00", "105,00"]
+
+
+def test_print_follows_the_filters_and_shows_net_paid_and_pending(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    paid = create(
+        client,
+        auth,
+        world,
+        description="Aluguel da sala",
+        amount="1000.00",
+        adjustments=[{"kind": "desconto", "description": "Pontualidade", "amount": "100.00"}],
+    )
+    client.post(
+        f"/payables/{paid['id']}/payments", json=payment(world, amount="300.00"), headers=auth
+    )
+    create(client, auth, world, description="Outra conta", amount="50.00")
+
+    table = client.get("/payables/print?search=aluguel", headers=auth).json()
+
+    assert "busca: aluguel" in table["title"]
+    assert [row[2] for row in table["rows"]] == ["Aluguel da sala"]
+    assert table["rows"][0][6:] == ["900,00", "300,00", "600,00"]
+    assert table["totals"][6:] == ["900,00", "300,00", "600,00"]
+
+
+def test_print_with_no_result_has_no_rows_and_zeroed_totals(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    table = client.get("/payables/print?search=nada-assim-existe", headers=auth).json()
+    assert table["rows"] == []
+    assert table["totals"][6:] == ["0,00", "0,00", "0,00"]
