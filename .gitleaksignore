@@ -6,3 +6,10 @@
 bd0fccb670cb22d4a41c28d1b8ca1b5e36d4616d:docs/handoff/07-integracao-com-o-connect.md:generic-api-key:79
 # Chave fictícia, só de teste, no conftest.
 dfbdb9f6549a730f71aa9d56863d8963b42eea6f:backend/tests/conftest.py:generic-api-key:4
+# Chaves fictícias, só de teste: a PIX_SECRET_KEY do CI e do E2E entrou sem o gitleaks:allow no commit
+# e392d385 (o e4858bb0 marcou depois, mas o histórico continua sendo varrido); a senha do MinIO local
+# é o valor de exemplo do docker-compose.
+e392d385884b30c516c5b3c6aab176aacb6036b2:.github/workflows/tests.yml:generic-api-key:32
+e392d385884b30c516c5b3c6aab176aacb6036b2:.github/workflows/tests.yml:generic-api-key:67
+e392d385884b30c516c5b3c6aab176aacb6036b2:frontend/playwright.config.ts:generic-api-key:30
+ecfa49a70f49ef5da4306c1fb026f19aa04acb96:docker-compose.yml:generic-api-key:30
