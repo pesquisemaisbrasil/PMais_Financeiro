@@ -184,6 +184,21 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await expect(again.getByRole("alert")).toContainText("Já existe uma empresa ativa com esse documento");
   await again.getByRole("button", { name: "Cancelar" }).click();
 
+  // Os cabeçalhos ordenam (um clique ordena, o seguinte inverte) e o sub-centro fica embaixo do principal
+  await page.goto("/cadastros?aba=costCenters");
+  const rowsOf = () => page.getByRole("row").filter({ has: page.getByRole("button", { name: /^Editar / }) });
+  const nameHeader = page.getByRole("columnheader", { name: "Nome" });
+  await nameHeader.getByRole("button").click();
+  await expect(nameHeader).toHaveAttribute("aria-sort", "ascending");
+  await expect(rowsOf().first()).toContainText("Administrativo");
+  await nameHeader.getByRole("button").click();
+  await expect(nameHeader).toHaveAttribute("aria-sort", "descending");
+  await expect(rowsOf().first()).toContainText("Tecnologia");
+  const ordered = await rowsOf().allInnerTexts();
+  const principalAt = ordered.findIndex((text) => text.includes("Centro do teste de cadastros"));
+  expect(principalAt).toBeGreaterThanOrEqual(0);
+  expect(ordered[principalAt + 1]).toContain("Sub do teste");
+
   // Nas escolhas dos lançamentos, o centro de custo vem com o código e o caminho
   await page.goto("/contas-a-pagar");
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
