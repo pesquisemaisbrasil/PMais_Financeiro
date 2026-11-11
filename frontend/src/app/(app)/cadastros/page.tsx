@@ -34,8 +34,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -520,28 +518,28 @@ function RecordDialog({
                     </Field>
                   ) : (
                     <>
-                      <RadioGroup
-                        aria-label="Tipo de centro de custo"
-                        value={subCenter ? "sub" : "principal"}
-                        onValueChange={(value) => {
-                          setSubCenter(value === "sub");
-                          if (value !== "sub") setForm((current) => ({ ...current, parentId: "" }));
-                        }}
-                        className="gap-2.5"
+                      <Field
+                        label="Tipo"
+                        id="c-nivel"
+                        hint={
+                          subCenter
+                            ? "Fica embaixo de um centro principal e leva o código dele: 001.001, 001.002…"
+                            : "Agrupa outros centros. O código é gerado: 001, 002…"
+                        }
                       >
-                        {[
-                          { id: "principal", label: "Centro principal", hint: "Agrupa outros centros. Código 001, 002…" },
-                          { id: "sub", label: "Sub-centro", hint: "Fica embaixo de um centro principal. Código 001.001, 001.002…" },
-                        ].map((option) => (
-                          <div key={option.id} className="flex items-start gap-2.5">
-                            <RadioGroupItem value={option.id} id={`c-nivel-${option.id}`} className="mt-0.5" />
-                            <Label htmlFor={`c-nivel-${option.id}`} className="flex flex-col gap-0.5 font-normal">
-                              <span className="font-semibold">{option.label}</span>
-                              <span className="text-xs text-muted-foreground">{option.hint}</span>
-                            </Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
+                        <SearchSelect
+                          id="c-nivel"
+                          value={subCenter ? "sub" : "principal"}
+                          onChange={(value) => {
+                            setSubCenter(value === "sub");
+                            if (value !== "sub") setForm((current) => ({ ...current, parentId: "" }));
+                          }}
+                          options={[
+                            { id: "principal", label: "Centro principal" },
+                            { id: "sub", label: "Sub-centro" },
+                          ]}
+                        />
+                      </Field>
                       {subCenter && (
                         <Field
                           label="Superior *"
