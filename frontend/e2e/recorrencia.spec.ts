@@ -35,6 +35,16 @@ test("repetir uma conta, ajustar a tabela, alterar e cancelar a série", async (
   await expect(form.getByLabel("Vencimento da ocorrência 2")).toHaveValue("2027-03-01");
   await expect(form.getByLabel("Vencimento da ocorrência 3")).toHaveValue("2027-03-31");
 
+  // Mudar o valor depois de simular tira a tabela (ela mostraria um total que não vai ser lançado)
+  await form.getByLabel("Valor principal (R$) *").fill("200,00");
+  await expect(form.getByText("O valor ou o vencimento mudou depois de simular.")).toBeVisible();
+  await expect(form.getByLabel("Valor da ocorrência 2")).toHaveCount(0);
+  await form.getByRole("button", { name: "Lançar conta" }).click();
+  await expect(form.getByText("Clique em Simular para conferir as ocorrências antes de salvar.")).toBeVisible();
+  // voltando ao valor simulado, a tabela volta a valer
+  await form.getByLabel("Valor principal (R$) *").fill("150,00");
+  await expect(form.getByLabel("Valor da ocorrência 2")).toHaveValue("150.00");
+
   // A tabela é editável: o valor da 2ª muda antes de salvar
   await form.getByLabel("Valor da ocorrência 2").fill("163.40");
   await form.getByRole("button", { name: "Lançar conta" }).click();
