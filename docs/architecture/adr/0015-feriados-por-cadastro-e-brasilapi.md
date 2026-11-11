@@ -23,5 +23,6 @@ O Bruno perguntou, em 11/11/2026, se existe API de feriados e escolheu **BrasilA
 - O **Carnaval** passa a ser dia não útil nos anos buscados (a tabela do código não o tinha), o que muda vencimentos de recorrência nesses dois dias. Por isso a Q42 pede a confirmação da Vivi.
 - Feriado cadastrado vale para o **sistema todo**: ainda não há feriado por unidade ou cidade (Q42).
 - Excluir um feriado da BrasilAPI não o apaga para sempre: ele volta se o ano for buscado de novo.
+- **Aviso na hora de lançar:** o servidor também responde `GET /business-days/check?date=` (dia útil? motivo, dia útil anterior e próximo), e a tela usa isso para avisar, embaixo do vencimento, "é sábado / é feriado: Nome", com **Antecipar**, **Postergar** ou **Manter**. A decisão de qual dia usar é sempre da pessoa; só a data que vem pronta numa planilha de incentivos vai sozinha para o próximo dia útil, com aviso na prévia.
 - Mais uma dependência externa, só de leitura e só sob demanda. Sem agendamento: quem busca é a pessoa, uma vez por ano. (`shortcut`: busca automática quando o volume pedir.)
 - Alternativas descartadas: **Nager.Date** e **Calendarific** (também só nacionais, e o Calendarific exige chave); calcular os feriados móveis no código (não cobre o que o governo decreta, como ponto facultativo).
