@@ -133,7 +133,7 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### Com a Vivi
 
-- **Q21:** provisão conta em "Hoje" e "Vencidos"? **Q24:** as datas do lançamento precisam seguir emissão ≤ competência ≤ vencimento? **Q25:** fornecedor com nome parecido só avisa ou bloqueia? **Q27:** existe receita sem projeto? **Q28:** aviso de inadimplência ao comercial depois de quantos dias?
+- **Q21:** provisão conta em "Hoje" e "Vencidos"? **Q24:** as datas do lançamento precisam seguir emissão ≤ competência ≤ vencimento? **Q25:** fornecedor com nome parecido só avisa ou bloqueia? **Q28:** aviso de inadimplência ao comercial depois de quantos dias?
 - **Faixas de atraso:** a inadimplência mostra 1 a 30, 31 a 60, 61 a 90 e mais de 90 dias (faixas-padrão). Confirmar os limites.
 - **Acréscimos, descontos e impostos (Q29):** valem na conta comum, a pagar e a receber. Contas com pessoas (folha, incentivo) não aceitam, e o parcelado recusa na criação. Confirmar se o imposto lançado é retenção (reduz o líquido), como está hoje.
 
