@@ -1,30 +1,42 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Eye, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Eye, Lock } from "lucide-react";
 import { Redirect } from "wouter";
 import { useDemoAccess } from "@/contexts/DemoAccess";
 import "../login.css";
 
-const reasons = [
+// shortcut: botões só visuais, o gate demo não tem OAuth; ligar quando o login real existir (PF-4).
+const ssoProviders = [
   {
-    title: "Módulos conectados",
-    text: "Pagamentos, contas e relatórios reunidos em uma mesma visão.",
+    name: "Google",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+      </svg>
+    ),
   },
   {
-    title: "Leitura centralizada",
-    text: "Informações organizadas para acompanhar o financeiro com clareza.",
-  },
-  {
-    title: "Demonstração objetiva",
-    text: "Fluxos preparados para explorar o produto com dados sintéticos.",
+    name: "Microsoft",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true">
+        <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+        <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+        <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+        <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+      </svg>
+    ),
   },
 ];
 
 export default function Login() {
   const { status, login, retry, expired } = useDemoAccess();
-  const [username, setUsername] = useState("adm");
+  const [email, setEmail] = useState("adm@pmais.demo");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [ssoNotice, setSsoNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -42,10 +54,11 @@ export default function Login() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFeedback("");
+    setSsoNotice("");
     setIsSubmitting(true);
 
     try {
-      const result = await login(username, password);
+      const result = await login(email, password);
       if (!result.ok) {
         setFeedback(
           result.message ||
@@ -76,94 +89,65 @@ export default function Login() {
 
   return (
     <main className="login-page">
-      <aside className="login-aside" aria-labelledby="login-brand-title">
-        <div className="login-brand">
-          <img src="/brand/Logo2025_branco.png" alt="P+ Financeiro" />
-          <span className="login-brand-divider" aria-hidden="true" />
-          <h2 id="login-brand-title">P+ Financeiro</h2>
+      <section className="login-card" aria-labelledby="login-title">
+        <div className="login-header">
+          <img
+            src="/brand/Logo2025.png"
+            alt="P+ Financeiro"
+            width={180}
+            height={65}
+          />
+          <span className="login-badge">P+ FINANCEIRO · DEMONSTRAÇÃO</span>
+          <h1 id="login-title">Entrar na sua conta</h1>
         </div>
 
-        <div className="login-aside-copy">
-          <p className="login-kicker">Gestão financeira em uma visão</p>
-          <h1>Clareza para cada decisão do dia a dia.</h1>
-          <p className="login-aside-description">
-            Entre para explorar uma experiência integrada de acompanhamento
-            financeiro.
+        {expired && status === "anonymous" && (
+          <p className="login-info" role="status">
+            Sua sessão de demonstração expirou. Entre novamente para continuar.
           </p>
-        </div>
+        )}
 
-        <ul className="login-reasons" aria-label="Destaques do P+ Financeiro">
-          {reasons.map(reason => (
-            <li key={reason.title}>
-              <span className="login-reason-icon" aria-hidden="true">
-                <ShieldCheck size={17} strokeWidth={1.9} />
-              </span>
-              <span>
-                <strong>{reason.title}</strong>
-                <small>{reason.text}</small>
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        <p className="login-aside-footer">Ambiente de demonstração</p>
-      </aside>
-
-      <section className="login-content" aria-labelledby="login-title">
-        <div className="login-card">
-          <div className="login-heading">
-            <p className="login-eyebrow">Acesso à demonstração</p>
-            <h2 id="login-title">Bem-vindo de volta</h2>
-            <p>Insira seus dados para continuar para o P+ Financeiro.</p>
+        {isLoading && (
+          <div
+            className="login-status login-status-loading"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="login-spinner" aria-hidden="true" />
+            <span>Verificando acesso…</span>
           </div>
+        )}
 
-          {expired && status === "anonymous" && (
-            <p className="login-session-note" role="status">
-              Sua sessão de demonstração expirou. Entre novamente para
-              continuar.
-            </p>
-          )}
-
-          {isLoading && (
-            <div
-              className="login-status login-status-loading"
-              role="status"
-              aria-live="polite"
+        {isNetworkError && (
+          <div className="login-status login-status-error" role="alert">
+            <p>Não foi possível verificar o acesso agora.</p>
+            <button
+              className="login-retry"
+              type="button"
+              onClick={handleRetry}
+              disabled={isRetrying}
             >
-              <span className="login-spinner" aria-hidden="true" />
-              <span>Verificando acesso…</span>
-            </div>
-          )}
+              {isRetrying ? "Tentando novamente…" : "Tentar novamente"}
+            </button>
+          </div>
+        )}
 
-          {isNetworkError && (
-            <div className="login-status login-status-error" role="alert">
-              <p>Não foi possível verificar o acesso agora.</p>
-              <button
-                className="login-retry"
-                type="button"
-                onClick={handleRetry}
-                disabled={isRetrying}
-              >
-                {isRetrying ? "Tentando novamente…" : "Tentar novamente"}
-              </button>
-            </div>
-          )}
+        {isUnconfigured && (
+          <div className="login-status login-status-blocked" role="status">
+            O acesso à demonstração ainda não está disponível neste ambiente.
+          </div>
+        )}
 
-          {isUnconfigured && (
-            <div className="login-status login-status-blocked" role="status">
-              O acesso à demonstração ainda não está disponível neste ambiente.
-            </div>
-          )}
-
-          <form className="login-form" onSubmit={handleSubmit}>
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="login-fields">
             <div className="login-field">
-              <label htmlFor="login-username">Usuário</label>
+              <label htmlFor="login-email">E-mail</label>
               <input
-                id="login-username"
-                name="username"
-                type="text"
-                value={username}
-                onChange={event => setUsername(event.target.value)}
+                id="login-email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={event => setEmail(event.target.value)}
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
@@ -175,9 +159,10 @@ export default function Login() {
             <div className="login-field">
               <label htmlFor="login-password">Senha</label>
               <div className="login-password-wrap">
-                <LockKeyhole
+                <Lock
                   className="login-field-icon"
-                  size={17}
+                  size={15}
+                  strokeWidth={2}
                   aria-hidden="true"
                 />
                 <input
@@ -199,7 +184,7 @@ export default function Login() {
                   aria-controls="login-password"
                   disabled={formDisabled}
                 >
-                  <Eye size={18} aria-hidden="true" />
+                  <Eye size={16} aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -209,25 +194,50 @@ export default function Login() {
                 {feedback}
               </p>
             )}
+          </div>
 
+          <div className="login-footer">
             <button
               className="login-submit"
               type="submit"
               disabled={submitDisabled}
             >
-              <span>{isSubmitting ? "Entrando…" : "Entrar"}</span>
-              {!isSubmitting && <ArrowRight size={17} aria-hidden="true" />}
+              {isSubmitting ? "Entrando…" : "Entrar"}
             </button>
-          </form>
 
-          <p className="login-notice">
-            <ShieldCheck size={16} aria-hidden="true" />
-            <span>
+            <div className="login-divider">ou</div>
+
+            <div className="login-sso">
+              {ssoProviders.map(({ name, icon }) => (
+                <button
+                  key={name}
+                  className="login-sso-button"
+                  type="button"
+                  onClick={() =>
+                    setSsoNotice(
+                      `Entrar com ${name} ainda não funciona nesta demonstração. Use e-mail e senha.`
+                    )
+                  }
+                  disabled={formDisabled}
+                >
+                  {icon}
+                  Entrar com {name}
+                </button>
+              ))}
+            </div>
+
+            {ssoNotice && (
+              <p className="login-info" role="status">
+                {ssoNotice}
+              </p>
+            )}
+
+            <p className="login-notice">
               Acesso à demonstração • dados sintéticos. Não utilize dados
               financeiros reais.
-            </span>
-          </p>
-        </div>
+            </p>
+          </div>
+        </form>
       </section>
     </main>
   );

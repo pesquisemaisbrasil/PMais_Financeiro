@@ -1,0 +1,64 @@
+"""anexos das contas a pagar
+
+Revision ID: b7a2d8e3f1c9
+Revises: a6f1c7d2e0b8
+Create Date: 2026-11-06 23:00:00.000000
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+revision: str = "b7a2d8e3f1c9"
+down_revision: Union[str, Sequence[str], None] = "a6f1c7d2e0b8"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    op.create_table(
+        "payable_attachments",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("payable_id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column("contentType", sa.String(length=100), nullable=False),
+        sa.Column("size", sa.Integer(), nullable=False),
+        sa.Column("fileKey", sa.String(length=200), nullable=False),
+        sa.Column("fileSha256", sa.String(length=64), nullable=False),
+        sa.Column("uploaded_by_user_id", sa.Integer(), nullable=False),
+        sa.Column("createdAt", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("deletedAt", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("deleted_by_user_id", sa.Integer(), nullable=True),
+        sa.Column("deletedReason", sa.String(length=500), nullable=True),
+        sa.ForeignKeyConstraint(["payable_id"], ["payables.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["uploaded_by_user_id"], ["users.id"], ondelete="RESTRICT"),
+        sa.ForeignKeyConstraint(["deleted_by_user_id"], ["users.id"], ondelete="RESTRICT"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("fileKey"),
+    )
+    op.create_index(op.f("ix_payable_attachments_id"), "payable_attachments", ["id"])
+    op.create_index(op.f("ix_payable_attachments_payable_id"), "payable_attachments", ["payable_id"])
+
+    # Remover anexo é lógico (UPDATE em deletedAt): a role da app nunca apaga linha. Só existe onde
+    # roles.sql rodou; fora dele (testes em SQLite), não há o que revogar.
+    if op.get_bind().dialect.name == "postgresql":
+        op.execute(
+            """
+            DO $$
+            BEGIN
+              IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'financeiro_app') THEN
+                REVOKE DELETE ON payable_attachments FROM financeiro_app;
+              END IF;
+            END $$;
+            """
+        )
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_index(op.f("ix_payable_attachments_payable_id"), table_name="payable_attachments")
+    op.drop_index(op.f("ix_payable_attachments_id"), table_name="payable_attachments")
+    op.drop_table("payable_attachments")

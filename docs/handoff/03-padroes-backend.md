@@ -151,6 +151,8 @@ if batch.status == "confirmado":       # decide pelo status RELIDO, não pelo do
 - Lançamento contra orçamento: `project = db.query(Project)...with_for_update().first()` antes de `ensure_budget_available`.
 - Trabalho lento (ler PDF) fica **fora** da trava; trave só antes de gravar.
 - Fila com vários consumidores: `with_for_update(skip_locked=True)` (ver "Filas").
+- Tabela que carrega um relacionamento com `lazy="joined"` (conta e título com a série, centro de custo com o superior) faz `LEFT JOIN`, e o Postgres recusa `FOR UPDATE` no lado opcional dele (`FeatureNotSupported`). Peça a trava só da própria tabela: `with_for_update(of=Payable)`. O SQLite ignora a trava e não mostra o erro: `test_row_locks_are_accepted_by_postgres_on_tables_with_a_left_join` cobre.
+- O mesmo ID de transação (Pix) em contas diferentes não é protegido pela trava de cada conta: antes de conferir `_transaction_used`, o Postgres pega `pg_advisory_xact_lock(hashtext(id))` (`lock_transaction_id`), e o ID é comparado sem espaço nem caixa.
 - Backstop no banco além da trava: índice único parcial `uq_payment_receipts_e2e_paid` (ver [04-banco-de-dados.md](04-banco-de-dados.md)).
 
 No Financeiro, a linha-pai a travar é o **lote** (ou uma linha por projeto espelhado), já que o projeto vive no Connect.

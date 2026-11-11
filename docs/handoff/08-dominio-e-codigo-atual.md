@@ -322,7 +322,7 @@ Proposta coerente com as decisões do [01](01-visao-escopo-e-decisoes.md) (front
 | `backend/services/payment_sheet.py` | planilha | **Vai para o Financeiro**; a chave Pix completa vem do Connect sob demanda, por rota com escopo e `pii_access_logs` **no Connect** |
 | `backend/models/interview.py` (`payment_receipt_id`, `paidAt`) | status pago | **Fica no Connect**. A FK para `payment_receipts` vira referência externa (id/e2eId do Financeiro, sem FK) |
 | `backend/services/interview.py` | lançamento, trava, 409 de orçamento | **Fica no Connect** |
-| `backend/services/project.py` (`ensure_budget_available`, `set_project_budget`, `get_budget_used`) e `models/budget_change_log.py` | orçamento | **Fica no Connect** (a checagem precisa da mesma transação do lançamento). O Financeiro edita via `PATCH /projects/{id}/budget` por API |
+| `backend/services/project.py` (`ensure_budget_available`, `set_project_budget`, `get_budget_used`) e `models/budget_change_log.py` | orçamento | **Fica no Connect** (a checagem precisa da mesma transação do lançamento). O Financeiro **não edita**: lê o orçamento pela API ([Q11](../planning/perguntas-abertas.md)) |
 | `backend/services/earnings.py`, `frontend/src/components/PaymentStatus.tsx`, `/ganhos` | "Pago em", previsão | **Fica no Connect** |
 | `backend/services/finance_notifications.py` | avisos | `budget_threshold`, `budget_changed`, `payment_received` **ficam no Connect**; `payment_pending`, `payment_due` e `receipt_out_of_project` **vão para o Financeiro** (alimentados por evento do Connect) |
 | `backend/core/text.py` (`launch_date`, `expected_payment_date`, `format_brl`) | fuso e moeda | **Copiar para os dois** (mesmo relógio de São Paulo) |

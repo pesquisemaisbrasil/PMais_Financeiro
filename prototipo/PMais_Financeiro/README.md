@@ -2,6 +2,10 @@
 
 Aplicativo demonstrativo da Pesquise+ / P+Solution Research, reconstruído no Manus WebDev a partir dos documentos fornecidos.
 
+## Manual técnico completo
+
+O índice do manual técnico de 20 documentos, com arquitetura, banco, acesso demo, APIs, entidades, regras, testes, infraestrutura, riscos e pendências, está em [`docs/README.md`](docs/README.md). Diagramas editáveis/renderizados e assets estão listados em [`docs/ANEXO-assets-e-imagens.md`](docs/ANEXO-assets-e-imagens.md). O manual descreve o código presente e separa gates futuros; não habilita funcionalidades financeiras reais.
+
 ## Estado da entrega
 
 **MOCKUP • DADOS SINTÉTICOS • NENHUMA OPERAÇÃO REAL**
@@ -12,7 +16,7 @@ Não há banco financeiro, pagamento, Pix, importação de extrato/PDF real, Con
 
 ## Acesso ao mockup — extensão de 26/10/2026
 
-Abra o aplicativo e entre com o identificador `adm` e a senha configurada pelo usuário no formulário protegido. A senha é lida somente pelo servidor em `PMAIS_DEMO_LOGIN_PASSWORD`; seu valor não faz parte dos fontes, exemplos, cliente ou logs. Não há cadastro público nem usuário administrador financeiro criado por esse login.
+Abra o aplicativo e entre com o e-mail `adm@pmais.demo` e a senha configurada pelo usuário no formulário protegido. A senha é lida somente pelo servidor em `PMAIS_DEMO_LOGIN_PASSWORD`; seu valor não faz parte dos fontes, exemplos, cliente ou logs. Não há cadastro público nem usuário administrador financeiro criado por esse login.
 
 O acesso usa sessões opacas em memória, expira em até 30 minutos e é revogado pelo botão **Sair**. Reiniciar ou substituir a instância exige entrar novamente; a demonstração não oferece sessão distribuída entre instâncias nem autenticação corporativa. Cookie próprio HttpOnly/Secure/SameSite=None/Partitioned é elegível ao Preview HTTPS. CSRF está vinculado à sessão e tentativas são limitadas em janela de cinco minutos. Senha e token não vão ao armazenamento do navegador.
 
@@ -80,4 +84,4 @@ React/TypeScript/Vite, Tailwind/Radix; Express/tRPC; MySQL gerenciado somente pa
 
 Tipos/build/testes e revisão independente foram executados sem escrever no banco ou integrar serviços. Evidências e limitações estão em `docs/development/validacao-mockup.md`. Não houve bateria de browser/teclado/leitor de tela ou certificação WCAG.
 
-Publicação automática continua desativada; Preview não é publicação nem produção. Para evoluir além do mockup, ainda são necessários acesso seguro por e-mail/senha e MFA, permissões, auditoria, persistência financeira durável, decisões de DPO/contabilidade/PO, contratos/API de Connect e banco validados e autorização própria. Nenhuma migração SGE4B, operação bancária ou baixa real foi realizada.
+No snapshot do control-plane em 26/10/2026, o deployment estava `success` e `auto_publish=true`; essa preferência pode mudar pelo Dashboard. Preview e deployment publicado são distintos, e nenhum indica prontidão para produção financeira. Para evoluir além do mockup ainda são necessários autenticação individual com MFA, autorização, auditoria, persistência financeira durável, decisões de DPO/contabilidade/PO e contratos/API de Connect e banco validados. Nenhuma migração SGE4B, operação bancária ou baixa real foi realizada.

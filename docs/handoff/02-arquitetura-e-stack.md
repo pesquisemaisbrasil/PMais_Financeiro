@@ -28,8 +28,8 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | Pacote | Versão | Para quê |
 |---|---|---|
 | Python | **3.11** (imagem `python:3.11-slim` e CI). Local aceita 3.12 | — |
-| fastapi | 0.118.3 | API |
-| starlette | 0.48.0 | base do FastAPI (fixada à parte) |
+| fastapi | 0.162.0 | API (o Connect segue na 0.118.3: ver [ADR 0011](../architecture/adr/0011-fastapi-e-starlette-novos-fora-da-versao-do-connect.md)) |
+| starlette | 1.10.0 | base do FastAPI (fixada à parte) |
 | uvicorn | 0.34.2 | servidor ASGI |
 | SQLAlchemy | **1.4.39** | ORM, **estilo legado `db.query(...)`** (não use `select()` 2.0) |
 | psycopg2-binary | 2.9.10 | driver Postgres |
@@ -46,6 +46,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | openpyxl | 3.1.5 | planilha `.xlsx` de pagamentos |
 | tzdata | 2025.2 | fuso `America/Sao_Paulo` em imagem slim/Windows |
 | pypdf | 6.19.0 | leitura do PDF de comprovantes |
+| pyotp | 2.10.0 | MFA (TOTP). **Novo, não existe no Connect** |
 
 ### Backend (dev/CI)
 
@@ -62,7 +63,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | Peça | Versão |
 |---|---|
 | PostgreSQL | **16** (`postgres:16`) |
-| MinIO | `quay.io/minio/minio:latest` no Connect. No Financeiro, **fixe a tag** (o `latest` é dívida do Connect) |
+| MinIO | A imagem oficial `quay.io/minio/minio` saiu do ar. No Financeiro: `cgr.dev/chainguard/minio` fixo por digest, ver [ADR 0010](../architecture/adr/0010-minio-pelo-build-da-chainguard.md) |
 | Docker Compose | arquivo `docker-compose.yml` sem `version:` (Compose v2) |
 
 ### Frontend (de `frontend/package.json` do Connect)
@@ -76,6 +77,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | sonner (toast) | ^2.0.8 |
 | lucide-react | ^1.49.0 |
 | pdf-lib | ^1.17.1 (corta o PDF em partes no navegador) |
+| qrcode.react | ^4.2.0 (QR code do cadastro do MFA, gerado no navegador. **Novo, não existe no Connect**) |
 | typescript | ^5 |
 | vitest | ^3.2.4 |
 | @playwright/test | ^1.64.1 |
@@ -186,13 +188,19 @@ Segredo novo entra em `core/config.py` e no `.env.example` (com valor `change-me
 | `ALGORITHM` | não | `HS256` | JWT |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | não | `15` | |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | não | `7` | |
-| `CPF_SECRET_KEY` | sim | — | HMAC do CPF dos **usuários do Financeiro** (login por CPF, como no Connect) |
 | `PIX_SECRET_KEY` | sim | — | HMAC da chave Pix lida no comprovante (detectar repetido). **Própria do Financeiro, nunca a do Connect.** Para saber de quem é a chave, o Financeiro pergunta ao Connect pela rota `pix-key-matches` (ver 07). |
+| `CONNECT_BASE_URL`, `CONNECT_CLIENT_ID`, `CONNECT_CLIENT_SECRET` | não | vazio | Conta de serviço do Financeiro na API do Connect (`/oauth/token` + `/integrations/v1`). Sem as três, o Connect fica "fora do ar" para o Financeiro. Em produção, só HTTPS. O segredo é mostrado uma vez pelo Connect |
+| `PAYMENT_DISPATCH_SECONDS` | não | `0` | Segundos entre as tentativas de reenviar ao Connect as baixas que ficaram esperando. 0 desliga o despachante (o `scripts/dispatch_payments.py` faz o mesmo na mão) |
+| `CONNECT_MODE` | não | `off` | `simulated` liga o Connect de mentira (dados fictícios), só fora de produção: para o E2E e para ver a tela sem o Connect |
 | `ENCRYPTION_KEY` | sim | — | base64 de 32 bytes, AES-256-GCM (envelope do backend). Própria do Financeiro |
+| `PIX_SECRET_KEY` | sim | — | HMAC da chave Pix (mínimo 32 caracteres). Permanente: trocar invalida os hashes gravados. Própria do Financeiro |
 | `CORS_ORIGINS` | não | `http://localhost:3000` | só o domínio do front do Financeiro |
 | `ENVIRONMENT` | não | `development` | `production` em produção |
 | `RATE_LIMIT_ENABLED` | não | `true` | só os testes de tela desligam |
-| `FRONTEND_URL` | não | `http://localhost:3000` | links em e-mail |
+| `FRONTEND_URL` | não | `http://localhost:3010` | destino depois do login por SSO e links em e-mail |
+| `API_PUBLIC_URL` | não | `http://localhost:8010` | **novo**: endereço da API que o navegador alcança, usado na URL de retorno do SSO |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | não | — | **novo**: login com Google. Vazio = o botão avisa que não está disponível |
+| `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` | não | — | **novo**: login com Microsoft, limitado à empresa pelo tenant |
 | `SMTP_*` (`HOST`, `PORT`, `USER`, `PASSWORD`, `FROM`, `STARTTLS`) | não | — | e-mail transacional (reset de senha) |
 | `MINIO_ENDPOINT` | sim | — | endpoint interno (ex.: `http://minio:9000`) |
 | `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | sim | — | usuário **próprio** do Financeiro no MinIO, com policy só no bucket dele |

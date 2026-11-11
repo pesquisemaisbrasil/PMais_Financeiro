@@ -154,6 +154,12 @@ Eles viram classes via `@theme inline` (`--color-brand-verde: var(--brand-verde)
 | Neutro (encerrado, descartado) | `bg-brand-cinza-claro text-brand-cinza-escuro` |
 | Em andamento | `bg-brand-azul-deep/15 text-brand-azul-deep` |
 
+### Cor e movimento nas listas do Financeiro
+
+- Cada indicador das listas (`IndicatorCard`) tem um ícone e uma cor, a mesma da etiqueta que ele filtra: Total azul, Pagos e Recebidos verde, Pendentes céu, Vencidos vermelho, Hoje âmbar, A vencer azul neutro, Provisões roxo e Canceladas cinza. O card sempre diz o que é por escrito; a cor não vale sozinha.
+- As classes de cada cor ficam escritas por inteiro no mapa `TONES` de `src/components/IndicatorCard.tsx`. O Tailwind 4 não gera classe montada com texto (`bg-${cor}`): ela simplesmente não existe no CSS.
+- Os efeitos são só estes: entrada deslizando de baixo para cima, um card depois do outro (45 ms); card que sobe 2 px e ícone que cresce ao passar o mouse; botão principal com sombra na cor da marca. Tudo tem a variante `motion-reduce`: quem pediu menos movimento no sistema vê a tela parada.
+
 ### Tipografia, raio, espaçamento
 
 - **Open Sans** via `next/font/google`, variável `--font-open-sans`, aplicada no `<html>`; `lang="pt-BR"`:

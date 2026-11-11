@@ -40,7 +40,7 @@ assert state["authenticated"] is False
 csrf = state["csrf"]
 secret = os.environ.get("PMAIS_DEMO_LOGIN_PASSWORD")
 assert secret, "Senha não disponível neste ambiente; confirme o formulário protegido"
-code, headers, raw = request("/api/demo-access/login", "POST", {"username": "adm", "password": secret})
+code, headers, raw = request("/api/demo-access/login", "POST", {"username": "adm@pmais.demo", "password": secret})
 assert code == 200 and json.loads(raw)["ok"] is True, "Credencial configurada não validou"
 assert all(attr in " ".join(headers.get_all("Set-Cookie", [])) for attr in ["HttpOnly", "Secure", "SameSite=None", "Partitioned"])
 code, _, raw = request("/api/demo-access/session")

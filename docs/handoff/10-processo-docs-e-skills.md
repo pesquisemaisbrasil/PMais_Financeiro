@@ -5,7 +5,7 @@ Como o time do P+ Connect trabalha, adaptado para o Financeiro: o `AGENTS.md`, a
 ## 1. Visão geral do processo
 
 ```
-pedido ──► financeiro-mudanca ─────────────────────────────► entregar ─────────────────────────► PR (base main)
+pedido ──► financeiro-mudanca ─────────────────────────────► entregar ─────────────────────────► PR (base homolog)
            1. spec dono + transcrição                         1. branch + commits por assunto       CI verde
            2. backend em camadas                              2. verify-delivery.sh [--e2e]         merge só com o dono
            3. frontend com componentes ui                     3. 3 revisores em paralelo
@@ -38,7 +38,7 @@ Entrada para pessoas e agentes de IA que trabalham no **Financeiro** da Pesquise
    - nada é pago sem "Confirmar baixa";
    - um Pix (ID da transação) só paga uma vez.
 5. **Commits separados por assunto** (backend, frontend, testes e docs por funcionalidade), no padrão Conventional Commits, sem linha de atribuição.
-6. **Um PR por entrega, sempre com base na `main`.** Não abra PR empilhado sobre outra branch: o merge vai para a branch errada. **Merge só com o dono** (João) pedindo ou autorizando.
+6. **Um PR por entrega, sempre com base na `homolog`.** Não abra PR empilhado sobre outra branch: o merge vai para a branch errada. Toda mudança passa pela `homolog`; depois de validada, vai para a `main` num PR `homolog` → `main`. **Merge só com o dono** (João) pedindo ou autorizando.
 7. **Pronto = verde:** `bash scripts/verify-delivery.sh` (testes do backend com cobertura ≥ 80%, `ruff`, `ruff format --check`, `mypy`, um head do Alembic; no frontend, `next typegen`, `tsc`, `lint`, `check:ui` e `npm test`), mais `--e2e` quando a tela ou o fluxo mudou. Comandos em [docs/development/testes.md](docs/development/testes.md).
 8. **Regra mudou, teste novo.** Bug conhecido sem correção fica com `xfail(strict=True, reason="BUG: ...")`.
 9. **Dado pessoal:**
@@ -55,7 +55,7 @@ Entrada para pessoas e agentes de IA que trabalham no **Financeiro** da Pesquise
 | Skill / agente | Para quê |
 |---|---|
 | `financeiro-mudanca` | Rotina de qualquer mudança: spec → código → decisões anotadas → testes (pytest, Vitest, E2E) → docs |
-| `/entregar` | Fecha a entrega: `scripts/verify-delivery.sh` → 3 revisores em paralelo → corrige → PR para a `main` |
+| `/entregar` | Fecha a entrega: `scripts/verify-delivery.sh` → 3 revisores em paralelo → corrige → PR para a `homolog` |
 | `revisor-spec`, `revisor-codigo`, `revisor-interface` | Revisores somente leitura usados pela `/entregar` |
 
 ## Mapa rápido
@@ -300,7 +300,7 @@ Caminho: `.claude/skills/entregar/SKILL.md`. A versão do Connect é usada como 
 ````markdown
 ---
 name: entregar
-description: Fecha uma entrega do Financeiro com o padrão de qualidade do projeto — verificação completa (pytest, ruff, mypy, Vitest, tsc, lint, E2E Playwright), três revisões independentes por agentes (spec, código, interface), correção dos achados, decisões registradas nos docs e PR para a main. Use sempre que pedirem para entregar, finalizar, fechar, revisar antes de subir, abrir PR ou "mandar pra main" qualquer mudança deste repositório, mesmo que não digam /entregar.
+description: Fecha uma entrega do Financeiro com o padrão de qualidade do projeto — verificação completa (pytest, ruff, mypy, Vitest, tsc, lint, E2E Playwright), três revisões independentes por agentes (spec, código, interface), correção dos achados, decisões registradas nos docs e PR para a homolog. Use sempre que pedirem para entregar, finalizar, fechar, revisar antes de subir, abrir PR ou "mandar pra homolog" qualquer mudança deste repositório, mesmo que não digam /entregar.
 ---
 
 # Entrega com padrão de qualidade
@@ -309,7 +309,7 @@ Rotina obrigatória antes de qualquer PR de código do Financeiro. Ela fecha o t
 
 ## 1. Preparar
 
-- Branch criada a partir da `main` atualizada (`feat/…`, `fix/…`, `docs/…`, `chore/…`).
+- Branch criada a partir da `homolog` atualizada (`feat/…`, `fix/…`, `docs/…`, `chore/…`).
 - O spec dono em `docs/specs/` já reflete o comportamento novo, e as decisões tomadas estão registradas (passo 5 da rotina de mudança).
 - Commits **separados por assunto** (backend, frontend, testes, docs), Conventional Commits, sem linha de atribuição. Nunca entram `.coverage`, `*.stackdump`, `.env`, `*.db`, zip, PDF ou planilha real.
 
@@ -329,9 +329,9 @@ Tela nova ou alterada: rode o E2E da área e abra o relatório (`npx playwright 
 Gere a base que os revisores leem (eles só leem, não executam comandos):
 
 ```bash
-git fetch origin main
+git fetch origin homolog
 mkdir -p .reviews
-BASE=$(git merge-base origin/main HEAD)
+BASE=$(git merge-base origin/homolog HEAD)
 git diff "$BASE" > .reviews/diff.patch
 { git diff --name-only "$BASE"; git ls-files --others --exclude-standard; } | sort -u > .reviews/files.txt
 ```
@@ -359,7 +359,7 @@ Depois das correções, rode de novo o passo 2. Se as correções foram grandes,
 
 Siga só quando a pessoa pediu a entrega ou o PR. Um pedido apenas de revisão para no passo 3.
 
-- Push da branch e PR **com base na `main`** (nunca empilhado). O corpo, em pt-BR, traz:
+- Push da branch e PR **com base na `homolog`** (nunca empilhado). O corpo, em pt-BR, traz:
   - o que entra;
   - como testar (atualize `docs/planning/roadmap.md`);
   - a verificação, com números;
@@ -582,7 +582,7 @@ Achado recusado leva o motivo na tabela `.reviews/achados.md` e no PR ("sem cen�
 
 ## 8. Commits, branches e PRs
 
-**Branches:** uma por entrega, criada a partir da `main` atualizada: `feat/…`, `fix/…`, `docs/…`, `chore/…` (ex.: `feat/conciliacao`, `fix/parser-e2e-vazio`, `docs/spec-planilha`).
+**Branches:** uma por entrega, criada a partir da `homolog` atualizada: `feat/…`, `fix/…`, `docs/…`, `chore/…` (ex.: `feat/conciliacao`, `fix/parser-e2e-vazio`, `docs/spec-planilha`).
 
 **Commits:**
 
@@ -599,7 +599,7 @@ Achado recusado leva o motivo na tabela `.reviews/achados.md` e no PR ("sem cen�
 
 **PR:**
 
-- **Um PR por entrega, sempre com base na `main`.** PR empilhado (base = outra branch) acaba mergeado na branch errada; no Connect isso aconteceu com os PRs #3 e #4 e precisou do #5 para corrigir.
+- **Um PR por entrega, sempre com base na `homolog`.** A `main` só recebe o PR `homolog` → `main`, depois da validação. PR empilhado (base = outra branch) acaba mergeado na branch errada; no Connect isso aconteceu com os PRs #3 e #4 e precisou do #5 para corrigir.
 - Corpo em pt-BR: o que entra; como testar (link do roadmap); verificação com números; tabela de achados e decisão de cada um; migrations; limites; impacto no contrato com o Connect.
 - CI verde antes do merge (`gh pr checks <n>`).
 - **Nunca merge sem o dono.** Só quando o João pedir ou autorizar. Avisar e esperar confirmação explícita quando a PR apaga ou altera dado, muda papéis ou permissões, mexe em `.github/`, segredos ou infraestrutura, muda regra de produto ou muda o contrato com o Connect.
@@ -615,5 +615,5 @@ Achado recusado leva o motivo na tabela `.reviews/achados.md` e no PR ("sem cen�
 - [ ] `.claude/skills/financeiro-mudanca/SKILL.md` + `assets/adr-template.md` e `.claude/skills/entregar/SKILL.md` copiados da seção 4 e 5.
 - [ ] `.claude/agents/revisor-spec.md`, `revisor-codigo.md` e `revisor-interface.md` copiados da seção 6, com os `<…>` trocados pelos caminhos reais.
 - [ ] `.reviews/` no `.gitignore`.
-- [ ] Uma entrega de teste passou pelo ciclo inteiro: `verify-delivery.sh` verde → 3 revisores → achados em `.reviews/achados.md` → PR com base na `main` → merge autorizado pelo João.
+- [ ] Uma entrega de teste passou pelo ciclo inteiro: `verify-delivery.sh` verde → 3 revisores → achados em `.reviews/achados.md` → PR com base na `homolog` → merge autorizado pelo João → validação → PR `homolog` → `main`.
 - [ ] Os commits dessa entrega estão separados por assunto, em Conventional Commits, sem linha de atribuição.

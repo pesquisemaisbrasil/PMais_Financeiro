@@ -1,0 +1,120 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, homolog]
+  pull_request:
+    branches: [main, homolog]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
+          ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+          PIX_SECRET_KEY: pix-ci-chave-ficticia-com-mais-de-32-caracteres # gitleaks:allow
+          DATABASE_URL: "sqlite:///:memory:"
+        run: pytest -q --cov=. --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/coverage.xml
+
+  migrations:
+    # Os testes rodam em SQLite com o schema criado pelos models; este job garante que as
+    # migrations aplicam no Postgres real, que não há drift entre models e migrations, que
+    # o downgrade da última revisão funciona e que só existe uma head.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: financeiro
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      SECRET_KEY: ci-test-secret-key-com-pelo-menos-32-caracteres # gitleaks:allow
+      ENCRYPTION_KEY: MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=
+      PIX_SECRET_KEY: pix-ci-chave-ficticia-com-mais-de-32-caracteres # gitleaks:allow
+      DATABASE_URL: postgresql://financeiro_app:troque-local@localhost:5432/financeiro
+      MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:troque-local@localhost:5432/financeiro
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create the roles
+        env:
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d financeiro -f ../docker/postgres/roles.sql
+
+      - name: Only one head
+        run: test "$(alembic heads | wc -l)" -eq 1
+
+      - name: Upgrade head
+        run: alembic upgrade head
+
+      - name: Check models x migrations (drift)
+        run: alembic check
+
+      - name: Downgrade last revision
+        run: alembic downgrade -1
+
+      - name: Upgrade head again
+        run: alembic upgrade head
+
+      - name: App role reads and writes, but cannot change the schema
+        env:
+          PGPASSWORD: troque-local
+        run: |
+          psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "SELECT count(*) FROM users"
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "CREATE TABLE escape (id int)"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DROP TABLE users"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM payable_payments"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM payable_attachments"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM receivable_attachments"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM customer_attachments"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "UPDATE payable_events SET text = 'x'"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "DELETE FROM receivable_payments"; then exit 1; fi
+          if psql -v ON_ERROR_STOP=1 -h localhost -U financeiro_app -d financeiro -c "UPDATE receivable_events SET text = 'x'"; then exit 1; fi
+
+      # Os testes comuns rodam em SQLite, que ignora FOR UPDATE: este passo falha se alguém
+      # apagar a trava do código do MFA ou da renovação da sessão (PF-54).
+      - name: Concurrent logins (row lock)
+        run: |
+          pip install -r requirements-dev.txt
+          pytest tests/test_concurrency_postgres.py -q --no-cov

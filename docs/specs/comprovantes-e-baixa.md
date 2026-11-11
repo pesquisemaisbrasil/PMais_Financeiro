@@ -94,17 +94,17 @@ Mensagens iguais às do Connect hoje:
 
 ## Critérios de aceite
 
-- [ ] Exemplo 1 de [handoff/08 §4](../handoff/08-dominio-e-codigo-atual.md): Pix de 30, 20, 20 e 20 para duas entrevistas de 20 → `nao_fecha`, `bate`, `bate`, `pago_a_mais`.
-- [ ] Exemplo 2: a ordem é por data do Pix, não por página; os dois `bate`.
-- [ ] Confirmar: 2 pedidos de baixa vão ao Connect com `Idempotency-Key`; depois do `applied`, os itens ficam `pago` e o Connect mostra "Pago em" com a data do Pix.
-- [ ] O mesmo PDF num lote novo dá `duplicado`; confirmar o mesmo lote de novo dá 409.
-- [ ] Um comprovante de pessoa fora do projeto nunca é pago e dispara `receipt_out_of_project`.
-- [ ] Um PDF de 300 páginas é dividido e enviado em partes; reenviar uma parte não duplica.
-- [ ] O Connect recusando com `already_paid` cria uma linha em Divergências e não muda o espelho.
-- [ ] Um timeout seguido de reenvio com o mesmo `Idempotency-Key` não paga duas vezes.
+- [x] Exemplo 1 de [handoff/08 §4](../handoff/08-dominio-e-codigo-atual.md): Pix de 30, 20, 20 e 20 para duas entrevistas de 20 → `nao_fecha`, `bate`, `bate`, `pago_a_mais`.
+- [x] Exemplo 2: a ordem é por data do Pix, não por página; os dois `bate`.
+- [x] Confirmar: 2 pedidos de baixa vão ao Connect com `Idempotency-Key`; depois do `applied`, os itens ficam `pago` e o Connect mostra "Pago em" com a data do Pix.
+- [x] O mesmo PDF num lote novo dá `duplicado`; confirmar o mesmo lote de novo dá 409.
+- [x] Um comprovante de pessoa fora do projeto nunca é pago e dispara `receipt_out_of_project`.
+- [x] Um PDF de 300 páginas é dividido e enviado em partes; reenviar uma parte não duplica.
+- [x] O Connect recusando com `already_paid` cria uma linha em Divergências e não muda o espelho.
+- [x] Um timeout seguido de reenvio com o mesmo `Idempotency-Key` não paga duas vezes.
 - [ ] Cada caso de borda da tabela de [handoff/08 §11](../handoff/08-dominio-e-codigo-atual.md) tem teste equivalente, mais o caso sem teste hoje: comprovante quebrado entre duas partes.
 - [ ] Nada do PDF fica em disco, banco ou log (teste).
-- [ ] Enviar o PDF a partir do lançamento de Contas a pagar e confirmar a baixa marca os itens do lançamento como pagos e o lançamento mostra a baixa, sem o financeiro sair da lista.
+- [x] Enviar o PDF a partir do lançamento de Contas a pagar e confirmar a baixa marca os itens do lançamento como pagos e o lançamento mostra a baixa, sem o financeiro sair da lista.
 
 ## Onde está no código
 
@@ -117,3 +117,19 @@ Mensagens iguais às do Connect hoje:
 
 - 2026-10-21: `receipt_out_of_project` hoje avisa admin e supervisores no Connect. Como o supervisor não entra no Financeiro, o aviso vai para admin e financeiro. Se o supervisor também deve ser avisado, isso passa pelo Connect: pergunta aberta Q2.
 - 2026-11-03: o envio do PDF de comprovantes parte do **lançamento de Contas a pagar**, não da tela do projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K1, K2). O algoritmo de conciliação e as rotas não mudam; o lançamento escolhe o projeto e o lote.
+- 2026-11-05: o handoff/04 chama de `payable_items` o espelho das entrevistas a pagar, mas esse nome já é das pessoas de um lançamento em Contas a pagar. O espelho do Connect se chama `connect_payable_items` (prefixo `connect_`, como o handoff manda para o que vem do Connect). As demais tabelas seguem o handoff/04.
+- 2026-11-05: `{projectId}` nas rotas é o id de `project_refs` (o espelho do projeto), não o id do Connect. O Connect é perguntado pelo `connect_project_id` guardado ali.
+- 2026-11-05: a chave Pix é hash com `PIX_SECRET_KEY`, variável nova e obrigatória do Financeiro (a API não sobe sem ela).
+- 2026-11-05: **entregue** o envio em partes, a leitura, a classificação, a conferência por soma exata, o descarte e o cancelamento. **Falta:** "Confirmar baixa" (travar, reler no Connect, `receipt_allocations`, `POST /payments`, estados do pedido, Divergências), o aviso `receipt_out_of_project`, o nome de quem é do projeto (vem do Connect), a sincronização do espelho `connect_payable_items` e `project_refs`, a tela e a ligação com o lançamento de Contas a pagar. Enquanto o Connect não entregar a API (entregas 1 e 2 de [entregas-do-connect](entregas-do-connect.md)), a rota responde 503 ao classificar ("O P+ Connect não respondeu"); nos testes o Connect é simulado.
+- 2026-11-05: confirmar e descartar só mexem em comprovante `pendente`/`descartado`; o `pago` é prova e não muda.
+- 2026-11-05 (entrega do PF-56): **entregue** o fluxo completo, com o Connect simulado: envio em partes, leitura, classificação, conferência por soma exata, descarte, cancelamento, "Confirmar baixa", pedido de baixa ao Connect com reenvio seguro, Divergências, aviso `receipt_out_of_project`, nome de quem é do projeto vindo do Connect, espelho do Connect e a tela dentro do lançamento (E2E com PDF gerado no teste).
+- 2026-11-05: o handoff/04 previa `outbox_events` para os eventos ao Connect. Como a spec define estados próprios do pedido de baixa (`pendente_envio`, `enviada`, `aplicada`, `recusada`), o pedido tem tabela própria, `payment_requests`, com `paymentRef` (`fin-pay-NNNNNN`) como Idempotency-Key. Sem despachante em segundo plano: a confirmação já tenta enviar, e `scripts/dispatch_payments.py` reenvia o que ficou esperando (agendar de poucos em poucos minutos).
+- 2026-11-05: o item só fica `pago` no espelho depois que o Connect aplica a baixa. Entre a confirmação e a resposta, o Pix está `pago` e as entrevistas ficam reservadas (`receipt_allocations`), de modo que nenhuma outra conta as usa. Recusa do Connect mantém a reserva e entra em Divergências até alguém decidir.
+- 2026-11-05: confirmar relê no Connect os itens das pessoas **antes** de travar o projeto (chamada HTTP nunca fica dentro da transação). Se o Connect estiver fora do ar nessa releitura, a confirmação responde 503 e nada é gravado.
+- 2026-11-05: **MFA na confirmação** (Q20 ainda aberta): quem tem autenticador digita o código; quem entrou por Google ou Microsoft sem TOTP confirma sem etapa extra. `/auth/me` passou a informar `mfaEnabled` para a tela saber quando pedir o código.
+- 2026-11-05: o lote guarda o `payable_id` do lançamento de onde o PDF foi enviado. Ao confirmar, cada Pix vira uma baixa do lançamento (com o ID da transação), exigindo conta bancária da empresa e forma de pagamento. Se a soma passar do saldo pendente, a confirmação é recusada (409) e nada é gravado.
+- 2026-11-05: **limites conhecidos.** (1) ~~A baixa por pessoa dentro do lançamento não existe~~ — resolvido em 2026-11-06, ver o ajuste seguinte. (2) ~~falta o sino na barra~~ — entregue em 2026-11-06. (3) Com `ConnectUnavailable` em produção, até o Connect entregar `/integrations/v1`, enviar PDF responde 503 ao classificar. (4) `CONNECT_MODE=simulated` liga um Connect de mentira (dados fictícios) só fora de produção, usado no E2E e para ver a tela. (5) Os testes rodam em SQLite: a trava `with_for_update` e o índice parcial só foram conferidos pela migration.
+- 2026-11-06: **baixa por pessoa no lançamento.** `payable_items` ganhou `connect_interviewer_id` (a pessoa no Connect, sem FK) e `paidOn` (dia do Pix). Ao confirmar um lote ligado a um lançamento, o valor dos Pix de cada pessoa vai consumindo as linhas dela, da mais antiga à mais nova; a linha que o valor não cobre inteira continua a pagar, e a lista de pessoas mostra "Paga em dd/mm/aaaa" só de quem foi paga. Quem não é do Connect (sem `connect_interviewer_id`) nunca é marcado. Enquanto a entrega que cria o lançamento do Connect sozinho não existir, o id vem do cadastro que preencher o lançamento (hoje só o seed).
+- 2026-11-06: **despachante em segundo plano.** Com `PAYMENT_DISPATCH_SECONDS` maior que zero, a API reenvia ao Connect, a cada intervalo, as baixas em `pendente_envio` ou `enviada` (`core/dispatcher.py`). Padrão desligado; `scripts/dispatch_payments.py` faz o mesmo na mão. É seguro com mais de uma instância, porque cada pedido leva o mesmo Idempotency-Key. Um erro numa rodada é registrado no log e nunca derruba o laço.
+- 2026-11-06: **sino de avisos e Divergências.** O sino fica ao lado do nome, na barra lateral, e mostra os avisos de quem está logado (`/notifications`), atualizando ao abrir, a cada minuto e quando um envio fecha. Dois avisos existem: `receipt_out_of_project` e `payment_refused` (o Connect recusou uma baixa, com o motivo em pt-BR e link para `/divergencias`). A tela **Divergências** (Financeiro > Divergências, `GET /finance/divergences`) lista as baixas recusadas de todos os projetos, só para leitura: não há ação de "resolver" porque a spec deixa a decisão com uma pessoa, fora do sistema.
+

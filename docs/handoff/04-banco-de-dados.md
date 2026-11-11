@@ -47,6 +47,8 @@ Auditoria append-only, numa migration logo depois de criar a tabela (role da app
 REVOKE UPDATE, DELETE ON pii_access_logs, export_logs, integration_call_logs FROM financeiro_app;
 ```
 
+O mesmo vale para as baixas e o histórico das contas: `payable_payments`, `payable_events` (migration `9947141b77e5`), `receivable_payments` e `receivable_events` (migration `f6c8e0a2b4d6`), `record_events` (`e63f9c4a2b31`) e as tabelas de anexos. O CI confere, com a role da app, que apagar ou alterar essas linhas é recusado.
+
 No `alembic/env.py`, leia `MIGRATION_DATABASE_URL` (se existir) em vez de `DATABASE_URL`. No Connect o `env.py` usa só `DATABASE_URL`:
 
 ```python
@@ -196,7 +198,7 @@ Regras no Financeiro:
 - **Chave Pix lida do comprovante**: só `payeeKeyHash` + `payeeKeyMasked` (como hoje).
 - **Nome do recebedor do comprovante**: cifrado, mostrado só quando a chave não casa com ninguém.
 - **Nunca** texto bruto do PDF, CPF do recebedor ou dados da conta pagadora.
-- Trocar `CPF_SECRET_KEY`, `PIX_SECRET_KEY` ou `ENCRYPTION_KEY` depois de ter dado quebra hashes e cifras: as chaves são para sempre (ou exigem script de rotação).
+- Trocar `PIX_SECRET_KEY` ou `ENCRYPTION_KEY` depois de ter dado quebra hashes e cifras: as chaves são para sempre (ou exigem script de rotação).
 - Mudou o que se guarda: atualize o inventário de dados e o ROPA no mesmo PR.
 
 ### Arquivos (MinIO, duas camadas)
@@ -206,6 +208,8 @@ Hoje o Connect **não** guarda o PDF de comprovante (ADR 0002) e **não** usa SS
 1. **Envelope no backend**: gera uma chave de dados aleatória de 32 bytes por arquivo, cifra o conteúdo com AES-256-GCM, e guarda essa chave **cifrada** com `encrypt_payload` (chave mestra `ENCRYPTION_KEY`) na tabela `stored_files`.
 2. **SSE no MinIO via KES**: `put_object(..., ServerSideEncryption="aws:kms", SSEKMSKeyId=MINIO_SSE_KMS_KEY_ID)`.
 3. Download passa pela API (decifra e devolve), nunca URL pré-assinada direta, porque o objeto no bucket está cifrado pelo backend.
+
+**Hoje (06/11/2026, anexos das contas a pagar):** só a camada 1 existe, com a chave-mestra própria `FILES_MASTER_KEY` no lugar da `ENCRYPTION_KEY`, e a tabela é `payable_attachments` (não `stored_files`). Ver o [ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrados-por-arquivo.md).
 
 ## Tabelas de auditoria (append-only)
 
@@ -254,7 +258,9 @@ Mudança necessária **no Connect** na migração: `interviews.payment_receipt_i
 
 Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect_*_id` sem FK. Toda tabela tem `id` e `createdAt`.
 
-**`users`**, **`refresh_tokens`**, **`password_reset_tokens`**: copie os models do Connect (login por CPF com `cpfHash`, `passwordHash` bcrypt, `role`, `status`). Papéis: `financeiro`, `admin`. Sem chave Pix, sem endereço, sem `encryptedPayload`.
+**`users`**, **`refresh_tokens`**, **`password_reset_tokens`**: copie os models do Connect sem o `cpfHash` (login por e-mail, spec acesso-e-auditoria; `passwordHash` bcrypt, `role`, `status`). Papéis: `financeiro`, `admin`. Sem chave Pix, sem endereço, sem `encryptedPayload`.
+
+**`sso_identities`** (PF-49): `user_id` (CASCADE), `provider` (`google`|`microsoft`), `subject` (Google: `sub`; Microsoft: `tid:oid`), único por `provider` + `subject`. Liga a conta ao identificador fixo da pessoa no provedor, no primeiro login por SSO.
 
 **`project_refs`**: espelho mínimo de projeto.
 
@@ -267,7 +273,7 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 É a linha travada com `with_for_update()` na confirmação de lote (papel que `projects` tem hoje em `_lock_batch`).
 
-**`payable_items`**: espelho de entrevista a pagar. Sem nome nem chave Pix.
+**`payable_items`** (no código: **`connect_payable_items`**, porque `payable_items` já é das pessoas de um lançamento em Contas a pagar): espelho de entrevista a pagar. Sem nome nem chave Pix.
 
 | Coluna | Tipo | Motivo |
 |---|---|---|
@@ -320,6 +326,24 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 | `payable_item_id` | FK `payable_items.id`, `RESTRICT`, **unique** | um item é pago uma vez só |
 | `amount` | Numeric(10,2) | valor do item na hora (soma = valor do Pix, regra do valor exato) |
 | `connectAckAt` | DateTime(tz), nullable | quando o Connect confirmou a baixa |
+
+**`payable_items`** ganhou `connect_interviewer_id` (Integer, nulo, sem FK) e `paidOn` (Date, nulo): a pessoa do lançamento agrupado no Connect e o dia do Pix que a pagou.
+
+**`payable_series`** (PF-57): `kind` (`mensal`|`semanal`|`parcelado`), `count`, `startDate`, `estimated`, `created_by_user_id` (SET NULL). `payables.series_id` (RESTRICT, nulo em conta avulsa) e `payables.seriesIndex` ligam cada ocorrência à série.
+
+**`payables.payOn`** (Date, nulo): o "Pagar em", a data prevista de pagamento. Só informa; nada usa para filtrar ou pagar.
+
+**`suppliers.code`** e **`customers.code`** (String(20), nulos): o código do cadastro, **gerado pelo sistema** (`0001`, `0002`...) e único (`uq_suppliers_code`, `uq_customers_code`, `uq_companies_code`). **`personType`** (String(2), nulo: `PJ` ou `PF`) em `suppliers`, `customers` e `companies`; PF nunca tem `document`. **`business_units.code`** (String(20), nulo, único `uq_business_units_code`): código gerado como os de fornecedor, cliente e empresa. **`cost_centers.code`** (String(20), nulo, único `uq_cost_centers_code`) e **`cost_centers.parent_id`** (FK para a própria tabela, `ondelete=RESTRICT`, nulo = centro principal; só dois níveis, garantido no serviço): principal `001`, sub-centro `001.001` (código do superior, ponto e 3 dígitos). O nome deixou de ser único na tabela toda: é único entre os principais (`uq_cost_centers_name_root`, índice parcial `parent_id IS NULL`) e dentro de cada superior (`uq_cost_centers_name_parent`, parcial `parent_id IS NOT NULL`). **`customers`** ganhou a ficha completa (migration `b8e0a2c4d6f1`): `stateRegistration` (IE; RG e CPF nunca), `phone2`, `phone3`, `emailAlt`, `notes` e o endereço opcional (`addressCountry`, `addressZip` só com os 8 números, `addressStreet`, `addressNumber`, `addressComplement`, `addressDistrict`, `addressCity`, `addressState` com a UF). **`customer_attachments`** guarda os documentos do cliente como `payable_attachments` e `receivable_attachments` (arquivo cifrado no cofre, remoção lógica, sem `DELETE` para a role da app); cliente com documento conta como em uso e não se exclui. **`record_counters`** (`kind` chave, `lastValue`) guarda o último número de cada cadastro, travado com `FOR UPDATE` na criação: o código não repete nem volta atrás, mesmo depois de excluir. O centro de custo usa `costCenters` para os principais e `costCenters:{id do principal}` para os sub-centros de cada um (a migration `e5b7d9f1a3c5` numera os centros que já existiam como principais, por ordem de criação, e cria os contadores). **`companies`** ganhou `code` (String(20)), `nickname` (String(100)) e `document` (String(14), só CNPJ, índice único parcial `uq_companies_active_document` entre as ativas), e `name` passou a String(200).
+
+**`receivable_attachments`**: igual a `payable_attachments`, com `receivable_id` (RESTRICT) no lugar de `payable_id`; o arquivo vai para a chave `receivable/{id}/...` do mesmo bucket. As duas tabelas têm `kind` (`nota`, `boleto`, `contrato`, `comprovante`, `recibo`, `planilha` ou `outro`, padrão `outro`). A role do app não apaga linha de nenhuma delas.
+
+**`payable_attachments`**: `payable_id` (RESTRICT), `name`, `contentType`, `size`, `fileKey` (único: o nome do objeto no bucket), `fileSha256`, `uploaded_by_user_id` (RESTRICT), `createdAt`, e a remoção lógica `deletedAt`, `deleted_by_user_id` (RESTRICT) e `deletedReason`. O arquivo cifrado mora no bucket, nunca no banco. A role da app não tem `DELETE` nesta tabela.
+
+**`payable_adjustments`** e **`receivable_adjustments`**: acréscimos, descontos e impostos lançados um a um na conta ou no título. `payable_id` / `receivable_id` (CASCADE), `kind` (`acrescimo`, `desconto` ou `imposto`), `description` e `amount` (positivo). O líquido (valor principal + acréscimos − descontos − impostos) não é gravado: sai destas linhas. Quem mexe nas listas troca a lista inteira, e o histórico da conta guarda o antes e o depois dos totais.
+
+**`payment_requests`** (no código, no lugar do `outbox_events` para a baixa): um pedido de baixa ao Connect por comprovante pago. `receipt_id` (RESTRICT, único), `paymentRef` (único, `fin-pay-NNNNNN`, é o `Idempotency-Key`), `status` (`pendente_envio → enviada → aplicada | recusada`), `attempts`, `lastError` (só o código do erro), `sentAt`, `appliedAt`. `receipt_batches.payable_id` (RESTRICT, nulo) liga o lote ao lançamento de onde o PDF foi enviado.
+
+**`notifications`**: avisos dentro do sistema. `user_id` (CASCADE), `type`, `title`, `body`, `link`, `readAt`. Só texto de tela, sem dado pessoal de entrevistador.
 
 **`outbox_events`**: eventos para o Connect, no padrão de `notification_deliveries`.
 
@@ -407,3 +431,7 @@ As credenciais do Financeiro **no Connect** ficam no `.env` (`CONNECT_CLIENT_ID`
 - [ ] Tabelas de auditoria sem `UPDATE`/`DELETE` para a role da app; planilha grava `pii_access_logs` por pessoa e `export_logs` por exportação.
 - [ ] Arquivo guardado só com envelope AES-GCM + SSE-KMS e linha em `stored_files`; download só pela API, com `file_access_logs`.
 - [ ] `outbox_events.idempotencyKey` e `inbound_events.eventId` únicos.
+
+**Contas a receber (código, fatia 1):** `customers` (apelido, nome, CNPJ único entre os ativos, contato; sem CPF), `receivables` (cliente, projeto único, empresa, unidade, centro de custo, conta de receita, contrato, documento, emissão, vencimento, competência, `amount` valor principal (e `withheld`, o campo antigo de abatimentos, hoje sem uso: os abatimentos viraram impostos em `receivable_adjustments`); `canceledAt` e `deletedAt` lógicos), `receivable_payments` (recebimento e estorno, `reverses_id` único, nunca apagado) e `receivable_events` (histórico). `expense_categories.kind` (`despesa` ou `receita`).
+
+`receivables.series_id` (RESTRICT, nulo em título avulso) e `receivables.seriesIndex` ligam o título à mesma `payable_series` do Contas a pagar (parcelas e recorrência da receita).

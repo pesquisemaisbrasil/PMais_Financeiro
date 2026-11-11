@@ -27,7 +27,7 @@ Este registro separa decisões observáveis do código e contexto histórico de 
 ## ADR-003 — Gate demo separado da identidade financeira
 
 - **Problema:** proteger Preview com acesso compartilhado sem criar autenticação financeira falsa.
-- **Decisão confirmada:** usuário literal `adm`, senha server-side, sessão opaca em memória, CSRF e `scope:demo_only`; `ctx.user` continua nulo.
+- **Decisão confirmada:** e-mail literal `adm@pmais.demo`, senha server-side, sessão opaca em memória, CSRF e `scope:demo_only`; `ctx.user` continua nulo.
 - **Motivo:** permitir avaliação do mockup sem liberar admin/finance.
 - **Consequências:** restart perde sessão; sem MFA/RBAC/recuperação; cookie depende do ambiente.
 - **Alternativa futura:** identidade individual, MFA, sessão distribuída e autorização; **não implementado**.
@@ -40,6 +40,7 @@ Este registro separa decisões observáveis do código e contexto histórico de 
 - **Motivo:** executar a demonstração no starter atual sem inventar equivalência de segurança.
 - **Consequências:** não há backend Python/PostgreSQL/MinIO; equivalentes MySQL e arquitetura real futura precisam de decisão.
 - **Alternativa:** migrar literalmente para stack alvo; **A CONFIRMAR** por arquitetura/PO.
+- **Atualização de 2026-11-03:** o sistema real segue a stack do handoff ([ADR 0001](../../../docs/architecture/adr/0001-stack-do-sistema-real.md)). Este protótipo fica só como referência.
 - **Fontes:** [`package.json`](../package.json#L1-L16), [`drizzle.config.ts`](../drizzle.config.ts#L1-L15), auditoria histórica.
 
 ## ADR-005 — Connect como dono de dados futuros

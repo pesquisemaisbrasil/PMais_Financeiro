@@ -601,7 +601,7 @@ async def receive(request: Request, db: Session = Depends(get_db)) -> None:
 ### Connect, nesta ordem
 
 > **Feito (fatia 1):** itens 1 a 5 e a leitura de `payables`, `projects` e `interviewers` (chave mascarada). Falta: `payment-data` e `pix-key-matches` com `pii_access_logs` por conta de serviço (6), baixa e `idempotency_keys` (7), outbox e webhooks (8), feed `/events` (9), cancelamento (10), `FINANCE_EXTERNAL_ENABLED` (11).
-> `/projects/{id}/budget` devolve hoje o orçamento único; os itens do orçamento entram quando existirem.
+> `/projects/{id}/budget` já devolve o teto das entrevistas, o total, o lançado, o pago, o a pagar, o disponível e os itens do orçamento com o gasto de cada um (conferido no código do Connect em 06/11/2026).
 
 1. ADR "Integração máquina a máquina com o Financeiro" + atualizar `integracao-entre-sistemas.md`, ROPA (OP-04: Financeiro como destinatário interno da chave Pix) e inventário de dados.
 2. `service_clients`, `service_client_logs`, `POST /oauth/token` (`client_credentials`), `INTEGRATION_JWT_SECRET`, `get_current_service_client`, `require_scope`; `get_current_user` recusando `typ: "service"`. Script `scripts/create_service_client.py` (mostra o segredo uma vez).

@@ -28,7 +28,7 @@ Coloque esta pasta em `docs/handoff/` do repositório novo e peça:
 Leia docs/handoff/README.md e os arquivos 01, 10 e 11.
 Execute a Fase 0 do 11-plano-de-implementacao.md seguindo os padrões dos arquivos 02 a 09.
 Crie o AGENTS.md, as skills e os revisores com os textos do 10-processo-docs-e-skills.md.
-Anote toda decisão no lugar indicado no 10. Commits separados por assunto, PR com base na main.
+Anote toda decisão no lugar indicado no 10. Commits separados por assunto, PR com base na homolog.
 ```
 
 ## Regras que valem para tudo
@@ -43,7 +43,7 @@ Anote toda decisão no lugar indicado no 10. Commits separados por assunto, PR c
    - nenhum comprovante real no repositório.
 5. **Decisão de produto não se toma no código:** vai para `perguntas-abertas.md`.
 6. **Pronto = verde:** testes, lint, tipos, `check:ui` e e2e quando a tela muda.
-7. **Um PR por entrega, base na `main`**, commits separados por assunto. Nada vai para a `main` sem o dono aprovar.
+7. **Um PR por entrega, base na `homolog`**, commits separados por assunto. A `main` só recebe o PR `homolog` → `main`, depois de validado, com o dono aprovando.
 
 ## Contato
 

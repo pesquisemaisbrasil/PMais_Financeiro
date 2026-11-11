@@ -457,6 +457,8 @@ Também desde o primeiro dia: `/docs` e `/openapi.json` **desligados em produç�
 
 ### MFA (TOTP) obrigatório para `admin` e `financeiro`
 
+Vale para quem entra por e-mail e senha. No SSO, o segundo fator é o do Google ou da Microsoft ([spec](../specs/acesso-e-auditoria.md)).
+
 Quem gera a planilha com chave Pix completa e confirma pagamentos é o alvo mais valioso (R11 do RIPD). Fluxo **(proposta, baseado no desenho pendente do Connect)**:
 
 1. `pyotp`. Campo `totpSecretEncrypted` (AES-GCM, nunca em claro) e `mfaEnabledAt` no usuário.

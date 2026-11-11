@@ -1,0 +1,81 @@
+# Só para rodar localmente. As senhas daqui valem apenas nesta máquina.
+# Portas diferentes das do Connect (5432, 8000 e 3000), para subir junto com ele.
+# MinIO: a imagem oficial saiu do ar (projeto arquivado), então usamos o build mantido pela Chainguard,
+# fixo pelo digest (ADR 0010). Troque o digest de propósito, nunca com "latest".
+# shortcut: só o administrador do MinIO deste compose (que já é separado do do Connect) e um bucket;
+# o usuário restrito ao bucket entra junto com o primeiro upload.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "troque-local"
+      POSTGRES_DB: financeiro
+    ports: ["127.0.0.1:5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      # Pela rede: o Postgres temporário da criação das roles só escuta no socket.
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:3c60a2a8c4d33409a9bc7a623a7fcbfb4605adc3d89422d2f53b3f673a6e5597
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: financeiro-admin
+      MINIO_ROOT_PASSWORD: "troque-local-minio"
+    ports: ["127.0.0.1:9010:9000", "127.0.0.1:9011:9001"]
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: cgr.dev/chainguard/minio-client@sha256:1dccd2a6fd59914a98ac2d9dad95e552c91243cb0bd7242aaa224802df4b3432
+    environment:
+      MC_HOST_local: http://financeiro-admin:troque-local-minio@minio:9000
+    command: ["mb", "--ignore-existing", "local/financeiro-arquivos"]
+    depends_on:
+      minio: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: ./backend
+    env_file: [./backend/.env]
+    environment:
+      DATABASE_URL: postgresql://financeiro_app:troque-local@db:5432/financeiro
+      MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:troque-local@db:5432/financeiro
+    ports: ["127.0.0.1:8010:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/readyz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    depends_on:
+      db: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8010 # endereço que o NAVEGADOR alcança
+    ports: ["127.0.0.1:3010:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      api: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  miniodata:
