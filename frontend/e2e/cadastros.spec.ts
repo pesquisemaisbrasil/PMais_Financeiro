@@ -242,6 +242,11 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await expect(again.getByRole("alert")).toContainText("Já existe uma empresa ativa com esse documento");
   await again.getByRole("button", { name: "Cancelar" }).click();
 
+  // Os projetos nascem no Connect: o botão traz a lista de lá (no teste, o espelho já traz o projeto de exemplo)
+  await page.goto("/cadastros?aba=projects");
+  await page.getByRole("button", { name: "Atualizar do Connect" }).click();
+  await expect(page.getByText("1 projeto no Connect. A lista está atualizada.")).toBeVisible();
+
   // Os cabeçalhos ordenam (um clique ordena, o seguinte inverte) e o sub-centro fica embaixo do principal
   await page.goto("/cadastros?aba=costCenters");
   const rowsOf = () => page.getByRole("row").filter({ has: page.getByRole("button", { name: /^Editar / }) });
