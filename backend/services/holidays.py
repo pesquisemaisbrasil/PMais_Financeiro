@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from core.business_days import next_business_day, previous_business_day, why_not_business
 from core.text import format_date_br
 from models.reference import Holiday, RecordEvent
 from models.user import User
@@ -50,6 +51,23 @@ def holiday_names(db: Session) -> dict[date, str]:
     for day, name in query:
         names.setdefault(day, []).append(name)
     return {day: " / ".join(found) for day, found in names.items()}
+
+
+def check_day(db: Session, day: date) -> dict[str, Any]:
+    """Para o aviso na hora de lançar: a data é dia útil? Se não, qual o motivo e para onde ir."""
+    if not holiday_sync.MIN_YEAR <= day.year <= holiday_sync.MAX_YEAR:
+        raise PayableInvalid(
+            f"Informe uma data entre {holiday_sync.MIN_YEAR} e {holiday_sync.MAX_YEAR}"
+        )
+    extra = holiday_names(db)
+    reason = why_not_business(day, extra)
+    return {
+        "date": day,
+        "isBusinessDay": reason is None,
+        "reason": reason,
+        "previous": previous_business_day(day, extra),
+        "next": next_business_day(day, extra),
+    }
 
 
 def _exists(db: Session, day: date, name: str) -> bool:

@@ -25,6 +25,18 @@ class HolidayOut(BaseModel):
     source: Literal["brasilapi", "manual"]
 
 
+class BusinessDayOut(BaseModel):
+    """Se a data é dia útil e, quando não é, por quê e para que dia dá para antecipar ou adiar."""
+
+    date: Date
+    isBusinessDay: bool
+    # "sábado", "domingo", "feriado nacional" ou "feriado: Nome" (vazio quando é dia útil)
+    reason: str | None
+    # o dia útil anterior e o próximo: a própria data quando ela é útil
+    previous: Date
+    next: Date
+
+
 class HolidaySyncOut(BaseModel):
     year: int
     # quantos nacionais novos entraram, e quantos o ano tem agora

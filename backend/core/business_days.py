@@ -75,6 +75,13 @@ def next_business_day(day: date, extra: Mapping[date, str] = NO_EXTRA) -> date:
     return day
 
 
+def previous_business_day(day: date, extra: Mapping[date, str] = NO_EXTRA) -> date:
+    """O próprio dia se for útil; senão, o dia útil anterior."""
+    while not is_business_day(day, extra):
+        day -= timedelta(days=1)
+    return day
+
+
 def add_business_days(start: date, days: int, extra: Mapping[date, str] = NO_EXTRA) -> date:
     """O dia `days` úteis depois de `start`, que não conta."""
     day = start

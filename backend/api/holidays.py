@@ -1,12 +1,13 @@
 from collections.abc import Callable
-from typing import Any, TypeVar
+from datetime import date as Date
+from typing import Annotated, Any, TypeVar
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from sqlalchemy.exc import IntegrityError
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
-from schemas.holidays import HolidayIn, HolidayOut, HolidaySyncOut
+from schemas.holidays import BusinessDayOut, HolidayIn, HolidayOut, HolidaySyncOut
 from services import holiday_sync
 from services import holidays as holidays_service
 from services.payable import PayableConflict, PayableInvalid
@@ -54,6 +55,20 @@ def _write(db: DbSession, action: Callable[[], T]) -> T:
 @limiter.limit(READ_LIMIT)
 def list_holidays(request: Request, db: DbSession, _: FinanceUser) -> list[dict[str, Any]]:
     return holidays_service.list_all(db)
+
+
+@router.get(
+    "/business-days/check",
+    response_model=BusinessDayOut,
+    description="Diz se a data é dia útil (fim de semana e feriado cadastrado não são) e, quando "
+    "não é, o motivo e o dia útil anterior e o próximo. Serve ao aviso na hora de lançar. "
+    "Não altera nada",
+)
+@limiter.limit(READ_LIMIT)
+def check_business_day(
+    request: Request, date: Annotated[Date, Query()], db: DbSession, _: FinanceUser
+) -> dict[str, Any]:
+    return _write(db, lambda: holidays_service.check_day(db, date))
 
 
 @router.post(
