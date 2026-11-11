@@ -14,6 +14,7 @@ import {
   Layers,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   type LucideIcon,
@@ -53,6 +54,7 @@ import {
   removeCustomerDocument,
   renameCustomerDocument,
   setRecordActive,
+  syncConnectProjects,
   updateProjectIncentive,
   updateRecord,
 } from "@/lib/api";
@@ -1074,6 +1076,7 @@ function Records({ tab }: { tab: TabId }) {
   const [editing, setEditing] = useState<{ record: RecordRow | null } | null>(null);
   const [deleting, setDeleting] = useState<RecordRow | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   const current = TABS.find((option) => option.id === tab) ?? TABS[0];
 
@@ -1157,6 +1160,20 @@ function Records({ tab }: { tab: TabId }) {
   const page = Math.min(requestedPage, pageCount);
   const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  /** Os projetos nascem no Connect: aqui só se traz a lista de lá. Quem já existe só muda o título. */
+  async function syncProjects() {
+    setSyncing(true);
+    try {
+      const count = await syncConnectProjects();
+      toast.success(`${plural(count, "projeto", "projetos")} no Connect. A lista está atualizada.`);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível falar com o Connect agora");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   async function toggleActive(record: RecordRow) {
     if (tab === "projects") return;
     try {
@@ -1178,11 +1195,18 @@ function Records({ tab }: { tab: TabId }) {
         title="Cadastros"
         icon={BookUser}
         actions={
-          current.create && (
-            <Button onClick={() => setEditing({ record: null })} disabled={!rows}>
-              <Plus size={16} />
-              {current.create}
+          tab === "projects" ? (
+            <Button variant="outline" onClick={() => void syncProjects()} disabled={syncing}>
+              {syncing ? <Spinner aria-label="Atualizando" className="size-4" /> : <RefreshCw size={16} />}
+              Atualizar do Connect
             </Button>
+          ) : (
+            current.create && (
+              <Button onClick={() => setEditing({ record: null })} disabled={!rows}>
+                <Plus size={16} />
+                {current.create}
+              </Button>
+            )
           )
         }
       />

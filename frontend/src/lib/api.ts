@@ -466,6 +466,12 @@ export function removeCustomerDocument(id: number, attachmentId: number, reason:
   return send<Attachment[]>(`/records/customers/${id}/attachments/${attachmentId}/remove`, "POST", { reason });
 }
 
+/** Traz os projetos do Connect: cada um vira projeto de Contas a pagar. Devolve quantos o Connect tem. */
+export async function syncConnectProjects(): Promise<number> {
+  const projects = await request<unknown[]>("/finance/connect/sync", { method: "POST" });
+  return projects.length;
+}
+
 export function updateProjectIncentive(id: number, body: unknown): Promise<Project> {
   return send<Project>(`/projects/${id}/incentive`, "PATCH", body);
 }

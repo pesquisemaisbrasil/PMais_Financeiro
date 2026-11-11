@@ -33,6 +33,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -65,6 +66,7 @@ import {
   getReference,
   listPayables,
 } from "@/lib/api";
+import { projectReportHref } from "@/lib/projectReport";
 import {
   brl,
   formatDate,
@@ -304,7 +306,14 @@ function ProjectCell({ row }: { row: PayableRow }) {
       {row.allocations.map((a, index) => (
         <Fragment key={a.projectId}>
           {index > 0 && ", "}
-          <span className="whitespace-nowrap">PRJ-{a.code}</span>
+          <Link
+            href={projectReportHref(a.code)}
+            className="whitespace-nowrap hover:underline"
+            title="Abrir o relatório do projeto"
+            onClick={(event) => event.stopPropagation()}
+          >
+            PRJ-{a.code}
+          </Link>
         </Fragment>
       ))}
     </span>
@@ -377,7 +386,13 @@ function PayablesContent() {
   const [dateField, setDateField] = useState<DateField>("vencimento");
   const [indicator, setIndicator] = useState<Indicator>((params.get("indicador") as Indicator) ?? "total");
   const [tab, setTab] = useState<Tab>((params.get("aba") as Tab) ?? "todas");
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  // `?projeto=ID` (vindo do relatório do projeto) já abre a lista só com as contas desse projeto
+  const [filters, setFilters] = useState<Record<string, string>>(() => {
+    const project = params.get("projeto") ?? "";
+    const start: Record<string, string> = {};
+    if (/^\d+$/.test(project)) start.project = project;
+    return start;
+  });
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ column: SortColumn; descending: boolean }>({ column: "vencimento", descending: false });
