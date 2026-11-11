@@ -56,7 +56,6 @@ const NAV: Entry[] = [
     icon: ChartColumn,
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
-      { href: "/incentivos", label: "Incentivos" },
       { label: "Fluxo de caixa" },
       { label: "DRE" },
       { label: "Resultado por projeto" },

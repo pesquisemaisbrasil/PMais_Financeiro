@@ -1,8 +1,17 @@
 "use client";
 
-import { ArrowUpRight, CalendarClock, CalendarDays, CircleCheck, TriangleAlert, type LucideIcon } from "lucide-react";
+import {
+  ArrowUpRight,
+  CalendarClock,
+  CalendarDays,
+  CircleCheck,
+  FileUp,
+  TriangleAlert,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, SituationTag, TD, TH } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
@@ -11,11 +20,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError } from "@/lib/api";
+import { ApiError, getReference } from "@/lib/api";
 import { getIncentiveAgenda, groupByDay, overdueNotice, peopleText, type Agenda, type Bucket } from "@/lib/incentives";
-import { brl, formatDate, monthRange, periodLabel, plural, type PeriodMode } from "@/lib/payables";
+import { brl, formatDate, monthRange, periodLabel, plural, type PeriodMode, type Reference } from "@/lib/payables";
 import { weekday } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
+import { ImportDialog } from "../contas-a-pagar/import-dialog";
 
 type Group = "a_vencer" | "hoje" | "vencido" | "pago";
 
@@ -58,6 +68,13 @@ export default function IncentiveAgendaPage() {
   const [filter, setFilter] = useState<Group | null>(null);
   const [data, setData] = useState<Agenda | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reference, setReference] = useState<Reference | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    // Os cadastros que a planilha usa (projeto, empresa, categoria...). Sem eles, só o botão fica desligado.
+    getReference().then(setReference, () => undefined);
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -111,6 +128,12 @@ export default function IncentiveAgendaPage() {
         title="Incentivos"
         icon={CalendarClock}
         subtitle="Cada data de pagamento dos incentivos, com as pessoas e a situação. Quem paga e dá a baixa continua no Contas a pagar."
+        actions={
+          <Button onClick={() => setImporting(true)} disabled={!reference}>
+            <FileUp size={16} />
+            Importar planilha
+          </Button>
+        }
       />
 
       {error && (
@@ -255,11 +278,30 @@ export default function IncentiveAgendaPage() {
             {filter
               ? "Nenhum incentivo nessa situação no período."
               : mode === "tudo"
-                ? "Nenhum incentivo lançado ainda. Eles entram pela importação de planilha, no Contas a pagar."
+                ? "Nenhum incentivo lançado ainda. Use Importar planilha para trazer os de um projeto."
                 : `Nenhum incentivo com vencimento em ${periodLabel(mode, data.rangeStart ?? data.today)}. Veja outro período no seletor acima.`}
           </p>
         )}
       </div>
+
+      {importing && reference && data && (
+        <ImportDialog
+          kind="incentivos"
+          reference={reference}
+          today={data.today}
+          onClose={() => setImporting(false)}
+          onDone={(result) => {
+            setImporting(false);
+            toast.success(
+              `${plural(result.count, "lançamento criado", "lançamentos criados")}, ${plural(result.items, "item", "itens")}, ${brl(result.total)}.`
+            );
+            // Mostra o que acabou de entrar, em qualquer data
+            setFilter(null);
+            if (mode === "tudo") void load();
+            else setMode("tudo");
+          }}
+        />
+      )}
     </main>
   );
 }

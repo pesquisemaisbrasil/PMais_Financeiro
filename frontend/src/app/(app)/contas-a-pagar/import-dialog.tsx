@@ -56,11 +56,14 @@ function Count({ label, value, detail }: { label: string; value: string; detail?
 export function ImportDialog({
   reference,
   today,
+  kind,
   onClose,
   onDone,
 }: {
   reference: Reference;
   today: string;
+  /** Tipo fixo da planilha (a página de Incentivos só importa incentivos); sem ele, a pessoa escolhe. */
+  kind?: "incentivos" | "folha";
   onClose: () => void;
   onDone: (result: ImportResult) => void;
 }) {
@@ -69,7 +72,7 @@ export function ImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [form, setForm] = useState({
-    kind: "incentivos",
+    kind: kind ?? "incentivos",
     // Cada campo guarda os ids marcados, separados por vírgula. Vazio = todos os da planilha.
     projectIds: "",
     categoryIds: "",
@@ -149,16 +152,18 @@ export function ImportDialog({
         {!preview ? (
           <form onSubmit={read} noValidate>
             <DialogHeader>
-              <DialogTitle>Importar planilha</DialogTitle>
+              <DialogTitle>{kind === "incentivos" ? "Importar incentivos" : "Importar planilha"}</DialogTitle>
               <DialogDescription>
                 A planilha é conferida antes de criar qualquer lançamento. Ela é lida e não fica guardada.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3.5 py-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Tipo *" id="i-tipo">
-                  <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={KINDS} />
-                </Field>
+              <div className={cn("grid gap-3", !kind && "sm:grid-cols-2")}>
+                {!kind && (
+                  <Field label="Tipo *" id="i-tipo">
+                    <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={KINDS} />
+                  </Field>
+                )}
                 <Field label="Projeto" id="i-proj">
                   <MultiSearchSelect
                     id="i-proj"
