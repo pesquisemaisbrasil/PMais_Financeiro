@@ -33,6 +33,10 @@ class IncentiveSummary(BaseModel):
 
 
 class IncentiveAgenda(BaseModel):
+    today: date
+    # o período que está à vista (vazio em "Tudo")
+    rangeStart: date | None
+    rangeEnd: date | None
     summary: IncentiveSummary
     # O que está vencido em qualquer data, mesmo fora do período olhado
     overdueAll: IncentiveBucket

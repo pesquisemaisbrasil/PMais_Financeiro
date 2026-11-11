@@ -78,6 +78,9 @@ def agenda(
     late_counts = _item_counts(db, [p.id for p in late])
     late_rows = [_row(p, on, late_counts.get(p.id, 0)) for p in late]
     return {
+        "today": on,
+        "rangeStart": start,
+        "rangeEnd": end,
         "summary": {
             group: _bucket(rows, group) for group in ("a_vencer", "hoje", "vencido", "pago")
         },
