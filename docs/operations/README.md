@@ -23,5 +23,6 @@ Detalhes e limites: [ADR 0012](../architecture/adr/0012-anexos-das-contas-cifrad
 | Variável | O que é |
 |---|---|
 | `CNPJ_LOOKUP_MODE` | Consulta de CNPJ no Cadastros. Padrão `brasilapi` (dados públicos da Receita, sem chave). `simulated` usa CNPJs inventados, só para teste de tela, e é recusado em produção. Qualquer outro valor desliga a consulta: o cadastro continua à mão |
+| `HOLIDAYS_LOOKUP_MODE` | Busca dos feriados nacionais do ano no Cadastros → Feriados. Padrão `brasilapi` (dados públicos, sem chave, só o ano sai do sistema). `simulated` usa feriados inventados, só para teste de tela, e é recusado em produção. Qualquer outro valor desliga a busca: os feriados continuam cadastrados à mão. Veja o [ADR 0015](../architecture/adr/0015-feriados-por-cadastro-e-brasilapi.md) |
 
 Só o CNPJ sai do sistema, pelo servidor: [ADR 0013](../architecture/adr/0013-consulta-de-cnpj-pela-brasilapi.md).

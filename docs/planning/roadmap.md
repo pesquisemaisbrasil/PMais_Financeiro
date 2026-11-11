@@ -120,6 +120,16 @@ Em **Cadastros**, no menu:
 3. Um cadastro com lançamento não mostra **Excluir**, só **Inativar**. Inativado, ele some da **Nova conta a pagar** e continua na lista de contas.
 4. Em **Projetos (Connect)**, marque o tipo, o incentivo e o prazo. Volte ao **Importar planilha**: o projeto passa a calcular o cronograma.
 
+### Incentivos: agenda, dia útil e feriados
+
+Com o sistema rodando, em **Cadastros → Feriados**:
+
+1. **Buscar nacionais do ano** traz os feriados nacionais do ano escolhido (a BrasilAPI, ou os inventados no modo de teste). Buscar de novo avisa que já estavam cadastrados.
+2. **Novo feriado** cadastra um local, por exemplo o aniversário da cidade (âmbito municipal, com UF e cidade). Campo vazio diz quais faltam, e o mesmo feriado de novo é recusado.
+3. Em **Contas a pagar → Importar planilha** (incentivos), use uma planilha fictícia com `Nome`, `Valor` e `Data de pagamento` numa **sexta-feira, sábado ou domingo** e outra num feriado cadastrado. **Ler planilha** avisa cada data que mudou e o motivo ("07/11 caiu em sábado; vai para 09/11"), e **Criar** abre os lançamentos já no próximo dia útil.
+4. **Agenda de incentivos** (menu Financeiro): uma linha por data de vencimento, com as pessoas e o que falta pagar. Os cartões **Vencidos**, **Vencem hoje**, **A vencer** e **Pagos** filtram a lista, e **Abrir** leva à conta no Contas a pagar, com as pessoas.
+5. Em **Contas a pagar → Nova conta → Repetir esta conta → Simular**, um vencimento que cai num feriado cadastrado vai para o próximo dia útil.
+
 ### Comprovantes e baixa (PF-56)
 
 Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Connect, ponha `CONNECT_MODE=simulated` no `backend/.env` (só fora de produção) e reinicie a API:
