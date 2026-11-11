@@ -34,6 +34,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -271,6 +273,10 @@ function RecordDialog({
     value: form[key],
     onChange: (event: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: event.target.value })),
   });
+  // centro de custo novo: principal (sem superior) ou sub-centro (embaixo de um principal ativo)
+  const [subCenter, setSubCenter] = useState(Boolean(record?.parentId));
+  const [localError, setLocalError] = useState<string | null>(null);
+  const principals = centers.filter((center) => center.parentId === null && center.active);
   const needsCompany = kind === "units" || kind === "bankAccounts";
   const isParty = kind === "suppliers" || kind === "customers";
   // Fornecedor, cliente e empresa do Grupo começam pelo CNPJ: a Receita preenche, e a pessoa edita.
@@ -347,11 +353,15 @@ function RecordDialog({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setLocalError(null);
+    if (kind === "costCenters" && !record && subCenter && !form.parentId) {
+      return setLocalError("Escolha o centro principal em que o sub-centro fica.");
+    }
     await run(async () => {
       const body = {
         ...form,
         companyId: form.companyId ? Number(form.companyId) : null,
-        parentId: form.parentId ? Number(form.parentId) : null,
+        parentId: subCenter && form.parentId ? Number(form.parentId) : null,
         personType: form.personType || null,
       };
       await (record ? updateRecord(kind, record.id, body) : createRecord(kind, body));
@@ -494,39 +504,65 @@ function RecordDialog({
                     />
                   </Field>
                 )}
-                {kind === "costCenters" && (
-                  <Field
-                    label="Superior"
-                    id="c-sup"
-                    hint={
-                      record
-                        ? "O superior não muda depois de cadastrado: o código depende dele."
-                        : "Deixe em branco para criar um centro principal."
-                    }
-                  >
-                    {record ? (
+                {kind === "costCenters" &&
+                  (record ? (
+                    <Field
+                      label="Superior"
+                      id="c-sup"
+                      hint="O superior não muda depois de cadastrado: o código depende dele."
+                    >
                       <Input
                         id="c-sup"
                         disabled
                         readOnly
                         value={centerLabel(centers.find((center) => center.id === record.parentId)) || "Nenhum: é um centro principal"}
                       />
-                    ) : (
-                      <SearchSelect
-                        id="c-sup"
-                        searchable
-                        value={form.parentId}
-                        onChange={(value) => setForm((current) => ({ ...current, parentId: value }))}
-                        options={[
-                          { id: "", label: "Nenhum: centro principal" },
-                          ...centers
-                            .filter((center) => center.parentId === null && center.active)
-                            .map((center) => ({ id: center.id, label: centerLabel(center) })),
-                        ]}
-                      />
-                    )}
-                  </Field>
-                )}
+                    </Field>
+                  ) : (
+                    <>
+                      <RadioGroup
+                        aria-label="Tipo de centro de custo"
+                        value={subCenter ? "sub" : "principal"}
+                        onValueChange={(value) => {
+                          setSubCenter(value === "sub");
+                          if (value !== "sub") setForm((current) => ({ ...current, parentId: "" }));
+                        }}
+                        className="gap-2.5"
+                      >
+                        {[
+                          { id: "principal", label: "Centro principal", hint: "Agrupa outros centros. Código 001, 002…" },
+                          { id: "sub", label: "Sub-centro", hint: "Fica embaixo de um centro principal. Código 001.001, 001.002…" },
+                        ].map((option) => (
+                          <div key={option.id} className="flex items-start gap-2.5">
+                            <RadioGroupItem value={option.id} id={`c-nivel-${option.id}`} className="mt-0.5" />
+                            <Label htmlFor={`c-nivel-${option.id}`} className="flex flex-col gap-0.5 font-normal">
+                              <span className="font-semibold">{option.label}</span>
+                              <span className="text-xs text-muted-foreground">{option.hint}</span>
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                      {subCenter && (
+                        <Field
+                          label="Superior *"
+                          id="c-sup"
+                          hint={
+                            principals.length
+                              ? "O centro principal em que ele fica."
+                              : "Ainda não há centro principal ativo: cadastre um primeiro."
+                          }
+                        >
+                          <SearchSelect
+                            id="c-sup"
+                            searchable
+                            value={form.parentId}
+                            onChange={(value) => setForm((current) => ({ ...current, parentId: value }))}
+                            options={principals.map((center) => ({ id: center.id, label: centerLabel(center) }))}
+                          />
+                        </Field>
+                      )}
+                    </>
+                  ))}
                 {(kind === "units" || kind === "costCenters") && (
                   <GeneratedCodeField code={form.code} isNew={!record} />
                 )}
@@ -535,7 +571,7 @@ function RecordDialog({
                 </Field>
               </>
             )}
-            <FormError message={error} />
+            <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
