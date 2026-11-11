@@ -102,7 +102,8 @@ test("com o MFA cadastrado, a sessão aguenta recarregar e abrir duas abas, e sa
     session: Object.keys(sessionStorage),
     cookie: document.cookie,
   }));
-  expect(stored).toEqual({ local: [], session: [], cookie: "" });
+  // Nada de sessão no navegador: só a marca de que o passeio de introdução já foi visto (todo navegador de teste nasce com ela)
+  expect(stored).toEqual({ local: ["financeiro:passeio-visto"], session: [], cookie: "" });
   const cookie = await refreshCookie(page);
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe("Strict");

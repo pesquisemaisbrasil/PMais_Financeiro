@@ -29,7 +29,7 @@ test("relatório do projeto: números, a parte do projeto em cada conta, documen
   await expect(page.getByRole("row", { name: /Passagens de ônibus/ })).toHaveCount(0);
 
   // Provisão fica à parte e não é gasto (outro teste troca a do seed por uma conta real: aqui só o aviso)
-  await expect(page.getByText(/\d+ provisões? em aberto · ainda não é gasto/)).toBeVisible();
+  await expect(page.getByText(/\d+ (provisão|provisões) em aberto · ainda não é gasto/)).toBeVisible();
 
   // O total é a soma exata das linhas, e é o que os cartões mostram
   const values = await page
@@ -37,7 +37,8 @@ test("relatório do projeto: números, a parte do projeto em cada conta, documen
     .first()
     .locator("tbody tr:not(:last-child) td:nth-child(5)")
     .allInnerTexts();
-  const total = await page.getByRole("row", { name: /^Total/ }).locator("td").nth(1).innerText();
+  // na linha do total, o valor é a 4ª célula (depois de "Total", categoria e situação, que ficam vazias)
+  const total = await page.getByRole("row", { name: /^Total/ }).locator("td").nth(3).innerText();
   expect(values.length).toBeGreaterThan(2);
   expect(values.reduce((sum, text) => sum + cents(text), 0)).toBe(cents(total));
   expect(await page.getByText(total, { exact: true }).count()).toBeGreaterThanOrEqual(2);
