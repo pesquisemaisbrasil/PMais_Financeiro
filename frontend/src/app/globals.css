@@ -91,3 +91,57 @@
   size: A4 landscape;
   margin: 10mm;
 }
+
+/* Passeio de introdução (Driver.js): o balão no padrão do sistema, com a fonte e as cores dele. */
+.driver-popover.passeio {
+  max-width: 340px;
+  padding: 1rem 1.125rem;
+  border-radius: 1rem;
+  background-color: #ffffff;
+  color: var(--brand-cinza-escuro);
+  font-family: inherit;
+  box-shadow: 0 18px 40px -16px rgb(15 23 42 / 0.45);
+}
+
+.driver-popover.passeio .driver-popover-title {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--brand-cinza-escuro);
+}
+
+.driver-popover.passeio .driver-popover-description {
+  margin-top: 0.4rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--brand-cinza-escuro);
+}
+
+.driver-popover.passeio .driver-popover-progress-text {
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.driver-popover.passeio .driver-popover-footer button {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  color: var(--brand-cinza-escuro);
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+.driver-popover.passeio .driver-popover-footer .driver-popover-next-btn {
+  border-color: transparent;
+  background: linear-gradient(135deg, #4063ee, #5a52f0);
+  color: #ffffff;
+}
+
+.driver-popover.passeio .driver-popover-close-btn {
+  color: var(--muted-foreground);
+}

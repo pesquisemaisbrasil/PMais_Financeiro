@@ -4,6 +4,7 @@ import {
   BookUser,
   ChartColumn,
   ChevronDown,
+  Compass,
   House,
   LogOut,
   PanelLeftClose,
@@ -16,6 +17,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { TourAutoStart, startTour } from "@/components/ProductTour";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -209,6 +211,7 @@ export function Sidebar() {
       <nav
         className={cn("flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3.5", collapsed && "md:px-2")}
         aria-label="Menu principal"
+        data-tour="menu"
       >
         {NAV.map((entry) => {
           const Icon = entry.icon;
@@ -218,6 +221,7 @@ export function Sidebar() {
               <Hint key={entry.id} show={collapsed} label={entry.label}>
                 <Link
                   href={entry.href ?? "/"}
+                  data-tour={`menu-${entry.id}`}
                   aria-label={entry.label}
                   aria-current={active ? "page" : undefined}
                   className={cn(ROW, collapsed && "md:justify-center md:px-0", active ? ROW_ACTIVE : ROW_IDLE)}
@@ -238,6 +242,7 @@ export function Sidebar() {
                   <Button
                     variant="ghost"
                     aria-label={entry.label}
+                    data-tour={`menu-${entry.id}`}
                     className={cn(
                       ROW,
                       "h-auto w-full justify-start hover:bg-accent",
@@ -321,8 +326,25 @@ export function Sidebar() {
             <p className="truncate text-[13px] font-semibold text-brand-cinza-escuro">{user.name}</p>
             <p className="truncate text-xs text-muted-foreground">{ROLE_LABELS[user.role] ?? user.role}</p>
           </div>
-          <NotificationsBell />
+          <span data-tour="avisos">
+            <NotificationsBell />
+          </span>
         </div>
+        <Hint show={collapsed} label="Conhecer o sistema">
+          <Button
+            variant="ghost"
+            aria-label="Conhecer o sistema"
+            data-tour="passeio"
+            className={cn(
+              "mt-1 w-full justify-start gap-3 rounded-xl px-3 text-brand-cinza-escuro/70 hover:text-brand-azul-deep",
+              collapsed && "md:justify-center md:px-0"
+            )}
+            onClick={() => void startTour()}
+          >
+            <Compass size={16} />
+            <span className={cn(collapsed && "md:hidden")}>Conhecer o sistema</span>
+          </Button>
+        </Hint>
         <Hint show={collapsed} label="Sair">
           <Button
             variant="ghost"
@@ -338,6 +360,7 @@ export function Sidebar() {
           </Button>
         </Hint>
       </div>
+      <TourAutoStart />
     </aside>
   );
 }
