@@ -172,6 +172,56 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await customer.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
 
+  // Cliente em etapas: Principal (obrigatória), Endereço e Documentos (opcionais)
+  await page.getByRole("button", { name: "Novo cliente" }).click();
+  const steps = page.getByRole("dialog");
+  // CNPJ válido que a consulta de teste não conhece: o nome vem à mão
+  await steps.getByLabel("CNPJ").fill("00.000.000/0001-91");
+  await steps.getByRole("button", { name: "Avançar" }).click();
+  await expect(steps.getByText("Preencha o apelido e o nome antes de avançar.")).toBeVisible();
+  await steps.getByLabel("Nome / razão social *").fill("Cliente em etapas Ltda");
+  await steps.getByLabel("Apelido *").fill("Alfa em etapas");
+  await steps.getByLabel("IE (inscrição estadual)").fill("123456789");
+  await steps.getByLabel("Fone 1: DDD").fill("41");
+  await steps.getByLabel("Fone 1: número").fill("99999-0000");
+  await steps.getByLabel("E-mail alternativo").fill("financeiro@alfa.example");
+  await steps.getByLabel("Observações").fill("Paga todo dia 10");
+  await steps.getByRole("button", { name: "Avançar" }).click();
+  await expect(steps.getByText("O endereço é opcional")).toBeVisible();
+  await steps.getByLabel("CEP").fill("80010000");
+  await expect(steps.getByLabel("CEP")).toHaveValue("80010-000");
+  await steps.getByLabel("Endereço", { exact: true }).fill("Rua XV de Novembro");
+  await steps.getByLabel("Número", { exact: true }).fill("100");
+  await steps.getByLabel("Cidade").fill("Curitiba");
+  await steps.getByRole("combobox", { name: "UF" }).click();
+  await page.getByRole("option", { name: "PR", exact: true }).click();
+  await steps.getByRole("button", { name: "Salvar e anexar documentos" }).click();
+  // os documentos precisam do cadastro salvo: ele já aparece na lista, e a janela segue aberta
+  await expect(steps.getByText("Nenhum documento anexado ainda.")).toBeVisible();
+  await expect(page.getByRole("row", { name: /Alfa em etapas/, includeHidden: true })).toBeVisible();
+  await steps.getByLabel("Anexar documentos").setInputFiles({
+    name: "contrato-alfa.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%contrato fictício do teste\n"),
+  });
+  await expect(page.getByText("Documento anexado.")).toBeVisible();
+  await expect(steps.getByRole("listitem").filter({ hasText: "contrato-alfa.pdf" })).toBeVisible();
+  await steps.getByRole("button", { name: "Concluir" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // tudo foi guardado; com documento, o cliente não se exclui
+  const stepsRow = page.getByRole("row", { name: /Alfa em etapas/ });
+  await stepsRow.getByRole("button", { name: /^Editar / }).click();
+  const reopened = page.getByRole("dialog");
+  await expect(reopened.getByLabel("IE (inscrição estadual)")).toHaveValue("123456789");
+  await expect(reopened.getByLabel("Fone 1: número")).toHaveValue("99999-0000");
+  await reopened.getByRole("button", { name: "Avançar" }).click();
+  await expect(reopened.getByLabel("CEP")).toHaveValue("80010-000");
+  await expect(reopened.getByLabel("Cidade")).toHaveValue("Curitiba");
+  await expect(reopened.getByRole("combobox", { name: "UF" })).toContainText("PR");
+  await page.keyboard.press("Escape");
+  await stepsRow.getByRole("button", { name: /^Excluir / }).click();
+  await expect(page.getByText(/tem lançamentos ou documentos: inative em vez de excluir/)).toBeVisible();
+
   // Empresa do Grupo: os mesmos campos, e o CNPJ não repete entre as ativas
   await page.goto("/cadastros?aba=companies");
   await page.getByRole("button", { name: "Nova empresa" }).click();
