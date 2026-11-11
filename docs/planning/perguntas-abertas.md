@@ -40,6 +40,8 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q36 | **Envios de comprovantes abandonados** na conferência (a janela é fechada sem confirmar nem cancelar, por exemplo com Esc) ficam abertos no servidor, com nome cifrado e chave mascarada dos recebedores. Depois de quantos dias o sistema deve apagá-los? Fechar a conferência sem querer deve pedir confirmação? | DPO + financeiro | Ficam abertos até alguém cancelar; Esc e clique fora fecham a janela sem perguntar | Revisão, 11/11/2026 |
 | Q37 | O cliente **pessoa física** precisa de **RG** no cadastro (o sistema antigo tinha "IE ou RG")? O RG identifica a pessoa, como o CPF (Q23). | DPO + PO | Só a **IE** se guarda; RG e CPF são recusados | PO, 11/11/2026 |
 | Q38 | Do cadastro de cliente do sistema antigo, o PO quer também a **busca do endereço pelo CEP** (consulta a um serviço externo, que recebe o CEP) e a aba **Follow Up**? | PO | Nenhum dos dois: o endereço é digitado à mão, e não há Follow Up | PO, 11/11/2026 |
+| Q39 | O **gasto do projeto** no relatório usa o **valor líquido** da conta (o que se paga, com acréscimos, descontos e impostos) ou o **bruto**? Imposto retido (INSS, por exemplo) baixa o líquido, mas o custo para a empresa continua. | Financeiro (Vivi) | Valor **líquido**, o mesmo da lista de Contas a pagar | PO, 11/11/2026 |
+| Q40 | Quando o Financeiro passa a **ler do Connect** o **orçamento** do projeto (`GET /projects/{id}/budget`) e a **situação** (encerrado)? Hoje o cliente HTTP só lê projetos, itens a pagar e entrevistadores. | João (Connect) | Orçamento e saldo em "—" no relatório, e o projeto do Connect entra sempre "em andamento" | PO, 11/11/2026 |
 
 ## Módulos 2 a 7
 

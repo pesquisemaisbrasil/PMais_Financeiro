@@ -55,7 +55,8 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- Relatório do projeto: `backend/services/project_report.py`, `backend/api/project_reports.py` (`GET /reports/projects` e `GET /reports/projects/{código}`), `backend/schemas/project_report.py`, tela em `frontend/src/app/(app)/relatorios/projeto/page.tsx` (`/relatorios/projeto`, e `?codigo=` para um projeto). Testes: `backend/tests/test_project_report.py`, `frontend/e2e/relatorio-do-projeto.spec.ts`.
+- Os demais relatórios: a criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
 
 Origem do requisito:
 
@@ -69,3 +70,4 @@ Origem do requisito:
 ## Ajustes
 
 - 2026-11-03: entra o **relatório do projeto** (orçamento, lançado, pago, a pagar, saldo e anexos de todos os lançamentos), que substitui a tela de pagamento por projeto ([kickoff com o financeiro](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K4).
+- 2026-11-11 (**relatório do projeto entregue, para o piloto**): **Relatórios → Relatório do projeto** abre a lista dos projetos (com lançado, pago e a pagar de cada um) e, por projeto, o relatório: cartões de **orçamento**, **lançado**, **pago**, **a pagar**, **saldo do orçamento**, **gasto total** e **provisionado a pagar**; o aviso "Aqui não se paga"; a lista **Lançamentos de Contas a pagar** com **só a parte do projeto** em cada conta (valor, pago e pendente; a conta repartida entre projetos mostra a parte de cada um, e a diferença de centavos fica com o último), com o total no pé; as **provisões em aberto** à parte; e os **documentos de todos os lançamentos**, que baixam do próprio relatório (cada download fica no histórico da conta). O **código do projeto** na lista de Contas a pagar abre o relatório, e **Pagar em Contas a pagar** volta para a lista já filtrada pelo projeto. Regras: usa o **valor líquido** da conta (Q39); **conta cancelada, substituída ou excluída não é gasto** e fica de fora, nos totais e nas linhas (os totais são a soma exata das linhas); **provisão não é gasto** e não entra no lançado; só **admin e financeiro** abrem. O **orçamento** e o **saldo** ficam em "—" até o Financeiro ler o orçamento do Connect (Q40). Fora desta entrega: impressão, exportação, margem, e o resultado por projeto.
