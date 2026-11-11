@@ -18,6 +18,10 @@ Tudo é simulado e fictício: extrato, planilhas, PDF de comprovantes e notas do
 | Auditoria | Quem fez o quê e quando |
 | Validação | Respostas Sim/Não/Comentar de cada tela, regra e pergunta aberta; exporta CSV e copia resumo |
 
+## Abrir a versão real em teste
+
+No menu, abaixo de **Restaurar dados de exemplo**, o botão **Abrir para teste de produção** abre `teste/` **no mesmo site**, em outra aba: é onde vai ficar a versão real do Financeiro em teste (branch `homolog`), para alternar entre as duas. Enquanto nada estiver publicado nesse caminho, o site mostra a página `404.html`, que explica isso e volta ao protótipo. O que falta para publicar: [docs/operations/publicar-a-versao-de-teste.md](../../docs/operations/publicar-a-versao-de-teste.md).
+
 ## Juntar as respostas de todo mundo (Netlify Forms)
 
 Cada resposta de validação vai também para o **Netlify Forms** quando o site está publicado (abrindo o arquivo local, fica só no navegador).

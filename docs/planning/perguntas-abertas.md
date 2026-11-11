@@ -42,6 +42,7 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q38 | Do cadastro de cliente do sistema antigo, o PO quer também a **busca do endereço pelo CEP** (consulta a um serviço externo, que recebe o CEP) e a aba **Follow Up**? | PO | Nenhum dos dois: o endereço é digitado à mão, e não há Follow Up | PO, 11/11/2026 |
 | Q39 | O **gasto do projeto** no relatório usa o **valor líquido** da conta (o que se paga, com acréscimos, descontos e impostos) ou o **bruto**? Imposto retido (INSS, por exemplo) baixa o líquido, mas o custo para a empresa continua. | Financeiro (Vivi) | Valor **líquido**, o mesmo da lista de Contas a pagar | PO, 11/11/2026 |
 | Q40 | Quando o Financeiro passa a **ler do Connect** o **orçamento** do projeto (`GET /projects/{id}/budget`) e a **situação** (encerrado)? Hoje o cliente HTTP só lê projetos, itens a pagar e entrevistadores. | João (Connect) | Orçamento e saldo em "—" no relatório, e o projeto do Connect entra sempre "em andamento" | PO, 11/11/2026 |
+| Q41 | Onde fica hospedada a **versão de teste do Financeiro** (API, banco e cofre de arquivos) para abrir em `teste/`, no mesmo site do protótipo? Quem paga e quem cuida das contas e das chaves? Só com dados fictícios? | João (infraestrutura) + PO | Nada publicado: o botão do protótipo abre a página de aviso. Ver [publicar a versão de teste](../operations/publicar-a-versao-de-teste.md) | PO, 11/11/2026 |
 
 ## Módulos 2 a 7
 

@@ -4,6 +4,8 @@ Runbooks: `rodar-local.md`, `bootstrap.md` e `deploy.md` entram aqui. Comando, v
 
 Enquanto isso, o passo a passo para rodar localmente está na seção "Como rodar" do [README](../../README.md).
 
+Publicar a versão de teste no mesmo site do protótipo (o que falta e quem decide): [publicar-a-versao-de-teste.md](publicar-a-versao-de-teste.md).
+
 ## Cofre de arquivos (anexos das contas)
 
 Variáveis do `backend/.env` (modelo em `backend/.env.example`). Sem elas, anexar responde "Os anexos não estão disponíveis agora" e o resto do sistema funciona.
