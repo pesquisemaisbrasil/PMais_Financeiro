@@ -17,3 +17,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0011](0011-fastapi-e-starlette-novos-fora-da-versao-do-connect.md) | FastAPI 0.162.0 e Starlette 1.10.0, fora da versão do Connect | Aceito |
 | [0012](0012-anexos-das-contas-cifrados-por-arquivo.md) | Anexos das contas, cifrados um a um no backend com chave-mestra própria | Aceito (provisório) |
 | [0013](0013-consulta-de-cnpj-pela-brasilapi.md) | Consulta de CNPJ pela BrasilAPI, feita pelo servidor | Aceito (provisório) |
+| [0014](0014-passeio-de-introducao-com-driver-js.md) | Passeio de introdução com o Driver.js (MIT), e não o Intro.js (AGPL) | Aceito |
