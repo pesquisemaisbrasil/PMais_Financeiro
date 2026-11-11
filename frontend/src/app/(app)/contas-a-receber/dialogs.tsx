@@ -4,6 +4,7 @@ import { Check, CircleCheck, Hourglass, Pencil, Undo2, Wallet } from "lucide-rea
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AmountSummary } from "@/components/AmountSummary";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { ReasonDialog } from "@/components/ReasonDialog";
 import {
@@ -268,6 +269,7 @@ export function NewReceivableDialog({
                 <Input id="r-comp" type="month" {...input("competence")} />
               </Field>
             </div>
+            <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Conta de receita *" id="r-cat">
                 <Choice
@@ -635,6 +637,11 @@ function EditForm({
       <Field label="Vencimento *" id="ed-venc">
         <Input id="ed-venc" type="date" {...input("dueDate")} />
       </Field>
+      <BusinessDayNotice
+        date={form.dueDate}
+        unlessDate={row.dueDate}
+        onPick={(day) => setForm((current) => ({ ...current, dueDate: day }))}
+      />
       <ValuesCard
         grossId="ed-valor"
         grossLabel="Valor principal (R$) *"

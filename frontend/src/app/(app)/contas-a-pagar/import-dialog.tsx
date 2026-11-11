@@ -3,6 +3,7 @@
 import { Copy, FileUp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
 import { FilePicker } from "@/components/FilePicker";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
@@ -253,6 +254,7 @@ export function ImportDialog({
                   </Field>
                 </div>
               )}
+              {payroll && <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />}
               <Field
                 label="Planilha *"
                 id="i-arq"

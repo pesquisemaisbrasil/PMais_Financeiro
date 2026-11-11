@@ -43,7 +43,7 @@ const NAV: Entry[] = [
     icon: Wallet,
     children: [
       { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
-      { href: "/incentivos", label: "Agenda de incentivos" },
+      { href: "/incentivos", label: "Incentivos" },
       { href: "/contas-a-receber", label: "Contas a receber" },
       { label: "Notas e RPA" },
       { label: "Conferência bancária" },
@@ -56,6 +56,7 @@ const NAV: Entry[] = [
     icon: ChartColumn,
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
+      { href: "/incentivos", label: "Incentivos" },
       { label: "Fluxo de caixa" },
       { label: "DRE" },
       { label: "Resultado por projeto" },

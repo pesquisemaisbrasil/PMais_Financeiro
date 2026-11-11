@@ -3,6 +3,7 @@
 import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Search, Tags, Undo2, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import {
   ErrorBox,
@@ -271,6 +272,7 @@ export function NewPayableDialog({
                 <Input id="p-venc" type="date" {...input("dueDate")} />
               </Field>
             </div>
+            <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />
             <div className="flex items-center gap-2 text-xs">
               <Checkbox
                 id="p-prov"
@@ -1671,6 +1673,7 @@ function EditForm({
           <Input id="e-comp" type="month" {...input("competence")} />
         </Field>
       </div>
+      <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} unlessDate={payable.dueDate} />
       <div className="grid gap-3 sm:grid-cols-2">
         {editSupplier && (
           <Field label="Fornecedor" id="e-forn">

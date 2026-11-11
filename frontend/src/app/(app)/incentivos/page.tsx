@@ -65,7 +65,7 @@ export default function IncentiveAgendaPage() {
       setData(await getIncentiveAgenda({ mode, ref, start: rangeStart, end: rangeEnd }));
     } catch (err) {
       setData(null);
-      setError(err instanceof ApiError ? err.message : "Não foi possível carregar a agenda de incentivos");
+      setError(err instanceof ApiError ? err.message : "Não foi possível carregar os incentivos");
     }
   }, [mode, ref, rangeStart, rangeEnd]);
 
@@ -108,7 +108,7 @@ export default function IncentiveAgendaPage() {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
       <PageHeader
-        title="Agenda de incentivos"
+        title="Incentivos"
         icon={CalendarClock}
         subtitle="Cada data de pagamento dos incentivos, com as pessoas e a situação. Quem paga e dá a baixa continua no Contas a pagar."
       />
