@@ -180,7 +180,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await steps.getByRole("button", { name: "Avançar" }).click();
   await expect(steps.getByText("Preencha o apelido e o nome antes de avançar.")).toBeVisible();
   await steps.getByLabel("Nome / razão social *").fill("Cliente em etapas Ltda");
-  await steps.getByLabel("Apelido *").fill("Alfa em etapas");
+  await steps.getByLabel("Apelido *").fill("Cliente em etapas");
   await steps.getByLabel("IE (inscrição estadual)").fill("123456789");
   await steps.getByLabel("Fone 1: DDD").fill("41");
   await steps.getByLabel("Fone 1: número").fill("99999-0000");
@@ -198,7 +198,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await steps.getByRole("button", { name: "Salvar e anexar documentos" }).click();
   // os documentos precisam do cadastro salvo: ele já aparece na lista, e a janela segue aberta
   await expect(steps.getByText("Nenhum documento anexado ainda.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /Alfa em etapas/, includeHidden: true })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Cliente em etapas/, includeHidden: true })).toBeVisible();
   await steps.getByLabel("Anexar documentos").setInputFiles({
     name: "contrato-alfa.pdf",
     mimeType: "application/pdf",
@@ -209,7 +209,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await steps.getByRole("button", { name: "Concluir" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // tudo foi guardado; com documento, o cliente não se exclui
-  const stepsRow = page.getByRole("row", { name: /Alfa em etapas/ });
+  const stepsRow = page.getByRole("row", { name: /Cliente em etapas/ });
   await stepsRow.getByRole("button", { name: /^Editar / }).click();
   const reopened = page.getByRole("dialog");
   await expect(reopened.getByLabel("IE (inscrição estadual)")).toHaveValue("123456789");
