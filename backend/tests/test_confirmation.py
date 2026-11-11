@@ -21,6 +21,7 @@ from models.reference import (
     CostCenter,
     ExpenseCategory,
     PaymentMethod,
+    Project,
 )
 from models.user import User
 from services import payments
@@ -704,6 +705,33 @@ def test_projects_come_from_the_connect_and_are_listed_to_pick_one(
 
     connect.down = True
     assert client.post("/finance/connect/sync", headers=auth).status_code == 503
+
+
+def test_syncing_projects_also_creates_the_financial_project_and_keeps_what_was_marked(
+    client: TestClient, db_session: Session, auth: dict[str, str], connect: FakeConnect
+) -> None:
+    connect.projects = [ConnectProject(1820, "Teste de embalagem", 30)]
+    assert client.post("/finance/connect/sync", headers=auth).status_code == 200
+    project = db_session.query(Project).one()
+    # o código é o ID do Connect (PRJ-1820), e o projeto nasce em andamento
+    assert (project.code, project.title, project.status) == (
+        "1820",
+        "Teste de embalagem",
+        "em_andamento",
+    )
+    # o que o financeiro marcou e a situação não mudam; só o título acompanha o Connect
+    project.projectType = "Consumo"
+    project.status = "encerrado"
+    db_session.commit()
+    connect.projects = [ConnectProject(1820, "Teste de embalagem · Serra Alta", 30)]
+    assert client.post("/finance/connect/sync", headers=auth).status_code == 200
+    db_session.expire_all()
+    again = db_session.query(Project).one()
+    assert (again.title, again.projectType, again.status) == (
+        "Teste de embalagem · Serra Alta",
+        "Consumo",
+        "encerrado",
+    )
 
 
 def test_a_failure_while_warning_never_loses_the_receipts_already_read(
