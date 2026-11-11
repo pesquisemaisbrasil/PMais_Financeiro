@@ -1,4 +1,5 @@
-"""Anexos das contas a pagar e dos títulos a receber (spec baixas-recorrencia-e-anexos, regra 6).
+"""Anexos das contas a pagar, dos títulos a receber e dos clientes (spec
+baixas-recorrencia-e-anexos, regra 6).
 
 O arquivo é conferido pelo conteúdo (não só pela extensão), cifrado e guardado no cofre
 (`core/file_vault.py`). Ficam na trilha da conta (ou do título) quem incluiu, quem baixou, quem
@@ -23,9 +24,11 @@ from sqlalchemy.orm import Session
 from core import file_vault
 from models.payable import PayableAttachment
 from models.receivable import ReceivableAttachment
+from models.reference import Customer, CustomerAttachment
 from models.user import User
 from services import payable as payable_service
 from services import receivable as receivable_service
+from services import records as records_service
 from services.payable import PayableConflict, PayableInvalid, PayableNotFound
 
 MAX_BYTES = 20 * 1024 * 1024
@@ -64,7 +67,7 @@ class AttachmentNotFound(PayableNotFound):
 
 @dataclass(frozen=True)
 class Target:
-    """A quem o documento pertence: a conta a pagar ou o título a receber."""
+    """A quem o documento pertence: a conta a pagar, o título a receber ou o cliente."""
 
     # prefixo da chave no cofre; amarra o arquivo ao dono (copiar para outro dono não abre)
     vault_kind: str
@@ -95,6 +98,48 @@ RECEIVABLE = Target(
     "Este título",
     "a este título",
 )
+
+
+def _customer(db: Session, customer_id: int, lock: bool = False) -> Customer:
+    query = db.query(Customer).filter(Customer.id == customer_id)
+    if lock:
+        query = query.with_for_update()
+    customer = query.first()
+    if customer is None:
+        raise records_service.RecordNotFound
+    return customer
+
+
+def _audit_customer(db: Session, customer: Customer, user: User, text: str) -> None:
+    records_service._log(db, "customers", customer.id, user, text)
+
+
+CUSTOMER = Target(
+    "customer",
+    _customer,
+    _audit_customer,
+    CustomerAttachment,
+    "customer_id",
+    "Este cliente",
+    "a este cliente",
+)
+
+
+def listing(owner: Any) -> list[dict[str, Any]]:
+    """Os documentos que estão valendo (o removido some da lista, mas fica no cofre)."""
+    return [
+        {
+            "id": a.id,
+            "name": a.name,
+            "kind": a.kind,
+            "size": a.size,
+            "contentType": a.contentType,
+            "uploadedBy": a.uploaded_by.name,
+            "createdAt": a.createdAt,
+        }
+        for a in owner.attachments
+        if a.deletedAt is None
+    ]
 
 
 def _clean_name(filename: str) -> str:

@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.document import clean_cnpj, is_cpf_shaped, valid_cnpj
+from core.pix import is_valid_cpf
 from models.payable import Payable, PayablePayment
 from models.receivable import Receivable, ReceivablePayment
 from models.reference import (
@@ -16,6 +17,7 @@ from models.reference import (
     Company,
     CostCenter,
     Customer,
+    CustomerAttachment,
     ExpenseCategory,
     PaymentMethod,
     Project,
@@ -25,6 +27,7 @@ from models.reference import (
 )
 from models.user import User
 from schemas.records import ProjectIncentive, RecordIn
+from services.cnpj_lookup import CPF_IN_TEXT
 from services.payable import PayableConflict, PayableInvalid
 
 
@@ -41,7 +44,10 @@ class Kind:
 
 KINDS: dict[str, Kind] = {
     "suppliers": Kind(Supplier, "fornecedor", (Payable.supplier_id,)),
-    "customers": Kind(Customer, "cliente", (Receivable.customer_id,)),
+    # lançamento ou documento anexado (o documento só sai de forma lógica, então o cliente fica)
+    "customers": Kind(
+        Customer, "cliente", (Receivable.customer_id, CustomerAttachment.customer_id)
+    ),
     "categories": Kind(ExpenseCategory, "conta", (Payable.category_id, Receivable.category_id)),
     "companies": Kind(
         Company,
@@ -78,12 +84,32 @@ KINDS: dict[str, Kind] = {
 _ARTICLE = {"suppliers": "um", "customers": "um", "companies": "uma"}
 _ACTIVE = {"suppliers": "ativo", "customers": "ativo", "companies": "ativa"}
 PARTY_KINDS = ("suppliers", "customers", "companies")
+# O resto da ficha do cliente: IE, telefones, e-mail alternativo, observações e endereço.
+CUSTOMER_DETAILS = (
+    "stateRegistration",
+    "phone2",
+    "phone3",
+    "emailAlt",
+    "notes",
+    "addressCountry",
+    "addressZip",
+    "addressStreet",
+    "addressNumber",
+    "addressComplement",
+    "addressDistrict",
+    "addressCity",
+    "addressState",
+)
+UFS = frozenset(
+    "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split()
+)
 # Estes cadastros têm código gerado pelo sistema (o plano de contas tem o seu, escolhido à mão;
 # os outros ainda não têm código).
 GENERATED_CODE = (*PARTY_KINDS, "units")
 IN_USE_DETAIL = "Esse cadastro tem lançamentos — inative em vez de excluir"
 EMAIL = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 PHONE = re.compile(r"\+\d{2} \d{2} [\d-]{8,10}")
+CPF_MASKED = re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}")
 
 
 def _used_ids(db: Session, kind: str) -> set[int]:
@@ -109,6 +135,7 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "phone": getattr(record, "phone", None),
         "email": getattr(record, "email", None),
         "paymentTerms": getattr(record, "paymentTerms", None),
+        **{name: getattr(record, name, None) for name in CUSTOMER_DETAILS},
         "kind": getattr(record, "kind", None),
     }
 
@@ -234,6 +261,59 @@ def _next_code(db: Session, kind: str) -> str:
             return code
 
 
+def _customer_details(data: RecordIn) -> dict[str, Any]:
+    """O resto da ficha do cliente, tudo opcional. CPF e RG nunca entram: a IE e as observações
+    que parecem CPF são recusadas (Q23 e Q37)."""
+    details: dict[str, Any] = {}
+    for attribute, label in (("phone2", "Telefone 2"), ("phone3", "Telefone 3")):
+        phone = _filled(getattr(data, attribute))
+        if phone and not PHONE.fullmatch(phone):
+            raise PayableInvalid(f"{label} no formato +55 41 99999-0000")
+        details[attribute] = phone
+    email = _filled(data.emailAlt)
+    if email and not EMAIL.fullmatch(email):
+        raise PayableInvalid("E-mail alternativo inválido")
+    details["emailAlt"] = email
+
+    registration = _filled(data.stateRegistration)
+    if registration and (
+        CPF_MASKED.search(registration) or is_valid_cpf(re.sub(r"\D", "", registration))
+    ):
+        raise PayableInvalid("Informe só a inscrição estadual (IE): CPF e RG não são guardados")
+    details["stateRegistration"] = registration
+    notes = _filled(data.notes)
+    if notes and any(
+        is_valid_cpf(re.sub(r"\D", "", found.group())) for found in CPF_IN_TEXT.finditer(notes)
+    ):
+        raise PayableInvalid("Não escreva CPF nas observações: ele não é guardado")
+    details["notes"] = notes
+
+    details["addressCountry"] = _filled(data.addressCountry)
+    zip_digits = re.sub(r"\D", "", data.addressZip or "")
+    if zip_digits and len(zip_digits) != 8:
+        raise PayableInvalid("O CEP tem 8 números")
+    details["addressZip"] = zip_digits or None
+    state = (_filled(data.addressState) or "").upper()
+    if state and state not in UFS:
+        raise PayableInvalid("UF inválida")
+    details["addressState"] = state or None
+    for attribute, label in (
+        ("addressStreet", "O endereço"),
+        ("addressNumber", "O número"),
+        ("addressComplement", "O complemento"),
+        ("addressDistrict", "O bairro"),
+        ("addressCity", "A cidade"),
+    ):
+        value = _filled(getattr(data, attribute))
+        if value:
+            _check_length(Customer, attribute, value, label)
+        details[attribute] = value
+    for attribute, label in (("addressCountry", "O país"), ("notes", "As observações")):
+        if details[attribute]:
+            _check_length(Customer, attribute, details[attribute], label)
+    return details
+
+
 def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> dict[str, Any]:
     model = KINDS[kind].model
     name = data.name.strip()
@@ -264,6 +344,8 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         )
         if kind == "suppliers":
             fields["paymentTerms"] = _filled(data.paymentTerms)
+        if kind == "customers":
+            fields.update(_customer_details(data))
     elif kind == "categories":
         code = (data.code or "").strip()
         if not code:

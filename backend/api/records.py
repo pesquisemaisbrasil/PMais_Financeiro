@@ -1,14 +1,16 @@
 from collections.abc import Callable
 from typing import Annotated, Any, TypeVar
 
-from fastapi import APIRouter, HTTPException, Path, Request, Response, status
+from fastapi import APIRouter, Form, HTTPException, Path, Request, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 
+from api import attachment_http
 from api.payables import DbSession, FinanceUser
+from core import file_vault
 from core.limiter import limiter
-from schemas.payable import ProjectOut
+from schemas.payable import AttachmentOut, AttachmentUpdate, ProjectOut, ReasonIn
 from schemas.records import ActiveIn, CnpjOut, ProjectIncentive, RecordIn, RecordKind, RecordOut
-from services import cnpj_lookup
+from services import attachments, cnpj_lookup
 from services import records as records_service
 from services.payable import PayableConflict, PayableInvalid
 
@@ -26,6 +28,19 @@ def _write(db: DbSession, action: Callable[[], T]) -> T:
     except records_service.RecordNotFound as exc:
         db.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cadastro não encontrado") from exc
+    except attachments.AttachmentNotFound as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, attachment_http.NOT_FOUND) from exc
+    except file_vault.FilesUnavailable as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, attachment_http.UNAVAILABLE
+        ) from exc
+    except file_vault.FileCorrupted as exc:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, attachment_http.CORRUPTED
+        ) from exc
     except PayableConflict as exc:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
@@ -68,6 +83,110 @@ def lookup_cnpj(
         "nickname": info.nickname,
         "situation": info.situation,
     }
+
+
+# Documentos do cliente (contrato, ficha...): as mesmas regras dos anexos das contas.
+# Ficam antes das rotas genéricas de /records/{kind}/... para o caminho não se confundir.
+
+
+def _customer_documents(db: DbSession, customer_id: int) -> list[dict[str, Any]]:
+    return attachments.listing(attachments.CUSTOMER.get(db, customer_id))
+
+
+@router.get(
+    "/records/customers/{record_id}/attachments",
+    response_model=list[AttachmentOut],
+    description="Os documentos do cliente",
+)
+@limiter.limit(READ_LIMIT)
+def list_customer_documents(
+    request: Request, record_id: int, db: DbSession, _: FinanceUser
+) -> list[dict[str, Any]]:
+    return _write(db, lambda: _customer_documents(db, record_id))
+
+
+@router.post(
+    "/records/customers/{record_id}/attachments",
+    response_model=list[AttachmentOut],
+    status_code=status.HTTP_201_CREATED,
+    description="Anexa um documento ao cliente (PDF, imagem, planilha, documento ou XML, até 20MB)",
+)
+@limiter.limit(WRITE_LIMIT)
+def add_customer_document(
+    request: Request,
+    record_id: int,
+    file: UploadFile,
+    db: DbSession,
+    user: FinanceUser,
+    kind: Annotated[str, Form(max_length=20)] = attachments.DEFAULT_KIND,
+) -> list[dict[str, Any]]:
+    filename, content = attachment_http.read_upload(file)
+    _write(
+        db,
+        lambda: attachments.add(db, attachments.CUSTOMER, record_id, filename, content, kind, user),
+    )
+    return _customer_documents(db, record_id)
+
+
+@router.get(
+    "/records/customers/{record_id}/attachments/{attachment_id}/download",
+    response_class=Response,
+    description="Baixa o documento, decifrado aqui; cada download fica no histórico do cliente",
+)
+@limiter.limit(READ_LIMIT)
+def download_customer_document(
+    request: Request, record_id: int, attachment_id: int, db: DbSession, user: FinanceUser
+) -> Response:
+    name, content_type, content = _write(
+        db, lambda: attachments.download(db, attachments.CUSTOMER, record_id, attachment_id, user)
+    )
+    return attachment_http.download_response(name, content_type, content)
+
+
+@router.patch(
+    "/records/customers/{record_id}/attachments/{attachment_id}",
+    response_model=list[AttachmentOut],
+    description="Renomeia o documento e/ou muda o tipo dele; o arquivo guardado não é tocado",
+)
+@limiter.limit(WRITE_LIMIT)
+def update_customer_document(
+    request: Request,
+    record_id: int,
+    attachment_id: int,
+    data: AttachmentUpdate,
+    db: DbSession,
+    user: FinanceUser,
+) -> list[dict[str, Any]]:
+    _write(
+        db,
+        lambda: attachments.update(
+            db, attachments.CUSTOMER, record_id, attachment_id, data.name, data.kind, user
+        ),
+    )
+    return _customer_documents(db, record_id)
+
+
+@router.post(
+    "/records/customers/{record_id}/attachments/{attachment_id}/remove",
+    response_model=list[AttachmentOut],
+    description="Tira o documento do cliente, com o motivo; o arquivo continua guardado",
+)
+@limiter.limit(WRITE_LIMIT)
+def remove_customer_document(
+    request: Request,
+    record_id: int,
+    attachment_id: int,
+    data: ReasonIn,
+    db: DbSession,
+    user: FinanceUser,
+) -> list[dict[str, Any]]:
+    _write(
+        db,
+        lambda: attachments.remove(
+            db, attachments.CUSTOMER, record_id, attachment_id, data.reason, user
+        ),
+    )
+    return _customer_documents(db, record_id)
 
 
 @router.get(

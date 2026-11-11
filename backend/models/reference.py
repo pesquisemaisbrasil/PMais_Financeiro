@@ -163,7 +163,52 @@ class Customer(Base):
     contactName = Column(String(120), nullable=True)
     phone = Column(String(30), nullable=True)
     email = Column(String(200), nullable=True)
+    # Inscrição estadual da empresa. RG e CPF não se guardam (Q23, Q37).
+    stateRegistration = Column(String(30), nullable=True)
+    phone2 = Column(String(30), nullable=True)
+    phone3 = Column(String(30), nullable=True)
+    emailAlt = Column(String(200), nullable=True)
+    notes = Column(String(1000), nullable=True)
+    # Endereço: opcional. Para cliente pessoa física é dado pessoal (ver o inventário de dados).
+    addressCountry = Column(String(60), nullable=True)
+    addressZip = Column(String(8), nullable=True)
+    addressStreet = Column(String(150), nullable=True)
+    addressNumber = Column(String(20), nullable=True)
+    addressComplement = Column(String(100), nullable=True)
+    addressDistrict = Column(String(80), nullable=True)
+    addressCity = Column(String(80), nullable=True)
+    addressState = Column(String(2), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+
+    attachments = relationship("CustomerAttachment", order_by="CustomerAttachment.id")
+
+
+class CustomerAttachment(Base):
+    """Documento anexado ao cliente (contrato, ficha...). Igual ao das contas: o arquivo mora no
+    cofre cifrado (core/file_vault.py), aqui ficam só os dados para achá-lo e conferi-lo, e remover
+    é **lógico**."""
+
+    __tablename__ = "customer_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(
+        Integer, ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    name = Column(String(200), nullable=False)
+    kind = Column(String(20), nullable=False, server_default="outro")
+    contentType = Column(String(100), nullable=False)
+    size = Column(Integer, nullable=False)
+    fileKey = Column(String(200), nullable=False, unique=True)
+    fileSha256 = Column(String(64), nullable=False)
+    uploaded_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    deletedAt = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    deletedReason = Column(String(500), nullable=True)
+
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])
 
 
 class Supplier(Base):

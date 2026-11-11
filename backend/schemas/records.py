@@ -28,6 +28,20 @@ class RecordIn(BaseModel):
     phone: str | None = Field(default=None, max_length=30)
     email: str | None = Field(default=None, max_length=200)
     paymentTerms: str | None = Field(default=None, max_length=200)
+    # só no cliente: o resto da ficha (IE, telefones, e-mail alternativo, observações e endereço)
+    stateRegistration: str | None = Field(default=None, max_length=30)
+    phone2: str | None = Field(default=None, max_length=30)
+    phone3: str | None = Field(default=None, max_length=30)
+    emailAlt: str | None = Field(default=None, max_length=200)
+    notes: str | None = Field(default=None, max_length=1000)
+    addressCountry: str | None = Field(default=None, max_length=60)
+    addressZip: str | None = Field(default=None, max_length=12)
+    addressStreet: str | None = Field(default=None, max_length=150)
+    addressNumber: str | None = Field(default=None, max_length=20)
+    addressComplement: str | None = Field(default=None, max_length=100)
+    addressDistrict: str | None = Field(default=None, max_length=80)
+    addressCity: str | None = Field(default=None, max_length=80)
+    addressState: str | None = Field(default=None, max_length=2)
     # só na conta do plano de contas: despesa (padrão) ou receita
     kind: Literal["despesa", "receita"] | None = None
 
@@ -56,6 +70,19 @@ class RecordOut(BaseModel):
     phone: str | None
     email: str | None
     paymentTerms: str | None
+    stateRegistration: str | None
+    phone2: str | None
+    phone3: str | None
+    emailAlt: str | None
+    notes: str | None
+    addressCountry: str | None
+    addressZip: str | None
+    addressStreet: str | None
+    addressNumber: str | None
+    addressComplement: str | None
+    addressDistrict: str | None
+    addressCity: str | None
+    addressState: str | None
     kind: str | None
 
 
