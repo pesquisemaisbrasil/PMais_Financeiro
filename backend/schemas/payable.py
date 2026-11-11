@@ -108,7 +108,9 @@ class PaymentCreate(BaseModel):
     paymentMethodId: int
     surcharge: OptionalMoney = Decimal("0")
     discount: OptionalMoney = Decimal("0")
-    transactionId: str | None = Field(default=None, max_length=100)
+    transactionId: (
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)] | None
+    ) = None
     note: str | None = Field(default=None, max_length=500)
 
 

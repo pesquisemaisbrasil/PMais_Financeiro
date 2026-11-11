@@ -30,7 +30,9 @@ def upgrade() -> None:
     # Os centros que já existem viram principais, 001, 002... na ordem em que foram criados.
     op.execute(
         sa.text(
-            "UPDATE cost_centers c SET code = lpad(s.rn::text, 3, '0') "
+            # lpad corta o 1000º para '100' (repetiria o 100º): de 1000 em diante, o número inteiro
+            "UPDATE cost_centers c SET code = CASE WHEN s.rn < 1000 "
+            "THEN lpad(s.rn::text, 3, '0') ELSE s.rn::text END "
             "FROM (SELECT id, row_number() OVER (ORDER BY id) AS rn FROM cost_centers) s "
             "WHERE c.id = s.id"
         )

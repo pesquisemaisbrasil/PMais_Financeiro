@@ -87,6 +87,11 @@ def _payable_payments(
             f"O valor passa do saldo pendente ({format_brl(pending)})"
         )
     for receipt in paid:
+        # o mesmo Pix não paga duas vezes: nem se alguém já deu baixa nele à mão
+        if receipt.e2eId and payable_service._transaction_used(db, receipt.e2eId):
+            raise payable_service.PayableConflict(
+                "Esse ID de transação já foi usado em outra baixa"
+            )
         db.add(
             PayablePayment(
                 payable_id=payable.id,

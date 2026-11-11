@@ -46,3 +46,8 @@ def normalize(value: str | None) -> str:
     stripped = unicodedata.normalize("NFKD", value)
     without_accents = "".join(ch for ch in stripped if not unicodedata.combining(ch))
     return without_accents.casefold().strip()
+
+
+def csv_cell(value: str) -> str:
+    """Célula que começa com = + - @ (ou TAB e CR) vira texto: a planilha não executa fórmula."""
+    return f"'{value}" if value[:1] in ("=", "+", "-", "@", "\t", "\r") else value

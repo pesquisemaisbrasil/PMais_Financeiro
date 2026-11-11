@@ -5,12 +5,12 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.orm import Session, selectinload
 
 from core.print_table import build_print
 from core.query_lists import as_list
-from core.text import format_brl, format_brl_plain, format_date_br, launch_date
+from core.text import csv_cell, format_brl, format_brl_plain, format_date_br, launch_date
 from core.xlsx import build_xlsx
 from models.payable import (
     Payable,
@@ -174,6 +174,14 @@ TABS: dict[str, Callable[[Payable, dict[int, int]], bool]] = {
     "provisoes": lambda p, counts: p.type == "provisao",
     "connect": lambda p, counts: p.origin == "connect",
 }
+
+
+def _indicator_predicate(indicator: str, filters: dict[str, Any]) -> Predicate:
+    """Quem escolhe "Cancelada" ou "Substituída" em Situação quer ver essas contas, e o card de
+    Total as tira: nesse caso a escolha manda e o indicador não filtra."""
+    if {"cancelado", "substituido"} & set(as_list(filters.get("situation"))):
+        return lambda p, on: True
+    return INDICATORS[indicator]
 
 
 def _indicator_value(key: str, payables: list[Payable]) -> Decimal:
@@ -386,9 +394,10 @@ def list_payables(
     )
     counts = _item_counts(db, [p.id for p in payables])
 
+    wanted = _indicator_predicate(indicator, filters)
     by_tab = [p for p in payables if TABS[tab](p, counts)]
-    by_indicator = [p for p in payables if INDICATORS[indicator](p, on)]
-    selected = [p for p in by_tab if INDICATORS[indicator](p, on)]
+    by_indicator = [p for p in payables if wanted(p, on)]
+    selected = [p for p in by_tab if wanted(p, on)]
     selected.sort(key=_sort_key(sort, on), reverse=descending)
 
     indicators = {}
@@ -437,11 +446,6 @@ INDICATOR_LABELS = {
     "cancelados": "Canceladas",
 }
 DATE_FIELD_LABELS = {"vencimento": "vencimento", "competencia": "competência", "baixa": "baixa"}
-
-
-def _csv_cell(value: str) -> str:
-    """Célula que começa com = + - @ vira texto, para a planilha não executar fórmula."""
-    return f"'{value}" if value[:1] in ("=", "+", "-", "@") else value
 
 
 def _filter_names(db: Session, filters: dict[str, Any]) -> list[str]:
@@ -497,7 +501,8 @@ def _export_table(
         search=search,
     )
     counts = _item_counts(db, [p.id for p in payables])
-    selected = [p for p in payables if TABS[tab](p, counts) and INDICATORS[indicator](p, on)]
+    wanted = _indicator_predicate(indicator, filters)
+    selected = [p for p in payables if TABS[tab](p, counts) and wanted(p, on)]
     selected.sort(key=_sort_key(sort, on), reverse=descending)
 
     period = (
@@ -571,7 +576,7 @@ def _csv_value(value: Any) -> Any:
         return format_brl_plain(value)
     if isinstance(value, int):
         return value
-    return _csv_cell(str(value))
+    return csv_cell(str(value))
 
 
 # Vencimento, Fornecedor, Descrição, Documento, Projeto, Situação, Valor líquido, Pago e Pendente
@@ -590,7 +595,7 @@ def export_csv(db: Session, **query: Any) -> str:
     title, headers, rows = _export_table(db, **query)
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
-    writer.writerow([_csv_cell(title)])
+    writer.writerow([csv_cell(title)])
     writer.writerow(headers)
     for row in rows:
         writer.writerow([_csv_value(value) for value in row])
@@ -613,8 +618,9 @@ def export_xlsx(db: Session, **query: Any) -> bytes:
 def _get(db: Session, payable_id: int, lock: bool = False) -> Payable:
     query = db.query(Payable).filter(Payable.id == payable_id, Payable.deletedAt.is_(None))
     if lock:
-        # Dois pedidos ao mesmo tempo não podem pagar o mesmo saldo duas vezes.
-        query = query.with_for_update()
+        # Dois pedidos ao mesmo tempo não podem pagar o mesmo saldo duas vezes. `of=`: o Postgres
+        # não trava o lado opcional do LEFT JOIN da série, então a trava é só da conta.
+        query = query.with_for_update(of=Payable)
     payable = query.first()
     if payable is None:
         raise PayableNotFound
@@ -1021,13 +1027,24 @@ def _bank_account(db: Session, account_id: int, company_id: int) -> BankAccount:
     return account
 
 
+def lock_transaction_id(db: Session, key: str) -> None:
+    """Duas baixas ao mesmo tempo com o mesmo ID esperam uma pela outra (só no Postgres; o SQLite
+    já grava uma por vez). Sem a espera, as duas leem "ainda não usado" antes de gravar. A trava
+    solta no fim da transação."""
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": key})
+
+
 def _transaction_used(db: Session, transaction_id: str) -> bool:
-    """O mesmo Pix não dá baixa duas vezes. Depois de um estorno, o ID vale de novo."""
+    """O mesmo Pix não dá baixa duas vezes. Depois de um estorno, o ID vale de novo.
+    "E0001", "e0001" e "E0001 " são o mesmo ID."""
+    key = transaction_id.strip().upper()
+    lock_transaction_id(db, key)
     undone = db.query(PayablePayment.reverses_id).filter(PayablePayment.reverses_id.isnot(None))
     return (
         db.query(PayablePayment.id)
         .filter(
-            PayablePayment.transactionId == transaction_id,
+            func.upper(func.trim(PayablePayment.transactionId)) == key,
             PayablePayment.kind == "pagamento",
             PayablePayment.id.notin_(undone),
         )
@@ -1279,6 +1296,8 @@ def reclassify_batch(db: Session, data: BatchReclassify, user: User) -> int:
     category = (
         _active(db, ExpenseCategory, data.categoryId, "Categoria") if data.categoryId else None
     )
+    if category is not None and category.kind != "despesa":
+        raise PayableInvalid("Contas a pagar usam conta de despesa")
     center = (
         _active(db, CostCenter, data.costCenterId, "Centro de custo") if data.costCenterId else None
     )

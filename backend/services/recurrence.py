@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy.orm import Session, selectinload
 
 from core.business_days import is_business_day
+from core.text import format_brl
 from models.payable import Payable, PayableSeries
 from models.user import User
 from schemas.payable import (
@@ -109,8 +110,11 @@ def create_series(
             edit.dueDate or occurrences[edit.index - 1].dueDate,
             edit.amount or occurrences[edit.index - 1].amount,
         )
-    if recurrence.kind == "parcelado" and sum(o.amount for o in occurrences) != data.amount:
-        raise PayableInvalid("A soma das parcelas precisa ser igual ao valor total")
+    total = sum((o.amount for o in occurrences), Decimal("0"))
+    if recurrence.kind == "parcelado" and total != data.amount:
+        raise PayableInvalid(
+            f"As parcelas somam {format_brl(total)}, mas a conta é de {format_brl(data.amount)}"
+        )
 
     series = PayableSeries(
         kind=recurrence.kind,
@@ -164,10 +168,13 @@ def _targets(db: Session, payable: Payable, scope: str) -> list[Payable]:
     if scope == "only":
         candidates = [payable]
     else:
-        query = db.query(Payable).filter(Payable.series_id == payable.series_id)
+        # a conta excluída (exclusão lógica) não faz mais parte da série, como no a receber
+        query = db.query(Payable).filter(
+            Payable.series_id == payable.series_id, Payable.deletedAt.is_(None)
+        )
         if scope == "following":
             query = query.filter(Payable.seriesIndex >= payable.seriesIndex)
-        candidates = query.order_by(Payable.seriesIndex).with_for_update().all()
+        candidates = query.order_by(Payable.seriesIndex).with_for_update(of=Payable).all()
     return [p for p in candidates if p.canceledAt is None and payables.paid_amount(p) == 0]
 
 

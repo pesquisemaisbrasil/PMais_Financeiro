@@ -125,7 +125,9 @@ def _log(db: Session, kind: str, record_id: int, user: User, text: str) -> None:
 
 
 def _get(db: Session, kind: str, record_id: int) -> Any:
-    record = db.query(KINDS[kind].model).filter_by(id=record_id).with_for_update().first()
+    model = KINDS[kind].model
+    # `of=`: o centro de custo junta o superior com LEFT JOIN, e o Postgres não trava esse lado
+    record = db.query(model).filter_by(id=record_id).with_for_update(of=model).first()
     if record is None:
         raise RecordNotFound
     return record
@@ -193,6 +195,10 @@ def _cost_center_parent(db: Session, record_id: int | None, parent_id: int | Non
         return None
     if parent_id == record_id:
         raise PayableInvalid("Um centro de custo não pode ser superior dele mesmo")
+    current = db.get(CostCenter, record_id) if record_id is not None else None
+    if current is not None and current.parent_id == parent_id:
+        # não mudou: o principal pode ter sido inativado depois, e o sub-centro segue editável
+        return parent_id
     parent = db.get(CostCenter, parent_id)
     if parent is None or not parent.active:
         raise PayableInvalid("Escolha um centro de custo superior ativo")
@@ -359,6 +365,13 @@ def set_active(db: Session, kind: str, record_id: int, active: bool, user: User)
 
 def delete(db: Session, kind: str, record_id: int, user: User) -> None:
     record = _get(db, kind, record_id)
+    if (
+        kind == "costCenters"
+        and db.query(CostCenter.id).filter(CostCenter.parent_id == record_id).first()
+    ):
+        raise PayableConflict(
+            "Esse centro de custo tem sub-centros: exclua os sub-centros antes, ou inative o centro"
+        )
     if record_id in _used_ids(db, kind):
         raise PayableConflict(IN_USE_DETAIL)
     _log(db, kind, record_id, user, f"Excluiu {record.name}")

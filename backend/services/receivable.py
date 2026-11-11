@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from core.print_table import build_print
 from core.query_lists import as_list
-from core.text import format_brl, format_brl_plain, format_date_br
+from core.text import csv_cell, format_brl, format_brl_plain, format_date_br
 from core.xlsx import build_xlsx
 from models.receivable import (
     Receivable,
@@ -44,6 +44,7 @@ from services.payable import (
     PayableInvalid,
     PayableNotFound,
     _active,
+    lock_transaction_id,
     period_range,
     today,
 )
@@ -393,11 +394,6 @@ DATE_FIELD_NAMES = {
 }
 
 
-def _csv_cell(value: str) -> str:
-    """Célula que começa com = + - @ vira texto, para a planilha não executar fórmula."""
-    return f"'{value}" if value[:1] in ("=", "+", "-", "@") else value
-
-
 def _filter_names(db: Session, filters: dict[str, Any]) -> list[str]:
     named: list[tuple[str, type[Any], str]] = [
         ("customer", Customer, "cliente"),
@@ -522,7 +518,7 @@ def _csv_value(value: Any) -> Any:
         return format_brl_plain(value)
     if isinstance(value, int):
         return value
-    return _csv_cell(str(value))
+    return csv_cell(str(value))
 
 
 # Vencimento, Cliente, Descrição, Documento, Projeto, Situação, Líquido, Recebido e Pendente
@@ -541,7 +537,7 @@ def export_csv(db: Session, **query: Any) -> str:
     title, headers, rows = _export_table(db, **query)
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";", lineterminator="\r\n")
-    writer.writerow([_csv_cell(title)])
+    writer.writerow([csv_cell(title)])
     writer.writerow(headers)
     for row in rows:
         writer.writerow([_csv_value(value) for value in row])
@@ -569,8 +565,9 @@ def _get(db: Session, receivable_id: int, lock: bool = False) -> Receivable:
         Receivable.id == receivable_id, Receivable.deletedAt.is_(None)
     )
     if lock:
-        # Dois pedidos ao mesmo tempo não podem receber o mesmo saldo duas vezes.
-        query = query.with_for_update()
+        # Dois pedidos ao mesmo tempo não podem receber o mesmo saldo duas vezes. `of=`: o Postgres
+        # não trava o lado opcional do LEFT JOIN da série, então a trava é só do título.
+        query = query.with_for_update(of=Receivable)
     receivable = query.first()
     if receivable is None:
         raise ReceivableNotFound
@@ -758,14 +755,17 @@ def _bank_account(db: Session, account_id: int, company_id: int) -> BankAccount:
 
 
 def _transaction_used(db: Session, transaction_id: str) -> bool:
-    """O mesmo ID bancário não vale para dois recebimentos. Depois de um estorno, vale de novo."""
+    """O mesmo ID bancário não vale para dois recebimentos. Depois de um estorno, vale de novo.
+    "E0001", "e0001" e "E0001 " são o mesmo ID."""
+    key = transaction_id.strip().upper()
+    lock_transaction_id(db, key)
     undone = db.query(ReceivablePayment.reverses_id).filter(
         ReceivablePayment.reverses_id.isnot(None)
     )
     return (
         db.query(ReceivablePayment.id)
         .filter(
-            ReceivablePayment.transactionId == transaction_id,
+            func.upper(func.trim(ReceivablePayment.transactionId)) == key,
             ReceivablePayment.kind == "recebimento",
             ReceivablePayment.id.notin_(undone),
         )

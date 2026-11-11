@@ -25,6 +25,7 @@ from models.reference import (  # noqa: E402
     ExpenseCategory,
     PaymentMethod,
     Project,
+    RecordCounter,
     Supplier,
 )
 from models.refresh_token import RefreshToken  # noqa: E402,F401
@@ -76,6 +77,14 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
     campo, admin, tecnologia = (
         one(db, CostCenter, name=name) for name in ("Campo", "Administrativo", "Tecnologia")
     )
+    # O banco do seed nasce por create_all, sem a numeração que a migration dá aos centros:
+    # sem código e sem contador, não dá para criar sub-centro embaixo deles.
+    for number, center in enumerate((campo, admin, tecnologia), start=1):
+        if center.code is None:
+            center.code = f"{number:03d}"
+            db.add(RecordCounter(kind=f"costCenters:{center.id}", lastValue=0))
+    if db.get(RecordCounter, "costCenters") is None:
+        db.add(RecordCounter(kind="costCenters", lastValue=3))
     categories = {
         code: one(db, ExpenseCategory, code=code, name=name)
         for code, name in [

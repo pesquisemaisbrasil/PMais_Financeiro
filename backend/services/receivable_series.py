@@ -104,7 +104,7 @@ def _targets(db: Session, receivable: Receivable, scope: str) -> list[Receivable
         )
         if scope == "following":
             query = query.filter(Receivable.seriesIndex >= receivable.seriesIndex)
-        candidates = query.order_by(Receivable.seriesIndex).with_for_update().all()
+        candidates = query.order_by(Receivable.seriesIndex).with_for_update(of=Receivable).all()
     return [r for r in candidates if r.canceledAt is None and receivables.received_amount(r) == 0]
 
 

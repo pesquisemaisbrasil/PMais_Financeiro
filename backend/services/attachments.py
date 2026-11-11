@@ -204,6 +204,8 @@ def add(
     digest = hashlib.sha256(data).hexdigest()
     if any(a.fileSha256 == digest for a in current):
         raise PayableConflict(f"Este arquivo já está anexado {target.to_this}")
+    # shortcut: a conta fica travada durante o envio ao cofre (até ~30 s com o MinIO lento) e um
+    # commit que falhe depois deixa um objeto cifrado órfão; enviar antes da trava se incomodar.
     stored = file_vault.store_file(target.vault_kind, owner.id, data)
     db.add(
         target.model(

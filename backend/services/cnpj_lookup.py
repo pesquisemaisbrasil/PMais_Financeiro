@@ -9,6 +9,7 @@ CPF nunca é guardado: a razão social de MEI costuma vir como "NOME 12345678909
 do nome antes de voltar para a tela.
 """
 
+import json
 import re
 import string
 from dataclasses import dataclass
@@ -66,21 +67,28 @@ def _info(cnpj: str, data: dict[str, object]) -> CnpjInfo:
 
 def _from_brasilapi(cnpj: str) -> CnpjInfo:
     try:
-        response = requests.get(
+        # stream: a resposta é lida aos pedaços e cortada no limite, em vez de baixada inteira
+        with requests.get(
             BASE_URL + cnpj,
             timeout=TIMEOUT,
             allow_redirects=False,
+            stream=True,
             headers={"Accept": "application/json", "User-Agent": "pmais-financeiro"},
-        )
+        ) as response:
+            if response.status_code in (400, 404):
+                raise CnpjNotFound
+            if response.status_code != 200:
+                raise CnpjUnavailable
+            body = b""
+            for chunk in response.iter_content(chunk_size=16_384):
+                body += chunk
+                if len(body) > MAX_BYTES:
+                    raise CnpjUnavailable
     except requests.RequestException as exc:
         raise CnpjUnavailable from exc
-    if response.status_code in (400, 404):
-        raise CnpjNotFound
-    if response.status_code != 200 or len(response.content) > MAX_BYTES:
-        raise CnpjUnavailable
     try:
-        data = response.json()
-    except ValueError as exc:
+        data = json.loads(body)
+    except ValueError as exc:  # inclui texto que não é JSON e bytes que não são UTF-8
         raise CnpjUnavailable from exc
     if not isinstance(data, dict):
         raise CnpjUnavailable

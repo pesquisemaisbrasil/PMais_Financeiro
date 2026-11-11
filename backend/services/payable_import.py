@@ -417,8 +417,11 @@ def _lookup(db: Session, dim: Dim) -> dict[str, list[Any]]:
         names = [_record_name(dim, record)]
         if dim.key == "category":
             names += [record.code, f"{record.code} {record.name}"]
-        elif dim.key == "center" and record.code:
-            names += [record.code, f"{record.code} {record.name}"]
+        elif dim.key == "center":
+            # o sub-centro também casa pelo caminho (Administrativo › Geral) e pelo código (001.001)
+            names.append(record.path)
+            if record.code:
+                names += [record.code, f"{record.code} {record.name}"]
         for name in dict.fromkeys(names):
             found.setdefault(_folded(name), []).append(record)
     return found
@@ -447,7 +450,8 @@ def _resolve_one(
             line.errors.append(f"{dim.title} {text} não existe")
             return
         if len(found) > 1:
-            line.errors.append(f"{dim.title} {text} aparece mais de uma vez no cadastro")
+            hint = ": escreva o código dele" if dim.key == "center" else ""
+            line.errors.append(f"{dim.title} {text} aparece mais de uma vez no cadastro{hint}")
             return
         record = found[0]
     elif len(chosen) == 1:
@@ -506,7 +510,7 @@ def _classification(refs: dict[str, Any]) -> str:
         [
             refs["company"].name,
             refs["unit"].name,
-            refs["center"].name,
+            refs["center"].path,
             f"{category.code} {category.name}",
             refs["method"].name,
         ]
