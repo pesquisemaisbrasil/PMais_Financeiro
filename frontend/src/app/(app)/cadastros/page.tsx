@@ -21,8 +21,10 @@ import {
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { TONES, type IndicatorTone } from "@/components/IndicatorCard";
+import { ReasonDialog } from "@/components/ReasonDialog";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,24 +38,32 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ApiError,
+  attachCustomerDocument,
   createRecord,
   deleteRecord,
+  downloadCustomerDocument,
   getReference,
+  listCustomerDocuments,
   listRecords,
   lookupCnpj,
+  removeCustomerDocument,
+  renameCustomerDocument,
   setRecordActive,
   updateProjectIncentive,
   updateRecord,
 } from "@/lib/api";
+import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
 import {
   cleanCnpj,
   filterOptions,
   formatCnpj,
   looksLikeCnpj,
   plural,
+  type Attachment,
   type Project,
   type RecordKind,
   type RecordRow,
@@ -233,6 +243,54 @@ function RowButton({
   );
 }
 
+/** Telefone em três campos, como no sistema antigo: país, DDD e número. */
+function PhoneField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: PhoneParts;
+  onChange: (next: PhoneParts) => void;
+}) {
+  return (
+    <Field label={label} id={`${id}-ddd`}>
+      <div className="grid grid-cols-[72px_88px_1fr] gap-2">
+        <Input
+          aria-label={`${label}: país`}
+          inputMode="numeric"
+          value={value.country}
+          onChange={(event) => onChange({ ...value, country: event.target.value })}
+        />
+        <Input
+          id={`${id}-ddd`}
+          aria-label={`${label}: DDD`}
+          inputMode="numeric"
+          placeholder="DDD"
+          value={value.ddd}
+          onChange={(event) => onChange({ ...value, ddd: event.target.value })}
+        />
+        <Input
+          aria-label={`${label}: número`}
+          inputMode="numeric"
+          placeholder="Telefone"
+          value={value.number}
+          onChange={(event) => onChange({ ...value, number: event.target.value })}
+        />
+      </div>
+    </Field>
+  );
+}
+
+/** As etapas do cadastro de cliente. Só a primeira é obrigatória: endereço e documentos podem ficar para depois. */
+const CUSTOMER_STEPS = [
+  { label: "Principal", optional: false },
+  { label: "Endereço", optional: true },
+  { label: "Documentos", optional: true },
+];
+
 function RecordDialog({
   kind,
   one,
@@ -241,6 +299,7 @@ function RecordDialog({
   centers,
   onClose,
   onDone,
+  onSaved,
 }: {
   kind: RecordKind;
   one: string;
@@ -250,6 +309,8 @@ function RecordDialog({
   centers: RecordRow[];
   onClose: () => void;
   onDone: () => void;
+  /** Salvou, mas a janela continua aberta (cliente que segue para os documentos): atualiza a lista. */
+  onSaved: () => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [form, setForm] = useState({
@@ -266,7 +327,32 @@ function RecordDialog({
     email: record?.email ?? "",
     paymentTerms: record?.paymentTerms ?? "",
     kind: record?.kind ?? "despesa",
+    // só no cliente
+    stateRegistration: record?.stateRegistration ?? "",
+    emailAlt: record?.emailAlt ?? "",
+    notes: record?.notes ?? "",
+    addressCountry: record ? (record.addressCountry ?? "") : "Brasil",
+    addressZip: record?.addressZip ?? "",
+    addressStreet: record?.addressStreet ?? "",
+    addressNumber: record?.addressNumber ?? "",
+    addressComplement: record?.addressComplement ?? "",
+    addressDistrict: record?.addressDistrict ?? "",
+    addressCity: record?.addressCity ?? "",
+    addressState: record?.addressState ?? "",
   });
+  // Cliente: cadastro em etapas (Principal, Endereço e Documentos), e os três telefones em partes
+  const wizard = kind === "customers";
+  const [step, setStep] = useState(0);
+  // o cliente criado nesta janela: os documentos precisam dele salvo, e salvar de novo é alterar
+  const [saved, setSaved] = useState<RecordRow | null>(null);
+  const owner = saved ?? record;
+  const [documents, setDocuments] = useState<Attachment[] | null>(null);
+  const [removing, setRemoving] = useState<Attachment | null>(null);
+  const [phones, setPhones] = useState<PhoneParts[]>(() => [
+    splitPhone(record?.phone),
+    splitPhone(record?.phone2),
+    splitPhone(record?.phone3),
+  ]);
   const input = (key: keyof typeof form) => ({
     value: form[key],
     onChange: (event: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: event.target.value })),
@@ -349,8 +435,8 @@ function RecordDialog({
     }
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  /** Salva e fecha, ou (cliente) salva e segue para os documentos, que precisam do cadastro salvo. */
+  async function save(then: "close" | "documents") {
     setLocalError(null);
     if (kind === "costCenters" && !record && subCenter && !form.parentId) {
       return setLocalError("Escolha o centro principal em que o sub-centro fica.");
@@ -361,22 +447,145 @@ function RecordDialog({
         companyId: form.companyId ? Number(form.companyId) : null,
         parentId: subCenter && form.parentId ? Number(form.parentId) : null,
         personType: form.personType || null,
+        ...(wizard && {
+          phone: joinPhone(phones[0]),
+          phone2: joinPhone(phones[1]),
+          phone3: joinPhone(phones[2]),
+          addressZip: zipDigits(form.addressZip),
+        }),
       };
-      await (record ? updateRecord(kind, record.id, body) : createRecord(kind, body));
-      onDone();
+      const row = await (owner ? updateRecord(kind, owner.id, body) : createRecord(kind, body));
+      if (then === "close") return onDone();
+      setSaved(row);
+      setForm((current) => ({ ...current, code: row.code ?? current.code }));
+      onSaved();
+      await openDocuments(row.id);
     });
   }
 
-  return (
-    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[620px]">
-        <form onSubmit={submit} noValidate>
-          <DialogHeader>
-            <DialogTitle>{record ? `Editar ${one}` : `Cadastrar ${one}`}</DialogTitle>
-            <DialogDescription>Os campos com * são obrigatórios.</DialogDescription>
-          </DialogHeader>
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void save("close");
+  }
+
+  async function openDocuments(id: number) {
+    setStep(2);
+    setDocuments(null);
+    try {
+      setDocuments(await listCustomerDocuments(id));
+    } catch (err) {
+      setDocuments([]);
+      setLocalError(err instanceof ApiError ? err.message : "Não foi possível abrir os documentos.");
+    }
+  }
+
+  function goTo(next: number) {
+    setLocalError(null);
+    if (next === 2) return void save("documents");
+    setStep(next);
+  }
+
+  function advance() {
+    if (!form.name.trim() || !form.nickname.trim()) {
+      return setLocalError("Preencha o apelido e o nome antes de avançar.");
+    }
+    goTo(1);
+  }
+
+  const header = (
+    <>
+      <DialogHeader>
+        <DialogTitle>{record ? `Editar ${one}` : `Cadastrar ${one}`}</DialogTitle>
+        <DialogDescription>
+          {wizard ? "Só a primeira etapa é obrigatória. Os campos com * são obrigatórios." : "Os campos com * são obrigatórios."}
+        </DialogDescription>
+      </DialogHeader>
+      {wizard && (
+        <nav aria-label="Etapas do cadastro" className="flex flex-wrap gap-2 pt-3">
+          {CUSTOMER_STEPS.map((item, index) => (
+            <Button
+              key={item.label}
+              type="button"
+              size="sm"
+              variant={step === index ? "default" : "outline"}
+              aria-current={step === index ? "step" : undefined}
+              disabled={submitting}
+              title={index === 2 ? "Salva o cadastro e abre os documentos" : undefined}
+              onClick={() => goTo(index)}
+            >
+              <span className="font-semibold">{index + 1}</span> {item.label}
+              {item.optional && <span className="text-xs font-normal opacity-70">(opcional)</span>}
+            </Button>
+          ))}
+        </nav>
+      )}
+    </>
+  );
+
+  // Os documentos ficam fora do <form>: os botões da lista não podem salvar o cadastro sem querer.
+  if (wizard && step === 2 && owner) {
+    return (
+      <Dialog open onOpenChange={(open) => !open && (saved ? onDone() : onClose())}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
+          {header}
           <div className="flex flex-col gap-3.5 py-4">
-            {withCnpj && (
+            <FormError message={localError} />
+            {documents === null ? (
+              <div className="flex justify-center p-6">
+                <Spinner aria-label="Carregando" className="size-6 text-brand-cinza-escuro/70" />
+              </div>
+            ) : (
+              <DocumentsPanel
+                attachments={documents}
+                from="do cliente"
+                api={{
+                  attach: (file, kind) => attachCustomerDocument(owner.id, file, kind),
+                  download: (attachmentId) => downloadCustomerDocument(owner.id, attachmentId),
+                  rename: (attachmentId, change) => renameCustomerDocument(owner.id, attachmentId, change),
+                  reload: () => listCustomerDocuments(owner.id),
+                }}
+                onChanged={(next, message) => {
+                  setDocuments(next);
+                  if (message) toast.success(message);
+                }}
+                onRemove={setRemoving}
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => goTo(1)}>
+              Voltar
+            </Button>
+            <Button type="button" onClick={onDone}>
+              Concluir
+            </Button>
+          </DialogFooter>
+          {removing && (
+            <ReasonDialog
+              title={`Tirar o documento ${removing.name}`}
+              description="Ele sai do cadastro, mas o arquivo continua guardado. Quem tirou e o motivo ficam no histórico."
+              confirm="Tirar documento"
+              onClose={() => setRemoving(null)}
+              onConfirm={async (reason) => {
+                const next = await removeCustomerDocument(owner.id, removing.id, reason);
+                setRemoving(null);
+                setDocuments(next);
+                toast.success("Documento tirado do cadastro.");
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && !submitting && (saved ? onDone() : onClose())}>
+      <DialogContent className={cn("max-h-[90vh] overflow-y-auto", wizard ? "sm:max-w-[720px]" : "sm:max-w-[620px]")}>
+        <form onSubmit={submit} noValidate>
+          {header}
+          <div className="flex flex-col gap-3.5 py-4">
+            {withCnpj && (!wizard || step === 0) && (
               <>
                 <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
                 <Field label="Tipo" id="c-pessoa">
@@ -445,7 +654,90 @@ function RecordDialog({
                 </Field>
               </>
             )}
-            {isParty && (
+            {wizard && step === 0 && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="IE (inscrição estadual)" id="c-ie" hint="Só a IE: RG e CPF não são guardados.">
+                    <Input id="c-ie" {...input("stateRegistration")} />
+                  </Field>
+                  <Field label="Contato responsável" id="c-contato">
+                    <Input id="c-contato" {...input("contactName")} />
+                  </Field>
+                </div>
+                {phones.map((phone, index) => (
+                  <PhoneField
+                    key={index}
+                    id={`c-fone${index + 1}`}
+                    label={`Fone ${index + 1}`}
+                    value={phone}
+                    onChange={(next) => setPhones((current) => current.map((item, at) => (at === index ? next : item)))}
+                  />
+                ))}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="E-mail principal" id="c-email">
+                    <Input id="c-email" type="email" {...input("email")} />
+                  </Field>
+                  <Field label="E-mail alternativo" id="c-email2">
+                    <Input id="c-email2" type="email" {...input("emailAlt")} />
+                  </Field>
+                </div>
+                <Field label="Observações" id="c-obs" hint="Não escreva CPF: ele não é guardado.">
+                  <Textarea id="c-obs" rows={3} {...input("notes")} />
+                </Field>
+              </>
+            )}
+            {wizard && step === 1 && (
+              <>
+                <p className="text-xs text-muted-foreground">
+                  O endereço é opcional: você pode pular esta etapa e preencher depois.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+                  <Field label="País" id="c-pais">
+                    <Input id="c-pais" {...input("addressCountry")} />
+                  </Field>
+                  <Field label="CEP" id="c-cep">
+                    <Input
+                      id="c-cep"
+                      inputMode="numeric"
+                      placeholder="00000-000"
+                      value={formatZip(form.addressZip)}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, addressZip: zipDigits(event.target.value) }))
+                      }
+                    />
+                  </Field>
+                </div>
+                <Field label="Endereço" id="c-rua">
+                  <Input id="c-rua" {...input("addressStreet")} />
+                </Field>
+                <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
+                  <Field label="Número" id="c-num">
+                    <Input id="c-num" {...input("addressNumber")} />
+                  </Field>
+                  <Field label="Complemento" id="c-comp">
+                    <Input id="c-comp" {...input("addressComplement")} />
+                  </Field>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_110px]">
+                  <Field label="Bairro" id="c-bairro">
+                    <Input id="c-bairro" {...input("addressDistrict")} />
+                  </Field>
+                  <Field label="Cidade" id="c-cidade">
+                    <Input id="c-cidade" {...input("addressCity")} />
+                  </Field>
+                  <Field label="UF" id="c-uf">
+                    <SearchSelect
+                      id="c-uf"
+                      searchable
+                      value={form.addressState}
+                      onChange={(value) => setForm((current) => ({ ...current, addressState: value }))}
+                      options={[{ id: "", label: "Nenhuma" }, ...UFS]}
+                    />
+                  </Field>
+                </div>
+              </>
+            )}
+            {isParty && !wizard && (
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Contato responsável" id="c-contato">
@@ -572,12 +864,39 @@ function RecordDialog({
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              {record ? "Salvar alterações" : "Cadastrar"}
-            </Button>
+            {wizard ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={submitting}
+                  onClick={() => (step === 0 ? (saved ? onDone() : onClose()) : goTo(0))}
+                >
+                  {step === 0 ? "Cancelar" : "Voltar"}
+                </Button>
+                <Button type="submit" variant="outline" disabled={submitting}>
+                  {owner ? "Salvar e fechar" : "Cadastrar e fechar"}
+                </Button>
+                {step === 0 ? (
+                  <Button type="button" disabled={submitting} onClick={advance}>
+                    Avançar
+                  </Button>
+                ) : (
+                  <Button type="button" disabled={submitting} onClick={() => void save("documents")}>
+                    Salvar e anexar documentos
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {record ? "Salvar alterações" : "Cadastrar"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
@@ -744,7 +1063,8 @@ function Records({ tab }: { tab: TabId }) {
   const isParty = tab === "suppliers" || tab === "customers";
   const withCnpj = isParty || tab === "companies";
   // o que impede excluir: lançamento e, no centro de custo, também ter sub-centros embaixo
-  const inUseWhat = tab === "costCenters" ? "lançamentos ou sub-centros" : "lançamentos";
+  const inUseWhat =
+    tab === "costCenters" ? "lançamentos ou sub-centros" : tab === "customers" ? "lançamentos ou documentos" : "lançamentos";
   const [term, setTerm] = useState("");
   const [requestedPage, setPage] = useState(1);
   const [sort, setSort] = useState<Sort>(null);
@@ -1097,6 +1417,7 @@ function Records({ tab }: { tab: TabId }) {
             setEditing(null);
             void load();
           }}
+          onSaved={() => void load()}
         />
       )}
       {deleting && tab !== "projects" && (

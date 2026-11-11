@@ -17,7 +17,8 @@ import type {
   RecordRow,
   PrintTable,
   SeriesOccurrence,
-  CnpjInfo
+  CnpjInfo,
+  Attachment
 } from "./payables";
 
 import type { DocumentChange } from "./documents";
@@ -439,6 +440,30 @@ export function setRecordActive(kind: RecordKind, id: number, active: boolean): 
 
 export async function deleteRecord(kind: RecordKind, id: number): Promise<void> {
   await fetchWithAuth(`/records/${kind}/${id}`, { method: "DELETE" });
+}
+
+// Documentos do cliente (contrato, ficha...): voltam sempre a lista que está valendo.
+export function listCustomerDocuments(id: number): Promise<Attachment[]> {
+  return request<Attachment[]>(`/records/customers/${id}/attachments`);
+}
+
+export function attachCustomerDocument(id: number, file: File, kind: string): Promise<Attachment[]> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  return upload<Attachment[]>(`/records/customers/${id}/attachments`, "POST", form);
+}
+
+export function downloadCustomerDocument(id: number, attachmentId: number): Promise<Blob> {
+  return fetchBlob(`/records/customers/${id}/attachments/${attachmentId}/download`);
+}
+
+export function renameCustomerDocument(id: number, attachmentId: number, change: DocumentChange): Promise<Attachment[]> {
+  return send<Attachment[]>(`/records/customers/${id}/attachments/${attachmentId}`, "PATCH", change);
+}
+
+export function removeCustomerDocument(id: number, attachmentId: number, reason: string): Promise<Attachment[]> {
+  return send<Attachment[]>(`/records/customers/${id}/attachments/${attachmentId}/remove`, "POST", { reason });
 }
 
 export function updateProjectIncentive(id: number, body: unknown): Promise<Project> {

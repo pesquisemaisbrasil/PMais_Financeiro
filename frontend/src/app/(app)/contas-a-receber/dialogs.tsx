@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AmountSummary } from "@/components/AmountSummary";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
+import { ReasonDialog } from "@/components/ReasonDialog";
 import {
   NO_RECURRENCE,
   RecurrenceFields,
@@ -484,57 +485,7 @@ export function ReceiveDialog({
   );
 }
 
-// ---- Motivo (estorno e cancelamento) e exclusão ----
-
-function ReasonDialog({
-  title,
-  description,
-  confirm,
-  destructive,
-  onClose,
-  onConfirm,
-}: {
-  title: string;
-  description: string;
-  confirm: string;
-  destructive?: boolean;
-  onClose: () => void;
-  onConfirm: (reason: string) => Promise<void>;
-}) {
-  const { error, submitting, run } = useFormAction();
-  const [reason, setReason] = useState("");
-  const [localError, setLocalError] = useState<string | null>(null);
-  return (
-    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        <Field label="Motivo *" id="rs-motivo">
-          <Input id="rs-motivo" autoFocus value={reason} onChange={(event) => setReason(event.target.value)} />
-        </Field>
-        <FormError message={localError ?? error} />
-        <DialogFooter>
-          <Button variant="outline" disabled={submitting} onClick={onClose}>
-            Voltar
-          </Button>
-          <Button
-            variant={destructive ? "destructive" : "default"}
-            disabled={submitting}
-            onClick={() => {
-              if (!reason.trim()) return setLocalError("Diga o motivo.");
-              setLocalError(null);
-              void run(() => onConfirm(reason.trim()));
-            }}
-          >
-            {confirm}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// ---- Exclusão ----
 
 function DeleteDialog({
   row,

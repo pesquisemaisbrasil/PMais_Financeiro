@@ -722,6 +722,20 @@ export interface RecordRow {
   phone: string | null;
   email: string | null;
   paymentTerms: string | null;
+  // só no cliente: o resto da ficha (IE, telefones, e-mail alternativo, observações e endereço)
+  stateRegistration: string | null;
+  phone2: string | null;
+  phone3: string | null;
+  emailAlt: string | null;
+  notes: string | null;
+  addressCountry: string | null;
+  addressZip: string | null;
+  addressStreet: string | null;
+  addressNumber: string | null;
+  addressComplement: string | null;
+  addressDistrict: string | null;
+  addressCity: string | null;
+  addressState: string | null;
   // só na conta do plano de contas
   kind: "despesa" | "receita" | null;
 }
