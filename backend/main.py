@@ -15,6 +15,7 @@ from api.batches import router as batches_router
 from api.batches import shared as batches_shared_router
 from api.health import router as health_router
 from api.payables import router as payables_router
+from api.project_reports import router as project_reports_router
 from api.receivables import router as receivables_router
 from api.records import router as records_router
 from core.body_limit import AuthBodyLimit
@@ -122,3 +123,4 @@ app.include_router(receivables_router)
 app.include_router(batches_router)
 app.include_router(batches_shared_router)
 app.include_router(records_router)
+app.include_router(project_reports_router)

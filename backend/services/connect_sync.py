@@ -11,15 +11,29 @@ from sqlalchemy.orm import Session
 
 from models.connect_payable_item import ConnectPayableItem
 from models.project_ref import ProjectRef
-from services.connect_gateway import ConnectGateway, ConnectPayable
+from models.reference import Project
+from services.connect_gateway import ConnectGateway, ConnectPayable, ConnectProject
 
 STATUS = {"to_pay": "a_pagar", "paid": "pago", "removed": "cancelado"}
+
+
+def _upsert_financial_project(db: Session, project: ConnectProject) -> None:
+    """O projeto do Connect também vira projeto de Contas a pagar e do relatório: ele chega sozinho
+    (spec projetos-financeiros). O código é o ID do Connect (PRJ-1820). O que o financeiro marcou
+    aqui (tipo, incentivo) e a situação não mudam: só o título acompanha o Connect."""
+    code = str(project.id)
+    row = db.query(Project).filter_by(code=code).first()
+    if row is None:
+        db.add(Project(code=code, title=project.title[:200]))
+    else:
+        row.title = project.title[:200]
 
 
 def sync_projects(db: Session, connect: ConnectGateway) -> int:
     """Traz os projetos do Connect. Devolve quantos existem agora no espelho."""
     now = datetime.now(UTC)
     for project in connect.list_projects():
+        _upsert_financial_project(db, project)
         ref = db.query(ProjectRef).filter_by(connect_project_id=project.id).first()
         if ref is None:
             ref = ProjectRef(connect_project_id=project.id)
