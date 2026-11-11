@@ -67,6 +67,12 @@ export default defineConfig({
     timezoneId: "America/Sao_Paulo",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // O passeio de introdução abre sozinho na primeira visita e cobriria a tela de todo teste: todo
+    // navegador de teste já nasce com ele visto. O teste do passeio apaga esta marca.
+    storageState: {
+      cookies: [],
+      origins: [{ origin: FRONTEND_URL, localStorage: [{ name: "financeiro:passeio-visto", value: "1" }] }],
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
