@@ -131,7 +131,10 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await page.goto("/cadastros?aba=costCenters");
   await page.getByRole("button", { name: "Novo centro de custo" }).click();
   const principal = page.getByRole("dialog");
-  await expect(principal.getByLabel("Código")).toBeDisabled();
+  await expect(principal.getByLabel("Código", { exact: true })).toBeDisabled();
+  // abre como centro principal: o Superior só aparece para sub-centro
+  await expect(principal.getByRole("radio", { name: /^Centro principal/ })).toBeChecked();
+  await expect(principal.getByRole("combobox", { name: "Superior *" })).toHaveCount(0);
   await principal.getByLabel("Nome *").fill("Centro do teste de cadastros");
   await principal.getByRole("button", { name: "Cadastrar" }).click();
   const principalRow = page.getByRole("row", { name: /Centro do teste de cadastros/ });
@@ -139,9 +142,13 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   const centerCode = (await principalRow.getByRole("cell").first().innerText()).trim();
   await page.getByRole("button", { name: "Novo centro de custo" }).click();
   const sub = page.getByRole("dialog");
-  await sub.getByRole("combobox", { name: "Superior" }).click();
-  await page.getByRole("option", { name: `${centerCode} · Centro do teste de cadastros` }).click();
+  await sub.getByRole("radio", { name: /^Sub-centro/ }).click();
+  // sub-centro sem superior não salva
   await sub.getByLabel("Nome *").fill("Sub do teste");
+  await sub.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(sub.getByText("Escolha o centro principal em que o sub-centro fica.")).toBeVisible();
+  await sub.getByRole("combobox", { name: "Superior *" }).click();
+  await page.getByRole("option", { name: `${centerCode} · Centro do teste de cadastros` }).click();
   await sub.getByRole("button", { name: "Cadastrar" }).click();
   const subRow = page.getByRole("row", { name: /Sub do teste/ });
   await expect(subRow.getByRole("cell").first()).toHaveText(`${centerCode}.001`);
