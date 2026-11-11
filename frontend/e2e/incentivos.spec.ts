@@ -63,8 +63,14 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   await expect(form.getByText("Esse feriado já está cadastrado")).toBeVisible();
   await form.getByRole("button", { name: "Voltar" }).click();
 
-  // ---- Importar incentivos com data de pagamento em dia não útil ----
-  await page.goto("/contas-a-pagar");
+  // ---- Incentivos: importar a planilha, com data de pagamento em dia não útil ----
+  const menu = page.getByRole("navigation", { name: "Menu principal" });
+  await menu.getByRole("button", { name: "Financeiro" }).click();
+  await menu.getByRole("link", { name: "Incentivos", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Incentivos", exact: true })).toBeVisible();
+  // Os incentivos ficam só no menu Financeiro: com o Relatórios aberto, não há outro link
+  await menu.getByRole("button", { name: "Relatórios" }).click();
+  await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(1);
   const sheet = [
     "Nome;Valor;Data de pagamento",
     `Respondente A;100,00;${SATURDAY}`,
@@ -73,6 +79,9 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   ].join("\r\n");
   await page.getByRole("button", { name: "Importar planilha" }).click();
   const importer = page.getByRole("dialog");
+  // Aqui só se importa incentivo: o diálogo já abre nesse tipo, sem perguntar
+  await expect(importer.getByRole("heading", { name: "Importar incentivos" })).toBeVisible();
+  await expect(importer.getByRole("combobox", { name: "Tipo *" })).toHaveCount(0);
   await mark(page, "Projeto", "PRJ-1790");
   await mark(page, "Categoria", /Serviços de terceiros/);
   await mark(page, "Forma de pagamento", "Pix");
@@ -95,11 +104,8 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   await importer.getByRole("button", { name: "Criar 2 lançamentos com 3 itens" }).click();
   await expect(page.getByText(/2 lançamentos criados, 3 itens/)).toBeVisible();
 
-  // ---- Incentivos: as datas de vencimento ----
-  await page.getByRole("navigation", { name: "Menu principal" }).getByRole("link", { name: "Incentivos", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Incentivos", exact: true })).toBeVisible();
-  await page.getByRole("combobox", { name: "Visão por período" }).click();
-  await page.getByRole("option", { name: "Tudo" }).click();
+  // ---- Depois de importar, a própria página mostra o que entrou, em qualquer data ----
+  await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Tudo");
 
   // Uma linha de data por vencimento: segunda 11/03 com 2 pessoas e quinta 14/03 com 1
   const monday = page.getByRole("row", { name: /11\/03\/2030 · segunda-feira/ });
