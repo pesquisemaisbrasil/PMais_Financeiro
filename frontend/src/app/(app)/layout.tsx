@@ -9,7 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <RequireAuth>
       <TooltipProvider>
-        <div className="flex min-h-screen flex-1 flex-col md:flex-row print:hidden">
+        <div className="flex min-h-[calc(100vh-var(--faixa,0px))] flex-1 flex-col md:flex-row print:hidden">
           <Suspense>
             <Sidebar />
           </Suspense>

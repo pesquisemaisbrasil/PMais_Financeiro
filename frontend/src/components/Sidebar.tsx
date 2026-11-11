@@ -178,7 +178,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex w-full flex-shrink-0 flex-col self-start border-b border-border bg-card transition-[width] duration-150 md:sticky md:top-0 md:h-screen md:border-b-0 md:border-r",
+        "flex w-full flex-shrink-0 flex-col self-start border-b border-border bg-card transition-[width] duration-150 md:sticky md:top-[var(--faixa,0px)] md:h-[calc(100vh-var(--faixa,0px))] md:border-b-0 md:border-r",
         collapsed ? "md:w-16" : "md:w-64"
       )}
     >
