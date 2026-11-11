@@ -198,7 +198,7 @@ def test_installments_with_a_wrong_sum_are_refused_and_nothing_is_created(
         headers=auth,
     )
     assert response.status_code == 422
-    assert response.json()["detail"] == "A soma das parcelas precisa ser igual ao valor total"
+    assert response.json()["detail"] == "As parcelas somam R$ 60,00, mas a conta é de R$ 100,00"
     assert db_session.query(Payable).count() == 0 and db_session.query(PayableSeries).count() == 0
 
 
@@ -395,6 +395,22 @@ def test_canceling_all_open_leaves_the_paid_ones(
     pay(client, auth, world, ids[0])
     assert cancel(client, auth, ids[1], scope="open").json() == {"count": 2}
     assert canceled(client, auth, ids) == [False, True, True]
+
+
+def test_an_excluded_occurrence_is_left_out_of_what_the_series_cancels_and_edits(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    ids = create_series(client, auth, world, count=4, amount="100.00", dueDate="2026-12-30")
+    deleted = client.post("/payables/batch/delete", json={"ids": [ids[2]]}, headers=auth)
+    assert deleted.status_code == 200
+
+    assert edit(client, auth, ids[0], scope="open", amount="80.00").json() == {"count": 3}
+    assert cancel(client, auth, ids[0], scope="open").json() == {"count": 3}
+
+    excluded = db_session.get(Payable, ids[2])
+    assert excluded is not None
+    assert excluded.canceledAt is None  # a conta excluída não ganhou cancelamento
+    assert excluded.amount == Decimal("100.00")  # nem o valor novo
 
 
 def test_canceled_occurrences_are_skipped_by_later_edits(

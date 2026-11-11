@@ -634,6 +634,28 @@ def test_the_same_bank_transaction_cannot_be_received_twice_until_it_is_reversed
     )
 
 
+def test_the_bank_transaction_id_ignores_case_and_surrounding_spaces(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    a = create(client, auth, world, amount="100.00")
+    b = create(client, auth, world, amount="100.00")
+    first = client.post(
+        f"/receivables/{a['id']}/receipts",
+        json=receipt(world, amount="100.00", transactionId="TX-1"),
+        headers=auth,
+    )
+    assert first.status_code == 200
+    again = client.post(
+        f"/receivables/{b['id']}/receipts",
+        json=receipt(world, amount="100.00", transactionId=" tx-1 "),
+        headers=auth,
+    )
+    assert (again.status_code, again.json()["detail"]) == (
+        409,
+        "Esse ID de transação já foi usado em outro recebimento",
+    )
+
+
 def test_reversing_returns_the_balance_and_keeps_both_lines(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:

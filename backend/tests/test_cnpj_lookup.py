@@ -1,4 +1,5 @@
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
@@ -31,15 +32,23 @@ def brasilapi(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class FakeResponse:
+    """A resposta da BrasilAPI, lida aos pedaços como a de verdade (`stream=True`)."""
+
     def __init__(self, status: int = 200, body: Any = None, size: int | None = None) -> None:
         self.status_code = status
-        self._body = body
-        self.content = b"x" * (size if size is not None else 100)
+        raw = b"isto nao e JSON" if isinstance(body, Exception) else json.dumps(body).encode()
+        # `size`: enche com espaços (JSON continua válido) para passar do limite de bytes
+        self.content = raw.ljust(size, b" ") if size else raw
 
-    def json(self) -> Any:
-        if isinstance(self._body, Exception):
-            raise self._body
-        return self._body
+    def __enter__(self) -> "FakeResponse":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        return None
+
+    def iter_content(self, chunk_size: int = 1) -> Iterator[bytes]:
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start : start + chunk_size]
 
 
 def fake_get(monkeypatch: pytest.MonkeyPatch, response: FakeResponse | Exception) -> list[Any]:

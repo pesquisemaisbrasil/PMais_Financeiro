@@ -565,6 +565,49 @@ def test_a_payment_above_the_payable_balance_is_refused_and_saves_nothing(
     assert connect.orders == []
 
 
+def test_a_pix_already_used_in_a_manual_payment_is_not_paid_again_by_the_receipt(
+    client: TestClient,
+    db_session: Session,
+    project: ProjectRef,
+    auth: dict[str, str],
+    connect: FakeConnect,
+    payable_world: dict[str, object],
+) -> None:
+    payable: Payable = payable_world["payable"]  # type: ignore[assignment]
+    account: BankAccount = payable_world["account"]  # type: ignore[assignment]
+    method: PaymentMethod = payable_world["method"]  # type: ignore[assignment]
+    user = db_session.query(User).first()
+    assert user is not None
+    # alguém já deu baixa à mão no mesmo Pix, digitando o ID em minúsculas
+    db_session.add(
+        PayablePayment(
+            payable_id=payable.id,
+            paidOn=date(2026, 2, 2),
+            amount=Decimal("20.00"),
+            bank_account_id=account.id,
+            payment_method_id=method.id,
+            transactionId="e1",
+            created_by_user_id=user.id,
+        )
+    )
+    db_session.commit()
+    add_items(db_session, project, "20.00")
+    batch = open_linked(client, project, auth, payable)
+    send(client, project, auth, batch, pdf(text(IN_PROJECT, "20,00", "E1", day="02/02/2026")))
+
+    response = confirm(
+        client, project, auth, batch, bankAccountId=account.id, paymentMethodId=method.id
+    )
+
+    assert (response.status_code, response.json()["detail"]) == (
+        409,
+        "Esse ID de transação já foi usado em outra baixa",
+    )
+    assert db_session.query(PayablePayment).count() == 1  # só a baixa manual
+    assert db_session.query(PaymentRequest).count() == 0
+    assert connect.orders == []
+
+
 def test_a_batch_of_an_unknown_payable_is_404(
     client: TestClient, project: ProjectRef, auth: dict[str, str], connect: FakeConnect
 ) -> None:

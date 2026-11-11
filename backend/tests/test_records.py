@@ -606,6 +606,34 @@ def test_a_sub_center_needs_an_active_principal_as_its_superior(
     )
 
 
+def test_a_sub_center_can_be_renamed_after_its_principal_is_inactivated(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    principal = _center(client, auth, "Comercial").json()
+    sub = _center(client, auth, "Despesas", principal["id"]).json()
+    client.post(
+        f"/records/costCenters/{principal['id']}/active", json={"active": False}, headers=auth
+    )
+    renamed = client.patch(
+        f"/records/costCenters/{sub['id']}",
+        json={"name": "Despesas gerais", "parentId": principal["id"]},
+        headers=auth,
+    )
+    assert renamed.status_code == 200
+    assert (renamed.json()["name"], renamed.json()["code"]) == ("Despesas gerais", sub["code"])
+    # trocar o superior continua proibido, e para um principal inativo também não vale
+    other = _center(client, auth, "Outro").json()
+    moved = client.patch(
+        f"/records/costCenters/{sub['id']}",
+        json={"name": "Despesas gerais", "parentId": other["id"]},
+        headers=auth,
+    )
+    assert (moved.status_code, moved.json()["detail"]) == (
+        409,
+        "O superior não muda depois de cadastrado: o código depende dele",
+    )
+
+
 def test_the_superior_never_changes_and_a_principal_with_sub_centers_is_not_deleted(
     client: TestClient, auth: dict[str, str]
 ) -> None:
@@ -634,7 +662,10 @@ def test_the_superior_never_changes_and_a_principal_with_sub_centers_is_not_dele
     assert listed["Administrativo"]["inUse"] is True  # tem sub-centros
     assert listed["Comercial"]["inUse"] is False
     refused = client.delete(f"/records/costCenters/{adm['id']}", headers=auth)
-    assert refused.status_code == 409
+    assert (refused.status_code, refused.json()["detail"]) == (
+        409,
+        "Esse centro de custo tem sub-centros: exclua os sub-centros antes, ou inative o centro",
+    )
     # o sub-centro sai, e o número dele não volta: o próximo é o 003
     assert client.delete(f"/records/costCenters/{second['id']}", headers=auth).status_code == 204
     assert _center(client, auth, "Terceiro", adm["id"]).json()["code"] == "001.003"

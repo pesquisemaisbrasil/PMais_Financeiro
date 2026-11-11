@@ -639,6 +639,29 @@ def test_same_transaction_id_does_not_pay_twice(
     assert after_reversal.status_code == 200
 
 
+def test_the_transaction_id_ignores_case_and_surrounding_spaces(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    first = create(client, auth, world)
+    second = create(client, auth, world)
+    paid = client.post(
+        f"/payables/{first['id']}/payments",
+        json=payment(world, amount="400.00", transactionId="E0001"),
+        headers=auth,
+    )
+    assert paid.status_code == 200
+    for typed in ("e0001", " E0001 ", "e0001  "):
+        again = client.post(
+            f"/payables/{second['id']}/payments",
+            json=payment(world, amount="400.00", transactionId=typed),
+            headers=auth,
+        )
+        assert (again.status_code, again.json()["detail"]) == (
+            409,
+            "Esse ID de transação já foi usado em outra baixa",
+        )
+
+
 def test_past_date_needs_a_note(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
@@ -1348,6 +1371,26 @@ def test_reclassify_needs_a_change_and_refuses_closed_project(
     assert closed.status_code == 409
 
 
+def test_reclassify_refuses_a_revenue_account_in_payables(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    created = create(client, auth, world)
+    revenue = ExpenseCategory(code="1.01", name="Receita de projeto", kind="receita")
+    db_session.add(revenue)
+    db_session.commit()
+    refused = client.post(
+        "/payables/batch/reclassify",
+        json={"ids": [created["id"]], "categoryId": revenue.id},
+        headers=auth,
+    )
+    assert (refused.status_code, refused.json()["detail"]) == (
+        422,
+        "Contas a pagar usam conta de despesa",
+    )
+    detail = client.get(f"/payables/{created['id']}", headers=auth).json()
+    assert detail["categoryName"] == world["category"].name  # nada mudou
+
+
 # ---- Duplicar ----
 
 
@@ -1420,6 +1463,32 @@ def _provision(
 
 def _replace(client: TestClient, auth: dict[str, str], provision_id: int, **fields: Any) -> Any:
     return client.post(f"/payables/{provision_id}/replace", json=fields, headers=auth)
+
+
+def test_choosing_canceled_or_replaced_in_the_situation_filter_lists_them(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    provision = create(client, auth, world, type="provisao")
+    real = _replace(
+        client, auth, provision["id"], supplierId=world["supplier"].id, amount="1100.00"
+    ).json()
+    canceled = create(client, auth, world)
+    client.post(f"/payables/{canceled['id']}/cancel", json={"reason": "Errada"}, headers=auth)
+
+    def ids(query: str) -> list[int]:
+        items = client.get(f"/payables?mode=tudo&{query}", headers=auth).json()["items"]
+        return sorted(row["id"] for row in items)
+
+    # o card de Total não mostra nenhuma das duas, mas quem escolhe a situação quer ver a escolhida
+    assert ids("") == [real["id"]]
+    assert ids("situation=substituido") == [provision["id"]]
+    assert ids("situation=cancelado") == [canceled["id"]]
+    assert ids("situation=cancelado,substituido") == sorted([provision["id"], canceled["id"]])
+    # e as outras situações seguem filtrando como antes
+    assert ids("situation=a_vencer,hoje,vencido") == [real["id"]]
+    # a exportação leva o mesmo recorte da lista
+    sheet = client.get("/payables/export?mode=tudo&situation=cancelado", headers=auth).text
+    assert len(sheet.strip().splitlines()) == 3  # título, cabeçalho e a única conta cancelada
 
 
 def test_replacing_provision_keeps_classification_and_leaves_the_totals(
@@ -2111,6 +2180,46 @@ def _classified(
         "paymentMethodIds": "",
     }
     return _import_fields(world, **{**cleared, **over}), _xlsx([COLUMNS_HEADER, *rows])
+
+
+def test_the_import_finds_a_sub_center_by_code_or_path_and_asks_for_the_code_when_the_name_repeats(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    more_registers: dict[str, Any],
+    db_session: Session,
+) -> None:
+    latam = CostCenter(name="Latam", code="010")
+    brasil = CostCenter(name="Brasil", code="011")
+    db_session.add_all([latam, brasil])
+    db_session.flush()
+    db_session.add_all(
+        [
+            CostCenter(name="Geral", parent_id=latam.id, code="010.001"),
+            CostCenter(name="Geral", parent_id=brasil.id, code="011.001"),
+        ]
+    )
+    db_session.commit()
+    day = "2026-11-20"
+    fields, content = _classified(
+        world,
+        [
+            ["Ana", 100, day, "PPlus", "Consumo SP", "010.001", "2.04", "Pix"],
+            ["Bia", 50, day, "PPlus", "Consumo SP", "Geral", "2.04", "Pix"],
+            ["Caio", 70, day, "PPlus", "Consumo SP", "Brasil › Geral", "2.04", "Pix"],
+        ],
+    )
+    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert [line["errors"] for line in preview["lines"]] == [
+        [],
+        ["Centro de custo Geral aparece mais de uma vez no cadastro: escreva o código dele"],
+        [],
+    ]
+    # dois centros chamados "Geral" não aparecem iguais na prévia: vai o caminho, com o superior
+    assert sorted(g["classification"] for g in preview["groups"]) == [
+        "PPlus · Consumo SP · Brasil › Geral · 2.04 Material e gráfica · Pix",
+        "PPlus · Consumo SP · Latam › Geral · 2.04 Material e gráfica · Pix",
+    ]
 
 
 def test_each_classification_column_splits_the_sheet_into_payables(

@@ -18,7 +18,8 @@ import threading
 import time
 import uuid
 from collections.abc import Callable, Generator
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
 
@@ -34,10 +35,22 @@ from core.limiter import limiter
 from core.security import hash_password
 from db.connection import engine, get_db
 from main import app
+from models.payable import Payable, PayableEvent, PayablePayment
+from models.reference import (
+    BankAccount,
+    BusinessUnit,
+    Company,
+    CostCenter,
+    ExpenseCategory,
+    PaymentMethod,
+)
 from models.user import User
+from schemas.payable import PaymentCreate
 from schemas.records import RecordIn
 from services import auth as auth_service
 from services import mfa as mfa_service
+from services import payable as payable_service
+from services import receivable as receivable_service
 from services import records as records_service
 from tests.conftest import PASSWORD, TOTP_SECRET
 
@@ -229,5 +242,138 @@ def test_registries_created_at_the_same_time_get_different_codes(
     finally:
         with session_factory() as db:
             db.execute(text("DELETE FROM suppliers WHERE name LIKE 'Simultâneo %'"))
-            db.execute(text("DELETE FROM record_events WHERE user_id = :id"), {"id": user_id})
             db.commit()
+        # O histórico só recebe linhas novas: a role da app não apaga (REVOKE da e63f9c4a2b31).
+        # Limpar é cortesia, e fica em transação à parte para não desfazer a limpeza acima.
+        try:
+            with session_factory() as db:
+                db.execute(text("DELETE FROM record_events WHERE user_id = :id"), {"id": user_id})
+                db.commit()
+        except Exception:  # noqa: BLE001  shortcut: limpeza é cortesia, não regra do teste
+            pass
+
+
+def test_row_locks_are_accepted_by_postgres_on_tables_with_a_left_join() -> None:
+    """O Postgres recusa FOR UPDATE no lado opcional de um LEFT JOIN, e a conta, o título e o centro
+    de custo carregam a série ou o superior assim: sem `of=`, baixar, receber e editar davam erro.
+    O Postgres reclama ao analisar a consulta, então basta pedir uma linha que não existe."""
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    with session_factory() as db:
+        with pytest.raises(payable_service.PayableNotFound):
+            payable_service._get(db, 0, lock=True)
+        with pytest.raises(receivable_service.ReceivableNotFound):
+            receivable_service._get(db, 0, lock=True)
+        with pytest.raises(records_service.RecordNotFound):
+            records_service._get(db, "costCenters", 0)
+
+
+@pytest.mark.usefixtures("per_request_db")  # conexões já abertas: abrir uma leva 2 s no Windows
+def test_the_same_pix_in_two_payables_at_once_pays_only_once(
+    postgres_users: Callable[[], User], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sem a trava por ID, as duas baixas leem "ainda não usado" e passam juntas: a trava de cada
+    conta não ajuda, porque as contas são diferentes. Quem chega primeiro segura a janela depois
+    de conferir o ID, e a segunda confere enquanto a primeira ainda não gravou."""
+    original = payable_service._transaction_used
+
+    def slow_check(db: Session, transaction_id: str) -> bool:
+        used = original(db, transaction_id)
+        time.sleep(RACE_SLEEP)
+        return used
+
+    monkeypatch.setattr(payable_service, "_transaction_used", slow_check)
+    user_id = postgres_users().id
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    suffix = uuid.uuid4().hex[:8]
+    transaction_id = f"E2E{suffix}"
+    with session_factory() as db:
+        company = Company(name=f"Concorrência {suffix}")
+        db.add(company)
+        db.flush()
+        unit = BusinessUnit(company_id=company.id, name=f"Unidade {suffix}")
+        center = CostCenter(name=f"Centro {suffix}")
+        category = ExpenseCategory(code=f"C{suffix}", name=f"Categoria {suffix}")
+        method = PaymentMethod(name=f"Pix {suffix}")
+        account = BankAccount(company_id=company.id, name=f"Conta {suffix}")
+        db.add_all([unit, center, category, method, account])
+        db.flush()
+        payable_ids = []
+        for number in range(2):
+            payable = Payable(
+                origin="manual",
+                company_id=company.id,
+                unit_id=unit.id,
+                cost_center_id=center.id,
+                category_id=category.id,
+                payment_method_id=method.id,
+                payeeName="Fornecedor",
+                description=f"Conta {number} {suffix}",
+                issueDate=date(2026, 2, 1),
+                dueDate=date(2026, 2, 10),
+                amount=Decimal("100.00"),
+            )
+            db.add(payable)
+            db.flush()
+            payable_ids.append(payable.id)
+        db.commit()
+        account_id, method_id = account.id, method.id
+
+    barrier = threading.Barrier(2)
+    outcomes: list[str] = [""] * 2
+
+    def pay(index: int) -> None:
+        try:
+            with session_factory() as db:
+                barrier.wait(timeout=10)
+                payable_service.pay(
+                    db,
+                    payable_ids[index],
+                    PaymentCreate(
+                        paidOn=payable_service.today(),
+                        amount=Decimal("100.00"),
+                        bankAccountId=account_id,
+                        paymentMethodId=method_id,
+                        # um digitado de um jeito, o outro de outro: é o mesmo ID
+                        transactionId=transaction_id
+                        if index == 0
+                        else f" {transaction_id.lower()} ",
+                    ),
+                    SimpleNamespace(id=user_id),  # type: ignore[arg-type]
+                )
+                outcomes[index] = "pago"
+        except payable_service.PayableConflict:
+            outcomes[index] = "recusado"
+        except BaseException as exc:  # noqa: BLE001  o teste confere o que deu errado depois
+            outcomes[index] = f"erro: {exc!r}"
+
+    threads = [threading.Thread(target=pay, args=(index,)) for index in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    with session_factory() as db:
+        paid = (
+            db.query(PayablePayment)
+            .filter(PayablePayment.payable_id.in_(payable_ids), PayablePayment.kind == "pagamento")
+            .count()
+        )
+    try:
+        assert sorted(outcomes) == ["pago", "recusado"]
+        assert paid == 1
+    finally:
+        # Baixa e histórico só recebem linhas novas (REVOKE para a role da app): limpar é cortesia
+        # onde a role permite, e o banco de teste do CI é descartável de qualquer jeito.
+        try:
+            with session_factory() as db:
+                for model, column in (
+                    (PayablePayment, PayablePayment.payable_id),
+                    (PayableEvent, PayableEvent.payable_id),
+                    (Payable, Payable.id),
+                ):
+                    db.query(model).filter(column.in_(payable_ids)).delete(
+                        synchronize_session=False
+                    )
+                db.commit()
+        except Exception:  # noqa: BLE001  shortcut: limpeza é cortesia, não regra do teste
+            pass
