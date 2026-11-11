@@ -5,7 +5,9 @@ import {
   ArchiveRestore,
   BookUser,
   CircleCheck,
+  CornerDownRight,
   Eye,
+  Folder,
   Layers,
   Pencil,
   Plus,
@@ -844,15 +846,29 @@ function Records({ tab }: { tab: TabId }) {
               </TableHeader>
               <TableBody>
                 {visible.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow key={row.id} className={tab === "costCenters" && row.parentId === null ? "bg-brand-azul-deep/5" : undefined}>
                     {(tab === "categories" || withCnpj || tab === "units" || tab === "costCenters") && (
-                      <TableCell className={cn(TD, "font-mono text-xs")}>{row.code ?? "—"}</TableCell>
+                      <TableCell
+                        className={cn(
+                          TD,
+                          "font-mono text-xs",
+                          tab === "costCenters" && (row.parentId === null ? "font-semibold text-brand-cinza-escuro" : "text-muted-foreground")
+                        )}
+                      >
+                        {row.code ?? "—"}
+                      </TableCell>
                     )}
                     {(tab === "units" || tab === "bankAccounts") && (
                       <TableCell className={TD}>{companyName(row.companyId)}</TableCell>
                     )}
                     <TableCell className={cn(TD, "whitespace-normal", row.parentId !== null && "pl-9")}>
-                      <span className={cn("text-brand-cinza-escuro", row.parentId !== null ? "font-normal" : "font-semibold")}>
+                      <span className={cn("inline-flex items-center gap-2 text-brand-cinza-escuro", row.parentId !== null ? "font-normal" : "font-semibold")}>
+                        {tab === "costCenters" &&
+                          (row.parentId === null ? (
+                            <Folder className="size-4 text-brand-azul-deep" aria-hidden />
+                          ) : (
+                            <CornerDownRight className="size-3.5 text-muted-foreground" aria-hidden />
+                          ))}
                         {row.nickname ?? row.name}
                       </span>
                       {row.nickname && <span className="block text-xs text-muted-foreground">{row.name}</span>}
