@@ -87,6 +87,25 @@ def test_a_holiday_goes_to_the_next_business_day(client: TestClient, auth: dict[
     assert simulate(client, auth, startDate="2026-11-15", count=2)[0]["dueDate"] == "2026-11-16"
 
 
+def test_a_registered_holiday_also_goes_to_the_next_business_day(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # 25/01/2027 é segunda e não é feriado nacional: sem cadastro, fica no dia
+    assert simulate(client, auth, startDate="2027-01-25", count=2)[0]["dueDate"] == "2027-01-25"
+    holiday = {
+        "date": "2027-01-25",
+        "name": "Aniversário de São Paulo",
+        "scope": "municipal",
+        "uf": "SP",
+        "city": "São Paulo",
+    }
+    assert client.post("/holidays", json=holiday, headers=auth).status_code == 201
+    # a simulação e a série criada de verdade usam o mesmo cálculo
+    assert simulate(client, auth, startDate="2027-01-25", count=2)[0]["dueDate"] == "2027-01-26"
+    ids = create_series(client, auth, world, dueDate="2027-01-25", count=2)
+    assert detail(client, auth, ids[0])["dueDate"] == "2027-01-26"
+
+
 def test_weekly_adds_seven_days_across_the_year(client: TestClient, auth: dict[str, str]) -> None:
     dates = [
         o["dueDate"]

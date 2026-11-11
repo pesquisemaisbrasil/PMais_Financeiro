@@ -1780,6 +1780,95 @@ def test_excel_dates_and_text_dates_both_work(
     assert preview["total"] == "1245.06"
 
 
+def _preview(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], content: bytes
+) -> Any:
+    response = _send(client, auth, "/payables/import/preview", _import_fields(world), content)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_a_given_pay_date_on_a_weekend_goes_to_the_next_business_day_with_a_warning(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+) -> None:
+    # 07/11/2026 é sábado e 08/11 é domingo: as duas vão para a segunda, 09/11, num lançamento só
+    content = _xlsx(
+        [
+            INCENTIVE_HEADER,
+            ["Pessoa A", None, None, 100, None, "2026-11-07"],
+            ["Pessoa B", None, None, 100, None, "2026-11-08"],
+            ["Pessoa C", None, None, 100, None, "2026-11-10"],
+        ]
+    )
+    preview = _preview(client, auth, world, content)
+    assert preview["shiftedCount"] == 2
+    assert [(g["payDate"], g["count"]) for g in preview["groups"]] == [
+        ("2026-11-09", 2),
+        ("2026-11-10", 1),
+    ]
+    assert preview["groups"][0]["shifts"] == [
+        {"day": "2026-11-07", "reason": "sábado"},
+        {"day": "2026-11-08", "reason": "domingo"},
+    ]
+    assert preview["groups"][1]["shifts"] == []
+
+    created = _send(client, auth, "/payables/import", _import_fields(world), content)
+    assert created.status_code == 201, created.text
+    assert sorted(p.dueDate for p in db_session.query(Payable).all()) == [
+        date(2026, 11, 9),
+        date(2026, 11, 10),
+    ]
+    history = [e.text for e in db_session.query(PayableEvent).order_by(PayableEvent.id).all()]
+    assert any(
+        "data da planilha ajustada para 09/11/2026: 07/11/2026 (sábado), 08/11/2026 (domingo)" in t
+        for t in history
+    )
+
+
+def test_a_given_pay_date_on_a_national_or_registered_holiday_also_moves(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    # 02/11/2026 é segunda e feriado nacional (Finados); 10/11 é terça e o financeiro cadastrou
+    holiday = {"date": "2026-11-10", "name": "Recesso da empresa", "scope": "nacional"}
+    assert client.post("/holidays", json=holiday, headers=auth).status_code == 201
+    content = _xlsx(
+        [
+            INCENTIVE_HEADER,
+            ["Pessoa A", None, None, 100, None, "2026-11-02"],
+            ["Pessoa B", None, None, 100, None, "2026-11-10"],
+        ]
+    )
+    groups = _preview(client, auth, world, content)["groups"]
+    assert [(g["payDate"], g["shifts"]) for g in groups] == [
+        ("2026-11-03", [{"day": "2026-11-02", "reason": "feriado nacional"}]),
+        ("2026-11-11", [{"day": "2026-11-10", "reason": "feriado: Recesso da empresa"}]),
+    ]
+
+
+def test_the_deadline_counts_registered_holidays_too(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _incentives(("2026-10-30", 2))
+    # 10 dias úteis a partir de 30/10 (sexta) dão 16/11; com 09/11 feriado, 17/11
+    assert _preview(client, auth, world, content)["groups"][0]["payDate"] == "2026-11-16"
+    holiday = {"date": "2026-11-09", "name": "Recesso da empresa", "scope": "nacional"}
+    assert client.post("/holidays", json=holiday, headers=auth).status_code == 201
+    group = _preview(client, auth, world, content)["groups"][0]
+    assert (group["payDate"], group["shifts"]) == ("2026-11-17", [])
+
+
+def test_a_pay_date_on_a_business_day_is_kept_and_nothing_is_flagged(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    preview = _preview(client, auth, world, _incentives(("", 3), pay="2026-11-09"))
+    assert preview["shiftedCount"] == 0
+    assert [(g["payDate"], g["shifts"]) for g in preview["groups"]] == [("2026-11-09", [])]
+
+
 def test_personal_data_outside_the_columns_is_never_kept(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
