@@ -95,9 +95,9 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   await importer.getByRole("button", { name: "Criar 2 lançamentos com 3 itens" }).click();
   await expect(page.getByText(/2 lançamentos criados, 3 itens/)).toBeVisible();
 
-  // ---- Agenda de incentivos ----
-  await page.getByRole("link", { name: "Agenda de incentivos" }).click();
-  await expect(page.getByRole("heading", { name: "Agenda de incentivos" })).toBeVisible();
+  // ---- Incentivos: as datas de vencimento ----
+  await page.getByRole("navigation", { name: "Menu principal" }).getByRole("link", { name: "Incentivos", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Incentivos", exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Visão por período" }).click();
   await page.getByRole("option", { name: "Tudo" }).click();
 
