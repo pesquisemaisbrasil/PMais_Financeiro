@@ -413,6 +413,12 @@ class ImportLine(BaseModel):
     errors: list[str]
 
 
+class ImportShift(BaseModel):
+    # a data da planilha que caía em dia não útil, e por quê ("sábado", "feriado: Finados"...)
+    day: date
+    reason: str
+
+
 class ImportGroup(BaseModel):
     projectId: int
     projectCode: str
@@ -423,6 +429,8 @@ class ImportGroup(BaseModel):
     count: int
     total: Decimal
     source: str
+    # datas da planilha deste grupo que foram para o próximo dia útil
+    shifts: list[ImportShift] = []
 
 
 class ImportProject(BaseModel):
@@ -451,6 +459,8 @@ class ImportPreview(BaseModel):
     # Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou um por
     # classificação (folha).
     payableCount: int
+    # Quantas linhas tinham data de pagamento em dia não útil e foram para o próximo dia útil
+    shiftedCount: int = 0
     groups: list[ImportGroup]
     lines: list[ImportLine]
 

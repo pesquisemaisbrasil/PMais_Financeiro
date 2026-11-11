@@ -20,6 +20,7 @@ from schemas.payable import RecurrenceIn, SeriesCancel, SeriesEdit
 from schemas.receivable import ReceivableCreate, ReceivableUpdate
 from services import payable as payables
 from services import receivable as receivables
+from services.holidays import holiday_names
 from services.payable import PayableConflict, PayableInvalid
 from services.recurrence import Occurrence, simulate
 
@@ -30,7 +31,9 @@ def create_series(
     db: Session, data: ReceivableCreate, recurrence: RecurrenceIn, user: User
 ) -> tuple[PayableSeries, list[Receivable]]:
     """Cria a série e todas as ocorrências, ou nada. A data inicial é o vencimento informado."""
-    occurrences = simulate(recurrence.kind, data.dueDate, recurrence.count, data.amount)
+    occurrences = simulate(
+        recurrence.kind, data.dueDate, recurrence.count, data.amount, holiday_names(db)
+    )
     for edit in recurrence.occurrences or []:
         if not 1 <= edit.index <= len(occurrences):
             raise PayableInvalid("Ocorrência fora da série")

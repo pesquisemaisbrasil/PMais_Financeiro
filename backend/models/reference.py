@@ -1,11 +1,13 @@
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Index,
     Integer,
     String,
+    UniqueConstraint,
     false,
     func,
     text,
@@ -279,4 +281,23 @@ class RecordEvent(Base):
         Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     text = Column(String(500), nullable=False)
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Holiday(Base):
+    """Feriado cadastrado: os nacionais vêm da BrasilAPI e os locais, do financeiro. Todos contam
+    como dia não útil (`core/business_days.py`), além dos nacionais fixos que já estão no código."""
+
+    __tablename__ = "holidays"
+    __table_args__ = (UniqueConstraint("day", "name", name="uq_holidays_day_name"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    day = Column(Date, nullable=False, index=True)
+    name = Column(String(120), nullable=False)
+    # nacional | estadual | municipal
+    scope = Column(String(12), nullable=False)
+    uf = Column(String(2))
+    city = Column(String(80))
+    # brasilapi | manual
+    source = Column(String(12), nullable=False)
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

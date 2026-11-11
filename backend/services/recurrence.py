@@ -6,6 +6,7 @@ pela série nunca mexe em ocorrência paga ou parcialmente paga.
 """
 
 import calendar
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import ROUND_DOWN, Decimal
@@ -13,7 +14,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, selectinload
 
-from core.business_days import is_business_day
+from core.business_days import NO_EXTRA, next_business_day
 from core.text import format_brl
 from models.payable import Payable, PayableSeries
 from models.user import User
@@ -26,6 +27,7 @@ from schemas.payable import (
     SeriesEdit,
 )
 from services import payable as payables
+from services.holidays import holiday_names
 from services.payable import PayableConflict, PayableInvalid
 
 CENT = Decimal("0.01")
@@ -47,13 +49,6 @@ def _add_months(start: date, months: int) -> date:
     return date(year, month, min(start.day, calendar.monthrange(year, month)[1]))
 
 
-def _next_business_day(day: date) -> date:
-    """Vencimento em fim de semana ou feriado nacional vai para o próximo dia útil."""
-    while not is_business_day(day):
-        day += timedelta(days=1)
-    return day
-
-
 def split_amount(total: Decimal, count: int) -> list[Decimal]:
     """Parcelas iguais; a diferença de arredondamento vai na última."""
     base = (total / count).quantize(CENT, rounding=ROUND_DOWN)
@@ -62,9 +57,12 @@ def split_amount(total: Decimal, count: int) -> list[Decimal]:
     return parts
 
 
-def simulate(kind: str, start: date, count: int, amount: Decimal) -> list[Occurrence]:
+def simulate(
+    kind: str, start: date, count: int, amount: Decimal, extra: Mapping[date, str] = NO_EXTRA
+) -> list[Occurrence]:
     """A tabela de ocorrências, sem gravar nada. O dia do mês vem sempre da data inicial (31/01
-    dá 28/02 e volta a 31/03), e só depois o vencimento é ajustado para dia útil."""
+    dá 28/02 e volta a 31/03), e só depois o vencimento é ajustado para dia útil (`extra` são os
+    feriados cadastrados, além dos nacionais)."""
     if kind == "parcelado":
         amounts = split_amount(amount, count)
     else:
@@ -72,7 +70,7 @@ def simulate(kind: str, start: date, count: int, amount: Decimal) -> list[Occurr
     occurrences = []
     for index in range(count):
         base = start + timedelta(weeks=index) if kind == "semanal" else _add_months(start, index)
-        occurrences.append(Occurrence(index + 1, _next_business_day(base), amounts[index]))
+        occurrences.append(Occurrence(index + 1, next_business_day(base, extra), amounts[index]))
     return occurrences
 
 
@@ -101,7 +99,9 @@ def create_series(
         raise PayableInvalid(
             "Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois"
         )
-    occurrences = simulate(recurrence.kind, data.dueDate, recurrence.count, data.amount)
+    occurrences = simulate(
+        recurrence.kind, data.dueDate, recurrence.count, data.amount, holiday_names(db)
+    )
     for edit in recurrence.occurrences or []:
         if not 1 <= edit.index <= len(occurrences):
             raise PayableInvalid("Ocorrência fora da série")
