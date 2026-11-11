@@ -291,3 +291,62 @@ def test_the_search_is_off_when_the_mode_is_empty_and_simulation_is_refused_in_p
     monkeypatch.setattr(config, "HOLIDAYS_LOOKUP_MODE", "simulated")
     monkeypatch.setattr(config, "ENVIRONMENT", "production")
     assert client.post("/holidays/sync?year=2027", headers=auth).status_code == 503
+
+
+# ---- O aviso na hora de lançar ----
+
+
+def check(client: TestClient, auth: dict[str, str], day: str) -> Any:
+    response = client.get(f"/business-days/check?date={day}", headers=auth)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_a_business_day_is_just_itself(client: TestClient, auth: dict[str, str]) -> None:
+    assert check(client, auth, "2026-11-09") == {
+        "date": "2026-11-09",
+        "isBusinessDay": True,
+        "reason": None,
+        "previous": "2026-11-09",
+        "next": "2026-11-09",
+    }
+
+
+@pytest.mark.parametrize(
+    ("day", "reason", "previous", "next_day"),
+    [
+        ("2026-11-07", "sábado", "2026-11-06", "2026-11-09"),
+        ("2026-11-08", "domingo", "2026-11-06", "2026-11-09"),
+        # 20/11/2026 é feriado nacional numa sexta: antecipa para a quinta e posterga para a segunda
+        ("2026-11-20", "feriado nacional", "2026-11-19", "2026-11-23"),
+    ],
+)
+def test_a_weekend_or_national_holiday_says_why_and_where_to_go(
+    client: TestClient, auth: dict[str, str], day: str, reason: str, previous: str, next_day: str
+) -> None:
+    result = check(client, auth, day)
+    assert (result["isBusinessDay"], result["reason"]) == (False, reason)
+    assert (result["previous"], result["next"]) == (previous, next_day)
+
+
+def test_a_registered_holiday_is_named_in_the_warning(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    assert check(client, auth, "2027-01-25")["isBusinessDay"] is True
+    assert client.post("/holidays", json=local(), headers=auth).status_code == 201
+    result = check(client, auth, "2027-01-25")
+    assert result["reason"] == "feriado: Aniversário de São Paulo"
+    # segunda feriado: antecipa para a sexta anterior e posterga para a terça
+    assert (result["previous"], result["next"]) == ("2027-01-22", "2027-01-26")
+
+
+def test_a_date_out_of_range_or_missing_is_refused_and_a_login_is_needed(
+    client: TestClient, auth: dict[str, str], make_user: Callable[..., User]
+) -> None:
+    out = client.get("/business-days/check?date=1999-12-31", headers=auth)
+    assert (out.status_code, out.json()["detail"]) == (422, "Informe uma data entre 2000 e 2100")
+    assert client.get("/business-days/check", headers=auth).status_code == 422
+    assert client.get("/business-days/check?date=2026-11-07").status_code == 401
+    other = make_user(email="leitor@exemplo.com", role="leitor")
+    headers = {"Authorization": f"Bearer {create_access_token(other.id)}"}
+    assert client.get("/business-days/check?date=2026-11-07", headers=headers).status_code == 403

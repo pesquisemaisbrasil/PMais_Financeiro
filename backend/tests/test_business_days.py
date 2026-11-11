@@ -7,6 +7,7 @@ from core.business_days import (
     holidays,
     is_business_day,
     next_business_day,
+    previous_business_day,
     why_not_business,
 )
 
@@ -82,3 +83,14 @@ def test_next_business_day_keeps_a_business_day_and_skips_the_rest() -> None:
     assert next_business_day(date(2026, 11, 7)) == date(2026, 11, 9)  # sábado
     assert next_business_day(date(2026, 11, 15)) == date(2026, 11, 16)  # domingo e feriado
     assert next_business_day(date(2027, 1, 25), LOCAL) == date(2027, 1, 26)
+
+
+def test_previous_business_day_keeps_a_business_day_and_goes_back_over_the_rest() -> None:
+    assert previous_business_day(date(2026, 11, 9)) == date(2026, 11, 9)
+    assert previous_business_day(date(2026, 11, 7)) == date(2026, 11, 6)  # sábado → sexta
+    assert previous_business_day(date(2026, 11, 8)) == date(2026, 11, 6)  # domingo → sexta
+    # 20/11/2026 é feriado nacional (sexta): volta para a quinta
+    assert previous_business_day(date(2026, 11, 20)) == date(2026, 11, 19)
+    assert previous_business_day(date(2027, 1, 25), LOCAL) == date(
+        2027, 1, 22
+    )  # segunda local → sexta
