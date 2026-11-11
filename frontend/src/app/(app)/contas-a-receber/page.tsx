@@ -183,7 +183,11 @@ function Cell({ row, column }: { row: ReceivableRow; column: string }) {
     case "projeto":
       return (
         <TableCell className={cn(TD, "whitespace-normal")}>
-          <span className="font-semibold text-brand-azul-deep">PRJ-{row.projectCode}</span>
+          {row.projectCode ? (
+            <span className="font-semibold text-brand-azul-deep">PRJ-{row.projectCode}</span>
+          ) : (
+            <span className="text-muted-foreground">Sem projeto</span>
+          )}
         </TableCell>
       );
     case "categoria":

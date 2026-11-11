@@ -23,8 +23,9 @@ export interface ReceivableRow {
   situation: ReceivableSituation;
   dueDate: string;
   customer: string;
-  projectCode: string;
-  projectTitle: string;
+  /** Nem toda receita tem projeto. */
+  projectCode: string | null;
+  projectTitle: string | null;
   description: string;
   contract: string | null;
   documentType: string;

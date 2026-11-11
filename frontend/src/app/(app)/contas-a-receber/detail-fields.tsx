@@ -42,7 +42,7 @@ export function ReceivableDetailFields({ detail, status }: { detail: ReceivableD
         <Row label="Conta de receita">{detail.categoryName}</Row>
         <Row label="Centro de custo">{detail.costCenterName}</Row>
         <Row label="Projeto">
-          PRJ-{detail.projectCode} · {detail.projectTitle}
+          {detail.projectCode ? `PRJ-${detail.projectCode} · ${detail.projectTitle}` : "Sem projeto"}
         </Row>
       </Group>
 

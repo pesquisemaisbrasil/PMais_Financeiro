@@ -86,6 +86,8 @@ import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { ReceivableDetailFields } from "./detail-fields";
 
+const NO_PROJECT = "sem-projeto";
+
 const COLORS: Record<ReceivableSituation, "verde" | "azul" | "vermelho" | "ambar" | "cinza"> = {
   recebido: "verde",
   parcial: "azul",
@@ -161,7 +163,6 @@ export function NewReceivableDialog({
     if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
       return setLocalError("Em título parcelado, lance acréscimos, descontos e impostos em cada parcela depois.");
     }
-    if (!form.projectId) return setLocalError("Informe o projeto da receita.");
     const missing = missingFieldsMessage([
       ["Cliente", form.customerId],
       ["Emissão", form.issueDate],
@@ -181,7 +182,7 @@ export function NewReceivableDialog({
     }
     const body = {
           customerId: Number(form.customerId),
-          projectId: Number(form.projectId),
+          projectId: form.projectId ? Number(form.projectId) : null,
           categoryId: Number(form.categoryId),
           companyId: Number(form.companyId),
           unitId: Number(form.unitId),
@@ -223,7 +224,7 @@ export function NewReceivableDialog({
           <DialogHeader>
             <DialogTitle>Nova conta a receber</DialogTitle>
             <DialogDescription>
-              <RedStars text="Os campos com * são obrigatórios. Toda receita pertence a um projeto." />
+              <RedStars text="Os campos com * são obrigatórios. O projeto é opcional: nem toda receita tem um." />
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
@@ -241,15 +242,18 @@ export function NewReceivableDialog({
                   options={reference.customers.map((c) => ({ id: c.id, label: `${c.nickname} · ${c.name}` }))}
                 />
               </Field>
-              <Field label="Projeto *" id="r-proj">
+              <Field label="Projeto" id="r-proj">
                 <Choice
                   id="r-proj"
                   searchable
-                  value={form.projectId}
-                  onChange={set("projectId")}
-                  options={reference.projects
-                    .filter((p) => p.status !== "encerrado")
-                    .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
+                  value={form.projectId || NO_PROJECT}
+                  onChange={(value) => set("projectId")(value === NO_PROJECT ? "" : value)}
+                  options={[
+                    { id: NO_PROJECT, label: "Sem projeto" },
+                    ...reference.projects
+                      .filter((p) => p.status !== "encerrado")
+                      .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
+                  ]}
                 />
               </Field>
             </div>
@@ -751,7 +755,9 @@ export function DetailDialog({
         <DialogHeader>
           <DialogTitle>{detail ? detail.description : "Título a receber"}</DialogTitle>
           <DialogDescription>
-            {detail ? `${detail.customer} · PRJ-${detail.projectCode}` : "Carregando…"}
+            {detail
+              ? `${detail.customer}${detail.projectCode ? ` · PRJ-${detail.projectCode}` : ""}`
+              : "Carregando…"}
           </DialogDescription>
         </DialogHeader>
         {error && <ErrorBox message={error} />}
