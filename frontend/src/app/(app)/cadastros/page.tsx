@@ -3,9 +3,6 @@
 import {
   Archive,
   ArchiveRestore,
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   BookUser,
   CircleCheck,
   CornerDownRight,
@@ -17,15 +14,14 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  type LucideIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { CARD, ErrorBox, Field, FormError, PageHeader, RedStars, TD, TH, Tag } from "@/components/finance";
-import { TONES, type IndicatorTone } from "@/components/IndicatorCard";
 import { ReasonDialog } from "@/components/ReasonDialog";
+import { CountCard, RowButton, SortHead, sortedBy, type SortState } from "@/components/RecordParts";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +36,6 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   ApiError,
   attachCustomerDocument,
@@ -73,6 +68,7 @@ import {
 } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
+import { HolidaysTab } from "./holidays";
 
 type TabId = RecordKind | "projects";
 
@@ -91,41 +87,6 @@ const TABS: { id: TabId; label: string; one: string; many: string; create?: stri
 const PAGE_SIZE = 25;
 const PROJECT_TYPES = ["Health", "CATI", "Consumo", "Outro"];
 const NO_TYPE = "sem-tipo";
-
-/** Um total no alto da aba: o que a busca está mostrando e quantos cadastros a aba tem ao todo. */
-function CountCard({
-  label,
-  value,
-  hint,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: number | null;
-  hint: string;
-  icon: LucideIcon;
-  tone: IndicatorTone;
-}) {
-  return (
-    <div
-      role="group"
-      aria-label={label}
-      className={cn(
-        "flex items-center justify-between gap-3 rounded-xl px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/.06)]",
-        TONES[tone].idle
-      )}
-    >
-      <div className="flex flex-col">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <span className="text-2xl font-semibold tabular-nums">{value ?? "—"}</span>
-        <span className="text-xs text-muted-foreground">{hint}</span>
-      </div>
-      <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", TONES[tone].chip)}>
-        <Icon size={18} aria-hidden="true" />
-      </span>
-    </div>
-  );
-}
 
 /** Como o centro de custo aparece na escolha do superior: "001 · Administrativo". */
 function centerLabel(center: RecordRow | undefined): string {
@@ -152,18 +113,7 @@ type SortColumn =
   | "status"
   | "project"
   | "type";
-type Sort = { column: SortColumn; descending: boolean } | null;
-
-/** Ordena pelo texto da coluna: número dentro do texto na ordem certa, sem pesar acento nem caixa; vazio vai sempre para o fim. */
-function sortedBy<T>(items: T[], text: (item: T) => string, descending: boolean): T[] {
-  return [...items].sort((a, b) => {
-    const x = text(a);
-    const y = text(b);
-    if (!x || !y) return x === y ? 0 : x ? -1 : 1;
-    const order = x.localeCompare(y, "pt-BR", { numeric: true, sensitivity: "base" });
-    return descending ? -order : order;
-  });
-}
+type Sort = SortState<SortColumn>;
 
 function recordText(row: RecordRow, column: SortColumn, company: string): string {
   switch (column) {
@@ -184,65 +134,6 @@ function recordText(row: RecordRow, column: SortColumn, company: string): string
     default:
       return row.nickname ?? row.name;
   }
-}
-
-/** Cabeçalho que ordena a lista: um clique ordena, o seguinte inverte. */
-function SortHead({
-  label,
-  column,
-  sort,
-  onSort,
-}: {
-  label: string;
-  column: SortColumn;
-  sort: Sort;
-  onSort: (column: SortColumn) => void;
-}) {
-  const mine = sort && sort.column === column ? sort : null;
-  return (
-    <TableHead className={TH} aria-sort={mine ? (mine.descending ? "descending" : "ascending") : "none"}>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0"
-        onClick={() => onSort(column)}
-      >
-        {label}
-        {mine ? (
-          mine.descending ? <ArrowDown size={12} aria-hidden /> : <ArrowUp size={12} aria-hidden />
-        ) : (
-          <ArrowUpDown size={12} aria-hidden className="opacity-40" />
-        )}
-      </Button>
-    </TableHead>
-  );
-}
-
-function RowButton({
-  icon: Icon,
-  label,
-  onClick,
-  muted = false,
-  hint,
-}: {
-  icon: LucideIcon;
-  label: string;
-  onClick: () => void;
-  /** Esmaecido: o botão está lá, mas a ação vai explicar por que não dá. */
-  muted?: boolean;
-  /** O texto ao passar o mouse, quando é diferente do nome do botão. */
-  hint?: string;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={label} className={cn(muted && "opacity-45")} onClick={onClick}>
-          <Icon size={16} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{hint ?? label}</TooltipContent>
-    </Tooltip>
-  );
 }
 
 /** Telefone em três campos, como no sistema antigo: país, DDD e número. */
@@ -1059,6 +950,8 @@ export default function RecordsPage() {
 
 function RecordsByUrl() {
   const aba = useSearchParams().get("aba");
+  // Feriados não seguem o molde dos outros cadastros (data, âmbito e busca na BrasilAPI): tela própria
+  if (aba === "holidays") return <HolidaysTab />;
   const tab = TABS.find((option) => option.id === aba)?.id ?? TABS[0].id;
   return <Records key={tab} tab={tab} />;
 }

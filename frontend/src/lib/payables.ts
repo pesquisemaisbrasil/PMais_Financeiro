@@ -608,6 +608,19 @@ export interface ImportGroup {
   count: number;
   total: string;
   source: string;
+  /** Datas da planilha que caíam em dia não útil e foram para o próximo dia útil, e o motivo de cada uma. */
+  shifts?: ImportShift[];
+}
+
+export interface ImportShift {
+  day: string;
+  /** "sábado", "domingo", "feriado nacional" ou "feriado: Nome". */
+  reason: string;
+}
+
+/** O aviso de uma data que mudou: "07/11 caiu em sábado; vai para 09/11". */
+export function shiftNote(shift: ImportShift, payDate: string): string {
+  return `${formatDate(shift.day).slice(0, 5)} caiu em ${shift.reason}; vai para ${formatDate(payDate).slice(0, 5)}`;
 }
 
 export interface ImportLine {
@@ -655,6 +668,8 @@ export interface ImportPreview {
   skippedCount: number;
   /** Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou por classificação (folha). */
   payableCount: number;
+  /** Quantas linhas tinham data de pagamento em dia não útil e foram para o próximo dia útil. */
+  shiftedCount?: number;
   groups: ImportGroup[];
   lines: ImportLine[];
 }
@@ -678,7 +693,8 @@ export function scheduleText(preview: ImportPreview, project: ImportProject): st
       const days = group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ");
       const from = days ? `Pesquisas de ${days}` : "Pesquisas";
       const where = preview.hasClassificationColumns ? ` · ${group.classification}` : "";
-      return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})${where}`;
+      const moved = (group.shifts ?? []).map((shift) => ` [${shiftNote(shift, group.payDate)}]`).join("");
+      return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})${where}${moved}`;
     });
   return [
     `Cronograma de pagamento dos incentivos · PRJ-${project.code} ${project.title}`,

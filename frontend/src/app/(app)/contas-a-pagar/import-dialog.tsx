@@ -28,6 +28,7 @@ import {
   formatDate,
   plural,
   schedulesText,
+  shiftNote,
   type ImportPreview,
   type ImportResult,
   type Reference,
@@ -327,6 +328,27 @@ export function ImportDialog({
                   </AlertDescription>
                 </Alert>
               )}
+              {(preview.shiftedCount ?? 0) > 0 && (
+                <Alert>
+                  <AlertTitle>
+                    {plural(preview.shiftedCount ?? 0, "pessoa", "pessoas")} com data de pagamento em fim de semana ou
+                    feriado
+                  </AlertTitle>
+                  <AlertDescription>
+                    <span className="block">Essas datas vão para o próximo dia útil. Confira antes de criar:</span>
+                    <ul className="mt-1 list-disc pl-5">
+                      {preview.groups.flatMap((group) =>
+                        (group.shifts ?? []).map((shift) => (
+                          <li key={`${group.projectId}-${group.classification}-${group.payDate}-${shift.day}`}>
+                            {manyProjects && <strong>PRJ-{group.projectCode}: </strong>}
+                            {shiftNote(shift, group.payDate)}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
               {preview.groups.length > 0 && (
                 <div className="rounded-xl border border-border">
                   <Table>
@@ -350,7 +372,14 @@ export function ImportDialog({
                           {preview.hasClassificationColumns && (
                             <TableCell className={cn(TD, "whitespace-normal text-xs")}>{group.classification}</TableCell>
                           )}
-                          <TableCell className={cn(TD, "font-semibold")}>{formatDate(group.payDate)}</TableCell>
+                          <TableCell className={cn(TD, "font-semibold")}>
+                            {formatDate(group.payDate)}
+                            {(group.shifts ?? []).length > 0 && (
+                              <span className="block text-[11px] font-normal text-muted-foreground">
+                                ajustada de {(group.shifts ?? []).map((shift) => formatDate(shift.day).slice(0, 5)).join(" e ")}
+                              </span>
+                            )}
+                          </TableCell>
                           <TableCell className={TD}>
                             {group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ") || "—"}
                           </TableCell>

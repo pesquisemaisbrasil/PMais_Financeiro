@@ -442,6 +442,11 @@ export async function deleteRecord(kind: RecordKind, id: number): Promise<void> 
   await fetchWithAuth(`/records/${kind}/${id}`, { method: "DELETE" });
 }
 
+/** Exclui um feriado cadastrado (a resposta é 204, sem corpo). */
+export async function deleteHoliday(id: number): Promise<void> {
+  await fetchWithAuth(`/holidays/${id}`, { method: "DELETE" });
+}
+
 // Documentos do cliente (contrato, ficha...): voltam sempre a lista que está valendo.
 export function listCustomerDocuments(id: number): Promise<Attachment[]> {
   return request<Attachment[]>(`/records/customers/${id}/attachments`);
