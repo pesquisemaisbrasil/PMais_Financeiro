@@ -94,7 +94,14 @@ export default defineConfig({
       cwd: __dirname,
       url: `${FRONTEND_URL}/login`,
       // Fora da CI, outra pasta de build, para não brigar com o `next dev` da porta 3010.
-      env: { NEXT_PUBLIC_API_URL: API_URL, ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }) },
+      // A faixa do ambiente de teste fica ligada: o site de teste publicado sempre a tem, e os testes
+      // conferem que ela não esconde o menu nem a tela.
+      env: {
+        NEXT_PUBLIC_API_URL: API_URL,
+        NEXT_PUBLIC_TEST_ENV: "1",
+        NEXT_PUBLIC_PROTOTYPE_URL: "/",
+        ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }),
+      },
       reuseExistingServer: false,
       timeout: 180_000,
       stdout: "ignore",
