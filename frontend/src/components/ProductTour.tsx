@@ -7,7 +7,8 @@ import { availableSteps, markTourSeen, tourSeen, tourSelector } from "@/lib/tour
 
 /**
  * Passeio de introdução (Driver.js, licença MIT): destaca o menu e conta o que cada parte faz.
- * A biblioteca só é baixada quando o passeio abre. Fechar ou concluir marca como visto.
+ * A biblioteca só é baixada quando o passeio abre. Abrir já marca como visto: recarregar a página ou
+ * fechar a aba no meio não o faz voltar sozinho (ele volta pelo botão).
  */
 export async function startTour(): Promise<void> {
   const { driver } = await import("driver.js");
@@ -31,9 +32,9 @@ export async function startTour(): Promise<void> {
       element: step.target ? tourSelector(step.target) : undefined,
       popover: { title: step.title, description: step.text, align: "start" },
     })),
-    onDestroyed: () => markTourSeen(),
   });
   tour.drive();
+  markTourSeen();
 }
 
 /** Abre o passeio sozinho, uma vez por navegador, na primeira visita ao Início. */
