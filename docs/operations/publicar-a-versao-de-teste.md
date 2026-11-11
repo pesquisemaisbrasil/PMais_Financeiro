@@ -16,7 +16,7 @@ Pedido do Bruno em 11/11/2026: a versão real do Financeiro em teste (a da branc
 3. **Só dados fictícios (decidido pelo Bruno em 11/11/2026).** O ambiente de teste do site usa o `seed_demo.py`. Os testes com dados reais ficam **só na máquina do Bruno**. Nada de dado real, de comprovante real nem de chave Pix real no ambiente publicado; o Connect fica simulado (`CONNECT_MODE=simulated`) ou aponta para o Connect de teste, se o João liberar.
 4. **Entrada.** O login pede e-mail, senha e código do autenticador (MFA obrigatório): criar os usuários de teste e passar os códigos de recuperação a quem for testar.
 5. **LGPD.** Com só dados fictícios, a hospedagem de teste não guarda dado pessoal e não entra no [ROPA](../architecture/seguranca/lgpd/ropa.md). Se um dia for receber dado real, ela vira um operador a mais: aí o ROPA e o inventário de dados mudam no mesmo PR, e a decisão volta ao DPO.
-6. **Voltar ao protótipo.** Um link no menu do Financeiro real (endereço em `NEXT_PUBLIC_PROTOTYPE_URL`), para alternar nos dois sentidos. Ainda não feito.
+6. **Faixa e volta ao protótipo (feito).** O Financeiro real mostra, no topo de toda tela (login inclusive), a faixa fixa **"Ambiente de teste com dados fictícios. Não digite dado real."**, com o link **Voltar ao protótipo**. Ela só aparece quando o frontend é gerado com `NEXT_PUBLIC_TEST_ENV=1`; o link vem de `NEXT_PUBLIC_PROTOTYPE_URL` (`/` quando o protótipo fica na raiz do mesmo site; aceita também um endereço `http(s)`). Sem essas variáveis (desenvolvimento e produção), nada aparece. O menu lateral desce a altura da faixa e continua inteiro na tela.
 
 ## Quem decide
 
