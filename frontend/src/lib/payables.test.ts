@@ -28,6 +28,7 @@ import {
   replacesNote,
   scheduleText,
   schedulesText,
+  shiftNote,
   formatCnpj,
   inssAmount,
   itemPaymentLabel,
@@ -314,6 +315,34 @@ describe("cronograma para o projeto", () => {
     expect(text).toContain("Datas de pagamento informadas na planilha.");
     expect(text.split("Cronograma de pagamento dos incentivos")).toHaveLength(3);
     expect(text).toMatch(/- Pesquisas: 1 incentivo → pagar 09\/11/);
+  });
+
+  it("avisa no cronograma a data da planilha que foi para o próximo dia útil", () => {
+    const moved = {
+      ...preview,
+      groups: [
+        {
+          ...preview.groups[1],
+          payDate: "2026-11-09",
+          shifts: [
+            { day: "2026-11-07", reason: "sábado" },
+            { day: "2026-11-08", reason: "domingo" },
+          ],
+        },
+      ],
+    };
+    const text = scheduleText(moved, health);
+    expect(text).toContain("→ pagar 09/11");
+    expect(text).toContain("[07/11 caiu em sábado; vai para 09/11] [08/11 caiu em domingo; vai para 09/11]");
+  });
+});
+
+describe("aviso de data ajustada", () => {
+  it("diz o dia, o motivo e para onde foi", () => {
+    expect(shiftNote({ day: "2026-11-07", reason: "sábado" }, "2026-11-09")).toBe("07/11 caiu em sábado; vai para 09/11");
+    expect(shiftNote({ day: "2026-11-10", reason: "feriado: Recesso da empresa" }, "2026-11-11")).toBe(
+      "10/11 caiu em feriado: Recesso da empresa; vai para 11/11",
+    );
   });
 });
 

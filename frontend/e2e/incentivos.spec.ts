@@ -1,0 +1,126 @@
+import { expect, test, type Page } from "@playwright/test";
+import { signIn } from "./fixtures";
+
+/** Campo de várias opções: marca (ou desmarca) uma e fecha a lista com Esc. */
+async function mark(page: Page, label: string, option: string | RegExp) {
+  await page.getByRole("dialog").getByRole("combobox", { name: label }).click();
+  await page.getByRole("option", { name: option }).click();
+  await page.keyboard.press("Escape");
+}
+
+// Datas de 2030, longe de tudo o que os outros testes usam: sábado 09/03, domingo 10/03 e quarta 13/03,
+// que o teste cadastra como feriado da empresa. Os dois dias de fim de semana vão para a segunda, e a
+// quarta, para a quinta.
+const SATURDAY = "09/03/2030";
+const SUNDAY = "10/03/2030";
+const HOLIDAY = "2030-03-13";
+
+test("feriados cadastrados e a agenda de incentivos: data da planilha em dia não útil vai para o próximo dia útil", async ({
+  page,
+}) => {
+  await signIn(page, "agenda@e2e.invalid");
+
+  // ---- Cadastros → Feriados ----
+  await page.goto("/cadastros?aba=holidays");
+  await expect(page.getByText(/Nenhum feriado cadastrado ainda/)).toBeVisible();
+
+  // Buscar os nacionais (modo simulado, de um ano que já passou: não mexe nas datas dos outros testes)
+  const lastYear = new Date().getFullYear() - 1;
+  await page.getByRole("combobox", { name: "Ano dos feriados nacionais" }).click();
+  await page.getByRole("option", { name: String(lastYear) }).click();
+  await page.getByRole("button", { name: "Buscar nacionais do ano" }).click();
+  await expect(page.getByText(new RegExp(`4 feriados novos em ${lastYear}`))).toBeVisible();
+  await expect(page.getByRole("row", { name: /Carnaval/ })).toHaveCount(2);
+  await expect(page.getByRole("row", { name: /Carnaval/ }).first()).toContainText("BrasilAPI");
+  // Buscar de novo não repete
+  await page.getByRole("button", { name: "Buscar nacionais do ano" }).click();
+  await expect(page.getByText(/já estavam cadastrados/)).toBeVisible();
+
+  // Cadastrar um feriado local: campo vazio diz quais faltam
+  await page.getByRole("button", { name: "Novo feriado" }).click();
+  const form = page.getByRole("dialog");
+  await form.getByRole("button", { name: "Cadastrar feriado" }).click();
+  await expect(form.getByText("Preencha os campos obrigatórios: Data, Nome, UF e Cidade.")).toBeVisible();
+  await form.getByLabel("Data *").fill(HOLIDAY);
+  await form.getByLabel("Nome *").fill("Recesso da empresa");
+  await form.getByRole("combobox", { name: "UF *" }).click();
+  await page.getByRole("option", { name: "SP", exact: true }).click();
+  await form.getByLabel("Cidade *").fill("São Paulo");
+  await form.getByRole("button", { name: "Cadastrar feriado" }).click();
+  const recess = page.getByRole("row", { name: /Recesso da empresa/ });
+  await expect(recess).toContainText("São Paulo/SP");
+  await expect(recess).toContainText("quarta-feira");
+  await expect(recess).toContainText("Cadastrado à mão");
+
+  // O mesmo feriado de novo é recusado
+  await page.getByRole("button", { name: "Novo feriado" }).click();
+  await form.getByLabel("Data *").fill(HOLIDAY);
+  await form.getByLabel("Nome *").fill("recesso DA empresa");
+  await form.getByRole("combobox", { name: "UF *" }).click();
+  await page.getByRole("option", { name: "SP", exact: true }).click();
+  await form.getByLabel("Cidade *").fill("São Paulo");
+  await form.getByRole("button", { name: "Cadastrar feriado" }).click();
+  await expect(form.getByText("Esse feriado já está cadastrado")).toBeVisible();
+  await form.getByRole("button", { name: "Voltar" }).click();
+
+  // ---- Importar incentivos com data de pagamento em dia não útil ----
+  await page.goto("/contas-a-pagar");
+  const sheet = [
+    "Nome;Valor;Data de pagamento",
+    `Respondente A;100,00;${SATURDAY}`,
+    `Respondente B;100,00;${SUNDAY}`,
+    `Respondente C;100,00;13/03/2030`,
+  ].join("\r\n");
+  await page.getByRole("button", { name: "Importar planilha" }).click();
+  const importer = page.getByRole("dialog");
+  await mark(page, "Projeto", "PRJ-1790");
+  await mark(page, "Categoria", /Serviços de terceiros/);
+  await mark(page, "Forma de pagamento", "Pix");
+  await mark(page, "Empresa", "PPlus");
+  await mark(page, "Unidade", "Consumo SP");
+  await mark(page, "Centro de custo", "Administrativo");
+  await importer.getByLabel("Planilha *").setInputFiles({
+    name: "incentivos-fim-de-semana.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(sheet, "utf-8"),
+  });
+  await importer.getByRole("button", { name: "Ler planilha" }).click();
+
+  // A prévia avisa cada data que mudou e o motivo, antes de criar
+  await expect(importer.getByText("3 pessoas com data de pagamento em fim de semana ou feriado")).toBeVisible();
+  await expect(importer.getByText(/09\/03 caiu em sábado; vai para 11\/03/)).toBeVisible();
+  await expect(importer.getByText(/10\/03 caiu em domingo; vai para 11\/03/)).toBeVisible();
+  await expect(importer.getByText(/13\/03 caiu em feriado: Recesso da empresa; vai para 14\/03/)).toBeVisible();
+  await expect(importer.getByText(/ajustada de 09\/03 e 10\/03/)).toBeVisible();
+  await importer.getByRole("button", { name: "Criar 2 lançamentos com 3 itens" }).click();
+  await expect(page.getByText(/2 lançamentos criados, 3 itens/)).toBeVisible();
+
+  // ---- Agenda de incentivos ----
+  await page.getByRole("link", { name: "Agenda de incentivos" }).click();
+  await expect(page.getByRole("heading", { name: "Agenda de incentivos" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Tudo" }).click();
+
+  // Uma linha de data por vencimento: segunda 11/03 com 2 pessoas e quinta 14/03 com 1
+  const monday = page.getByRole("row", { name: /11\/03\/2030 · segunda-feira/ });
+  await expect(monday).toContainText("2 pessoas · R$ 200,00 a pagar");
+  const thursday = page.getByRole("row", { name: /14\/03\/2030 · quinta-feira/ });
+  await expect(thursday).toContainText("1 pessoa · R$ 100,00 a pagar");
+  const mondayLaunch = page.getByRole("row", { name: /Incentivos · PRJ-1790 · pagar 11\/03/ });
+  await expect(mondayLaunch).toHaveCount(1);
+  await expect(mondayLaunch).toContainText("A vencer");
+  await expect(page.getByRole("row", { name: /Incentivos · PRJ-1790 · pagar 14\/03/ })).toHaveCount(1);
+
+  // Os cartões filtram: as datas de 2030 estão a vencer, não vencem hoje
+  await page.getByRole("button", { name: /^Vencem hoje/ }).click();
+  await expect(monday).toHaveCount(0);
+  await page.getByRole("button", { name: /^A vencer/ }).click();
+  await expect(monday).toBeVisible();
+  await page.getByRole("button", { name: "Limpar filtro" }).click();
+
+  // Abrir leva ao dia da conta no Contas a pagar, já com a lista das pessoas aberta
+  await mondayLaunch.getByRole("link", { name: "Abrir" }).click();
+  await expect(page).toHaveURL(/\/contas-a-pagar\?conta=\d+$/);
+  await expect(page.getByRole("cell", { name: "Respondente A", exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Respondente B", exact: true })).toBeVisible();
+});

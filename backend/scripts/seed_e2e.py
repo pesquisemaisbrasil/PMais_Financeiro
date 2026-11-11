@@ -78,6 +78,7 @@ WITH_MFA = [
     "relatorio@e2e.invalid",
     "passeio@e2e.invalid",
     "faixa@e2e.invalid",
+    "agenda@e2e.invalid",
 ]
 
 
