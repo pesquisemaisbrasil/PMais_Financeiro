@@ -47,6 +47,8 @@ Auditoria append-only, numa migration logo depois de criar a tabela (role da app
 REVOKE UPDATE, DELETE ON pii_access_logs, export_logs, integration_call_logs FROM financeiro_app;
 ```
 
+O mesmo vale para as baixas e o histórico das contas: `payable_payments`, `payable_events` (migration `9947141b77e5`), `receivable_payments` e `receivable_events` (migration `f6c8e0a2b4d6`), `record_events` (`e63f9c4a2b31`) e as tabelas de anexos. O CI confere, com a role da app, que apagar ou alterar essas linhas é recusado.
+
 No `alembic/env.py`, leia `MIGRATION_DATABASE_URL` (se existir) em vez de `DATABASE_URL`. No Connect o `env.py` usa só `DATABASE_URL`:
 
 ```python

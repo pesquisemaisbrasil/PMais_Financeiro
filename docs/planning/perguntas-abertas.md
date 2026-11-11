@@ -37,6 +37,9 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q33 | A consulta de CNPJ na **BrasilAPI** (que recebe só o CNPJ) está de acordo com a LGPD? O CNPJ de MEI identifica uma pessoa. Convém um contrato ou trocar por uma API paga? | DPO | Consulta ligada, sem guardar nada; o DPO pode pedir para desligar com `CNPJ_LOOKUP_MODE` | PO, 09/11/2026 |
 | Q34 | No **centro de custo em árvore**, inativar o principal deve inativar também os sub-centros dele? E o superior de um sub-centro poderia mudar (com o código sendo refeito)? | PO + financeiro | Inativar o principal não mexe nos sub-centros (eles continuam escolhíveis); o superior não muda depois de cadastrado | PO, 09/11/2026 |
 
+| Q35 | A mesma **planilha de pagamentos importada duas vezes** deve ser **bloqueada** (ou só com "Importar mesmo assim")? Hoje a tela avisa "Esta planilha já foi importada" e deixa criar, e os lançamentos saem em dobro, prontos para pagar. | João + financeiro (Vivi) | Só avisa; o botão Criar continua ligado | Revisão, 11/11/2026 |
+| Q36 | **Envios de comprovantes abandonados** na conferência (a janela é fechada sem confirmar nem cancelar, por exemplo com Esc) ficam abertos no servidor, com nome cifrado e chave mascarada dos recebedores. Depois de quantos dias o sistema deve apagá-los? Fechar a conferência sem querer deve pedir confirmação? | DPO + financeiro | Ficam abertos até alguém cancelar; Esc e clique fora fecham a janela sem perguntar | Revisão, 11/11/2026 |
+
 ## Módulos 2 a 7
 
 | # | Pergunta | Quem decide | Hoje no spec | Origem |

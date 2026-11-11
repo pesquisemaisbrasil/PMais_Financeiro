@@ -21,6 +21,6 @@ O Bruno pediu, em 09/11/2026, que o cadastro de fornecedor, cliente e empresa do
 ## Consequências
 
 - Mais uma dependência externa: se a BrasilAPI cair ou mudar o formato, o cadastro continua à mão. Sem cache: cada consulta vai a ela (`shortcut`: cache quando o volume pedir).
-- **Terceiro que recebe dado:** a BrasilAPI vê o CNPJ consultado e o IP do servidor. O CNPJ é dado público, mas o de MEI identifica uma pessoa; por isso ele consta no [ROPA](../seguranca/lgpd/ropa.md) (FIN-C1) e a confirmação com o DPO é a Q33.
+- **Terceiro que recebe dado:** a BrasilAPI vê o CNPJ consultado e o IP do servidor. O CNPJ é dado público, mas o de MEI identifica uma pessoa; por isso ele consta no [ROPA](../seguranca/lgpd/ropa.md) (FIN-R2) e a confirmação com o DPO é a Q33.
 - A coluna `companies.name` passou de 100 para 200 letras, porque a razão social cabe mais que o apelido de antes.
 - Fica de fora: endereço, telefone, e-mail e sócios que a Receita também devolve (o cadastro não os usa), e a consulta em lote.

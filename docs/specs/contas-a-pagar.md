@@ -139,7 +139,7 @@ Contrato dos títulos a pagar (fornecedores, folhas, incentivos, internos, despe
 
 **O que já funciona (primeira fatia do MVP):** painel que abre no dia, abas, indicadores, filtros, busca, colunas, lançamento com rateio, itens abertos na linha, baixa parcial e em lote, juros, multa e desconto, estorno, Pix devolvido, cancelar, excluir e histórico.
 
-**O que ainda falta:** anexar ao lançamento a planilha importada (Q19), recorrência, provisão gerada do orçamento do Connect, autorização acima do orçamento, link do código do projeto para o relatório, lançamentos chegando do Connect (PF-6), reautenticação na baixa (Q20), seleção em mais de uma página e o filtro de linha do DRE, que depende do cadastro dessas linhas.
+**O que ainda falta:** anexar ao lançamento a planilha importada (Q19), provisão gerada do orçamento do Connect, autorização acima do orçamento, link do código do projeto para o relatório, lançamentos chegando do Connect (PF-6), reautenticação na baixa (Q20), seleção em mais de uma página e o filtro de linha do DRE, que depende do cadastro dessas linhas.
 
 Origem do requisito:
 
@@ -185,3 +185,4 @@ Origem do requisito:
 - 2026-11-09 (**Pagar em**): substitui o que a nota de 06/11 dizia ("não aparece"). A edição da conta ganha **Pagar em**, a data prevista de pagamento: campo novo, opcional e **só para informar** (`payables.payOn`). Não muda o vencimento, a lista, os indicadores nem a baixa. A nova conta não o pede. A mudança fica no histórico ("pagar em 12/11/2026 → 20/11/2026"). Decidido pelo PO em 09/11/2026; se deve mandar em algo, é a [Q30](../planning/perguntas-abertas.md).
 - 2026-11-09 (imprimir): o botão **Imprimir**, ao lado de Exportar, abre a impressão do navegador com **todos** os resultados dos filtros (não só a página), numa folha A4 deitada: título com período, indicador, filtros e busca; as colunas Vencimento, Fornecedor, Descrição, Documento, Projeto, Situação, Valor líquido, Pago e Pendente; e a linha de total. Rota `GET /payables/print`. Não guarda nada.
 - 2026-11-09 (alinhamento): na aba **Detalhes**, rótulos e valores ficam **alinhados à esquerda**, no lugar do rótulo à direita da nota de 06/11 (pedido do PO). Os blocos e a ordem continuam os do sistema antigo.
+- 2026-11-11 (revisão): **reclassificar em lote** só aceita **conta de despesa** (como a criação e a edição já faziam); a tela já filtrava, e agora a API também recusa ("Contas a pagar usam conta de despesa"). **Situação = Cancelada ou Substituída** no filtro passa a listar essas contas: o card de Total as tira, então a situação escolhida manda e o indicador não filtra (na exportação também). Antes a lista voltava vazia.
