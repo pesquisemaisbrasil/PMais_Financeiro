@@ -3,6 +3,9 @@
 import {
   Archive,
   ArchiveRestore,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   BookUser,
   CircleCheck,
   CornerDownRight,
@@ -123,6 +126,83 @@ function GeneratedCodeField({ code, isNew }: { code: string; isNew: boolean }) {
     <Field label="Código" id="c-cod" hint={isNew ? "Gerado ao salvar" : undefined}>
       <Input id="c-cod" disabled readOnly placeholder={isNew ? "Automático" : "Sem código"} value={code} />
     </Field>
+  );
+}
+
+type SortColumn =
+  | "code"
+  | "company"
+  | "name"
+  | "kind"
+  | "document"
+  | "contact"
+  | "terms"
+  | "status"
+  | "project"
+  | "type";
+type Sort = { column: SortColumn; descending: boolean } | null;
+
+/** Ordena pelo texto da coluna: número dentro do texto na ordem certa, sem pesar acento nem caixa; vazio vai sempre para o fim. */
+function sortedBy<T>(items: T[], text: (item: T) => string, descending: boolean): T[] {
+  return [...items].sort((a, b) => {
+    const x = text(a);
+    const y = text(b);
+    if (!x || !y) return x === y ? 0 : x ? -1 : 1;
+    const order = x.localeCompare(y, "pt-BR", { numeric: true, sensitivity: "base" });
+    return descending ? -order : order;
+  });
+}
+
+function recordText(row: RecordRow, column: SortColumn, company: string): string {
+  switch (column) {
+    case "code":
+      return row.code ?? "";
+    case "company":
+      return company;
+    case "kind":
+      return row.kind ?? "";
+    case "document":
+      return row.document ?? "";
+    case "contact":
+      return row.contactName ?? "";
+    case "terms":
+      return row.paymentTerms ?? "";
+    case "status":
+      return row.active ? "Ativo" : "Inativo";
+    default:
+      return row.nickname ?? row.name;
+  }
+}
+
+/** Cabeçalho que ordena a lista: um clique ordena, o seguinte inverte. */
+function SortHead({
+  label,
+  column,
+  sort,
+  onSort,
+}: {
+  label: string;
+  column: SortColumn;
+  sort: Sort;
+  onSort: (column: SortColumn) => void;
+}) {
+  const mine = sort && sort.column === column ? sort : null;
+  return (
+    <TableHead className={TH} aria-sort={mine ? (mine.descending ? "descending" : "ascending") : "none"}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0"
+        onClick={() => onSort(column)}
+      >
+        {label}
+        {mine ? (
+          mine.descending ? <ArrowDown size={12} aria-hidden /> : <ArrowUp size={12} aria-hidden />
+        ) : (
+          <ArrowUpDown size={12} aria-hidden className="opacity-40" />
+        )}
+      </Button>
+    </TableHead>
   );
 }
 
@@ -633,6 +713,7 @@ function Records({ tab }: { tab: TabId }) {
   const inUseWhat = tab === "costCenters" ? "lançamentos ou sub-centros" : "lançamentos";
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<Sort>(null);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
   const [reference, setReference] = useState<Reference | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -664,25 +745,50 @@ function Records({ tab }: { tab: TabId }) {
   const companyName = (id: number | null) => companies.find((c) => c.id === id)?.name ?? "Empresa inativa";
 
   const shown = useMemo(() => {
-    // Centro de custo em árvore: o principal e, embaixo, os sub-centros dele (a ordem do código)
+    const all = rows ?? [];
+    const companyOf = (id: number | null) => companies.find((c) => c.id === id)?.name ?? "";
+    const text = (row: RecordRow) => recordText(row, sort?.column ?? "name", companyOf(row.companyId));
     const byCode = (a: RecordRow, b: RecordRow) =>
       (a.code ?? "\uffff").localeCompare(b.code ?? "\uffff", "pt-BR", { numeric: true });
-    const ordered = tab === "costCenters" ? [...(rows ?? [])].sort(byCode) : (rows ?? []);
+    // Centro de custo em árvore: os principais na ordem escolhida (a do código, se nada foi escolhido)
+    // e, embaixo de cada um, os sub-centros dele na mesma ordem
+    const arrange = (list: RecordRow[]) => (sort ? sortedBy(list, text, sort.descending) : [...list].sort(byCode));
+    const ordered =
+      tab === "costCenters"
+        ? arrange(all.filter((row) => row.parentId === null)).flatMap((root) => [
+            root,
+            ...arrange(all.filter((row) => row.parentId === root.id)),
+          ])
+        : sort
+          ? sortedBy(all, text, sort.descending)
+          : all;
     const parentName = (row: RecordRow) => ordered.find((other) => other.id === row.parentId)?.name;
     const labeled = ordered.map((row) => ({
       row,
       label: [row.name, row.nickname, row.code, row.document, parentName(row)].filter(Boolean).join(" "),
     }));
     return filterOptions(labeled, term).map(({ row }) => row);
-  }, [rows, term, tab]);
-  const projects = useMemo(
-    () =>
-      filterOptions(
-        (reference?.projects ?? []).map((project) => ({ project, label: `PRJ-${project.code} ${project.title}` })),
-        term
-      ).map(({ project }) => project),
-    [reference, term]
-  );
+  }, [rows, term, tab, sort, companies]);
+  const projects = useMemo(() => {
+    const found = filterOptions(
+      (reference?.projects ?? []).map((project) => ({ project, label: `PRJ-${project.code} ${project.title}` })),
+      term
+    ).map(({ project }) => project);
+    const text = (project: Project) =>
+      sort?.column === "status"
+        ? project.status === "encerrado"
+          ? "Encerrado"
+          : "Em andamento"
+        : sort?.column === "type"
+          ? (project.projectType ?? "")
+          : `${project.code} ${project.title}`;
+    return sort ? sortedBy(found, text, sort.descending) : found;
+  }, [reference, term, sort]);
+
+  function changeSort(column: SortColumn) {
+    setSort((current) => ({ column, descending: current?.column === column ? !current.descending : false }));
+    setPage(1);
+  }
 
   const totals = useMemo(() => {
     if (tab === "projects") {
@@ -793,9 +899,9 @@ function Records({ tab }: { tab: TabId }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className={TH}>Projeto</TableHead>
-                  <TableHead className={TH}>Situação</TableHead>
-                  <TableHead className={TH}>Tipo e incentivo</TableHead>
+                  <SortHead label="Projeto" column="project" sort={sort} onSort={changeSort} />
+                  <SortHead label="Situação" column="status" sort={sort} onSort={changeSort} />
+                  <SortHead label="Tipo e incentivo" column="type" sort={sort} onSort={changeSort} />
                   <TableHead className={TH} />
                 </TableRow>
               </TableHeader>
@@ -832,15 +938,17 @@ function Records({ tab }: { tab: TabId }) {
               <TableHeader>
                 <TableRow>
                   {(tab === "categories" || withCnpj || tab === "units" || tab === "costCenters") && (
-                    <TableHead className={TH}>Código</TableHead>
+                    <SortHead label="Código" column="code" sort={sort} onSort={changeSort} />
                   )}
-                  {(tab === "units" || tab === "bankAccounts") && <TableHead className={TH}>Empresa</TableHead>}
-                  <TableHead className={TH}>{withCnpj ? "Apelido · nome" : "Nome"}</TableHead>
-                  {tab === "categories" && <TableHead className={TH}>Tipo</TableHead>}
-                  {withCnpj && <TableHead className={TH}>CNPJ</TableHead>}
-                  {isParty && <TableHead className={TH}>Contato</TableHead>}
-                  {tab === "suppliers" && <TableHead className={TH}>Condição</TableHead>}
-                  <TableHead className={TH}>Situação</TableHead>
+                  {(tab === "units" || tab === "bankAccounts") && (
+                    <SortHead label="Empresa" column="company" sort={sort} onSort={changeSort} />
+                  )}
+                  <SortHead label={withCnpj ? "Apelido · nome" : "Nome"} column="name" sort={sort} onSort={changeSort} />
+                  {tab === "categories" && <SortHead label="Tipo" column="kind" sort={sort} onSort={changeSort} />}
+                  {withCnpj && <SortHead label="CNPJ" column="document" sort={sort} onSort={changeSort} />}
+                  {isParty && <SortHead label="Contato" column="contact" sort={sort} onSort={changeSort} />}
+                  {tab === "suppliers" && <SortHead label="Condição" column="terms" sort={sort} onSort={changeSort} />}
+                  <SortHead label="Situação" column="status" sort={sort} onSort={changeSort} />
                   <TableHead className={TH} />
                 </TableRow>
               </TableHeader>
