@@ -38,8 +38,10 @@ jobs:
       - name: Dependências do frontend
         run: npm ci
 
+      # Sem --with-deps: ele roda apt-get, e o DNS dos espelhos do Ubuntu falha nas máquinas do GitHub.
+      # A imagem já traz as bibliotecas dos navegadores; se algum teste acusar biblioteca faltando, voltar o --with-deps.
       - name: Navegador do Playwright
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Gerar tipos do Next
         run: npx next typegen
