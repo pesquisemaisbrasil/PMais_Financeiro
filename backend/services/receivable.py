@@ -163,8 +163,8 @@ def row(receivable: Receivable, on: date) -> dict[str, Any]:
         "situation": situation(receivable, on),
         "dueDate": receivable.dueDate,
         "customer": receivable.customer.name,
-        "projectCode": receivable.project.code,
-        "projectTitle": receivable.project.title,
+        "projectCode": receivable.project.code if receivable.project else None,
+        "projectTitle": receivable.project.title if receivable.project else None,
         "description": receivable.description,
         "contract": receivable.contract,
         "documentType": receivable.documentType,
@@ -489,7 +489,7 @@ def _export_table(
                 r.description,
                 r.contract or "",
                 document,
-                f"PRJ-{r.project.code}",
+                f"PRJ-{r.project.code}" if r.project else "",
                 r.category.name,
                 r.company.name,
                 SITUATION_NAMES[situation(r, on)],
@@ -643,9 +643,9 @@ def _adjustment_rows(items: Iterable[Any]) -> list[ReceivableAdjustment]:
     ]
 
 
-def _check_project(db: Session, project_id: int | None) -> Project:
+def _check_project(db: Session, project_id: int | None) -> Project | None:
     if project_id is None:
-        raise PayableInvalid("Informe o projeto da receita")
+        return None  # receita sem projeto é permitida (Q27)
     project = db.get(Project, project_id)
     if project is None:
         raise PayableInvalid("Projeto não encontrado")
@@ -725,7 +725,7 @@ def apply_update(db: Session, receivable: Receivable, data: ReceivableUpdate, us
     ) != adj.lines(data.adjustments)
     changes = []
     if amount_changed or adjustments_changed:
-        if receivable.project.status == "encerrado":
+        if receivable.project and receivable.project.status == "encerrado":
             raise PayableConflict(PROJECT_CLOSED)
         if adj.net(data.amount, rows) < received_amount(receivable):
             raise PayableConflict("O novo valor é menor do que já foi recebido")
