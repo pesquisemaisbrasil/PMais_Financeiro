@@ -36,9 +36,10 @@ Regras de produto e pesquisas ainda sem resposta. **Não decida no código:** im
 | Q31 | A lista de **tipos de documento** (nota fiscal, boleto, contrato, comprovante, recibo, planilha e outro) está certa? A spec não tinha "planilha"; falta algum? | Financeiro (Vivi) | Usa essa lista; sem escolha, o tipo é "outro" | protótipo e kickoff (K2), 09/11/2026 |
 | Q33 | A consulta de CNPJ na **BrasilAPI** (que recebe só o CNPJ) está de acordo com a LGPD? O CNPJ de MEI identifica uma pessoa. Convém um contrato ou trocar por uma API paga? | DPO | Consulta ligada, sem guardar nada; o DPO pode pedir para desligar com `CNPJ_LOOKUP_MODE` | PO, 09/11/2026 |
 | Q34 | No **centro de custo em árvore**, inativar o principal deve inativar também os sub-centros dele? E o superior de um sub-centro poderia mudar (com o código sendo refeito)? | PO + financeiro | Inativar o principal não mexe nos sub-centros (eles continuam escolhíveis); o superior não muda depois de cadastrado | PO, 09/11/2026 |
-
 | Q35 | A mesma **planilha de pagamentos importada duas vezes** deve ser **bloqueada** (ou só com "Importar mesmo assim")? Hoje a tela avisa "Esta planilha já foi importada" e deixa criar, e os lançamentos saem em dobro, prontos para pagar. | João + financeiro (Vivi) | Só avisa; o botão Criar continua ligado | Revisão, 11/11/2026 |
 | Q36 | **Envios de comprovantes abandonados** na conferência (a janela é fechada sem confirmar nem cancelar, por exemplo com Esc) ficam abertos no servidor, com nome cifrado e chave mascarada dos recebedores. Depois de quantos dias o sistema deve apagá-los? Fechar a conferência sem querer deve pedir confirmação? | DPO + financeiro | Ficam abertos até alguém cancelar; Esc e clique fora fecham a janela sem perguntar | Revisão, 11/11/2026 |
+| Q37 | O cliente **pessoa física** precisa de **RG** no cadastro (o sistema antigo tinha "IE ou RG")? O RG identifica a pessoa, como o CPF (Q23). | DPO + PO | Só a **IE** se guarda; RG e CPF são recusados | PO, 11/11/2026 |
+| Q38 | Do cadastro de cliente do sistema antigo, o PO quer também a **busca do endereço pelo CEP** (consulta a um serviço externo, que recebe o CEP) e a aba **Follow Up**? | PO | Nenhum dos dois: o endereço é digitado à mão, e não há Follow Up | PO, 11/11/2026 |
 
 ## Módulos 2 a 7
 
