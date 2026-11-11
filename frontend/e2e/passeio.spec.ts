@@ -16,6 +16,8 @@ test("passeio de introdução: abre sozinho na primeira visita, avança, conclui
   await page.reload();
   await expect(tour).toContainText("Bem-vindo ao Financeiro");
   await expect(tour).toContainText("1 de 8");
+  // abrir já marca como visto: recarregar no meio do passeio não o faz voltar sozinho
+  expect(await page.evaluate((key) => localStorage.getItem(key), SEEN_KEY)).toBe("1");
 
   // Cada passo destaca uma parte do menu, em português
   const steps = ["Menu principal", "Início", "Financeiro", "Relatórios", "Cadastros", "Avisos", "Ver o passeio de novo"];
