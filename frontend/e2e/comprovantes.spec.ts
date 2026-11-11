@@ -73,7 +73,7 @@ test("enviar o PDF de comprovantes, conferir e confirmar a baixa", async ({ page
   await expect(dialog.getByText("Baixa aplicada").first()).toBeVisible();
 
   // O mesmo PDF de novo: o Pix já foi pago e nada é pago outra vez
-  await dialog.getByRole("button", { name: "Fechar" }).click();
+  await dialog.getByRole("button", { name: "Fechar", exact: true }).click();
 
   // No lançamento, só a pessoa que recebeu mostra o dia do Pix; as outras continuam a pagar
   await page.getByRole("row", { name: /4 entrevistadores/ }).getByRole("button", { name: "Mostrar os itens" }).click();

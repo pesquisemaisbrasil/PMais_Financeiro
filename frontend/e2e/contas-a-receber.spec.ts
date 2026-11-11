@@ -75,7 +75,7 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   await expect(bands).toContainText("2 títulos");
   await expect(bands).toContainText("Mais de 90 dias");
   await expect(bands).toContainText("0 títulos");
-  await delinquency.getByRole("button", { name: "Fechar" }).first().click();
+  await delinquency.getByRole("button", { name: "Fechar", exact: true }).first().click();
 
   // Recebimento parcial: o saldo continua e a situação vira Parcial
   const first = page.getByRole("row", { name: /Satisfação · 1ª parcela/ });
