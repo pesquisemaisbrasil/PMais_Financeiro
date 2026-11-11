@@ -99,6 +99,24 @@ export function occurrenceEdits(simulated: Occurrence[], edited: Occurrence[]) {
   });
 }
 
+/** Com que vencimento e valor a tabela foi simulada. */
+export function simulationKey(dueDate: string, amount: string | null): string {
+  return `${dueDate}|${amount}`;
+}
+
+/**
+ * A tabela simulada só vale com o vencimento e o valor que estão no formulário agora: o servidor
+ * refaz a série com os dados de agora, então uma tabela velha mostraria um total diferente do que
+ * vai ser lançado.
+ */
+export function simulationIsCurrent(
+  value: { rows: Occurrence[] | null; simulatedFor: string | null },
+  dueDate: string,
+  amount: string | null
+): boolean {
+  return value.rows !== null && value.simulatedFor === simulationKey(dueDate, amount);
+}
+
 /** "3/12", ou "3/12 · estimada" para conta de valor variável. */
 export function seriesLabel(series: SeriesInfo): string {
   return `${series.index}/${series.count}${series.estimated ? " · estimada" : ""}`;

@@ -5,7 +5,12 @@ import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AmountSummary } from "@/components/AmountSummary";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
-import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
+import {
+  NO_RECURRENCE,
+  RecurrenceFields,
+  simulationIsCurrent,
+  type RecurrenceState,
+} from "@/components/RecurrenceFields";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
@@ -31,6 +36,7 @@ import {
   addDays,
   brl,
   formatDate,
+  formatDateTime,
   occurrenceEdits,
   parseMoney,
   percentOf,
@@ -168,7 +174,7 @@ export function NewReceivableDialog({
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
-    if (recurrence.repeat && !recurrence.rows) {
+    if (recurrence.repeat && !simulationIsCurrent(recurrence, form.dueDate, gross)) {
       return setLocalError("Clique em Simular para conferir as parcelas antes de salvar.");
     }
     const body = {
@@ -972,7 +978,7 @@ export function DetailDialog({
                   <li key={index} className="rounded-xl border border-border px-3 py-2">
                     <span className="block">{event.text}</span>
                     <span className="text-xs text-muted-foreground">
-                      {event.userName} · {formatDate(event.createdAt)}
+                      {event.userName} · {formatDateTime(event.createdAt)}
                     </span>
                   </li>
                 ))}

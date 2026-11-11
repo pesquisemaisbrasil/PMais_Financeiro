@@ -13,6 +13,8 @@ import {
   looksLikeCnpj,
   percentOf,
   seriesLabel,
+  simulationIsCurrent,
+  simulationKey,
   allocationDiff,
   buildAllocations,
   parseAllocations,
@@ -463,5 +465,24 @@ describe("CNPJ digitado", () => {
     expect(looksLikeCnpj("123.456.789-09")).toBe(false); // CPF
     expect(looksLikeCnpj("11222333000181 9")).toBe(false);
     expect(looksLikeCnpj("")).toBe(false);
+  });
+});
+
+describe("tabela simulada da repetição", () => {
+  const rows = [{ index: 1, dueDate: "2026-12-10", amount: "100.00" }];
+  const simulated = { rows, simulatedFor: simulationKey("2026-12-10", "100.00") };
+
+  it("vale enquanto o vencimento e o valor são os da simulação", () => {
+    expect(simulationIsCurrent(simulated, "2026-12-10", "100.00")).toBe(true);
+  });
+
+  it("deixa de valer quando muda o valor ou o vencimento depois de simular", () => {
+    expect(simulationIsCurrent(simulated, "2026-12-10", "120.00")).toBe(false);
+    expect(simulationIsCurrent(simulated, "2026-12-11", "100.00")).toBe(false);
+    expect(simulationIsCurrent(simulated, "2026-12-10", null)).toBe(false);
+  });
+
+  it("não vale sem simulação", () => {
+    expect(simulationIsCurrent({ rows: null, simulatedFor: null }, "2026-12-10", "100.00")).toBe(false);
   });
 });

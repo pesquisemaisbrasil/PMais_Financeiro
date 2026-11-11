@@ -42,7 +42,12 @@ import { ProjectSplit } from "@/components/ProjectSplit";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
 import { ValuesCard } from "@/components/ValuesCard";
-import { NO_RECURRENCE, RecurrenceFields, type RecurrenceState } from "@/components/RecurrenceFields";
+import {
+  NO_RECURRENCE,
+  RecurrenceFields,
+  simulationIsCurrent,
+  type RecurrenceState,
+} from "@/components/RecurrenceFields";
 import {
   ApiError,
   attachDocument,
@@ -196,7 +201,7 @@ export function NewPayableDialog({
       allocations = [{ projectId: Number(form.projectId), amount }];
     }
     if (recurrence.repeat && form.isProvision) return setLocalError("Provisão não se repete.");
-    if (recurrence.repeat && !recurrence.rows) {
+    if (recurrence.repeat && !simulationIsCurrent(recurrence, form.dueDate, amount)) {
       return setLocalError("Clique em Simular para conferir as ocorrências antes de salvar.");
     }
     const body = {

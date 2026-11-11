@@ -117,6 +117,15 @@ export function SeriesDialog({
             </div>
           ))}
         </RadioGroup>
+        {mode === "cancel" && (
+          <p className="text-xs text-muted-foreground">
+            {(() => {
+              const reach = current === "following" ? series.count - series.index + 1 : series.count;
+              return reach === 1 ? "Alcança só esta ocorrência" : `Alcança até ${reach} ${texts.many}`;
+            })()}
+            . {texts.settled} e o que já foi cancelado ficam como estão.
+          </p>
+        )}
         {mode === "edit" ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Novo valor (R$)" id="s-valor" hint="Deixe vazio para não mudar.">

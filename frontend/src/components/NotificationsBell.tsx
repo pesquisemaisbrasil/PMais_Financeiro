@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { PAYABLES_CHANGED, formatDate } from "@/lib/payables";
+import { PAYABLES_CHANGED, formatDateTime } from "@/lib/payables";
 import { listNotices, readNotice, unreadCount, type Notice } from "@/lib/receipts";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ export function NotificationsBell() {
                   </span>
                   {notice.body && <span className="text-xs font-normal text-muted-foreground">{notice.body}</span>}
                   <span className="text-[11px] font-normal text-muted-foreground">
-                    {formatDate(notice.createdAt)}
+                    {formatDateTime(notice.createdAt)}
                     {!notice.readAt && " · novo"}
                   </span>
                 </Button>

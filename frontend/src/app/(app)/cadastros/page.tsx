@@ -712,7 +712,7 @@ function Records({ tab }: { tab: TabId }) {
   // o que impede excluir: lançamento e, no centro de custo, também ter sub-centros embaixo
   const inUseWhat = tab === "costCenters" ? "lançamentos ou sub-centros" : "lançamentos";
   const [term, setTerm] = useState("");
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const [sort, setSort] = useState<Sort>(null);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
   const [reference, setReference] = useState<Reference | null>(null);
@@ -799,6 +799,8 @@ function Records({ tab }: { tab: TabId }) {
   }, [tab, reference, rows]);
 
   const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  // a lista pode encolher (exclusão, busca): a página pedida nunca passa da última
+  const page = Math.min(requestedPage, pageCount);
   const visible = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   async function toggleActive(record: RecordRow) {

@@ -9,7 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, simulateRecurrence } from "@/lib/api";
-import { RECURRENCE_KINDS, brl, formatDate, type Occurrence, type RecurrenceKind } from "@/lib/payables";
+import {
+  RECURRENCE_KINDS,
+  brl,
+  formatDate,
+  simulationIsCurrent,
+  simulationKey,
+  type Occurrence,
+  type RecurrenceKind,
+} from "@/lib/payables";
 
 export interface RecurrenceState {
   repeat: boolean;
@@ -20,6 +28,8 @@ export interface RecurrenceState {
   simulated: Occurrence[] | null;
   /** A tabela como está agora, com as mudanças. */
   rows: Occurrence[] | null;
+  /** O vencimento e o valor com que a tabela foi simulada (ver `simulationIsCurrent`). */
+  simulatedFor: string | null;
 }
 
 export const NO_RECURRENCE: RecurrenceState = {
@@ -29,7 +39,10 @@ export const NO_RECURRENCE: RecurrenceState = {
   estimated: false,
   simulated: null,
   rows: null,
+  simulatedFor: null,
 };
+
+export { simulationIsCurrent };
 
 /** "Repetir esta conta": tipo, quantidade e a tabela de ocorrências, que dá para ajustar antes de salvar. */
 export function RecurrenceFields({
@@ -53,7 +66,7 @@ export function RecurrenceFields({
   const [simulating, setSimulating] = useState(false);
   const set = (patch: Partial<RecurrenceState>) =>
     // mexer em tipo, quantidade ou valor invalida a tabela que já tinha sido simulada
-    onChange({ ...value, simulated: null, rows: null, ...patch });
+    onChange({ ...value, simulated: null, rows: null, simulatedFor: null, ...patch });
 
   async function simulate() {
     const count = Number(value.count);
@@ -64,7 +77,7 @@ export function RecurrenceFields({
     setSimulating(true);
     try {
       const rows = await simulateRecurrence({ kind: value.kind, startDate: dueDate, count, amount });
-      onChange({ ...value, simulated: rows, rows });
+      onChange({ ...value, simulated: rows, rows, simulatedFor: simulationKey(dueDate, amount) });
     } catch (error) {
       onError(error instanceof ApiError ? error.message : "Não foi possível simular.");
     } finally {
@@ -75,6 +88,10 @@ export function RecurrenceFields({
   function edit(index: number, patch: Partial<Occurrence>) {
     onChange({ ...value, rows: (value.rows ?? []).map((row) => (row.index === index ? { ...row, ...patch } : row)) });
   }
+
+  // mudou o vencimento ou o valor depois de simular: a tabela velha some e pede para simular de novo
+  const stale = value.rows !== null && !simulationIsCurrent(value, dueDate, amount);
+  const rows = stale ? null : value.rows;
 
   return (
     <div className="rounded-xl border border-border px-3.5 py-3">
@@ -126,7 +143,12 @@ export function RecurrenceFields({
               </Label>
             </div>
           )}
-          {value.rows && (
+          {stale && (
+            <p role="alert" className="text-xs font-medium text-destructive">
+              O valor ou o vencimento mudou depois de simular. Clique em Simular de novo para refazer a tabela.
+            </p>
+          )}
+          {rows && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -136,7 +158,7 @@ export function RecurrenceFields({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {value.rows.map((row) => (
+                {rows.map((row) => (
                   <TableRow key={row.index}>
                     <TableCell className="px-2 py-1.5 text-[13px]">{row.index}</TableCell>
                     <TableCell className="px-2 py-1.5">
@@ -160,11 +182,11 @@ export function RecurrenceFields({
               </TableBody>
             </Table>
           )}
-          {value.rows && (
+          {rows && (
             <p className="text-xs text-muted-foreground">
-              {value.rows.length} {noun === "conta" ? "contas" : "títulos"}, de {formatDate(value.rows[0].dueDate)} a{" "}
-              {formatDate(value.rows[value.rows.length - 1].dueDate)}, no total de{" "}
-              {brl(value.rows.reduce((sum, row) => sum + Number(row.amount), 0))}. Vencimento em fim de semana
+              {rows.length} {noun === "conta" ? "contas" : "títulos"}, de {formatDate(rows[0].dueDate)} a{" "}
+              {formatDate(rows[rows.length - 1].dueDate)}, no total de{" "}
+              {brl(rows.reduce((sum, row) => sum + Number(row.amount), 0))}. Vencimento em fim de semana
               ou feriado vai para o próximo dia útil.
             </p>
           )}
