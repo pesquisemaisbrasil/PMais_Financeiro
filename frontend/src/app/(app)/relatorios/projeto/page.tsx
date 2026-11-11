@@ -58,7 +58,7 @@ export default function ProjectReportPage() {
 function ByUrl() {
   const code = useSearchParams().get("codigo");
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
+    <main className="mx-auto w-full max-w-[1920px] px-6 pb-16 pt-8 lg:px-8">
       {code ? <Report key={code} code={code} /> : <ProjectList />}
     </main>
   );
@@ -257,7 +257,7 @@ function Report({ code }: { code: string }) {
         </AlertDescription>
       </Alert>
 
-      <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mb-4 grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3">
         <StatCard
           label="Orçamento"
           value={report.budget === null ? "—" : brl(report.budget)}
@@ -287,8 +287,6 @@ function Report({ code }: { code: string }) {
           icon={PiggyBank}
           tone="ceu"
         />
-      </div>
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Gasto total do projeto"
           value={brl(report.totalSpent)}
@@ -341,6 +339,13 @@ function BackLink() {
   );
 }
 
+// A tabela perde colunas conforme a tela estreita: categoria e documentos só em tela bem larga,
+// e "Pago" some abaixo de 1280px (o pendente e o valor já dizem o resto). O que sobra cabe sem cortar.
+const LTH = cn(TH, "px-3");
+const LTD = cn(TD, "px-3");
+const WIDE = "hidden 2xl:table-cell";
+const WIDER = "hidden xl:table-cell";
+
 function Lines({
   title,
   hint,
@@ -364,34 +369,36 @@ function Lines({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className={TH}>Vencimento</TableHead>
-              <TableHead className={TH}>Fornecedor e descrição</TableHead>
-              <TableHead className={TH}>Categoria</TableHead>
-              <TableHead className={TH}>Situação</TableHead>
-              <TableHead className={cn(TH, NUM)}>Valor do projeto</TableHead>
-              <TableHead className={cn(TH, NUM)}>Pago</TableHead>
-              <TableHead className={cn(TH, NUM)}>Pendente</TableHead>
-              <TableHead className={TH}>Documentos</TableHead>
-              <TableHead className={TH} />
+              <TableHead className={LTH}>Vencimento</TableHead>
+              <TableHead className={LTH}>Fornecedor e descrição</TableHead>
+              <TableHead className={cn(LTH, WIDE)}>Categoria</TableHead>
+              <TableHead className={LTH}>Situação</TableHead>
+              <TableHead className={cn(LTH, NUM)}>Valor do projeto</TableHead>
+              <TableHead className={cn(LTH, NUM, WIDER)}>Pago</TableHead>
+              <TableHead className={cn(LTH, NUM)}>Pendente</TableHead>
+              <TableHead className={cn(LTH, WIDE)}>Documentos</TableHead>
+              <TableHead className={LTH} />
             </TableRow>
           </TableHeader>
           <TableBody>
             {lines.map((line) => (
               <TableRow key={line.id}>
-                <TableCell className={TD}>{formatDate(line.dueDate)}</TableCell>
-                <TableCell className={cn(TD, "whitespace-normal")}>
+                <TableCell className={LTD}>{formatDate(line.dueDate)}</TableCell>
+                <TableCell className={cn(LTD, "whitespace-normal")}>
                   <span className="font-semibold text-brand-cinza-escuro">{line.payee}</span>
                   <span className="block text-xs text-muted-foreground">{line.description}</span>
                 </TableCell>
-                <TableCell className={cn(TD, "whitespace-normal")}>{line.categoryName}</TableCell>
-                <TableCell className={TD}>
+                <TableCell className={cn(LTD, "whitespace-normal", WIDE)}>{line.categoryName}</TableCell>
+                <TableCell className={LTD}>
                   <SituationTag situation={line.situation} />
                 </TableCell>
-                <TableCell className={cn(TD, NUM)}>{brl(line.amount)}</TableCell>
-                <TableCell className={cn(TD, NUM)}>{brl(line.paid)}</TableCell>
-                <TableCell className={cn(TD, NUM)}>{brl(line.pending)}</TableCell>
-                <TableCell className={TD}>{line.documentCount ? plural(line.documentCount, "documento", "documentos") : "—"}</TableCell>
-                <TableCell className={cn(TD, "text-right")}>
+                <TableCell className={cn(LTD, NUM)}>{brl(line.amount)}</TableCell>
+                <TableCell className={cn(LTD, NUM, WIDER)}>{brl(line.paid)}</TableCell>
+                <TableCell className={cn(LTD, NUM)}>{brl(line.pending)}</TableCell>
+                <TableCell className={cn(LTD, WIDE)}>
+                  {line.documentCount ? plural(line.documentCount, "documento", "documentos") : "—"}
+                </TableCell>
+                <TableCell className={cn(LTD, "text-right")}>
                   <Button asChild variant="ghost" size="sm">
                     <Link
                       href={`/contas-a-pagar?modo=tudo&conta=${line.id}`}
@@ -405,13 +412,16 @@ function Lines({
             ))}
             {totals && (
               <TableRow className="bg-muted/40 font-semibold hover:bg-muted/40">
-                <TableCell className={TD} colSpan={4}>
+                <TableCell className={LTD} colSpan={2}>
                   Total
                 </TableCell>
-                <TableCell className={cn(TD, NUM)}>{brl(totals.launched)}</TableCell>
-                <TableCell className={cn(TD, NUM)}>{brl(totals.paid)}</TableCell>
-                <TableCell className={cn(TD, NUM)}>{brl(totals.pending)}</TableCell>
-                <TableCell className={TD} colSpan={2} />
+                <TableCell className={cn(LTD, WIDE)} />
+                <TableCell className={LTD} />
+                <TableCell className={cn(LTD, NUM)}>{brl(totals.launched)}</TableCell>
+                <TableCell className={cn(LTD, NUM, WIDER)}>{brl(totals.paid)}</TableCell>
+                <TableCell className={cn(LTD, NUM)}>{brl(totals.pending)}</TableCell>
+                <TableCell className={cn(LTD, WIDE)} />
+                <TableCell className={LTD} />
               </TableRow>
             )}
           </TableBody>
