@@ -32,6 +32,7 @@ import {
   type ImportResult,
   type Reference,
 } from "@/lib/payables";
+import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 
@@ -93,9 +94,13 @@ export function ImportDialog({
 
   async function read(event: FormEvent) {
     event.preventDefault();
-    if (payroll && (!form.description.trim() || !form.dueDate)) {
-      return setLocalError("Preencha os campos com *.");
-    }
+    const missing = payroll
+      ? missingFieldsMessage([
+          ["Descrição", form.description.trim()],
+          ["Vencimento", form.dueDate],
+        ])
+      : null;
+    if (missing) return setLocalError(missing);
     if (!file) return setLocalError("Escolha a planilha.");
     setLocalError(null);
     await run(async () => setPreview(await previewImport(formData())));

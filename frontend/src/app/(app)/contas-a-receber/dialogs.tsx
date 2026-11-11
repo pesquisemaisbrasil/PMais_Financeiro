@@ -16,7 +16,7 @@ import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
 import { ValuesCard } from "@/components/ValuesCard";
-import { ErrorBox, Field, FormError, NUM, TAB_BUTTON, TAB_BUTTON_DANGER, TD, TH, Tag } from "@/components/finance";
+import { ErrorBox, Field, FormError, NUM, RedStars, TAB_BUTTON, TAB_BUTTON_DANGER, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,6 +81,7 @@ import {
   parseDrafts,
   type AdjustmentDraft,
 } from "@/lib/adjustments";
+import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { ReceivableDetailFields } from "./detail-fields";
@@ -161,17 +162,17 @@ export function NewReceivableDialog({
       return setLocalError("Em título parcelado, lance acréscimos, descontos e impostos em cada parcela depois.");
     }
     if (!form.projectId) return setLocalError("Informe o projeto da receita.");
-    const required = [
-      form.customerId,
-      form.categoryId,
-      form.companyId,
-      form.unitId,
-      form.costCenterId,
-      form.description.trim(),
-      form.issueDate,
-      form.dueDate,
-    ];
-    if (required.some((value) => !value)) return setLocalError("Preencha os campos com *.");
+    const missing = missingFieldsMessage([
+      ["Cliente", form.customerId],
+      ["Emissão", form.issueDate],
+      ["Vencimento", form.dueDate],
+      ["Conta de receita", form.categoryId],
+      ["Empresa", form.companyId],
+      ["Unidade", form.unitId],
+      ["Centro de custo", form.costCenterId],
+      ["Descrição", form.description.trim()],
+    ]);
+    if (missing) return setLocalError(missing);
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
@@ -222,7 +223,7 @@ export function NewReceivableDialog({
           <DialogHeader>
             <DialogTitle>Nova conta a receber</DialogTitle>
             <DialogDescription>
-              Os campos com * são obrigatórios. Toda receita pertence a um projeto.
+              <RedStars text="Os campos com * são obrigatórios. Toda receita pertence a um projeto." />
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">

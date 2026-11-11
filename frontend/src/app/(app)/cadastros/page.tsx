@@ -23,7 +23,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
-import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
+import { CARD, ErrorBox, Field, FormError, PageHeader, RedStars, TD, TH, Tag } from "@/components/finance";
 import { TONES, type IndicatorTone } from "@/components/IndicatorCard";
 import { ReasonDialog } from "@/components/ReasonDialog";
 import { SearchSelect } from "@/components/SearchSelect";
@@ -499,7 +499,9 @@ function RecordDialog({
       <DialogHeader>
         <DialogTitle>{record ? `Editar ${one}` : `Cadastrar ${one}`}</DialogTitle>
         <DialogDescription>
-          {wizard ? "Só a primeira etapa é obrigatória. Os campos com * são obrigatórios." : "Os campos com * são obrigatórios."}
+          <RedStars
+            text={wizard ? "Só a primeira etapa é obrigatória. Os campos com * são obrigatórios." : "Os campos com * são obrigatórios."}
+          />
         </DialogDescription>
       </DialogHeader>
       {wizard && (

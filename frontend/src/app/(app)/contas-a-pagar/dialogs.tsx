@@ -11,6 +11,7 @@ import {
   NUM,
   OriginTag,
   ProvisionTag,
+  RedStars,
   SituationTag,
   TAB_BUTTON,
   TAB_BUTTON_DANGER,
@@ -101,6 +102,7 @@ import {
   parseDrafts,
   type AdjustmentDraft,
 } from "@/lib/adjustments";
+import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { DetailFields } from "./detail-fields";
@@ -177,18 +179,18 @@ export function NewPayableDialog({
     if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
       return setLocalError("Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois.");
     }
-    const required = [
-      form.isProvision || form.supplierId,
-      form.categoryId,
-      form.companyId,
-      form.unitId,
-      form.costCenterId,
-      form.paymentMethodId,
-      form.description.trim(),
-      form.issueDate,
-      form.dueDate,
-    ];
-    if (required.some((value) => !value)) return setLocalError("Preencha os campos com *.");
+    const missing = missingFieldsMessage([
+      ["Programação", form.issueDate],
+      ["Vencimento", form.dueDate],
+      ["Fornecedor", form.isProvision || form.supplierId],
+      ["Categoria", form.categoryId],
+      ["Empresa", form.companyId],
+      ["Unidade", form.unitId],
+      ["Centro de custo", form.costCenterId],
+      ["Forma de pagamento", form.paymentMethodId],
+      ["Descrição", form.description.trim()],
+    ]);
+    if (missing) return setLocalError(missing);
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
@@ -251,7 +253,9 @@ export function NewPayableDialog({
         <form onSubmit={submit} noValidate>
           <DialogHeader>
             <DialogTitle>Nova conta a pagar</DialogTitle>
-            <DialogDescription>Os campos com * são obrigatórios. O resto fica em &quot;Mais informações&quot;.</DialogDescription>
+            <DialogDescription>
+              <RedStars text={'Os campos com * são obrigatórios. O resto fica em "Mais informações".'} />
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
             {missingRecords.length > 0 && (

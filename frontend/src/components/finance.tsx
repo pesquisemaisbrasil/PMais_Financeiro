@@ -13,6 +13,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
+import { Fragment } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,20 @@ export const TH = "px-4 py-3 text-xs font-medium text-muted-foreground";
 export const TD = "px-4 py-3.5 text-[13px]";
 export const NUM = "text-right tabular-nums";
 
+/** O texto com cada "*" (campo obrigatório) em vermelho. */
+export function RedStars({ text }: { text: string }) {
+  return text.split("*").map((part, index) =>
+    index === 0 ? (
+      part
+    ) : (
+      <Fragment key={index}>
+        <span className="text-red-600">*</span>
+        {part}
+      </Fragment>
+    ),
+  );
+}
+
 export function Field({
   label,
   id,
@@ -153,7 +168,7 @@ export function Field({
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-[13px] font-semibold">
-        {label}
+        <RedStars text={label} />
       </Label>
       {children}
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
