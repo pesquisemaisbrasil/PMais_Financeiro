@@ -21,9 +21,14 @@ import type {
   Attachment
 } from "./payables";
 
+import { DEMO, demoFetch } from "./demo/client";
 import type { DocumentChange } from "./documents";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
+
+/** O único `fetch` do app. Na versão de demonstração, o backend roda dentro do navegador. */
+const apiFetch = (url: string, init?: RequestInit): Promise<Response> =>
+  DEMO ? demoFetch(url, init) : fetch(url, init);
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
 
 export class ApiError extends Error {
@@ -59,7 +64,7 @@ export const NETWORK_ERROR_MESSAGE = "Sem conexão com o servidor. Confira a int
 /** fetch que troca a falha de rede do navegador ("Failed to fetch") por texto em pt-BR. */
 async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
   try {
-    return await fetch(url, init);
+    return await apiFetch(url, init);
   } catch {
     throw new ApiError(0, NETWORK_ERROR_MESSAGE);
   }
@@ -77,7 +82,7 @@ async function extractErrorMessage(response: Response): Promise<string> {
 
 async function requestRefresh(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_URL}/auth/token/refresh`, {
+    const response = await apiFetch(`${API_URL}/auth/token/refresh`, {
       method: "POST",
       credentials: "include",
     });

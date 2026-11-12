@@ -4,6 +4,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { DemoLoginHelp } from "@/components/Demo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { login, ssoLoginUrl, startMfaSetup } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { publicAsset } from "@/lib/basePath";
+import { DEMO } from "@/lib/demo/client";
 import { useFormAction } from "@/lib/use-form-action";
 import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep } from "./MfaSteps";
 
@@ -149,20 +151,25 @@ function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; s
           {submitting ? "Entrando…" : "Entrar"}
         </Button>
 
-        <div className="my-1 flex w-full items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          ou
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-        </div>
+        {/* Na demonstração não há Google nem Microsoft: o endereço de lá não existe. */}
+        {!DEMO && (
+          <>
+            <div className="my-1 flex w-full items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+              ou
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            </div>
 
-        {SSO_PROVIDERS.map(({ id, name, icon }) => (
-          <Button key={id} asChild variant="outline" className="w-full bg-card">
-            <a href={ssoLoginUrl(id)}>
-              {icon}
-              Entrar com {name}
-            </a>
-          </Button>
-        ))}
+            {SSO_PROVIDERS.map(({ id, name, icon }) => (
+              <Button key={id} asChild variant="outline" className="w-full bg-card">
+                <a href={ssoLoginUrl(id)}>
+                  {icon}
+                  Entrar com {name}
+                </a>
+              </Button>
+            ))}
+          </>
+        )}
       </CardFooter>
     </form>
   );
@@ -200,6 +207,7 @@ function LoginContent() {
         </CardHeader>
 
         {step.name === "credentials" && <CredentialsStep onStep={setStep} ssoError={ssoError} />}
+        {step.name === "credentials" && DEMO && <DemoLoginHelp onSignedIn={loadUser} />}
         {step.name === "verify" && (
           <MfaVerifyStep mfaToken={step.mfaToken} onVerified={loadUser} onBack={restart} />
         )}

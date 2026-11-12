@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getHome } from "@/lib/api";
+import { DemoResetButton } from "@/components/Demo";
 import { useAuth } from "@/lib/auth-context";
 import { publicAsset } from "@/lib/basePath";
 import { PAYABLES_CHANGED } from "@/lib/payables";
@@ -317,6 +318,7 @@ export function Sidebar() {
       </nav>
 
       <div className={cn("border-t border-border p-3", collapsed && "md:px-2")}>
+        <DemoResetButton compact={collapsed} />
         <div className={cn("flex items-center gap-2.5 p-1", collapsed && "md:justify-center md:px-0")}>
           <Hint show={collapsed} label={user.name}>
             <Avatar className="size-[34px]">
