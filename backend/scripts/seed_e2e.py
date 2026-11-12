@@ -91,7 +91,10 @@ WITH_MFA = [
     "diautil@e2e.invalid",
     "extrato@e2e.invalid",
     "conciliacao@e2e.invalid",
+    "fechamento@e2e.invalid",
 ]
+# Só quem é administrador reabre um mês fechado.
+ADMINS = ["fechamento@e2e.invalid"]
 
 
 def seed_receipts(db) -> None:  # type: ignore[no-untyped-def]
@@ -220,6 +223,8 @@ def main() -> None:
                 TOTP_SECRET, f"users:totpSecretEncrypted:{user.id}"
             )
             user.mfaEnabledAt = datetime.now(UTC)
+            if email in ADMINS:
+                user.role = "admin"
             db.add(MfaRecoveryCode(user_id=user.id, codeHash=hash_token(RECOVERY_CODE)))
         seed_payables(db)
         seed_receipts(db)
