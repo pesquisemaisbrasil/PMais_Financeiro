@@ -1,8 +1,10 @@
 """Importar planilha de incentivos ou de folha de campo para o Contas a pagar.
 
 A planilha é lida em memória e descartada. Só ficam nome e valor de cada pessoa, e o resumo
-criptográfico do arquivo, para avisar quando ela for importada de novo. Chave Pix e CPF nunca são
-lidos: só as colunas abaixo saem do arquivo (pergunta Q22).
+criptográfico do arquivo, para avisar quando ela for importada de novo. O CPF nunca é lido, e a
+chave Pix do respondente (só na planilha de incentivos) fica **mascarada** (3 primeiros e 2 últimos
+caracteres): a chave completa não é guardada, não vai para a prévia nem para o log (pergunta Q22,
+provisório até o DPO decidir). Só as colunas abaixo saem do arquivo.
 """
 
 import csv
@@ -23,6 +25,7 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from core.business_days import NO_EXTRA, add_business_days, next_business_day, why_not_business
+from core.pix import mask_pix_key, normalize_pix_key
 from core.text import format_brl, format_date_br
 from models.payable import Payable, PayableAllocation, PayableItem
 from models.reference import (
@@ -97,6 +100,8 @@ INCENTIVE_COLUMNS = {
     "data da pesquisa": "surveyDate",
     "data da resposta": "surveyDate",
     "data de pagamento": "payDate",
+    "chave pix": "pix",
+    "pix": "pix",
     **DIM_COLUMNS,
 }
 PAYROLL_COLUMNS = {
@@ -128,6 +133,8 @@ class Line:
     surveyDate: date | None = None
     givenPayDate: date | None = None
     payDate: date | None = None
+    # A chave Pix da planilha, já mascarada: a completa nunca fica na linha (nem em `typed`)
+    pixMasked: str | None = None
     # A data da planilha caía em dia não útil: de que dia veio e por quê (sábado, feriado...)
     shiftedFrom: date | None = None
     shiftReason: str | None = None
@@ -246,10 +253,21 @@ def _text(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
+def _masked_pix(value: Any) -> str | None:
+    """A chave Pix da célula já mascarada, ou None sem chave. A completa não sai daqui."""
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)  # CPF digitado como número no Excel: sem o ".0" no fim
+    key = _text(value)
+    if not key:
+        return None
+    return mask_pix_key(normalize_pix_key(key))[:255]
+
+
 def _table(
     rows: list[tuple[Any, ...]], columns: dict[str, str]
 ) -> list[tuple[int, dict[str, Any]]]:
-    """Só as colunas conhecidas saem daqui: CPF, chave Pix e o resto da planilha ficam para trás."""
+    """Só as colunas conhecidas saem daqui: o CPF e o resto da planilha ficam para trás (a chave Pix
+    só entra na de incentivos, e mascarada)."""
     if not rows:
         raise PayableInvalid("A planilha está vazia")
     positions = {}
@@ -310,6 +328,7 @@ def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
     lines = []
     for number, cells in table:
         line = _base_line(number, cells)
+        line.pixMasked = _masked_pix(cells.get("pix"))
         line.surveyDate, survey_ok = _date(cells.get("surveyDate"))
         line.givenPayDate, pay_ok = _date(cells.get("payDate"))
         if not pay_ok:
@@ -691,6 +710,7 @@ def _items(lines: list[Line]) -> list[PayableItem]:
                 invoiceDate=line.invoiceDate,
                 surveyDate=line.surveyDate,
                 invoiceStatus=status,
+                pix_masked=line.pixMasked,
             )
         )
     return items

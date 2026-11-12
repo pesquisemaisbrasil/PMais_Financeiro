@@ -225,6 +225,8 @@ class PayableItemOut(BaseModel):
     grossAmount: Decimal | None
     surveyDate: date | None
     paidOn: date | None
+    # a chave Pix já mascarada ("419***78"); nunca a completa
+    pixMasked: str | None = None
 
 
 class PaymentOut(BaseModel):

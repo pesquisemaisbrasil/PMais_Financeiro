@@ -665,6 +665,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "grossAmount": i.grossAmount,
                 "surveyDate": i.surveyDate,
                 "paidOn": i.paidOn,
+                "pixMasked": i.pix_masked,
             }
             for i in payable.items
         ],

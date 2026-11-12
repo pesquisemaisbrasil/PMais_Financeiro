@@ -162,8 +162,12 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
                     documentType=document,
                     amount=Decimal(amount),
                     invoiceStatus=status,
+                    # só incentivo tem chave Pix (mascarada e fictícia, como no protótipo)
+                    pix_masked=f"419***{(number * 19) % 100:02d}"
+                    if document == "Incentivo"
+                    else None,
                 )
-                for name, document, amount, status in (items or [])
+                for number, (name, document, amount, status) in enumerate(items or [], start=1)
             ],
             **extra,
         )
