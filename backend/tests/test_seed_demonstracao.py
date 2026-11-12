@@ -91,6 +91,13 @@ def test_bank_screens_have_reconciled_pending_and_exception_lines(
         if client.get(f"/bank-transactions/{row['id']}/suggestions", headers=demo).json()
     ]
     assert with_suggestion, "uma linha pendente precisa ter sugestão para a demonstração"
+    # a Conferência abre na primeira conta da lista (Bradesco): ela também precisa ter extrato
+    bradesco = client.get(
+        f"/bank-accounts/{accounts['Bradesco · MC']}/transactions",
+        params={"from": f"{month}-01"},
+        headers=demo,
+    ).json()
+    assert bradesco["total"] >= 2
     assert db_session.query(BankTransaction).count() >= 8
 
 

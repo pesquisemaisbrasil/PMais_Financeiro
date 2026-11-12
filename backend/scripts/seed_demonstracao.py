@@ -42,14 +42,14 @@ from services import payable as payables  # noqa: E402
 from services import receivable as receivables  # noqa: E402
 from services.payable import today  # noqa: E402
 
-DEMO_NAME = "Bruna (exemplo)"
+DEMO_NAME = "Bruna Demonstração"
 DEMO_EMAIL = "demo@pesquisemais.invalid"
 DEMO_PASSWORD = "Demo!Financeiro1"
 # Segredo do autenticador da demonstração (fictício): a tela de entrada mostra o código do momento.
 DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"  # gitleaks:allow
 
 
-def ofx(*lines: tuple[date, str, str, str]) -> bytes:
+def ofx(*lines: tuple[date, str, str, str], account: str = "98765-4") -> bytes:
     """Um OFX no estilo SGML dos bancos: (dia, valor, ID do banco, descrição)."""
     body = "".join(
         f"<STMTTRN>\n<TRNTYPE>OTHER\n<DTPOSTED>{day:%Y%m%d}120000[-3:BRT]\n<TRNAMT>{amount}\n"
@@ -255,7 +255,7 @@ def _previous_month(db, user, itau, pix) -> str:  # type: ignore[no-untyped-def]
     return month
 
 
-def _current_month(db, user, itau, pix) -> None:  # type: ignore[no-untyped-def]
+def _current_month(db, user, itau, bradesco, pix) -> None:  # type: ignore[no-untyped-def]
     """Baixas e extrato do mês: linhas conciliadas, uma com sugestão, uma exceção e uma solta."""
     on = today()
     first = on.replace(day=1)
@@ -298,6 +298,26 @@ def _current_month(db, user, itau, pix) -> None:  # type: ignore[no-untyped-def]
         ExceptionIn(reason="Tarifa do banco, sem lançamento", classification="tarifa"),
         user,
     )
+    # A MC (Bradesco): o aluguel pago e conciliado, e um recebimento ainda solto
+    _pay(db, user, "Aluguel da sala de grupo", "2100.00", day(0), bradesco, boleto)
+    bank_statement.confirm(
+        db,
+        bradesco.id,
+        "extrato-bradesco.ofx",
+        ofx(
+            (day(0), "-2100.00", "DEMO-0201", "PAGTO BOLETO ALUGUEL SALA EXEMPLO"),
+            (day(1), "3500.00", "DEMO-0202", "TED RECEBIDA CLIENTE EXEMPLO"),
+            account="12345-6",
+        ),
+        user,
+    )
+    rent = db.query(Payable).filter_by(description="Aluguel da sala de grupo").one()
+    bank_reconciliation.reconcile(
+        db,
+        _transaction_id(db, "DEMO-0201"),
+        ReconcileIn(targetKind="payable", targetId=rent.id, classification="sem_nf"),
+        user,
+    )
     title = db.query(Receivable).filter_by(description="Satisfação · 2ª parcela").one()
     receivables.receive(
         db,
@@ -324,12 +344,12 @@ def seed_demonstracao(db) -> User:  # type: ignore[no-untyped-def]
     seed_payables(db)
     db.commit()
     user = _user(db)
-    itau, _ = _accounts(db)
+    itau, bradesco = _accounts(db)
     pix = db.query(PaymentMethod).filter_by(name="Pix").one()
     _receivables(db)
     _incentive_agenda(db)
     _previous_month(db, user, itau, pix)
-    _current_month(db, user, itau, pix)
+    _current_month(db, user, itau, bradesco, pix)
     cancelled = db.query(Payable).filter_by(description="Licenças de software").one()
     payables.cancel(db, cancelled.id, "Contrato encerrado", user)
     holidays.create(
