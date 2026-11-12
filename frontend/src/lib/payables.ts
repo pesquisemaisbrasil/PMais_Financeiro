@@ -756,6 +756,13 @@ export interface RecordRow {
   addressState: string | null;
   // só na conta do plano de contas
   kind: "despesa" | "receita" | null;
+  // só na conta bancária: os dados da conta da empresa e o saldo inicial (com a data dele)
+  bankName: string | null;
+  agency: string | null;
+  accountNumber: string | null;
+  accountType: "corrente" | "aplicacao" | "caixa" | null;
+  openingBalance: string | null;
+  openingDate: string | null;
 }
 
 export function expenseCategories(reference: Reference) {

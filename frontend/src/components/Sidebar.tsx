@@ -45,7 +45,7 @@ const NAV: Entry[] = [
       { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
       { href: "/contas-a-receber", label: "Contas a receber" },
       { label: "Notas e RPA" },
-      { label: "Conferência bancária" },
+      { href: "/conferencia-bancaria", label: "Conferência bancária" },
       { href: "/divergencias", label: "Divergências" },
     ],
   },

@@ -53,6 +53,7 @@ import {
   updateProjectIncentive,
   updateRecord,
 } from "@/lib/api";
+import { ACCOUNT_TYPES, balanceText, bankLine, parseBalance } from "@/lib/bank";
 import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
 import {
   cleanCnpj,
@@ -232,6 +233,13 @@ function RecordDialog({
     addressDistrict: record?.addressDistrict ?? "",
     addressCity: record?.addressCity ?? "",
     addressState: record?.addressState ?? "",
+    // só na conta bancária (o banco de hoje é o Itaú)
+    bankName: record ? (record.bankName ?? "") : "Itaú",
+    agency: record?.agency ?? "",
+    accountNumber: record?.accountNumber ?? "",
+    accountType: record?.accountType ?? "corrente",
+    openingBalance: balanceText(record?.openingBalance ?? null),
+    openingDate: record?.openingDate ?? "",
   });
   // Cliente: cadastro em etapas (Principal, Endereço e Documentos), e os três telefones em partes
   const wizard = kind === "customers";
@@ -334,9 +342,20 @@ function RecordDialog({
     if (kind === "costCenters" && !record && subCenter && !form.parentId) {
       return setLocalError("Escolha o centro principal em que o sub-centro fica.");
     }
+    // Os dados da conta bancária só vão quando o cadastro é de conta bancária
+    const { bankName, agency, accountNumber, accountType, openingBalance, openingDate, ...common } = form;
+    const balance = parseBalance(openingBalance);
+    if (kind === "bankAccounts" && balance === null) {
+      return setLocalError("Saldo inicial inválido. Use o formato 1.234,56.");
+    }
+    const bank =
+      kind === "bankAccounts"
+        ? { bankName, agency, accountNumber, accountType, openingBalance: balance, openingDate: openingDate || null }
+        : {};
     await run(async () => {
       const body = {
-        ...form,
+        ...common,
+        ...bank,
         companyId: form.companyId ? Number(form.companyId) : null,
         parentId: subCenter && form.parentId ? Number(form.parentId) : null,
         personType: form.personType || null,
@@ -689,6 +708,41 @@ function RecordDialog({
                     />
                   </Field>
                 )}
+                {kind === "bankAccounts" && (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Banco *" id="c-banco">
+                        <Input id="c-banco" {...input("bankName")} />
+                      </Field>
+                      <Field label="Tipo" id="c-tipoconta">
+                        <SearchSelect
+                          id="c-tipoconta"
+                          value={form.accountType}
+                          onChange={(value) =>
+                            setForm((current) => ({ ...current, accountType: value as "corrente" | "aplicacao" | "caixa" }))
+                          }
+                          options={ACCOUNT_TYPES}
+                        />
+                      </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Agência" id="c-agencia">
+                        <Input id="c-agencia" inputMode="numeric" {...input("agency")} />
+                      </Field>
+                      <Field label="Conta" id="c-conta" hint="Com o dígito, por exemplo 12345-6.">
+                        <Input id="c-conta" {...input("accountNumber")} />
+                      </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Saldo inicial" id="c-saldo" hint="Em reais. Vazio é zero.">
+                        <Input id="c-saldo" inputMode="decimal" placeholder="0,00" {...input("openingBalance")} />
+                      </Field>
+                      <Field label="Data do saldo" id="c-saldo-data" hint="Obrigatória se há saldo inicial.">
+                        <Input id="c-saldo-data" type="date" {...input("openingDate")} />
+                      </Field>
+                    </div>
+                  </>
+                )}
                 {kind === "costCenters" &&
                   (record ? (
                     <Field
@@ -961,7 +1015,13 @@ function Records({ tab }: { tab: TabId }) {
   const withCnpj = isParty || tab === "companies";
   // o que impede excluir: lançamento e, no centro de custo, também ter sub-centros embaixo
   const inUseWhat =
-    tab === "costCenters" ? "lançamentos ou sub-centros" : tab === "customers" ? "lançamentos ou documentos" : "lançamentos";
+    tab === "costCenters"
+      ? "lançamentos ou sub-centros"
+      : tab === "customers"
+        ? "lançamentos ou documentos"
+        : tab === "bankAccounts"
+          ? "lançamentos ou extratos"
+          : "lançamentos";
   const [term, setTerm] = useState("");
   const [requestedPage, setPage] = useState(1);
   const [sort, setSort] = useState<Sort>(null);
@@ -1255,6 +1315,7 @@ function Records({ tab }: { tab: TabId }) {
                         {row.nickname ?? row.name}
                       </span>
                       {row.nickname && <span className="block text-xs text-muted-foreground">{row.name}</span>}
+                      {tab === "bankAccounts" && <span className="block text-xs text-muted-foreground">{bankLine(row)}</span>}
                     </TableCell>
                     {tab === "categories" && (
                       <TableCell className={TD}>
