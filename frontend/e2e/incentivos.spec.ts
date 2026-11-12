@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { signIn } from "./fixtures";
 
@@ -111,21 +112,24 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   // ---- Depois de importar, a própria página mostra o que entrou, em qualquer data ----
   await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Tudo");
 
-  // Uma linha de data por vencimento: segunda 11/03 com 2 pessoas e quinta 14/03 com 1
-  const monday = page.getByRole("row", { name: /11\/03\/2030 · segunda-feira/ });
-  await expect(monday).toContainText("2 pessoas · R$ 200,00 a pagar");
-  const thursday = page.getByRole("row", { name: /14\/03\/2030 · quinta-feira/ });
-  await expect(thursday).toContainText("1 pessoa · R$ 100,00 a pagar");
+  // Um lançamento por vencimento, cada um com a sua data na frente do nome (sem linha de data separada):
+  // segunda 11/03 com 2 pessoas e quinta 14/03 com 1
   const mondayLaunch = page.getByRole("row", { name: /Incentivos · PRJ-1790 · pagar 11\/03/ });
   await expect(mondayLaunch).toHaveCount(1);
+  await expect(mondayLaunch).toContainText("11/03/2030");
+  await expect(mondayLaunch).toContainText("R$ 200,00");
   await expect(mondayLaunch).toContainText("A vencer");
-  await expect(page.getByRole("row", { name: /Incentivos · PRJ-1790 · pagar 14\/03/ })).toHaveCount(1);
+  const thursdayLaunch = page.getByRole("row", { name: /Incentivos · PRJ-1790 · pagar 14\/03/ });
+  await expect(thursdayLaunch).toHaveCount(1);
+  await expect(thursdayLaunch).toContainText("14/03/2030");
+  await expect(thursdayLaunch).toContainText("R$ 100,00");
+  await expect(page.getByRole("row", { name: /segunda-feira|quinta-feira/ })).toHaveCount(0);
 
   // Os cartões filtram: as datas de 2030 estão a vencer, não vencem hoje
   await page.getByRole("button", { name: /^Vencem hoje/ }).click();
-  await expect(monday).toHaveCount(0);
+  await expect(mondayLaunch).toHaveCount(0);
   await page.getByRole("button", { name: /^A vencer/ }).click();
-  await expect(monday).toBeVisible();
+  await expect(mondayLaunch).toBeVisible();
   await page.getByRole("button", { name: "Limpar filtro" }).click();
 
   // O dropdown abre as pessoas a pagar do lançamento, com o resumo, as abas e o detalhe de cada uma
@@ -158,6 +162,34 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   await expect(page.getByRole("cell", { name: "pes***@exemplo.invalid", exact: true })).toHaveCount(2);
   await expect(page.getByRole("cell", { name: "Sem nota", exact: true })).toHaveCount(2);
   await expect(page.getByText("pessoa-a@exemplo.invalid")).toHaveCount(0);
+
+  // Baixar a planilha das pessoas: um Excel de verdade, com o nome do projeto e da data
+  const [spreadsheet] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Baixar planilha" }).click(),
+  ]);
+  expect(spreadsheet.suggestedFilename()).toBe("incentivos-PRJ-1790-2030-03-11.xlsx");
+  expect(readFileSync(await spreadsheet.path()).subarray(0, 2).toString()).toBe("PK"); // .xlsx é um zip
+
+  // Enviar o PDF do comprovante: fica anexado ao lançamento, sem dar baixa em ninguém
+  const receipts = page.getByLabel("Escolher os PDFs de comprovante");
+  await receipts.setInputFiles({ name: "foto-do-pix.png", mimeType: "image/png", buffer: Buffer.from("não é pdf") });
+  await expect(page.getByText("foto-do-pix.png: envie o comprovante em PDF")).toBeVisible();
+  await receipts.setInputFiles({
+    name: "comprovantes-11-03.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%comprovantes fictícios do teste\n"),
+  });
+  await expect(page.getByText("1 comprovante anexado", { exact: true })).toBeVisible();
+  await expect(page.getByText("comprovantes-11-03.pdf", { exact: true })).toBeVisible();
+  await expect(page.getByText("foto-do-pix.png: envie o comprovante em PDF")).toHaveCount(0);
+  await expect(page.getByText("0 de 2 pagos · R$ 200,00 em aberto")).toBeVisible(); // anexar não dá baixa
+  const [receipt] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Baixar comprovantes-11-03.pdf" }).click(),
+  ]);
+  expect(receipt.suggestedFilename()).toBe("comprovantes-11-03.pdf");
+
   await mondayLaunch.getByRole("button", { name: "Esconder as pessoas" }).click();
   await expect(personA).toHaveCount(0);
 

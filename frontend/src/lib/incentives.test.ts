@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByDay, overdueNotice, peopleText, type AgendaRow, type Bucket } from "./incentives";
+import { groupByDay, overdueNotice, peopleFileName, peopleText, receiptProblem, type AgendaRow, type Bucket } from "./incentives";
 
 const row = (id: number, dueDate: string, people: number, pending: string, situation: AgendaRow["situation"]): AgendaRow => ({
   id,
@@ -37,6 +37,19 @@ describe("agenda de incentivos", () => {
   it("escreve pessoa no singular e no plural", () => {
     expect(peopleText(1)).toBe("1 pessoa");
     expect(peopleText(14)).toBe("14 pessoas");
+  });
+
+  it("dá à planilha o nome do projeto e da data; sem projeto único, o número do lançamento", () => {
+    expect(peopleFileName({ id: 7, dueDate: "2026-11-16", projectCodes: ["1804"] })).toBe("incentivos-PRJ-1804-2026-11-16.xlsx");
+    expect(peopleFileName({ id: 7, dueDate: "2026-11-16", projectCodes: ["1804", "1805"] })).toBe("incentivos-7.xlsx");
+    expect(peopleFileName({ id: 7, dueDate: "2026-11-16", projectCodes: [] })).toBe("incentivos-7.xlsx");
+  });
+
+  it("aceita só PDF como comprovante, de até 20 MB e não vazio", () => {
+    expect(receiptProblem({ name: "pix.PDF", size: 1000 })).toBeNull();
+    expect(receiptProblem({ name: "pix.png", size: 1000 })).toBe("pix.png: envie o comprovante em PDF");
+    expect(receiptProblem({ name: "vazio.pdf", size: 0 })).toBe("vazio.pdf: o arquivo está vazio");
+    expect(receiptProblem({ name: "grande.pdf", size: 21 * 1024 * 1024 })).toContain("até 20 MB");
   });
 
   it("avisa do vencido que está fora do período à vista, e só dele", () => {
