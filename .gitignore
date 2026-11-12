@@ -40,6 +40,9 @@ node_modules/
 dist/
 .next/
 .next-e2e/
+.next-demo/
+frontend/.demo-cache/
+prototipo/financeiro/teste/
 out/
 *.tsbuildinfo
 next-env.d.ts
