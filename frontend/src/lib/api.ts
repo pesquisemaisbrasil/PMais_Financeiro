@@ -241,6 +241,15 @@ export async function fetchBlob(path: string): Promise<Blob> {
   return response.blob();
 }
 
+/** POST com corpo JSON que responde 204, sem corpo. */
+export async function postJsonNoContent(path: string, body: unknown): Promise<void> {
+  await fetchWithAuth(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 /** POST que responde 204, sem corpo. */
 export async function postNoContent(path: string): Promise<void> {
   await fetchWithAuth(path, { method: "POST" });

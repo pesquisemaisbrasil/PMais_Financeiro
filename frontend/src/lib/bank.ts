@@ -1,6 +1,6 @@
 /** Extrato bancário: importar (OFX ou CSV), conferir antes de gravar e consultar as linhas. */
 
-import { request, upload } from "./api";
+import { postJsonNoContent, request, upload } from "./api";
 import { parseMoney } from "./payables";
 
 export const MAX_STATEMENT_BYTES = 5 * 1024 * 1024;
@@ -91,21 +91,119 @@ export interface StatementRow {
   createdAt: string;
 }
 
+/** As classificações da linha (a lista é a do servidor). */
+export const CLASSIFICATIONS = [
+  { id: "incentivo", label: "Incentivo" },
+  { id: "adiantamento", label: "Adiantamento" },
+  { id: "nf", label: "Pagamento com NF" },
+  { id: "rpa", label: "RPA" },
+  { id: "sem_nf", label: "Sem NF" },
+  { id: "reembolso", label: "Reembolso" },
+  { id: "tarifa", label: "Tarifa" },
+  { id: "transferencia", label: "Transferência" },
+  { id: "recebimento", label: "Recebimento de cliente" },
+  { id: "outro", label: "Outro" },
+];
+
+export type TargetKind = "payable" | "receivable";
+
+/** O que se fez com uma linha do extrato: ligada a um lançamento ou marcada como exceção. */
+export interface Reconciliation {
+  kind: "lancamento" | "excecao";
+  classification: string | null;
+  classificationLabel: string | null;
+  label: string;
+  targetKind: TargetKind | null;
+  targetId: number | null;
+  nfNumber: string | null;
+  nfIssuedOn: string | null;
+  by: string | null;
+  at: string;
+}
+
 export interface Transaction {
   id: number;
   postedOn: string;
   description: string;
   amount: string;
   statementId: number;
+  /** Vazio = pendente. */
+  reconciliation: Reconciliation | null;
 }
+
+export interface TransactionCounts {
+  pending: number;
+  reconciled: number;
+  exceptions: number;
+}
+
+export type LineSituation = "pendente" | "conciliada" | "excecao";
 
 export interface TransactionList {
   items: Transaction[];
   total: number;
   page: number;
   pageSize: number;
+  counts: TransactionCounts;
   income: string;
   expense: string;
+}
+
+/** Um lançamento (e a pessoa dele) que pode ser a origem da linha do extrato. */
+export interface Suggestion {
+  targetKind: TargetKind;
+  targetId: number;
+  itemId: number | null;
+  description: string;
+  who: string | null;
+  projectCodes: string[];
+  amount: string;
+  paidOn: string;
+  score: number;
+  reasons: string[];
+  classification: string | null;
+  nfNumber: string | null;
+  nfIssuedOn: string | null;
+}
+
+export interface ReconcileBody {
+  targetKind: TargetKind;
+  targetId: number;
+  itemId: number | null;
+  classification: string;
+  nfNumber: string | null;
+  nfIssuedOn: string | null;
+}
+
+/** Em que pé está a linha: pendente, conciliada com um lançamento ou exceção. */
+export function situationOf(line: Pick<Transaction, "reconciliation">): LineSituation {
+  if (!line.reconciliation) return "pendente";
+  return line.reconciliation.kind === "excecao" ? "excecao" : "conciliada";
+}
+
+export const SITUATION_LABELS: Record<LineSituation, string> = {
+  pendente: "Pendente",
+  conciliada: "Conciliada",
+  excecao: "Exceção",
+};
+
+/** "valor igual, mesmo dia, nome na descrição": por que o sistema sugeriu este lançamento. */
+export function reasonsText(suggestion: Pick<Suggestion, "reasons">): string {
+  return suggestion.reasons.join(" · ");
+}
+
+/** Só a classificação "Pagamento com NF" pede número e data de emissão da nota. */
+export function needsInvoice(classification: string): boolean {
+  return classification === "nf";
+}
+
+/** O que a tela confere antes de enviar; o servidor confere de novo. Devolve o texto do erro, ou null. */
+export function checkReconcile(body: { classification: string; nfNumber: string; nfIssuedOn: string }): string | null {
+  if (!body.classification) return "Escolha a classificação da linha.";
+  if (needsInvoice(body.classification) && (!body.nfNumber.trim() || !body.nfIssuedOn)) {
+    return "Pagamento com NF pede o número e a data de emissão da nota.";
+  }
+  return null;
 }
 
 /** Texto de erro do arquivo, ou null se pode seguir. O servidor confere de novo. */
@@ -155,10 +253,30 @@ export function listStatements(accountId: number): Promise<StatementRow[]> {
 
 export function listTransactions(
   accountId: number,
-  filter: { start: string; end: string; page: number }
+  filter: { start: string; end: string; page: number; situation?: LineSituation | null }
 ): Promise<TransactionList> {
   const params = new URLSearchParams({ page: String(filter.page) });
   if (filter.start) params.set("from", filter.start);
   if (filter.end) params.set("to", filter.end);
+  if (filter.situation) params.set("situation", filter.situation);
   return request<TransactionList>(`/bank-accounts/${accountId}/transactions?${params}`);
+}
+
+export function listSuggestions(transactionId: number): Promise<Suggestion[]> {
+  return request<Suggestion[]>(`/bank-transactions/${transactionId}/suggestions`);
+}
+
+export function reconcileLine(transactionId: number, body: ReconcileBody): Promise<void> {
+  return postJsonNoContent(`/bank-transactions/${transactionId}/reconcile`, body);
+}
+
+export function markException(
+  transactionId: number,
+  body: { reason: string; classification: string | null }
+): Promise<void> {
+  return postJsonNoContent(`/bank-transactions/${transactionId}/exception`, body);
+}
+
+export function undoReconciliation(transactionId: number, reason: string): Promise<void> {
+  return postJsonNoContent(`/bank-transactions/${transactionId}/undo`, { reason });
 }

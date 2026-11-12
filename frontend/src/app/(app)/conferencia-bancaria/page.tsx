@@ -4,25 +4,33 @@ import { FileUp, Landmark } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CARD, ErrorBox, Field, NUM, PageHeader, TD, TH } from "@/components/finance";
+import { ReasonDialog } from "@/components/ReasonDialog";
+import { CARD, ErrorBox, Field, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, listRecords } from "@/lib/api";
 import {
   PAGE_SIZE,
+  SITUATION_LABELS,
   bankLine,
   importedText,
   listStatements,
   listTransactions,
+  situationOf,
+  undoReconciliation,
+  type LineSituation,
   type StatementRow,
+  type Transaction,
   type TransactionList,
 } from "@/lib/bank";
 import { brl, formatDate, formatDateTime, plural, type RecordRow } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 import { ImportStatementDialog } from "./import-statement-dialog";
+import { ReconcileDialog } from "./reconcile-dialog";
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "verde" | "vermelho" }) {
   return (
@@ -51,6 +59,9 @@ export default function BankReconciliationPage() {
   const [history, setHistory] = useState<StatementRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [situation, setSituation] = useState<LineSituation | null>(null);
+  const [reconciling, setReconciling] = useState<Transaction | null>(null);
+  const [undoing, setUndoing] = useState<Transaction | null>(null);
 
   useEffect(() => {
     listRecords("bankAccounts").then(
@@ -71,7 +82,7 @@ export default function BankReconciliationPage() {
     setError(null);
     try {
       const [transactions, statements] = await Promise.all([
-        listTransactions(accountId, { start, end, page }),
+        listTransactions(accountId, { start, end, page, situation }),
         listStatements(accountId),
       ]);
       setData(transactions);
@@ -80,7 +91,7 @@ export default function BankReconciliationPage() {
       setData(null);
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar o extrato");
     }
-  }, [accountId, start, end, page]);
+  }, [accountId, start, end, page, situation]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca da tela quando a conta, o período ou a página muda
@@ -132,6 +143,7 @@ export default function BankReconciliationPage() {
                   setAccountId(Number(next));
                   setData(null);
                   setHistory([]);
+                  setSituation(null);
                   setPage(1);
                 }}
               >
@@ -195,6 +207,26 @@ export default function BankReconciliationPage() {
               )}
             </div>
 
+            {data && (
+              <Tabs
+                value={situation ?? "todas"}
+                onValueChange={(next) => {
+                  setSituation(next === "todas" ? null : (next as LineSituation));
+                  setPage(1);
+                }}
+                className="px-4 pb-3"
+              >
+                <TabsList>
+                  <TabsTrigger value="todas">
+                    Todas {data.counts.pending + data.counts.reconciled + data.counts.exceptions}
+                  </TabsTrigger>
+                  <TabsTrigger value="pendente">Pendentes {data.counts.pending}</TabsTrigger>
+                  <TabsTrigger value="conciliada">Conciliadas {data.counts.reconciled}</TabsTrigger>
+                  <TabsTrigger value="excecao">Exceções {data.counts.exceptions}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+
             {!data ? (
               !error && (
                 <div className="flex justify-center p-8">
@@ -209,18 +241,57 @@ export default function BankReconciliationPage() {
                       <TableHead className={TH}>Data</TableHead>
                       <TableHead className={TH}>Descrição</TableHead>
                       <TableHead className={cn(TH, NUM)}>Valor</TableHead>
+                      <TableHead className={TH}>Situação</TableHead>
+                      <TableHead className={TH} />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.items.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell className={cn(TD, "whitespace-nowrap")}>{formatDate(line.postedOn)}</TableCell>
-                        <TableCell className={cn(TD, "whitespace-normal")}>{line.description}</TableCell>
-                        <TableCell className={cn(TD, NUM, Number(line.amount) < 0 && "text-[#b91c1c]")}>
-                          {brl(line.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {data.items.map((line) => {
+                      const state = situationOf(line);
+                      const done = line.reconciliation;
+                      return (
+                        <TableRow key={line.id}>
+                          <TableCell className={cn(TD, "whitespace-nowrap")}>{formatDate(line.postedOn)}</TableCell>
+                          <TableCell className={cn(TD, "whitespace-normal")}>{line.description}</TableCell>
+                          <TableCell className={cn(TD, NUM, Number(line.amount) < 0 && "text-[#b91c1c]")}>
+                            {brl(line.amount)}
+                          </TableCell>
+                          <TableCell className={cn(TD, "whitespace-normal")}>
+                            <Tag color={state === "pendente" ? "ambar" : state === "conciliada" ? "verde" : "cinza"}>
+                              {SITUATION_LABELS[state]}
+                            </Tag>
+                            {done && (
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                {done.label}
+                                {done.classificationLabel ? ` · ${done.classificationLabel}` : ""}
+                                {done.nfNumber ? ` · NF ${done.nfNumber}` : ""}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className={cn(TD, "text-right")}>
+                            {done ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label={`Desfazer a conciliação de ${line.description}`}
+                                onClick={() => setUndoing(line)}
+                              >
+                                Desfazer
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                aria-label={`Conciliar ${line.description}`}
+                                onClick={() => setReconciling(line)}
+                              >
+                                Conciliar
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 <div className="flex items-center justify-between gap-3 px-4 py-3 text-xs text-muted-foreground">
@@ -244,9 +315,11 @@ export default function BankReconciliationPage() {
               </>
             ) : (
               <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-                {start || end
-                  ? "Nenhuma linha do extrato nesse período."
-                  : "Nenhum extrato importado nesta conta ainda. Use Importar extrato."}
+                {situation
+                  ? "Nenhuma linha nessa situação."
+                  : start || end
+                    ? "Nenhuma linha do extrato nesse período."
+                    : "Nenhum extrato importado nesta conta ainda. Use Importar extrato."}
               </p>
             )}
           </div>
@@ -285,6 +358,34 @@ export default function BankReconciliationPage() {
             </section>
           )}
         </>
+      )}
+
+      {reconciling && (
+        <ReconcileDialog
+          line={reconciling}
+          onClose={() => setReconciling(null)}
+          onDone={(message) => {
+            setReconciling(null);
+            toast.success(message);
+            void load();
+          }}
+        />
+      )}
+
+      {undoing && (
+        <ReasonDialog
+          title="Desfazer a conciliação"
+          description={`A linha "${undoing.description}" volta a ficar pendente. Quem desfez e o motivo ficam no histórico.`}
+          confirm="Desfazer"
+          destructive
+          onClose={() => setUndoing(null)}
+          onConfirm={async (why) => {
+            await undoReconciliation(undoing.id, why);
+            setUndoing(null);
+            toast.success("Conciliação desfeita.");
+            void load();
+          }}
+        />
       )}
 
       {importing && account && (
