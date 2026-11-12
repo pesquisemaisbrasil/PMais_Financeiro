@@ -663,6 +663,13 @@ def test_an_exception_needs_a_reason_and_counts_as_reconciled_without_a_launch(
             422,
             "Informe o motivo da exceção",
         )
+    unclassified = client.post(
+        f"/bank-transactions/{tx}/exception", json={"reason": "tarifa"}, headers=auth
+    )
+    assert (unclassified.status_code, unclassified.json()["detail"]) == (
+        422,
+        "Escolha a classificação da linha",
+    )
     bad = client.post(
         f"/bank-transactions/{tx}/exception",
         json={"reason": "tarifa", "classification": "x"},
@@ -741,7 +748,11 @@ def test_undoing_an_exception_works_the_same(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
 ) -> None:
     (tx,) = load(client, auth, db_session, world["account"].id, (day(0), "-18.90", "TARIFA"))
-    client.post(f"/bank-transactions/{tx}/exception", json={"reason": "Tarifa"}, headers=auth)
+    client.post(
+        f"/bank-transactions/{tx}/exception",
+        json={"reason": "Tarifa", "classification": "tarifa"},
+        headers=auth,
+    )
     assert (
         client.post(
             f"/bank-transactions/{tx}/undo", json={"reason": "Era outra coisa"}, headers=auth
@@ -789,7 +800,7 @@ def test_the_reconciliation_routes_need_a_finance_login(
             "/bank-transactions/1/reconcile",
             {"targetKind": "payable", "targetId": 1, "classification": "outro"},
         ),
-        ("post", "/bank-transactions/1/exception", {"reason": "x"}),
+        ("post", "/bank-transactions/1/exception", {"reason": "x", "classification": "tarifa"}),
         ("post", "/bank-transactions/1/undo", {"reason": "x"}),
     )
     for method, path, payload in calls:
