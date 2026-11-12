@@ -12,6 +12,7 @@ Caminhos citados são do repositório do Connect, para copiar o padrão.
 | Migrations | Alembic no CI | job `migrations` | **Postgres 16** real | toda migration (upgrade, drift, downgrade) |
 | Lógica pura do frontend | Vitest | `frontend/src/lib/*.test.ts` | — | formatação, datas, cliente da API, validadores |
 | Jornada de tela | Playwright | `frontend/e2e/*.spec.ts` | SQLite em arquivo (`backend/e2e.db`) com seed próprio | tela nova ou fluxo alterado: fluxo principal + 1 caso negado |
+| Demonstração (backend no navegador) | Playwright | `frontend/e2e-demo/*.spec.ts` (`playwright.demo.config.ts`) | O app estático gerado por `scripts/build-demo.mjs`, com o backend em Python no navegador e o seed `seed_demonstracao.py` | roda na CI (`e2e.yml`); confere entrar, baixa, extrato, agenda, restaurar e que nada sai do navegador. Ver [publicar a versão de teste](../operations/publicar-a-versao-de-teste.md) |
 
 No Connect hoje: 46 arquivos de teste no backend, 8 arquivos de Vitest e 4 specs de E2E.
 

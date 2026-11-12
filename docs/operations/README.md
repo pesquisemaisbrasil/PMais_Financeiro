@@ -4,7 +4,7 @@ Runbooks: `rodar-local.md`, `bootstrap.md` e `deploy.md` entram aqui. Comando, v
 
 Enquanto isso, o passo a passo para rodar localmente está na seção "Como rodar" do [README](../../README.md).
 
-Publicar a versão de teste no mesmo site do protótipo (o que falta e quem decide): [publicar-a-versao-de-teste.md](publicar-a-versao-de-teste.md).
+Versão de demonstração (as telas reais com dados fictícios, backend no navegador) no mesmo site do protótipo, em `teste/`: como gerar, publicar e o que conferir no Netlify: [publicar-a-versao-de-teste.md](publicar-a-versao-de-teste.md).
 
 Testar a integração com o Connect de dev (conta de serviço, `backend/.env.connect` e o comando `scripts/connect_dev_check.py`): [testar-com-o-connect-dev.md](testar-com-o-connect-dev.md). O guia do João com os endereços e as rotas está em [connect-dev-integracao-financeiro.md](../connect-dev-integracao-financeiro.md).
 
