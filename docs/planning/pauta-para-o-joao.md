@@ -2,7 +2,7 @@
 
 **Posição em 06/11/2026.** Este documento junta, num lugar só, tudo o que está parado esperando uma decisão ou uma ajuda sua. Cada item diz o que o sistema faz hoje (vale se ninguém responder), a nossa proposta e o que a resposta destrava. Para responder, basta dizer o número e "aceito", "outra" ou "depois", por exemplo: "D1 aceito, D2 outra: ..., A3 faço segunda". As perguntas completas estão em [perguntas-abertas](perguntas-abertas.md).
 
-O que foi construído até aqui e como testar está em [roadmap](roadmap.md) e [proximos-passos](proximos-passos.md).
+Para conduzir a conversa tarefa por tarefa do Jira, veja o [roteiro com o João](roteiro-com-o-joao.md). O que foi construído até aqui e como testar está em [roadmap](roadmap.md) e [proximos-passos](proximos-passos.md).
 
 ## Resumo
 
