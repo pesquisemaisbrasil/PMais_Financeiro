@@ -615,6 +615,78 @@ def export_xlsx(db: Session, **query: Any) -> bytes:
     )
 
 
+ITEM_EXPORT_HEADERS = [
+    "Pessoa",
+    "Chave Pix (mascarada)",
+    "Data da pesquisa",
+    "Nota",
+    "Valor",
+    "Situação",
+]
+
+
+def _item_note(item: PayableItem) -> str:
+    """A coluna Nota: "Sem nota" para incentivo e Sem NF; NF com o número; RPA como está."""
+    if item.documentType in ("Incentivo", "Sem NF"):
+        return "Sem nota"
+    if item.documentType == "NF":
+        return f"NF {item.invoiceNumber}" if item.invoiceNumber else "NF"
+    return str(item.documentType)
+
+
+def _item_status(payable: Payable, item: PayableItem) -> str:
+    """Como a pessoa está de pagamento (o mesmo texto da tela): vale o do lançamento inteiro, e a
+    pessoa paga pelo comprovante sabe o próprio dia."""
+    if payable.canceledAt is not None:
+        return "Cancelada"
+    if item.paidOn:
+        return f"Paga em {format_date_br(item.paidOn)}"
+    if paid_amount(payable) == 0:
+        return "A pagar"
+    if pending_amount(payable) > 0:
+        return "Baixa parcial do lançamento"
+    days = sorted(p.paidOn for p in _active_payments(payable) if p.kind == "pagamento")
+    return f"Paga em {format_date_br(days[-1])}" if days else "Paga"
+
+
+def export_items_xlsx(db: Session, payable_id: int, user: User) -> tuple[bytes, str]:
+    """As pessoas do lançamento em Excel, com a chave Pix mascarada (a completa não é guardada).
+    Vale para todo lançamento com pessoas (incentivo, folha); cada download fica no histórico."""
+    payable = _get(db, payable_id)
+    people = sorted(payable.items, key=lambda item: item.id)
+    if not people:
+        raise PayableInvalid("Esse lançamento não tem pessoas")
+    projects = ", ".join(f"PRJ-{a.project.code}" for a in payable.allocations) or "sem projeto"
+    title = (
+        f"{payable.description} · {projects} · vence {format_date_br(payable.dueDate)} · "
+        f"{len(people)} {'pessoa' if len(people) == 1 else 'pessoas'}"
+    )
+    rows = [
+        [
+            item.name,
+            item.pix_masked or "",
+            item.surveyDate,
+            _item_note(item),
+            item.amount,
+            _item_status(payable, item),
+        ]
+        for item in people
+    ]
+    audit(db, payable, user, f"Documento baixado: planilha das pessoas ({len(people)} pessoas)")
+    db.commit()
+    code = payable.allocations[0].project.code if len(payable.allocations) == 1 else None
+    kind = "incentivos" if payable.origin == "incentivo" else "pessoas"
+    name = (
+        f"{kind}-PRJ-{code}-{payable.dueDate:%Y-%m-%d}.xlsx"
+        if code
+        else f"{kind}-{payable.id}.xlsx"
+    )
+    content = build_xlsx(
+        sheet="Pessoas", title=title, headers=ITEM_EXPORT_HEADERS, rows=rows, total_columns=(4,)
+    )
+    return content, name
+
+
 def _get(db: Session, payable_id: int, lock: bool = False) -> Payable:
     query = db.query(Payable).filter(Payable.id == payable_id, Payable.deletedAt.is_(None))
     if lock:

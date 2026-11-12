@@ -368,6 +368,27 @@ def add_attachment(
 
 
 @router.get(
+    "/payables/{payable_id}/items/export",
+    response_class=Response,
+    description="As pessoas do lançamento em Excel (.xlsx), com a chave Pix mascarada; "
+    "cada download fica no histórico da conta",
+)
+@limiter.limit(READ_LIMIT)
+def export_items(request: Request, payable_id: int, db: DbSession, user: FinanceUser) -> Response:
+    content, filename = _in_transaction(
+        db, lambda: payable_service.export_items_xlsx(db, payable_id, user)
+    )
+    return Response(
+        content,
+        media_type=xlsx.MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get(
     "/payables/{payable_id}/attachments/{attachment_id}/download",
     response_class=Response,
     description="Baixa o documento, decifrado aqui; cada download fica no histórico da conta",
