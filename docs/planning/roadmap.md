@@ -133,6 +133,17 @@ Com o sistema rodando, em **Cadastros → Feriados**:
 5. Em **Contas a pagar → Nova conta → Repetir esta conta → Simular**, um vencimento que cai num feriado cadastrado vai para o próximo dia útil.
 6. **Aviso na hora de lançar:** em **Nova conta a pagar** ou **Nova conta a receber**, digite num **Vencimento** que cai em sábado, domingo ou feriado. Embaixo do campo aparece "é sábado" (ou "é feriado nacional", ou o nome do feriado cadastrado) e os botões **Antecipar para** (dia útil anterior), **Postergar para** (próximo dia útil) e **Manter**. Clicar troca a data do campo. O mesmo vale na edição (só se a data mudou) e no vencimento da folha de campo, na importação.
 
+### Conferência bancária: conta e extrato (PF-69)
+
+Com o sistema rodando. Use só um extrato **fictício** (nome e valores inventados): extrato real nunca vai para o repositório nem para o chat.
+
+1. Em **Cadastros → Contas bancárias → Nova conta bancária**, escolha a empresa e veja o **Banco** já preenchido com Itaú. Preencha **Agência**, **Conta**, **Tipo** e **Saldo inicial**. Agência com letras é recusada, e saldo sem **Data do saldo** também. A lista mostra "Itaú · ag. 1234 · conta 12345-6 · Conta corrente" embaixo do nome.
+2. Em **Financeiro → Conferência bancária**, escolha a conta e clique em **Importar extrato**. Envie um **OFX** (ou um CSV com as colunas data, lançamento e valor). Um arquivo que não é extrato mostra "Não foi possível ler o extrato — envie OFX ou CSV do banco", e outro tipo de arquivo é recusado antes de enviar.
+3. A **prévia** mostra as linhas novas, as que já estavam, o período, as entradas e saídas novas e as primeiras linhas, e **nada é gravado** até o botão **Importar N linhas novas**. Se o arquivo parece ser de outra conta, aparece um aviso.
+4. Importe **o mesmo arquivo de novo**: a prévia avisa que ele já foi importado e o botão vira **Nada novo para importar**. Importe um **outro extrato que se sobrepõe**: só as linhas novas entram.
+5. A lista mostra as linhas da mais nova para a mais antiga, com **De** e **Até** para filtrar (os totais de entradas e saídas acompanham), e **Extratos importados** diz quem importou o quê. A conta com extrato não se exclui, só se inativa.
+6. Ainda **não concilia**: ligar cada linha a uma conta a pagar, classificar e fechar o mês são as próximas etapas (PF-70 a PF-72). O layout real do CSV do Itaú e o prazo de guarda do extrato dependem da Q44.
+
 ### Comprovantes e baixa (PF-56)
 
 Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Connect, ponha `CONNECT_MODE=simulated` no `backend/.env` (só fora de produção) e reinicie a API:

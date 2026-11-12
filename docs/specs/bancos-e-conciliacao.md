@@ -47,15 +47,20 @@ Contrato de contas bancárias, importação de extrato, conciliação **linha a 
 - [ ] Um lançamento de 5 incentivos (R$ 1.000) concilia com 5 Pix de R$ 200 do extrato, um por item, e cada linha sai classificada como "incentivo".
 - [ ] Um pagamento de fornecedor com NF concilia trazendo o número e a data de emissão da nota anexada.
 - [ ] Um Pix devolvido em agosto e pago em setembro aparece na diferença de agosto explicado como "volta", e o fechamento de setembro bate com o extrato.
-- [ ] Importar o mesmo OFX duas vezes não duplica.
+- [x] Importar o mesmo OFX duas vezes não duplica.
 - [ ] A planilha da contabilidade tem uma linha por transação, com classificação, NF e data de emissão.
 - [ ] Depois de fechar março, nenhuma baixa com data de março é aceita.
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
+- **Feito (PF-69):** conta bancária com banco, agência, conta, tipo e saldo inicial (`models/reference.py`, `services/records.py`) e importação de extrato: leitor em `core/statement.py`, regras em `services/bank_statement.py`, rotas em `api/bank_statements.py`, tabelas `bank_statements` e `bank_transactions` (migration `d8f0b2c4e6a8`) e a tela **Financeiro → Conferência bancária**. [ADR 0016](../architecture/adr/0016-extrato-bancario-imutavel-e-descricao-cifrada.md).
+- **A criar:** a conciliação linha a linha, a classificação, a diferença extrato × despesas, o saldo mensal e o fechamento do mês (PF-70 a PF-72).
 
 Origem do requisito:
 
 - [Reunião 21/10 13:23–21:29]: conciliação pelo extrato, classificação, voltas, diferença extrato × relatório.
 - [SGE4B §1.2, §5.6, §7.2, §10 CT-08]; [SWOT S05].
+
+## Ajustes
+
+- 2026-11-12 (**conta bancária e importação do extrato, PF-69**): a **conta bancária** passa a ter **banco** (obrigatório, vem preenchido com "Itaú"), **agência** e **conta** (só números, hífen e o dígito, que pode ser X), **tipo** (conta corrente, aplicação ou caixa; corrente por padrão) e **saldo inicial com a data** (sem saldo, zero; com saldo, a data é obrigatória). Contas antigas ficam sem banco até alguém editar. A **importação** lê **OFX** (padrão dos bancos) ou **CSV** (colunas de data, lançamento ou histórico e valor, ou crédito e débito; o layout real do Itaú ainda é estimativa, Q44), mostra a **prévia** (linhas novas, linhas que já estavam, período, entradas e saídas, 10 primeiras linhas, aviso de "outra conta" e de "este arquivo já foi importado") e só grava ao confirmar. **Reimportar não duplica:** a chave é o ID do banco ou data + valor + descrição, contando a repetição dentro do arquivo. Arquivo ilegível responde 422 "Não foi possível ler o extrato — envie OFX ou CSV do banco"; acima de 5 MB ou 20.000 linhas, 422 pedindo períodos menores; conta inativa recusa com 409. A linha importada é **imutável**, a descrição fica **cifrada** (traz nome de quem pagou ou recebeu) e o **arquivo não é guardado**. Conta com extrato não se exclui, só se inativa. Provisório até a Vivi (layout) e o DPO (guarda) responderem a Q44; [ADR 0016](../architecture/adr/0016-extrato-bancario-imutavel-e-descricao-cifrada.md).
