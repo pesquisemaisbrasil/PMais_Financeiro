@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     UniqueConstraint,
     false,
@@ -137,6 +138,14 @@ class BankAccount(Base):
     )
     name = Column(String(100), nullable=False)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+    # Os dados da conta da empresa (não de uma pessoa). Contas antigas ficam sem banco até editar.
+    bankName = Column(String(60), nullable=True)
+    agency = Column(String(20), nullable=True)
+    accountNumber = Column(String(30), nullable=True)
+    # corrente, aplicacao ou caixa
+    accountType = Column(String(20), nullable=True)
+    openingBalance = Column(Numeric(14, 2), nullable=False, default=0, server_default="0")
+    openingDate = Column(Date, nullable=True)
 
 
 class Customer(Base):

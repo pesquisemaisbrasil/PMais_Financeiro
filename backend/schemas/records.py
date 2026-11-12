@@ -1,3 +1,5 @@
+from datetime import date
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -44,6 +46,13 @@ class RecordIn(BaseModel):
     addressState: str | None = Field(default=None, max_length=2)
     # só na conta do plano de contas: despesa (padrão) ou receita
     kind: Literal["despesa", "receita"] | None = None
+    # só na conta bancária: banco, agência, conta, tipo (padrão corrente) e saldo inicial com a data
+    bankName: str | None = Field(default=None, max_length=60)
+    agency: str | None = Field(default=None, max_length=20)
+    accountNumber: str | None = Field(default=None, max_length=30)
+    accountType: Literal["corrente", "aplicacao", "caixa"] | None = None
+    openingBalance: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
+    openingDate: date | None = None
 
 
 class CnpjOut(BaseModel):
@@ -84,6 +93,12 @@ class RecordOut(BaseModel):
     addressCity: str | None
     addressState: str | None
     kind: str | None
+    bankName: str | None
+    agency: str | None
+    accountNumber: str | None
+    accountType: str | None
+    openingBalance: Decimal | None
+    openingDate: date | None
 
 
 class ActiveIn(BaseModel):
