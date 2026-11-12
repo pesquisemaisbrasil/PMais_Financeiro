@@ -24,6 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getHome } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { publicAsset } from "@/lib/basePath";
 import { PAYABLES_CHANGED } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
@@ -191,7 +192,7 @@ export function Sidebar() {
         )}
       >
         <div className={cn("flex items-center gap-2.5", collapsed && "md:hidden")}>
-          <Image src="/logo-branco.png" alt="P+ Financeiro" width={77} height={28} priority />
+          <Image src={publicAsset("/logo-branco.png")} alt="P+ Financeiro" width={77} height={28} priority />
           <span className="border-l border-white/40 pl-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-white">
             Financeiro
           </span>

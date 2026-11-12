@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login, ssoLoginUrl, startMfaSetup } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { publicAsset } from "@/lib/basePath";
 import { useFormAction } from "@/lib/use-form-action";
 import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep } from "./MfaSteps";
 
@@ -184,7 +185,7 @@ function LoginContent() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <div className="mb-6 flex justify-center">
-            <Image src="/logo.png" alt="P+ Financeiro" width={180} height={65} priority />
+            <Image src={publicAsset("/logo.png")} alt="P+ Financeiro" width={180} height={65} priority />
           </div>
 
           <div className="mb-6 flex justify-center">
