@@ -1,13 +1,13 @@
 """O que o Financeiro pede ao P+ Connect, pela API de integração (spec integracao-com-o-connect).
 
-Só a interface e o que existe hoje: o Connect ainda não entregou `/integrations/v1`
-(spec entregas-do-connect, entregas 1 e 2). Até lá, em produção a resposta é "fora do ar".
-Nos testes o Connect é sempre simulado (`tests/fakes.py`), e para ver a tela funcionando sem
-o Connect há o `SimulatedConnect`, ligado só com `CONNECT_MODE=simulated` fora de produção.
-Nunca acessa o banco do Connect.
+A interface do que o Financeiro pede ao Connect. O Connect de **dev** já entrega tudo isto (guia
+`docs/connect-dev-integracao-financeiro.md`); em produção essas rotas só existem na rede interna, e
+sem conta de serviço configurada a resposta é "fora do ar". Nos testes o Connect é sempre simulado
+(`tests/fakes.py`), e para ver a tela funcionando sem o Connect há o `SimulatedConnect`, ligado só
+com `CONNECT_MODE=simulated` fora de produção. Nunca acessa o banco do Connect.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Protocol
@@ -83,6 +83,28 @@ class PaymentApplied:
     payment_ref: str
     interview_ids: list[int]
     applied_at: datetime
+
+
+@dataclass(frozen=True)
+class PaymentReversed:
+    """A baixa desfeita no Connect (`POST /payments/{ref}/reversal`). Não entra no fluxo da tela
+    até o PO decidir a Q4 (cancelar baixa); existe para o teste do dev."""
+
+    payment_ref: str
+    interview_ids: list[int]
+    reversed_at: datetime
+
+
+@dataclass(frozen=True)
+class PaymentData:
+    """A chave Pix completa de uma pessoa (`POST /interviewers/payment-data`). Só em memória, para
+    montar a planilha de pagamento: nunca gravada, e fora do `repr` para não ir parar em log."""
+
+    interviewer_id: int
+    name: str
+    pix_type: str | None
+    pix_key: str | None = field(repr=False)
+    pix_key_updated_at: datetime | None
 
 
 class ConnectGateway(Protocol):
