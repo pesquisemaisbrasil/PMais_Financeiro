@@ -185,6 +185,8 @@ export interface PayableItem {
   surveyDate: string | null;
   // dia do Pix que pagou esta pessoa (baixa por comprovante)
   paidOn: string | null;
+  /** A chave Pix já mascarada ("419***78"), só nos incentivos; a completa nunca chega à tela. */
+  pixMasked?: string | null;
 }
 
 export interface Payment {
@@ -807,6 +809,37 @@ export function itemPaymentLabel(
     .map((payment) => payment.paidOn)
     .sort();
   return days.length ? `Paga em ${formatDate(days[days.length - 1])}` : "Paga";
+}
+
+/** A coluna Nota de cada pessoa: "Sem nota" para incentivo e Sem NF; NF com o número; RPA como está. */
+export function noteLabel(item: Pick<PayableItem, "documentType" | "invoiceNumber">): string {
+  if (item.documentType === "Incentivo" || item.documentType === "Sem NF") return "Sem nota";
+  if (item.documentType === "NF") return item.invoiceNumber ? `NF ${item.invoiceNumber}` : "NF";
+  return item.documentType;
+}
+
+/** De onde veio o lançamento e o que vale para as pessoas dele, como o protótipo diz embaixo do resumo. */
+export function originNotes(origin: string): string[] {
+  if (origin === "incentivo") {
+    return [
+      "Veio da planilha de incentivos.",
+      "Incentivo não tem nota fiscal.",
+      "Chave Pix mascarada: a completa não é guardada.",
+    ];
+  }
+  if (origin === "folha") return ["Veio da planilha da folha de campo."];
+  if (origin === "connect") return ["Veio do Connect."];
+  return [];
+}
+
+/** A pessoa já foi paga? Pelo dia do comprovante dela, ou porque o lançamento inteiro foi pago. */
+export function itemIsPaid(
+  payable: Pick<PayableDetail, "situation" | "paid" | "pending">,
+  item?: Pick<PayableItem, "paidOn">
+): boolean {
+  if (payable.situation === "cancelado") return false;
+  if (item?.paidOn) return true;
+  return toCents(payable.paid) > 0 && toCents(payable.pending) <= 0;
 }
 
 /** Quanto o INSS descontou do bruto do RPA, em reais. */

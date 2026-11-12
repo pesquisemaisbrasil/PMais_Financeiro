@@ -34,7 +34,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: "menu-relatorios",
     title: "Relatórios",
-    text: "O Relatório do projeto mostra quanto cada projeto lançou, pagou e falta pagar, com os documentos de todos os lançamentos. Os outros relatórios estão chegando.",
+    text: "O Relatório do projeto mostra quanto cada projeto lançou, pagou e falta pagar, com os documentos de todos os lançamentos. Incentivos traz cada data de pagamento dos incentivos, com as pessoas, e é onde se importa a planilha deles. Os outros relatórios estão chegando.",
   },
   {
     target: "menu-cadastros",

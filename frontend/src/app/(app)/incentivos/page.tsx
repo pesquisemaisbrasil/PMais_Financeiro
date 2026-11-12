@@ -3,6 +3,7 @@
 import {
   ArrowUpRight,
   CalendarClock,
+  ChevronDown,
   CalendarDays,
   CircleCheck,
   FileUp,
@@ -14,15 +15,25 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, SituationTag, TD, TH } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
+import { ItemsPanel } from "@/components/ItemsPanel";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ApiError, getReference } from "@/lib/api";
+import { ApiError, getPayable, getReference } from "@/lib/api";
 import { getIncentiveAgenda, groupByDay, overdueNotice, peopleText, type Agenda, type Bucket } from "@/lib/incentives";
-import { brl, formatDate, monthRange, periodLabel, plural, type PeriodMode, type Reference } from "@/lib/payables";
+import {
+  brl,
+  formatDate,
+  monthRange,
+  periodLabel,
+  plural,
+  type PayableDetail,
+  type PeriodMode,
+  type Reference,
+} from "@/lib/payables";
 import { weekday } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 import { ImportDialog } from "../contas-a-pagar/import-dialog";
@@ -70,6 +81,29 @@ export default function IncentiveAgendaPage() {
   const [error, setError] = useState<string | null>(null);
   const [reference, setReference] = useState<Reference | null>(null);
   const [importing, setImporting] = useState(false);
+  // As pessoas de cada lançamento aberto, buscadas quando a pessoa clica na seta
+  const [opened, setOpened] = useState<Record<number, PayableDetail>>({});
+  const [loadingRow, setLoadingRow] = useState<number | null>(null);
+
+  async function togglePeople(id: number) {
+    if (opened[id]) {
+      setOpened((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    setLoadingRow(id);
+    try {
+      const detail = await getPayable(id);
+      setOpened((current) => ({ ...current, [id]: detail }));
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível abrir as pessoas deste lançamento");
+    } finally {
+      setLoadingRow(null);
+    }
+  }
 
   useEffect(() => {
     // Os cadastros que a planilha usa (projeto, empresa, categoria...). Sem eles, só o botão fica desligado.
@@ -248,9 +282,27 @@ export default function IncentiveAgendaPage() {
                     </span>
                   </TableCell>
                 </TableRow>,
-                ...day.rows.map((row) => (
+                ...day.rows.flatMap((row) => [
                   <TableRow key={row.id}>
-                    <TableCell className={cn(TD, "whitespace-normal pl-8")}>{row.description}</TableCell>
+                    <TableCell className={cn(TD, "whitespace-normal pl-3")}>
+                      <span className="flex items-center gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={opened[row.id] ? "Esconder as pessoas" : "Mostrar as pessoas"}
+                          aria-expanded={Boolean(opened[row.id])}
+                          disabled={loadingRow === row.id}
+                          onClick={() => void togglePeople(row.id)}
+                        >
+                          {loadingRow === row.id ? (
+                            <Spinner aria-label="Carregando as pessoas" className="size-4" />
+                          ) : (
+                            <ChevronDown size={16} className={cn("transition-transform", opened[row.id] && "rotate-180")} />
+                          )}
+                        </Button>
+                        {row.description}
+                      </span>
+                    </TableCell>
                     <TableCell className={cn(TD, "whitespace-nowrap")}>
                       {row.projectCodes.map((code) => `PRJ-${code}`).join(", ") || "—"}
                     </TableCell>
@@ -268,8 +320,15 @@ export default function IncentiveAgendaPage() {
                         </Link>
                       </Button>
                     </TableCell>
-                  </TableRow>
-                )),
+                  </TableRow>,
+                  opened[row.id] && (
+                    <TableRow key={`${row.id}-pessoas`} className="hover:bg-transparent">
+                      <TableCell colSpan={7} className="bg-brand-azul-deep/[0.03] px-6 py-4 whitespace-normal">
+                        <ItemsPanel payable={opened[row.id]} />
+                      </TableCell>
+                    </TableRow>
+                  ),
+                ]),
               ])}
             </TableBody>
           </Table>

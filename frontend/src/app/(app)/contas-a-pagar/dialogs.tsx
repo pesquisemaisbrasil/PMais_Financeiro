@@ -1,24 +1,21 @@
 "use client";
 
-import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Search, Tags, Undo2, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Tags, Undo2, Wallet } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { BusinessDayNotice } from "@/components/BusinessDayNotice";
+import { ItemsPanel } from "@/components/ItemsPanel";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import {
   ErrorBox,
   Field,
   FormError,
-  NUM,
   OriginTag,
   ProvisionTag,
   RedStars,
   SituationTag,
   TAB_BUTTON,
   TAB_BUTTON_DANGER,
-  TD,
-  TH,
-  Tag,
 } from "@/components/finance";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -35,7 +32,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { AmountSummary } from "@/components/AmountSummary";
@@ -78,8 +74,6 @@ import {
   brl,
   expenseCategories,
   formatDate,
-  inssAmount,
-  itemPaymentLabel,
   occurrenceEdits,
   buildAllocations,
   parseMoney,
@@ -1085,81 +1079,6 @@ export function ColumnsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** Pessoas do lançamento agrupado, abertas na própria linha da lista (kickoff de 03/11, K3). */
-export function ItemsPanel({ payable }: { payable: PayableDetail }) {
-  const [term, setTerm] = useState("");
-  const items = useMemo(() => {
-    const clean = term.trim().toLowerCase();
-    return clean ? payable.items.filter((item) => item.name.toLowerCase().includes(clean)) : payable.items;
-  }, [payable.items, term]);
-  // Só incentivo tem data da pesquisa: nas outras folhas a coluna ficaria vazia.
-  const withSurvey = payable.items.some((item) => item.surveyDate);
-  return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <strong className="text-[13px]">
-          {plural(payable.items.length, "pessoa", "pessoas")} · {brl(payable.amount)}
-        </strong>
-        <div className="relative w-full max-w-[260px]">
-          <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
-          <Input
-            className="h-8 bg-card pl-8 text-[13px]"
-            aria-label="Buscar pessoa"
-            placeholder="Buscar pessoa…"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-          />
-        </div>
-      </div>
-      {items.length ? (
-        <div className="rounded-xl border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className={TH}>Pessoa</TableHead>
-                {withSurvey && <TableHead className={TH}>Data da pesquisa</TableHead>}
-                <TableHead className={TH}>Documento</TableHead>
-                <TableHead className={TH}>Pagamento</TableHead>
-                <TableHead className={cn(TH, NUM)}>Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className={cn(TD, "font-semibold text-brand-cinza-escuro")}>{item.name}</TableCell>
-                  {withSurvey && <TableCell className={TD}>{formatDate(item.surveyDate)}</TableCell>}
-                  <TableCell className={TD}>
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      {item.documentType}
-                      {item.invoiceNumber && ` ${item.invoiceNumber}`}
-                      {item.invoiceStatus === "Pendente" && <Tag color="ambar">NF pendente</Tag>}
-                      {item.invoiceStatus === "Recebida" && <Tag color="verde">NF recebida</Tag>}
-                    </span>
-                    {item.invoiceDate && (
-                      <span className="block text-xs text-muted-foreground">emitida em {formatDate(item.invoiceDate)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className={cn(TD, "text-muted-foreground")}>{itemPaymentLabel(payable, item)}</TableCell>
-                  <TableCell className={cn(TD, NUM, "font-bold")}>
-                    {brl(item.amount)}
-                    {item.grossAmount && (
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        bruto {brl(item.grossAmount)} · INSS −{brl(inssAmount(item.grossAmount, item.amount))}
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <p className="py-3 text-center text-sm text-muted-foreground">Ninguém com esse nome.</p>
-      )}
-    </div>
   );
 }
 

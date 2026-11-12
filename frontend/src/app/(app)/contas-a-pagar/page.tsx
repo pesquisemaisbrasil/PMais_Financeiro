@@ -39,6 +39,7 @@ import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState }
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
+import { ItemsPanel } from "@/components/ItemsPanel";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { PrintButton } from "@/components/PrintButton";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
@@ -95,7 +96,6 @@ import {
   ConfirmDeleteDialog,
   DetailDialog,
   DuplicateDialog,
-  ItemsPanel,
   NewPayableDialog,
   PAYABLE_SERIES_API,
   PAYABLE_SERIES_TEXTS,

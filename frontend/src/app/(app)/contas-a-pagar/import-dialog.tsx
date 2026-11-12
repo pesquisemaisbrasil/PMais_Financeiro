@@ -266,7 +266,7 @@ export function ImportDialog({
                 hint={
                   payroll
                     ? "Arquivo .xlsx ou .csv, com as colunas: nome, documento (NF, RPA, Incentivo ou Sem NF), valor, número da NF e emissão."
-                    : "Arquivo .xlsx ou .csv, com as colunas: nome, valor, data da pesquisa e, se já tiver, data de pagamento. Chave Pix e CPF não são lidos."
+                    : "Arquivo .xlsx ou .csv, com as colunas: nome, valor, data da pesquisa e, se já tiver, data de pagamento e chave Pix. A chave Pix fica só mascarada; o CPF não é lido."
                 }
               >
                 <FilePicker
