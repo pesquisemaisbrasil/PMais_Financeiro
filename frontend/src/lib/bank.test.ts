@@ -4,10 +4,14 @@ import {
   accountTypeLabel,
   balanceText,
   bankLine,
+  checkReconcile,
   checkStatement,
   importLabel,
   importedText,
+  needsInvoice,
   parseBalance,
+  reasonsText,
+  situationOf,
   type StatementPreview,
   type StatementResult,
 } from "./bank";
@@ -84,6 +88,33 @@ describe("extrato bancário", () => {
     expect(bankLine({ bankName: null, agency: null, accountNumber: null, accountType: null })).toBe(
       "banco não informado · Conta corrente"
     );
+  });
+
+  it("a situação da linha: pendente sem conciliação, conciliada com lançamento, exceção com motivo", () => {
+    const base = { classification: null, classificationLabel: null, label: "x", targetKind: null, targetId: null, nfNumber: null, nfIssuedOn: null, by: null, at: "2026-11-12T10:00:00Z" };
+    expect(situationOf({ reconciliation: null })).toBe("pendente");
+    expect(situationOf({ reconciliation: { ...base, kind: "lancamento" } })).toBe("conciliada");
+    expect(situationOf({ reconciliation: { ...base, kind: "excecao" } })).toBe("excecao");
+  });
+
+  it("explica por que o lançamento foi sugerido", () => {
+    expect(reasonsText({ reasons: ["valor igual", "mesmo dia", "nome na descrição"] })).toBe(
+      "valor igual · mesmo dia · nome na descrição"
+    );
+  });
+
+  it("só a classificação com NF pede o número e a emissão da nota", () => {
+    expect(needsInvoice("nf")).toBe(true);
+    expect(needsInvoice("rpa")).toBe(false);
+    expect(checkReconcile({ classification: "", nfNumber: "", nfIssuedOn: "" })).toBe("Escolha a classificação da linha.");
+    expect(checkReconcile({ classification: "nf", nfNumber: "5521", nfIssuedOn: "" })).toBe(
+      "Pagamento com NF pede o número e a data de emissão da nota."
+    );
+    expect(checkReconcile({ classification: "nf", nfNumber: "  ", nfIssuedOn: "2026-11-02" })).toBe(
+      "Pagamento com NF pede o número e a data de emissão da nota."
+    );
+    expect(checkReconcile({ classification: "nf", nfNumber: "5521", nfIssuedOn: "2026-11-02" })).toBeNull();
+    expect(checkReconcile({ classification: "incentivo", nfNumber: "", nfIssuedOn: "" })).toBeNull();
   });
 
   it("o tipo da conta tem nome em português, e o desconhecido é conta corrente", () => {

@@ -1,23 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./fixtures";
+import { ofx } from "./ofx";
 
 const NAME = "MARIA EXEMPLO DA SILVA"; // fictício: o nome de quem pagou, que vai na descrição do Pix
-
-/** Um OFX no estilo SGML dos bancos: datas de 2030, longe das que os outros testes usam. */
-function ofx(...lines: [string, string, string, string][]): Buffer {
-  const body = lines
-    .map(
-      ([day, amount, id, memo]) =>
-        `<STMTTRN>\n<TRNTYPE>OTHER\n<DTPOSTED>${day}120000[-3:BRT]\n<TRNAMT>${amount}\n<FITID>${id}\n<MEMO>${memo}\n</STMTTRN>\n`
-    )
-    .join("");
-  return Buffer.from(
-    "OFXHEADER:100\nDATA:OFXSGML\nVERSION:102\nCHARSET:1252\n\n" +
-      "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKACCTFROM><BANKID>341\n<ACCTID>98765-4\n</BANKACCTFROM>" +
-      `<BANKTRANLIST>\n${body}</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>\n`,
-    "latin1"
-  );
-}
 
 const FIRST = ofx(
   ["20300305", "-200.00", "X1", `PIX ENVIADO ${NAME}`],

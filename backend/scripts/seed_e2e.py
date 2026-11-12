@@ -41,17 +41,20 @@ from models.connect_payable_item import ConnectPayableItem  # noqa: E402
 from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402
 from models.notification import Notification  # noqa: E402,F401
-from models.payable import PayableItem  # noqa: E402
+from models.payable import Payable, PayableItem, PayablePayment  # noqa: E402
 from models.project_ref import ProjectRef  # noqa: E402
 from models.receipt import PaymentRequest, ReceiptBatch  # noqa: E402,F401
 from models.receivable import Receivable, ReceivableAdjustment  # noqa: E402
 from models.reference import (  # noqa: E402
+    BankAccount,
     BusinessUnit,
     Company,
     CostCenter,
     Customer,
     ExpenseCategory,
+    PaymentMethod,
     Project,
+    Supplier,
 )
 from models.refresh_token import RefreshToken  # noqa: E402,F401
 from models.user import User  # noqa: E402
@@ -86,6 +89,7 @@ WITH_MFA = [
     "agenda@e2e.invalid",
     "diautil@e2e.invalid",
     "extrato@e2e.invalid",
+    "conciliacao@e2e.invalid",
 ]
 
 
@@ -117,6 +121,41 @@ def link_connect_people(db) -> None:  # type: ignore[no-untyped-def]
     marcos = db.query(PayableItem).filter(PayableItem.name.like("Marcos%")).one()
     sandra.amount, marcos.amount = Decimal("40.00"), Decimal("280.00")
     sandra.connect_interviewer_id = 87
+
+
+def seed_reconciliation(db) -> None:  # type: ignore[no-untyped-def]
+    """Uma conta já paga (R$ 450,00, em 02/04/2030) no Itaú · PPlus, para o teste de conciliação do
+    extrato achar a sugestão. Em 2030, para não mexer nos totais dos outros testes."""
+    user = db.query(User).filter(User.email == "conciliacao@e2e.invalid").one()
+    company = db.query(Company).filter_by(name="PPlus").one()
+    pix = db.query(PaymentMethod).filter_by(name="Pix").one()
+    payable = Payable(
+        company_id=company.id,
+        unit_id=db.query(BusinessUnit).filter_by(company_id=company.id, name="Consumo SP").one().id,
+        cost_center_id=db.query(CostCenter).filter_by(name="Administrativo").one().id,
+        category_id=db.query(ExpenseCategory).filter_by(code="2.04").one().id,
+        payment_method_id=pix.id,
+        supplier_id=db.query(Supplier).filter_by(nickname="Ponto Certo").one().id,
+        description="Conciliação E2E · material gráfico",
+        issueDate=date(2030, 4, 1),
+        dueDate=date(2030, 4, 2),
+        competence="2030-04",
+        amount=Decimal("450.00"),
+        created_by_user_id=user.id,
+    )
+    db.add(payable)
+    db.flush()
+    db.add(
+        PayablePayment(
+            payable_id=payable.id,
+            paidOn=date(2030, 4, 2),
+            amount=Decimal("450.00"),
+            bank_account_id=db.query(BankAccount).filter_by(name="Itaú · PPlus").one().id,
+            payment_method_id=pix.id,
+            note="Baixa do teste de conciliação",
+            created_by_user_id=user.id,
+        )
+    )
 
 
 def seed_receivables(db) -> None:  # type: ignore[no-untyped-def]
@@ -185,6 +224,7 @@ def main() -> None:
         seed_receipts(db)
         link_connect_people(db)
         seed_receivables(db)
+        seed_reconciliation(db)
         db.commit()
     finally:
         db.close()
