@@ -144,6 +144,17 @@ Com o sistema rodando. Use só um extrato **fictício** (nome e valores inventad
 5. A lista mostra as linhas da mais nova para a mais antiga, com **De** e **Até** para filtrar (os totais de entradas e saídas acompanham), e **Extratos importados** diz quem importou o quê. A conta com extrato não se exclui, só se inativa.
 6. Ainda **não concilia**: ligar cada linha a uma conta a pagar, classificar e fechar o mês são as próximas etapas (PF-70 a PF-72). O layout real do CSV do Itaú e o prazo de guarda do extrato dependem da Q44.
 
+### Conferência bancária: conciliar o extrato (PF-70, fatia 1)
+
+Com o extrato importado (seção anterior) e pelo menos uma conta a pagar **com baixa** na mesma conta bancária e de valor igual a uma linha do extrato. Só dados fictícios.
+
+1. Em **Financeiro → Conferência bancária**, cada linha tem uma **Situação** (Pendente, Conciliada ou Exceção) e as abas **Todas**, **Pendentes**, **Conciliadas** e **Exceções** mostram as contagens e filtram a lista.
+2. **Conciliar** numa linha abre a conciliação: à esquerda a linha, à direita os **lançamentos sugeridos** (com baixa na mesma conta, valor igual e até 3 dias de diferença), cada um dizendo por que foi sugerido ("valor igual · 1 dia(s) de diferença · nome na descrição"). Escolha um, confira a **Classificação** e clique em **Conciliar**. **Pagamento com NF** pede o número e a emissão da nota. Lançamento com pessoas (incentivo, folha) pede a pessoa, e o valor da linha tem de ser o dela.
+3. Sem lançamento que sirva, a mesma janela diz o que fazer ("Dê a baixa no Contas a pagar ou marque a linha como exceção"). Na aba **Marcar exceção**, escreva o **motivo** (obrigatório) e, se quiser, a classificação: a linha vira **Exceção** e conta como conciliada.
+4. **Desfazer** (na linha conciliada ou na exceção) pede o **motivo**, devolve a linha a **Pendente** e fica no histórico, com quem desfez.
+5. As linhas de um lançamento nunca passam do valor dele, e uma pessoa só casa com uma linha: a tela mostra a mensagem do servidor ("As linhas somam R$ X, mas o lançamento é de R$ Y").
+6. **Ainda não faz:** dar a baixa a partir da linha, criar o lançamento (tarifa, rendimento) e tratar o Pix devolvido como volta. A Q45 pergunta à Vivi se isso muda a regra de só conciliar com lançamento que já tem baixa.
+
 ### Comprovantes e baixa (PF-56)
 
 Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Connect, ponha `CONNECT_MODE=simulated` no `backend/.env` (só fora de produção) e reinicie a API:
