@@ -31,7 +31,10 @@ import {
   shiftNote,
   formatCnpj,
   inssAmount,
+  itemIsPaid,
   itemPaymentLabel,
+  noteLabel,
+  originNotes,
   type PayableDetail,
   formatCompetence,
   formatDateTime,
@@ -385,6 +388,18 @@ describe("detalhes de cada pessoa", () => {
     expect(itemPaymentLabel({ ...base, paid: "40.00", pending: "60.00" })).toBe("Baixa parcial do lançamento");
   });
 
+  it("conta como paga a pessoa do comprovante e todas as de um lançamento pago, e nenhuma em aberto, parcial ou cancelada", () => {
+    const partial = { ...base, paid: "40.00", pending: "60.00" };
+    const done = { ...base, situation: "pago" as const, paid: "100.00", pending: "0" };
+    expect(itemIsPaid(base)).toBe(false);
+    expect(itemIsPaid(partial)).toBe(false);
+    expect(itemIsPaid(partial, { paidOn: "2026-02-03" })).toBe(true);
+    expect(itemIsPaid(done)).toBe(true);
+    expect(itemIsPaid(done, { paidOn: null })).toBe(true);
+    expect(itemIsPaid({ ...done, situation: "cancelado" as const })).toBe(false);
+    expect(itemIsPaid({ ...partial, situation: "cancelado" as const }, { paidOn: "2026-02-03" })).toBe(false);
+  });
+
   it("calcula o INSS pelo bruto e pelo líquido, sem erro de centavos", () => {
     expect(inssAmount("1000.00", "890.00")).toBe("110.00");
     expect(inssAmount("0.30", "0.27")).toBe("0.03");
@@ -513,5 +528,26 @@ describe("tabela simulada da repetição", () => {
 
   it("não vale sem simulação", () => {
     expect(simulationIsCurrent({ rows: null, simulatedFor: null }, "2026-12-10", "100.00")).toBe(false);
+  });
+});
+
+describe("o que o painel das pessoas diz de cada uma e de onde o lançamento veio", () => {
+  it("escreve Sem nota para incentivo e Sem NF, e o número da NF quando tem", () => {
+    expect(noteLabel({ documentType: "Incentivo", invoiceNumber: null })).toBe("Sem nota");
+    expect(noteLabel({ documentType: "Sem NF", invoiceNumber: null })).toBe("Sem nota");
+    expect(noteLabel({ documentType: "NF", invoiceNumber: "5521" })).toBe("NF 5521");
+    expect(noteLabel({ documentType: "NF", invoiceNumber: null })).toBe("NF");
+    expect(noteLabel({ documentType: "RPA", invoiceNumber: null })).toBe("RPA");
+  });
+
+  it("diz se veio da planilha ou do Connect, e as regras do incentivo", () => {
+    expect(originNotes("incentivo")).toEqual([
+      "Veio da planilha de incentivos.",
+      "Incentivo não tem nota fiscal.",
+      "Chave Pix mascarada: a completa não é guardada.",
+    ]);
+    expect(originNotes("folha")).toEqual(["Veio da planilha da folha de campo."]);
+    expect(originNotes("connect")).toEqual(["Veio do Connect."]);
+    expect(originNotes("manual")).toEqual([]);
   });
 });

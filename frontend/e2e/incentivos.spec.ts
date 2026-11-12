@@ -65,17 +65,19 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
 
   // ---- Incentivos: importar a planilha, com data de pagamento em dia não útil ----
   const menu = page.getByRole("navigation", { name: "Menu principal" });
-  await menu.getByRole("button", { name: "Financeiro" }).click();
+  await menu.getByRole("button", { name: "Relatórios" }).click();
   await menu.getByRole("link", { name: "Incentivos", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Incentivos", exact: true })).toBeVisible();
-  // Os incentivos ficam só no menu Financeiro: com o Relatórios aberto, não há outro link
-  await menu.getByRole("button", { name: "Relatórios" }).click();
+  // Os incentivos ficam só no menu Relatórios, abaixo do Relatório do projeto: com o Financeiro aberto, não há outro link
+  await menu.getByRole("button", { name: "Financeiro" }).click();
   await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(1);
+  const reports = await menu.getByRole("link", { name: /^(Relatório do projeto|Incentivos)$/ }).allTextContents();
+  expect(reports).toEqual(["Relatório do projeto", "Incentivos"]);
   const sheet = [
-    "Nome;Valor;Data de pagamento",
-    `Respondente A;100,00;${SATURDAY}`,
-    `Respondente B;100,00;${SUNDAY}`,
-    `Respondente C;100,00;13/03/2030`,
+    "Nome;Valor;Data de pagamento;Chave Pix",
+    `Respondente A;100,00;${SATURDAY};pessoa-a@exemplo.invalid`,
+    `Respondente B;100,00;${SUNDAY};pessoa-b@exemplo.invalid`,
+    `Respondente C;100,00;13/03/2030;pessoa-c@exemplo.invalid`,
   ].join("\r\n");
   await page.getByRole("button", { name: "Importar planilha" }).click();
   const importer = page.getByRole("dialog");
@@ -94,6 +96,8 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
     buffer: Buffer.from(sheet, "utf-8"),
   });
   await importer.getByRole("button", { name: "Ler planilha" }).click();
+  // A chave Pix da planilha nunca aparece inteira, nem na prévia
+  await expect(importer).not.toContainText("pessoa-a@exemplo.invalid");
 
   // A prévia avisa cada data que mudou e o motivo, antes de criar
   await expect(importer.getByText("3 pessoas com data de pagamento em fim de semana ou feriado")).toBeVisible();
@@ -123,6 +127,39 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   await page.getByRole("button", { name: /^A vencer/ }).click();
   await expect(monday).toBeVisible();
   await page.getByRole("button", { name: "Limpar filtro" }).click();
+
+  // O dropdown abre as pessoas a pagar do lançamento, com o resumo, as abas e o detalhe de cada uma
+  await mondayLaunch.getByRole("button", { name: "Mostrar as pessoas" }).click();
+  await expect(page.getByText("2 pessoas · R$ 200,00", { exact: true })).toBeVisible();
+  await expect(page.getByText("0 de 2 pagos · R$ 200,00 em aberto")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Todos 2" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Em aberto 2" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Pagos 0" })).toBeVisible();
+  const personA = page.getByRole("cell", { name: "Respondente A", exact: true });
+  const personB = page.getByRole("cell", { name: "Respondente B", exact: true });
+  await expect(personA).toBeVisible();
+  await expect(personB).toBeVisible();
+  await expect(page.getByRole("cell", { name: "A pagar", exact: true }).first()).toBeVisible();
+  // Buscar pela pessoa, e as abas: ninguém foi pago ainda
+  await page.getByLabel("Buscar pessoa").fill("Respondente B");
+  await expect(personA).toHaveCount(0);
+  await expect(personB).toBeVisible();
+  await page.getByLabel("Buscar pessoa").fill("");
+  await page.getByRole("tab", { name: "Pagos 0" }).click();
+  await expect(page.getByText("Ninguém nessa situação.")).toBeVisible();
+  await page.getByRole("tab", { name: "Em aberto 2" }).click();
+  await expect(personA).toBeVisible();
+  // Como no protótipo: de onde veio, a regra da nota, a chave Pix mascarada e a coluna Nota
+  await expect(page.getByText("Veio da planilha de incentivos.")).toBeVisible();
+  await expect(page.getByText("Incentivo não tem nota fiscal.")).toBeVisible();
+  await expect(page.getByText("Chave Pix mascarada: a completa não é guardada.")).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Chave Pix" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Nota" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "pes***@exemplo.invalid", exact: true })).toHaveCount(2);
+  await expect(page.getByRole("cell", { name: "Sem nota", exact: true })).toHaveCount(2);
+  await expect(page.getByText("pessoa-a@exemplo.invalid")).toHaveCount(0);
+  await mondayLaunch.getByRole("button", { name: "Esconder as pessoas" }).click();
+  await expect(personA).toHaveCount(0);
 
   // Abrir leva ao dia da conta no Contas a pagar, já com a lista das pessoas aberta
   await mondayLaunch.getByRole("link", { name: "Abrir" }).click();
