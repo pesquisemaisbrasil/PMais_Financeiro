@@ -150,10 +150,21 @@ Com o extrato importado (seção anterior) e pelo menos uma conta a pagar **com 
 
 1. Em **Financeiro → Conferência bancária**, cada linha tem uma **Situação** (Pendente, Conciliada ou Exceção) e as abas **Todas**, **Pendentes**, **Conciliadas** e **Exceções** mostram as contagens e filtram a lista.
 2. **Conciliar** numa linha abre a conciliação: à esquerda a linha, à direita os **lançamentos sugeridos** (com baixa na mesma conta, valor igual e até 3 dias de diferença), cada um dizendo por que foi sugerido ("valor igual · 1 dia(s) de diferença · nome na descrição"). Escolha um, confira a **Classificação** e clique em **Conciliar**. **Pagamento com NF** pede o número e a emissão da nota. Lançamento com pessoas (incentivo, folha) pede a pessoa, e o valor da linha tem de ser o dela.
-3. Sem lançamento que sirva, a mesma janela diz o que fazer ("Dê a baixa no Contas a pagar ou marque a linha como exceção"). Na aba **Marcar exceção**, escreva o **motivo** (obrigatório) e, se quiser, a classificação: a linha vira **Exceção** e conta como conciliada.
+3. Sem lançamento que sirva, a mesma janela diz o que fazer ("Dê a baixa no Contas a pagar ou marque a linha como exceção"). Na aba **Marcar exceção**, escreva o **motivo** e escolha a **classificação** (os dois obrigatórios): a linha vira **Exceção** e conta como conciliada.
 4. **Desfazer** (na linha conciliada ou na exceção) pede o **motivo**, devolve a linha a **Pendente** e fica no histórico, com quem desfez.
 5. As linhas de um lançamento nunca passam do valor dele, e uma pessoa só casa com uma linha: a tela mostra a mensagem do servidor ("As linhas somam R$ X, mas o lançamento é de R$ Y").
 6. **Ainda não faz:** dar a baixa a partir da linha, criar o lançamento (tarifa, rendimento) e tratar o Pix devolvido como volta. A Q45 pergunta à Vivi se isso muda a regra de só conciliar com lançamento que já tem baixa.
+
+### Conferência bancária: extrato × sistema, saldo do mês e fechamento (PF-71 e PF-72)
+
+Em **Financeiro → Conferência bancária**, as abas **Extrato × sistema**, **Saldo do mês** e **Fechamento** têm o seletor de mês (anterior e próximo). Com um extrato importado e algumas linhas conciliadas (seções anteriores). Só dados fictícios.
+
+1. **Extrato × sistema:** escolha a conta e o mês. Os três números no alto são as **saídas do extrato**, as **baixas no sistema** e a **diferença** (verde se bate). A tabela **Por dia** destaca os dias com diferença, e **O que explica a diferença** lista as **saídas do extrato sem par** (cada uma diz se está pendente ou é exceção), as **baixas sem linha no extrato** e as **voltas** (Pix devolvido). Um Pix devolvido em um mês e pago de novo no seguinte aparece como volta no primeiro, e o segundo mês bate.
+2. **Saldo do mês:** uma linha por conta e o **Consolidado**: saldo inicial, entradas, saídas, saldo final pelo extrato, saldo pelo sistema (só as linhas já conferidas) e o que falta **conferir**. O saldo inicial é o cadastrado na conta (com a data dele), e cada mês começa onde o anterior terminou.
+3. **Fechamento:** um cartão por empresa. Ele diz o que falta (extrato não importado, linhas sem conferir, linhas sem classificação), e **Fechar {mês}** só liga quando tudo está resolvido. **Planilha da contabilidade** baixa o Excel do mês a qualquer hora (uma linha por transação, com classificação, NF, lançamento e situação).
+4. Depois de **Fechar**, ninguém dá baixa, estorna, recebe nem lança com data daquele mês: a tela mostra "O período de {mês} está fechado. Só um administrador pode reabrir". Desfazer a conciliação de uma linha do mês também é recusado.
+5. **Reabrir (administrador)** pede o motivo. Quem não é administrador não vê o botão, e a API recusa (403). **Meses fechados** lista o que está fechado.
+6. A **exceção** agora exige a classificação, porque sem ela o mês não fecha. O que a trava ainda **não** cobre (editar ou cancelar lançamento existente, anexar documento) está na Q46.
 
 ### Comprovantes e baixa (PF-56)
 
