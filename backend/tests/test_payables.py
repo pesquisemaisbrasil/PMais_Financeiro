@@ -1869,8 +1869,13 @@ def test_a_pay_date_on_a_business_day_is_kept_and_nothing_is_flagged(
     assert [(g["payDate"], g["shifts"]) for g in preview["groups"]] == [("2026-11-09", [])]
 
 
-def test_personal_data_outside_the_columns_is_never_kept(
-    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+def test_the_cpf_and_the_complete_pix_key_are_never_kept(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     content = _incentives(("2026-10-30", 2))
     preview = _send(client, auth, "/payables/import/preview", _import_fields(world), content)
@@ -1881,6 +1886,76 @@ def test_personal_data_outside_the_columns_is_never_kept(
     detail = client.get(f"/payables/{listed['id']}", headers=auth)
     assert FAKE_CPF not in detail.text
     assert FAKE_PIX not in detail.text
+    # nem no banco, em nenhuma coluna da pessoa, nem no log
+    for item in db_session.query(PayableItem).all():
+        stored = " ".join(
+            str(getattr(item, column.key)) for column in PayableItem.__table__.columns
+        )
+        assert FAKE_CPF not in stored and FAKE_PIX not in stored
+    assert FAKE_CPF not in caplog.text and FAKE_PIX not in caplog.text
+
+
+def test_the_pix_key_of_an_incentive_is_kept_masked_like_the_connect_shows_it(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    _send(client, auth, "/payables/import", _import_fields(world), _incentives(("2026-10-30", 2)))
+    listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
+    items = client.get(f"/payables/{listed['id']}", headers=auth).json()["items"]
+    assert [item["pixMasked"] for item in items] == ["pes***@exemplo.invalid"] * 2
+
+
+def test_each_kind_of_pix_key_is_masked_the_same_way_as_in_the_receipts(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Valor", "Data de pagamento", "Chave Pix"],
+            ["CPF com pontos", 10, "2026-11-16", "529.982.247-25"],
+            ["CPF como número", 10, "2026-11-16", 52998224725.0],
+            ["Telefone", 10, "2026-11-16", "(11) 91234-5678"],
+            ["E-mail", 10, "2026-11-16", " Maria@Exemplo.COM "],
+            ["Curta", 10, "2026-11-16", "12ab"],
+            ["Sem chave", 10, "2026-11-16", None],
+        ]
+    )
+    assert (
+        _send(client, auth, "/payables/import", _import_fields(world), content).status_code == 201
+    )
+    listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
+    items = client.get(f"/payables/{listed['id']}", headers=auth).json()["items"]
+    assert {item["name"]: item["pixMasked"] for item in items} == {
+        "CPF com pontos": "529***25",
+        "CPF como número": "529***25",
+        "Telefone": "+55***78",
+        "E-mail": "mar***@exemplo.com",
+        "Curta": "***",
+        "Sem chave": None,
+    }
+
+
+def test_a_sheet_without_the_pix_column_leaves_the_masked_key_empty(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+) -> None:
+    content = _xlsx([["Nome", "Valor", "Data de pagamento"], ["Sem coluna", 10, "2026-11-16"]])
+    _send(client, auth, "/payables/import", _import_fields(world), content)
+    listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
+    items = client.get(f"/payables/{listed['id']}", headers=auth).json()["items"]
+    assert [item["pixMasked"] for item in items] == [None]
+
+
+def test_the_payroll_sheet_still_does_not_read_the_pix_key(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    content = _xlsx(
+        [
+            ["Nome", "Documento", "Valor", "Chave Pix"],
+            ["Ana Ribeiro", "NF", 600, FAKE_PIX],
+        ]
+    )
+    fields = _import_fields(world, kind="folha", description="Equipe", dueDate="2026-11-20")
+    assert _send(client, auth, "/payables/import", fields, content).status_code == 201
+    (item,) = db_session.query(PayableItem).all()
+    assert item.pix_masked is None
 
 
 def test_bad_lines_stay_out_and_say_why(
