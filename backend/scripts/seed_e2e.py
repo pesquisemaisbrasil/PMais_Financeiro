@@ -32,6 +32,10 @@ sys.path.append(str(BACKEND_DIR))
 from core.crypto import encrypt_payload  # noqa: E402
 from core.security import hash_password, hash_token  # noqa: E402
 from db.connection import Base, SessionLocal, engine  # noqa: E402
+from models.bank_reconciliation import (  # noqa: E402,F401
+    BankReconciliation,
+    BankReconciliationEvent,
+)
 from models.bank_statement import BankStatement, BankTransaction  # noqa: E402,F401
 from models.connect_payable_item import ConnectPayableItem  # noqa: E402
 from models.login_event import LoginEvent  # noqa: E402,F401
