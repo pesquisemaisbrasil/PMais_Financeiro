@@ -13,7 +13,7 @@ Fontes no repositório do Connect: `backend/core/{security,crypto,pix,permission
 | Item | Connect hoje | Onde |
 |---|---|---|
 | Login | `POST /token` (form `username` + `password`, formato OAuth2 password do FastAPI). `username` é o **CPF**; a busca é pelo HMAC do CPF, nunca em claro | `api/auth.py`, `services/auth.py: authenticate_user` |
-| Senha | **bcrypt** via `passlib` (`deprecated="auto"` permite trocar de algoritmo depois). 8 a 72 caracteres, maiúscula, minúscula, número, especial, fora de lista de senhas comuns | `core/security.py`, `schemas/user.py: validate_password_strength` |
+| Senha | **bcrypt** direto (`core/security.py`; senhas além de 72 bytes são cortadas e acima de 4096 bytes ou com byte nulo são recusadas, como antes com o `passlib`). 8 a 72 caracteres, maiúscula, minúscula, número, especial, fora de lista de senhas comuns | `core/security.py`, `schemas/user.py: validate_password_strength` |
 | Token de acesso | JWT **HS256** com **PyJWT**, assinado com `SECRET_KEY`. Claims: `sub` (id do usuário), `exp`. Validade `ACCESS_TOKEN_EXPIRE_MINUTES` = **15 min** | `services/auth.py: create_access_token` |
 | Refresh token | JWT com `sub`, `exp`, `type: "refresh"`, `jti` aleatório. **7 dias**. No banco fica **só o SHA-256** (`refresh_tokens.token_hash`) | `services/auth.py`, `models/refresh_token.py` |
 | Rotação | Cada `POST /token/refresh` revoga o refresh usado e emite um par novo | `rotate_refresh_token` |
@@ -73,7 +73,7 @@ if email_changed or pix_changed:
 | Item | Financeiro |
 |---|---|
 | Login | **E-mail** + senha (a equipe do Financeiro não precisa de CPF para entrar; não guardar CPF de usuário interno). Mensagem única "E-mail ou senha incorretos" **(proposta)** |
-| Senha | bcrypt com `passlib`, mesma regra de força do Connect (copiar `validate_password_strength`) |
+| Senha | bcrypt, mesma regra de força do Connect (copiar `validate_password_strength`) |
 | Tokens | Mesmo par: access 15 min + refresh rotativo com hash no banco. Somar ao que o Connect não tem **(proposta)**: claims `iss` e `aud` validados; `kid` para trocar `SECRET_KEY` sem derrubar todos; `family_id` no refresh para detectar reuso (token revogado reapareceu → revoga a família inteira) |
 | Onde o token fica | **Não** em `localStorage` (lacuna A1/R4 do Connect). Refresh em cookie `HttpOnly; Secure; SameSite=Strict; Path=/auth`; access só em memória **(proposta)** |
 | Papel | Lido do banco a cada requisição, como no Connect |
@@ -541,7 +541,7 @@ Provedor de hospedagem, ZapSign (contratos, no Connect), Zenvia (WhatsApp, no Co
 
 ## Checklist
 
-- [ ] Login por e-mail + senha com bcrypt (`passlib`) e a mesma regra de força de senha do Connect.
+- [ ] Login por e-mail + senha com bcrypt e a mesma regra de força de senha do Connect.
 - [ ] JWT PyJWT HS256 com `exp`, `iss`, `aud` e `kid` validados; access de 15 min; refresh rotativo com só o SHA-256 no banco e `family_id`.
 - [ ] Refresh token em cookie `HttpOnly; Secure; SameSite=Strict`; nenhum token em `localStorage`.
 - [ ] Conta inativa: login e refresh com 401 genérico; desativar revoga todos os refresh tokens.

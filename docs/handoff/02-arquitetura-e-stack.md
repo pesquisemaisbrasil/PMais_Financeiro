@@ -37,7 +37,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 | alembic | 1.16.5 | migrations |
 | PyJWT | 2.15.1 | JWT (HS256) |
 | cryptography | 50.0.0 | AES-256-GCM (`AESGCM`) |
-| passlib[bcrypt] / bcrypt | 1.7.4 / 4.0.1 | hash de senha |
+| bcrypt | 4.0.1 | hash de senha (direto, sem passlib: a biblioteca está sem manutenção e não funciona com o bcrypt 5) |
 | python-multipart | 0.0.31 | upload (`UploadFile`, `Form`) |
 | python-dotenv | 1.2.2 | `.env` |
 | slowapi | 0.1.10 | rate limit |
