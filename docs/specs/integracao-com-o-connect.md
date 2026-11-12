@@ -91,8 +91,11 @@ Quando o Financeiro recebe eventos:
 - Contrato: `contract/v1/*.json`
 - Testes: `backend/tests/test_connect_client.py`, `test_connect_events.py`, `test_connect_sync.py`, `test_contract_v1.py`
 - Lado do Connect: lista de tarefas em [handoff/07 §7](../handoff/07-integracao-com-o-connect.md)
+- Cliente HTTP real (já com baixa, consulta de baixa, chave completa, casamento de chave, feed e cancelamento): `backend/services/connect_http.py` e `connect_gateway.py`. Conferência contra o dev: `backend/services/connect_check.py` e `backend/scripts/connect_dev_check.py` ([como rodar](../operations/testar-com-o-connect-dev.md)).
 
 ## Ajustes
+
+- 2026-11-12: o cliente HTTP passa a cobrir as escritas do contrato. Toda escrita leva `Idempotency-Key` (na baixa, a própria `paymentRef`) e **não tem nova tentativa automática**: se a resposta se perde (tempo esgotado ou 500, 502 ou 504), o resultado é "não sei se aplicou" e o Financeiro consulta `GET /payments/{ref}` antes de repetir. Só leitura (e as consultas por POST, que não gravam) tenta de novo, em 429, 5xx e falha de rede, respeitando o `Retry-After`. Erro 4xx do Connect vira recusa com o `code` do contrato, e nada é marcado como pago no Financeiro.
 
 - 2026-10-21: NF fica no Connect e só o status chega aqui; o Financeiro passa a fornecer o consumo do orçamento ao Connect ([decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md)).
 

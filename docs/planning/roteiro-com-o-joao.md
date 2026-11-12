@@ -59,14 +59,24 @@ O time do Connect preenche **data** e **responsável** de cada uma. As que mais 
 
 ### 3.2 Perguntas para o teste com o projeto piloto (projeto 3 no Connect de produção)
 
-O Financeiro já lê projetos, itens a pagar e entrevistadores no formato do Connect, mas **ainda não achamos o endereço da API de integração** (o front do Connect responde 404 nas rotas). Perguntar ao João:
+O João mandou o guia do **Connect de dev** ([connect-dev-integracao-financeiro](../connect-dev-integracao-financeiro.md)), que responde parte do que perguntávamos. O Financeiro já tem o cliente das rotas e um roteiro de teste ([como rodar](../operations/testar-com-o-connect-dev.md)); **falta só a conta de serviço**.
 
-1. Qual é o **endereço base** da API de integração em produção (`CONNECT_BASE_URL`)? As rotas `/integrations/v1` já estão no ar?
-2. Existe **ambiente de teste** do Connect, ou o teste é direto no de produção, só leitura?
-3. Quem cria a **conta de serviço** (`CONNECT_CLIENT_ID` e `CONNECT_CLIENT_SECRET`), com que escopo mínimo, e por qual **canal seguro**? O segredo nunca vai por chat ou e-mail em texto, e fica só no `backend/.env`.
-4. Há **restrição de rede** (lista de IPs permitidos) para chamar a API a partir da máquina do Bruno?
-5. `GET /payables` funciona **sem o filtro `interviewerId`**? Hoje a lista de itens a pagar de um projeto depende disso.
-6. A API de projetos devolve **receita** (valor vendido) e **orçamento** do projeto? Isso responde a Q43 (abaixo) e a Q40.
+**Respondido pelo guia (12/11):**
+
+- Endereço: no dev, `https://api.dev.connect.pesquisemais.com.br` (ou `http://connect-dev-api:8000` na rede interna do dev). Em **produção** as rotas só existem na **rede interna**, e por fora dão 404 (era o 404 que víamos).
+- Ambiente de teste: existe (o dev, só com dado fictício).
+- Quem cria a conta: o João, com `create_service_client.py`, e o segredo aparece uma vez só.
+- `GET /payables` aceita `projectId` sozinho (`interviewerId` é só mais um filtro). O roteiro de teste confirma na primeira rodada real.
+- Orçamento do projeto: existe em `/projects/{id}/budget`. **Receita (valor vendido)** o guia não cita.
+
+Perguntar ao João:
+
+1. Crie a conta `financeiro-dev` com os escopos `projects:read, payables:read, interviewers:read, interviewers:pix:read, pix:match, payments:write, events:read`, e entregue o segredo ao Bruno por **canal seguro**. O segredo nunca vai por chat, e-mail ou print, e fica só no `backend/.env.connect`.
+2. Há **restrição de rede** (lista de IPs permitidos) para chamar o dev a partir da máquina do Bruno?
+3. Para **produção**: por qual caminho de rede o Financeiro chega à API interna, e quando?
+4. A API de projetos devolve a **receita** do projeto? Isso responde a Q43 (abaixo) e a Q40.
+5. A entrega 6 (`FINANCE_EXTERNAL_ENABLED`) está pronta no dev? O guia não fala dela.
+6. Para o webhook: o Connect de dev pode chamar o Financeiro de dev (`/integrations/v1/connect-events`), e quem guarda o `CONNECT_WEBHOOK_SECRET`? Hoje o Financeiro ainda não recebe o webhook, só lê o feed.
 
 ### 3.3 Decisões que o João toma (D3 a D8 da pauta)
 

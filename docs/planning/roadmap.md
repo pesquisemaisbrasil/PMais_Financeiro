@@ -166,6 +166,14 @@ Em **Financeiro → Conferência bancária**, as abas **Extrato × sistema**, **
 5. **Reabrir (administrador)** pede o motivo. Quem não é administrador não vê o botão, e a API recusa (403). **Meses fechados** lista o que está fechado.
 6. A **exceção** agora exige a classificação, porque sem ela o mês não fecha. O que a trava ainda **não** cobre (editar ou cancelar lançamento existente, anexar documento) está na Q46.
 
+### Integração com o Connect de dev (cliente e roteiro de teste)
+
+Não tem tela. É o cliente das rotas do Connect (baixa, consulta e cancelamento de baixa, chave completa, casamento de chave, feed de eventos) e o comando que o confere contra o **dev**. Detalhes em [testar-com-o-connect-dev](../operations/testar-com-o-connect-dev.md).
+
+1. Sem o Connect: `pytest tests/test_connect_http.py tests/test_connect_check.py tests/test_connect_dev_script.py` (em `backend/`) roda o cliente e o roteiro contra um Connect de mentira que segue o guia do João.
+2. Com o Connect de dev: o João cria a conta `financeiro-dev`; o segredo vai para `backend/.env.connect` (nunca para o chat ou o git); de `backend/`, `python scripts/connect_dev_check.py`. O comando recusa qualquer endereço que não seja o do dev, e cada passo sai como `OK`, `FALHOU` ou `PULADO`.
+3. O que o Financeiro ainda não faz: receber o webhook, ler orçamento e situação fiscal pelo Connect e usar essas chamadas nas telas.
+
 ### Comprovantes e baixa (PF-56)
 
 Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Connect, ponha `CONNECT_MODE=simulated` no `backend/.env` (só fora de produção) e reinicie a API:

@@ -23,7 +23,7 @@ Regras de trabalho, skills e revisores: [AGENTS.md](../AGENTS.md).
 | [transcricoes/](transcricoes/2026-10-21-processo-de-reconciliacao-e-lancamento.md) | Registro das reuniões que viraram requisito (resumo com minuto, sem dado pessoal); a mais recente é o [kickoff de 03/11](transcricoes/2026-11-03-kickoff-com-o-financeiro.md) |
 | [architecture/](architecture/README.md) | [ADRs](architecture/adr/README.md) e, conforme forem escritos, modelo de dados, segurança e LGPD |
 | [development/](development/README.md) | Padrões de código, testes e entrega; por enquanto aponta para o handoff |
-| [operations/](operations/README.md) | Runbooks; por enquanto aponta para o README da raiz |
+| [operations/](operations/README.md) | Runbooks; por enquanto aponta para o README da raiz. Inclui [testar com o Connect de dev](operations/testar-com-o-connect-dev.md), a partir do [guia do João](connect-dev-integracao-financeiro.md) |
 | [functional-map/](functional-map/README.md) | Jornadas e fluxos; por enquanto aponta para os specs |
 
 **Fora do repositório:** as entrevistas com a gestão operacional, o levantamento do SGE4B e a transcrição bruta das reuniões têm nomes, valores e comentários internos. Ficam com o PO e são citados nos specs como `[S1]`, `[S2]`, `[SGE4B]`, `[SWOT]` e `[Reunião dd/mm]` e `[Kickoff dd/mm]`.
