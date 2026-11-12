@@ -1,6 +1,7 @@
 /** Agenda dos incentivos: um vencimento por data de pagamento, com as pessoas e a situação. */
 
-import { request } from "./api";
+import { fetchBlob, request } from "./api";
+import { checkDocument } from "./documents";
 import type { PeriodMode, Situation } from "./payables";
 
 export interface AgendaRow {
@@ -73,6 +74,24 @@ export function groupByDay(rows: AgendaRow[], today: string): AgendaDay[] {
         late: date < today && pending > 0,
       };
     });
+}
+
+/** As pessoas do lançamento em Excel, com a chave Pix mascarada (a completa não é guardada). */
+export function exportPeople(id: number): Promise<Blob> {
+  return fetchBlob(`/payables/${id}/items/export`);
+}
+
+/** O nome do arquivo da planilha, o mesmo que o servidor sugere: incentivos-PRJ-1804-2026-11-16.xlsx. */
+export function peopleFileName(row: Pick<AgendaRow, "id" | "dueDate" | "projectCodes">): string {
+  return row.projectCodes.length === 1
+    ? `incentivos-PRJ-${row.projectCodes[0]}-${row.dueDate}.xlsx`
+    : `incentivos-${row.id}.xlsx`;
+}
+
+/** Texto de erro do comprovante, ou null se pode seguir. Aqui só PDF: foto e planilha vão pelo Contas a pagar. */
+export function receiptProblem(file: { name: string; size: number }): string | null {
+  if (!file.name.toLowerCase().endsWith(".pdf")) return `${file.name}: envie o comprovante em PDF`;
+  return checkDocument(file);
 }
 
 /** "3 pessoas", "1 pessoa". */

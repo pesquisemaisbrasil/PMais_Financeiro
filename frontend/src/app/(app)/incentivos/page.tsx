@@ -34,9 +34,9 @@ import {
   type PeriodMode,
   type Reference,
 } from "@/lib/payables";
-import { weekday } from "@/lib/holidays";
 import { cn } from "@/lib/utils";
 import { ImportDialog } from "../contas-a-pagar/import-dialog";
+import { IncentiveActions } from "./actions";
 
 type Group = "a_vencer" | "hoje" | "vencido" | "pago";
 
@@ -271,18 +271,8 @@ export default function IncentiveAgendaPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {days.flatMap((day) => [
-                <TableRow key={day.date} className="bg-brand-azul-deep/5 hover:bg-brand-azul-deep/5">
-                  <TableCell colSpan={7} className={cn(TD, "font-semibold text-brand-cinza-escuro")}>
-                    <span className={cn(day.late && "text-[#b91c1c]")}>
-                      {formatDate(day.date)} · {weekday(day.date)}
-                    </span>
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      {peopleText(day.people)} · {day.pending > 0 ? `${brl(day.pending)} a pagar` : "tudo pago"}
-                    </span>
-                  </TableCell>
-                </TableRow>,
-                ...day.rows.flatMap((row) => [
+              {days.flatMap((day) =>
+                day.rows.flatMap((row) => [
                   <TableRow key={row.id}>
                     <TableCell className={cn(TD, "whitespace-normal pl-3")}>
                       <span className="flex items-center gap-1.5">
@@ -300,6 +290,15 @@ export default function IncentiveAgendaPage() {
                             <ChevronDown size={16} className={cn("transition-transform", opened[row.id] && "rotate-180")} />
                           )}
                         </Button>
+                        {/* a data na frente do nome: com vários incentivos, cada linha diz o seu vencimento */}
+                        <span
+                          className={cn(
+                            "whitespace-nowrap font-medium tabular-nums",
+                            day.late ? "text-[#b91c1c]" : "text-brand-cinza-escuro"
+                          )}
+                        >
+                          {formatDate(row.dueDate)}
+                        </span>
                         {row.description}
                       </span>
                     </TableCell>
@@ -324,12 +323,17 @@ export default function IncentiveAgendaPage() {
                   opened[row.id] && (
                     <TableRow key={`${row.id}-pessoas`} className="hover:bg-transparent">
                       <TableCell colSpan={7} className="bg-brand-azul-deep/[0.03] px-6 py-4 whitespace-normal">
+                        <IncentiveActions
+                          row={row}
+                          payable={opened[row.id]}
+                          onChanged={(next) => setOpened((current) => ({ ...current, [row.id]: next }))}
+                        />
                         <ItemsPanel payable={opened[row.id]} />
                       </TableCell>
                     </TableRow>
                   ),
                 ]),
-              ])}
+              )}
             </TableBody>
           </Table>
         ) : (
