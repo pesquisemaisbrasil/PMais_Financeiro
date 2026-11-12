@@ -70,8 +70,8 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### D6. Chave Pix do respondente e CPF de fornecedor pessoa física (Q22, Q23)
 
-- **Hoje:** a planilha de incentivos só lê nome, valor e datas (a chave Pix não é lida nem guardada); fornecedor só com CNPJ.
-- **Proposta:** manter assim até o DPO responder.
+- **Hoje:** a planilha de incentivos lê nome, valor, datas e, desde 12/11/2026 (provisório, pedido do Bruno), a chave Pix **só mascarada** (a completa não é guardada); fornecedor só com CNPJ.
+- **Proposta:** manter assim até o DPO responder, sem guardar a chave completa.
 - **Destrava:** importar planilha já com a chave, e cadastrar fornecedor pessoa física.
 
 ### D7. Plano de contas completo e linhas do DRE (F3)
