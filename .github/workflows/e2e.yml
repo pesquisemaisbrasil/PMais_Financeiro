@@ -12,7 +12,7 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: frontend
@@ -51,6 +51,15 @@ jobs:
         env:
           E2E_PYTHON: python
         run: npm run e2e
+
+      # A versão de demonstração (backend no navegador, publicada em /teste no site do protótipo, no
+      # Netlify): gera o app estático com o Pyodide e os pacotes de Python, e confere pelas telas.
+      # Um erro de exportação estática (ex.: cookies() ou uma rota dinâmica) falha aqui, não no deploy.
+      - name: Gerar a demonstração
+        run: node scripts/build-demo.mjs
+
+      - name: Testes de tela da demonstração
+        run: npx playwright test -c playwright.demo.config.ts
 
       - name: Relatório do Playwright
         if: failure()
