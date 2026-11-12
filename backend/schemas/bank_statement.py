@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from schemas.bank_reconciliation import ReconciliationOut
+
 
 class StatementSample(BaseModel):
     postedOn: date
@@ -55,6 +57,16 @@ class TransactionOut(BaseModel):
     description: str
     amount: Decimal
     statementId: int
+    # o que se fez com a linha; vazio = pendente
+    reconciliation: ReconciliationOut | None = None
+
+
+class TransactionCounts(BaseModel):
+    """Quantas linhas do período estão em cada situação (sem olhar o filtro de situação)."""
+
+    pending: int
+    reconciled: int
+    exceptions: int
 
 
 class TransactionList(BaseModel):
@@ -62,6 +74,7 @@ class TransactionList(BaseModel):
     total: int
     page: int
     pageSize: int
+    counts: TransactionCounts
     # o que o período filtrado soma, não só a página
     income: Decimal
     expense: Decimal

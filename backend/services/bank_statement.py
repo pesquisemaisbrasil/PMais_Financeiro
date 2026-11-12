@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from core.crypto import decrypt_payload, encrypt_payload
 from core.statement import ParsedStatement, StatementLine, parse_statement
+from models.bank_reconciliation import BankReconciliation
 from models.bank_statement import BankStatement, BankTransaction
 from models.reference import BankAccount, RecordEvent
 from models.user import User
@@ -224,16 +225,48 @@ def list_statements(db: Session, account_id: int) -> list[dict[str, Any]]:
     ]
 
 
+def _counts(query: Any) -> dict[str, int]:
+    """Quantas linhas do período estão pendentes, conciliadas e como exceção."""
+    reconciled, exceptions = (
+        query.join(BankReconciliation, BankReconciliation.bank_transaction_id == BankTransaction.id)
+        .with_entities(
+            func.coalesce(func.sum(case((BankReconciliation.kind == "lancamento", 1), else_=0)), 0),
+            func.coalesce(func.sum(case((BankReconciliation.kind == "excecao", 1), else_=0)), 0),
+        )
+        .one()
+    )
+    total = query.count()
+    return {
+        "pending": total - int(reconciled) - int(exceptions),
+        "reconciled": int(reconciled),
+        "exceptions": int(exceptions),
+    }
+
+
 def list_transactions(
-    db: Session, account_id: int, start: date | None, end: date | None, page: int
+    db: Session,
+    account_id: int,
+    start: date | None,
+    end: date | None,
+    page: int,
+    status: str | None = None,
 ) -> dict[str, Any]:
-    """As linhas do extrato, da mais nova para a mais antiga, com o que o período soma."""
+    """As linhas do extrato, da mais nova para a mais antiga, com o que o período soma. `status`
+    filtra por pendente, conciliada ou exceção; as contagens ignoram esse filtro."""
     _account(db, account_id)
     query = db.query(BankTransaction).filter(BankTransaction.bank_account_id == account_id)
     if start:
         query = query.filter(BankTransaction.postedOn >= start)
     if end:
         query = query.filter(BankTransaction.postedOn <= end)
+    counts = _counts(query)
+    on = BankReconciliation.bank_transaction_id == BankTransaction.id
+    if status == "pendente":
+        query = query.outerjoin(BankReconciliation, on).filter(BankReconciliation.id.is_(None))
+    elif status == "conciliada":
+        query = query.join(BankReconciliation, on).filter(BankReconciliation.kind == "lancamento")
+    elif status == "excecao":
+        query = query.join(BankReconciliation, on).filter(BankReconciliation.kind == "excecao")
     total, income, expense = query.with_entities(
         func.count(BankTransaction.id),
         func.coalesce(
@@ -265,6 +298,7 @@ def list_transactions(
         "total": total,
         "page": page,
         "pageSize": PAGE_SIZE,
+        "counts": counts,
         "income": _cents(income),
         "expense": _cents(expense),
     }

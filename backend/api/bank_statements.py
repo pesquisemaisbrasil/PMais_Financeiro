@@ -1,20 +1,26 @@
 from collections.abc import Callable
 from datetime import date
-from typing import Annotated, Any, TypeVar
+from typing import Annotated, Any, Literal, TypeVar
 
-from fastapi import APIRouter, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
 from core.statement import UNREADABLE, StatementError
+from schemas.bank_reconciliation import (
+    ExceptionIn,
+    ReconcileIn,
+    SuggestionOut,
+    UndoIn,
+)
 from schemas.bank_statement import (
     StatementOut,
     StatementPreview,
     StatementResult,
     TransactionList,
 )
-from services import bank_statement
+from services import bank_reconciliation, bank_statement
 from services.payable import PayableConflict, PayableInvalid
 from services.records import RecordNotFound
 
@@ -34,6 +40,12 @@ def _handle(db: DbSession, action: Callable[[], T]) -> T:
     except RecordNotFound as exc:
         db.rollback()
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta bancária não encontrada") from exc
+    except bank_reconciliation.TransactionNotFound as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Linha do extrato não encontrada") from exc
+    except bank_reconciliation.TargetNotFound as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Lançamento não encontrado") from exc
     except StatementError as exc:
         db.rollback()
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
@@ -120,5 +132,68 @@ def list_transactions(
     start: Annotated[date | None, Query(alias="from")] = None,
     end: Annotated[date | None, Query(alias="to")] = None,
     page: Annotated[int, Query(ge=1, le=100_000)] = 1,
+    situation: Annotated[Literal["pendente", "conciliada", "excecao"] | None, Query()] = None,
 ) -> dict[str, Any]:
-    return _handle(db, lambda: bank_statement.list_transactions(db, account_id, start, end, page))
+    def listing() -> dict[str, Any]:
+        result = bank_statement.list_transactions(db, account_id, start, end, page, situation)
+        bank_reconciliation.attach_reconciliations(db, result["items"])
+        return result
+
+    return _handle(db, listing)
+
+
+@router.get(
+    "/bank-transactions/{transaction_id}/suggestions",
+    response_model=list[SuggestionOut],
+    description="Lançamentos com baixa na mesma conta, de valor igual e até 3 dias da linha, do "
+    "mais ao menos provável. Não altera nada",
+)
+@limiter.limit(READ_LIMIT)
+def suggestions(
+    request: Request, transaction_id: int, db: DbSession, _: FinanceUser
+) -> list[dict[str, Any]]:
+    return _handle(db, lambda: bank_reconciliation.suggestions(db, transaction_id))
+
+
+@router.post(
+    "/bank-transactions/{transaction_id}/reconcile",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    description="Concilia a linha do extrato com um lançamento (e a pessoa dele, se tiver itens), "
+    "com a classificação. As linhas de um lançamento nunca passam do valor dele",
+)
+@limiter.limit(WRITE_LIMIT)
+def reconcile(
+    request: Request, transaction_id: int, body: ReconcileIn, db: DbSession, user: FinanceUser
+) -> Response:
+    _handle(db, lambda: bank_reconciliation.reconcile(db, transaction_id, body, user))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/bank-transactions/{transaction_id}/exception",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    description="Marca a linha do extrato como exceção, com o motivo (conta como conciliada)",
+)
+@limiter.limit(WRITE_LIMIT)
+def mark_exception(
+    request: Request, transaction_id: int, body: ExceptionIn, db: DbSession, user: FinanceUser
+) -> Response:
+    _handle(db, lambda: bank_reconciliation.mark_exception(db, transaction_id, body, user))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/bank-transactions/{transaction_id}/undo",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    description="Desfaz a conciliação ou a exceção da linha. Pede o motivo, e o histórico guarda "
+    "quem desfez",
+)
+@limiter.limit(WRITE_LIMIT)
+def undo_reconciliation(
+    request: Request, transaction_id: int, body: UndoIn, db: DbSession, user: FinanceUser
+) -> Response:
+    _handle(db, lambda: bank_reconciliation.undo(db, transaction_id, body.reason, user))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -10,6 +10,10 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core.config import MIGRATION_DATABASE_URL  # noqa: E402
 from db.connection import Base  # noqa: E402
+from models.bank_reconciliation import (  # noqa: E402,F401 (registers model on Base.metadata)
+    BankReconciliation,
+    BankReconciliationEvent,
+)
 from models.bank_statement import (  # noqa: E402,F401 (registers model on Base.metadata)
     BankStatement,
     BankTransaction,
