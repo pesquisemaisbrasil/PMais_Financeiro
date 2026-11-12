@@ -272,7 +272,7 @@ export function reconcileLine(transactionId: number, body: ReconcileBody): Promi
 
 export function markException(
   transactionId: number,
-  body: { reason: string; classification: string | null }
+  body: { reason: string; classification: string }
 ): Promise<void> {
   return postJsonNoContent(`/bank-transactions/${transactionId}/exception`, body);
 }

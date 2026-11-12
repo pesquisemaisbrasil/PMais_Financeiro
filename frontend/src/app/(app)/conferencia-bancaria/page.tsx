@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, listRecords } from "@/lib/api";
+import { currentMonth } from "@/lib/bank-month";
 import {
   PAGE_SIZE,
   SITUATION_LABELS,
@@ -29,8 +30,14 @@ import {
 } from "@/lib/bank";
 import { brl, formatDate, formatDateTime, plural, type RecordRow } from "@/lib/payables";
 import { cn } from "@/lib/utils";
+import { BalanceView } from "./balance-view";
+import { ClosingView } from "./closing-view";
+import { DifferenceView } from "./difference-view";
 import { ImportStatementDialog } from "./import-statement-dialog";
+import { MonthNav } from "./month-nav";
 import { ReconcileDialog } from "./reconcile-dialog";
+
+type View = "conciliacao" | "diferenca" | "saldo" | "fechamento";
 
 function Tile({ label, value, tone }: { label: string; value: string; tone?: "verde" | "vermelho" }) {
   return (
@@ -62,6 +69,8 @@ export default function BankReconciliationPage() {
   const [situation, setSituation] = useState<LineSituation | null>(null);
   const [reconciling, setReconciling] = useState<Transaction | null>(null);
   const [undoing, setUndoing] = useState<Transaction | null>(null);
+  const [view, setView] = useState<View>("conciliacao");
+  const [month, setMonth] = useState(currentMonth);
 
   useEffect(() => {
     listRecords("bankAccounts").then(
@@ -106,7 +115,7 @@ export default function BankReconciliationPage() {
       <PageHeader
         title="Conferência bancária"
         icon={Landmark}
-        subtitle="Importe o extrato do banco e veja as linhas de cada conta. A conciliação com as contas a pagar vem na próxima etapa."
+        subtitle="Importe o extrato do banco, confira cada linha com o sistema, veja a diferença e o saldo do mês e feche o mês para a contabilidade."
         actions={
           <Button onClick={() => setImporting(true)} disabled={!account}>
             <FileUp size={16} />
@@ -121,7 +130,25 @@ export default function BankReconciliationPage() {
         </div>
       )}
 
-      {accounts === null ? (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Tabs value={view} onValueChange={(next) => setView(next as View)}>
+          <TabsList>
+            <TabsTrigger value="conciliacao">
+              Conferência{data && data.counts.pending ? ` ${data.counts.pending}` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="diferenca">Extrato × sistema</TabsTrigger>
+            <TabsTrigger value="saldo">Saldo do mês</TabsTrigger>
+            <TabsTrigger value="fechamento">Fechamento</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {view !== "conciliacao" && <MonthNav month={month} onChange={setMonth} />}
+      </div>
+
+      {view === "saldo" && <BalanceView month={month} />}
+      {view === "fechamento" && <ClosingView month={month} />}
+
+      {(view === "conciliacao" || view === "diferenca") &&
+        (accounts === null ? (
         <div className="flex justify-center p-8">
           <Spinner aria-label="Carregando" className="size-6 text-brand-cinza-escuro/70" />
         </div>
@@ -162,6 +189,10 @@ export default function BankReconciliationPage() {
             {account && <p className="pb-2 text-xs text-muted-foreground">{bankLine(account)}</p>}
           </div>
 
+          {view === "diferenca" && accountId !== null ? (
+            <DifferenceView accountId={accountId} month={month} />
+          ) : (
+            <>
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Tile label="Linhas no período" value={data ? String(data.total) : "—"} />
             <Tile label="Entradas" value={data ? brl(data.income) : "—"} tone="verde" />
@@ -357,8 +388,10 @@ export default function BankReconciliationPage() {
               </div>
             </section>
           )}
+            </>
+          )}
         </>
-      )}
+      ))}
 
       {reconciling && (
         <ReconcileDialog

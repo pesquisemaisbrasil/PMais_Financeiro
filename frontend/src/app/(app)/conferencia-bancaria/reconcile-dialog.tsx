@@ -96,9 +96,10 @@ export function ReconcileDialog({
 
   async function except() {
     if (!reason.trim()) return setLocalError("Diga o motivo da exceção.");
+    if (!classification) return setLocalError("Escolha a classificação da linha.");
     setLocalError(null);
     await run(async () => {
-      await markException(line.id, { reason: reason.trim(), classification: classification || null });
+      await markException(line.id, { reason: reason.trim(), classification });
       onDone("Linha marcada como exceção.");
     });
   }
@@ -225,7 +226,7 @@ export function ReconcileDialog({
                 <Field label="Motivo *" id="ex-motivo">
                   <Input id="ex-motivo" value={reason} onChange={(event) => setReason(event.target.value)} />
                 </Field>
-                <Field label="Classificação" id="ex-class" hint="Opcional na exceção.">
+                <Field label="Classificação *" id="ex-class" hint="O que a contabilidade vai ler nesta linha.">
                   <SearchSelect id="ex-class" value={classification} onChange={setClassification} options={CLASSIFICATIONS} />
                 </Field>
               </div>
