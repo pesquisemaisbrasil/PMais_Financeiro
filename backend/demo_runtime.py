@@ -109,5 +109,9 @@ async def handle(
 ) -> tuple[int, list[tuple[str, str]], bytes]:
     """Um pedido da tela. Devolve o status, os cabeçalhos (um par por cabeçalho, inclusive
     vários Set-Cookie) e o corpo."""
-    response = await _state["client"].request(method, path, headers=headers, content=body)
+    # Do navegador chegam listas e um Uint8Array (JsProxy): vira pares e bytes.
+    if hasattr(body, "to_py"):
+        body = body.to_py()
+    pairs = [(str(name), str(value)) for name, value in headers]
+    response = await _state["client"].request(method, path, headers=pairs, content=bytes(body))
     return response.status_code, list(response.headers.multi_items()), response.content
