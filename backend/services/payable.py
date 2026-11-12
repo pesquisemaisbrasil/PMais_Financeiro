@@ -69,6 +69,13 @@ def today() -> date:
     return launch_date(datetime.now(UTC))
 
 
+def _period_open(db: Session, company_id: int, day: date) -> None:
+    """Recusa data de mês fechado. Import preguiçoso: `period_lock` importa este módulo."""
+    from services import period_lock
+
+    period_lock.ensure_open(db, company_id, day)
+
+
 # ---- Valores e situação: sempre calculados, nunca gravados ----
 
 
@@ -856,6 +863,7 @@ def new_payable(db: Session, data: PayableCreate, user: User) -> Payable:
         costCenterId=data.costCenterId,
         paymentMethodId=data.paymentMethodId,
     )
+    _period_open(db, data.companyId, data.issueDate)
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
     _check_allocations(db, data.allocations, data.amount)
@@ -1130,6 +1138,7 @@ def pay(db: Session, payable_id: int, data: PaymentCreate, user: User) -> Decima
     payable = _get(db, payable_id, lock=True)
     _check_payable(payable)
     _check_paid_on(data.paidOn, data.note)
+    _period_open(db, payable.company_id, data.paidOn)
     account = _bank_account(db, data.bankAccountId, payable.company_id)
     _active(db, PaymentMethod, data.paymentMethodId, "Forma de pagamento")
     pending = pending_amount(payable)
@@ -1173,6 +1182,7 @@ def pay_batch(db: Session, data: BatchPaymentCreate, user: User) -> Decimal:
     for payable_id in sorted(set(data.ids)):
         payable = _get(db, payable_id, lock=True)
         _check_payable(payable)
+        _period_open(db, payable.company_id, data.paidOn)
         account = _bank_account(db, data.bankAccountId, payable.company_id)
         pending = pending_amount(payable)
         if pending <= 0:
@@ -1211,6 +1221,9 @@ def reverse_payment(
     on = data.on if data.kind == "devolucao" and data.on else today()
     if on < original.paidOn or on > today():
         raise PayableInvalid("A data precisa estar entre a baixa e hoje")
+    # estornar ou devolver mexe no mês da baixa e no mês em que a volta é registrada
+    _period_open(db, payable.company_id, original.paidOn)
+    _period_open(db, payable.company_id, on)
     db.add(
         PayablePayment(
             payable_id=payable.id,

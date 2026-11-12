@@ -19,7 +19,7 @@ from models.project_ref import ProjectRef
 from models.receipt import PaymentReceipt, PaymentRequest, ReceiptAllocation, ReceiptBatch
 from models.reference import PaymentMethod
 from models.user import User
-from services import batches, connect_sync, payments
+from services import batches, connect_sync, payments, period_lock
 from services import payable as payable_service
 from services.connect_gateway import ConnectGateway
 
@@ -87,6 +87,7 @@ def _payable_payments(
             f"O valor passa do saldo pendente ({format_brl(pending)})"
         )
     for receipt in paid:
+        period_lock.ensure_open(db, payable.company_id, receipt.paidOn or payable_service.today())
         # o mesmo Pix não paga duas vezes: nem se alguém já deu baixa nele à mão
         if receipt.e2eId and payable_service._transaction_used(db, receipt.e2eId):
             raise payable_service.PayableConflict(

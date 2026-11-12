@@ -39,6 +39,7 @@ from models.reference import (
 from models.user import User
 from schemas.payable import ImportFields
 from services import payable as payable_service
+from services import period_lock
 from services.holidays import holiday_names
 from services.payable import PayableConflict, PayableInvalid, _active, today
 
@@ -731,6 +732,7 @@ def _create(
 ) -> Payable:
     project = refs["project"]
     total = sum((line.amount for line in lines if line.amount), Decimal("0"))
+    period_lock.ensure_open(db, refs["company"].id, today())
     payable = Payable(
         origin=origin,
         payeeName=payee,

@@ -32,6 +32,10 @@ from models.payable import (  # noqa: E402,F401 (registers model on Base.metadat
     PayableAttachment,
     PayableSeries,
 )
+from models.period_closing import (  # noqa: E402,F401 (registers model on Base.metadata)
+    PeriodClosing,
+    PeriodClosingEvent,
+)
 from models.project_ref import ProjectRef  # noqa: E402,F401 (registers model on Base.metadata)
 from models.receipt import (  # noqa: E402,F401 (registers model on Base.metadata)
     PaymentReceipt,

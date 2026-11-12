@@ -39,6 +39,7 @@ from models.reference import (
 from models.user import User
 from schemas.receivable import ReceiptCreate, ReceiptReverse, ReceivableCreate, ReceivableUpdate
 from services import adjustments as adj
+from services import period_lock
 from services.payable import (
     PayableConflict,
     PayableInvalid,
@@ -668,6 +669,7 @@ def new_receivable(db: Session, data: ReceivableCreate, user: User) -> Receivabl
     if category.kind != "receita":
         raise PayableInvalid("Contas a receber usam conta de receita")
     _active(db, Company, data.companyId, "Empresa")
+    period_lock.ensure_open(db, data.companyId, data.issueDate)
     _active(db, CostCenter, data.costCenterId, "Centro de custo")
     unit = _active(db, BusinessUnit, data.unitId, "Unidade")
     if unit.company_id != data.companyId:
@@ -786,6 +788,7 @@ def receive(db: Session, receivable_id: int, data: ReceiptCreate, user: User) ->
         )
     if data.receivedOn < on and not (data.note or "").strip():
         raise PayableInvalid("Recebimento com data no passado precisa de observação")
+    period_lock.ensure_open(db, receivable.company_id, data.receivedOn)
     account = _bank_account(db, data.bankAccountId, receivable.company_id)
     _active(db, PaymentMethod, data.paymentMethodId, "Forma de recebimento")
     pending = pending_amount(receivable)
@@ -830,6 +833,9 @@ def reverse(
     if original.id in reversed_ids(receivable):
         raise PayableConflict("Esse recebimento já foi estornado")
     on = today()
+    # estornar mexe no mês do recebimento e no mês em que o estorno é registrado
+    period_lock.ensure_open(db, receivable.company_id, original.receivedOn)
+    period_lock.ensure_open(db, receivable.company_id, on)
     db.add(
         ReceivablePayment(
             receivable_id=receivable.id,

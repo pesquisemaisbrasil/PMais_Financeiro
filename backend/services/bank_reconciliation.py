@@ -26,6 +26,7 @@ from models.receivable import Receivable, ReceivablePayment
 from models.reference import BankAccount
 from models.user import User
 from services import payable as payable_service
+from services import period_lock
 from services import receivable as receivable_service
 from services.payable import PayableConflict, PayableInvalid
 
@@ -276,6 +277,13 @@ def suggestions(db: Session, transaction_id: int) -> list[dict[str, Any]]:
     return found[:MAX_SUGGESTIONS]
 
 
+def _period_open(db: Session, tx: BankTransaction) -> None:
+    """Linha de um mês já fechado da empresa não se concilia nem se desfaz."""
+    account = db.get(BankAccount, tx.bank_account_id)
+    if account is not None:
+        period_lock.ensure_open(db, account.company_id, tx.postedOn)
+
+
 def _event(db: Session, tx: BankTransaction, user: User, text: str) -> None:
     db.add(BankReconciliationEvent(bank_transaction_id=tx.id, user_id=user.id, text=text[:500]))
 
@@ -291,6 +299,7 @@ def _classification(value: str | None) -> str | None:
 def reconcile(db: Session, transaction_id: int, data: Any, user: User) -> None:
     """Liga a linha ao lançamento (e à pessoa). Tudo ou nada: uma recusa não deixa nada gravado."""
     tx = _transaction(db, transaction_id, lock=True)
+    _period_open(db, tx)
     if db.query(BankReconciliation.id).filter_by(bank_transaction_id=tx.id).first():
         raise PayableConflict("Essa linha já foi conciliada")
     classification = _classification(data.classification)
@@ -409,12 +418,15 @@ def _link_receivable(
 def mark_exception(db: Session, transaction_id: int, data: Any, user: User) -> None:
     """Exceção aceita, com motivo: a linha conta como conciliada, mas sem ligar a lançamento."""
     tx = _transaction(db, transaction_id, lock=True)
+    _period_open(db, tx)
     if db.query(BankReconciliation.id).filter_by(bank_transaction_id=tx.id).first():
         raise PayableConflict("Essa linha já foi conciliada")
     reason = (data.reason or "").strip()
     if not reason:
         raise PayableInvalid("Informe o motivo da exceção")
     classification = _classification(data.classification)
+    if classification is None:
+        raise PayableInvalid("Escolha a classificação da linha")
     db.add(
         BankReconciliation(
             bank_transaction_id=tx.id,
@@ -431,6 +443,7 @@ def mark_exception(db: Session, transaction_id: int, data: Any, user: User) -> N
 def undo(db: Session, transaction_id: int, reason: str, user: User) -> None:
     """Desfaz a conciliação ou a exceção. Pede motivo, e o histórico guarda quem e por quê."""
     tx = _transaction(db, transaction_id, lock=True)
+    _period_open(db, tx)
     current = db.query(BankReconciliation).filter_by(bank_transaction_id=tx.id).first()
     if current is None:
         raise PayableConflict("Essa linha não está conciliada")

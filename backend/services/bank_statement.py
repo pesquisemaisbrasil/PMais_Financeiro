@@ -20,6 +20,7 @@ from models.bank_reconciliation import BankReconciliation
 from models.bank_statement import BankStatement, BankTransaction
 from models.reference import BankAccount, RecordEvent
 from models.user import User
+from services import period_lock
 from services.payable import PayableConflict
 from services.records import RecordNotFound
 
@@ -156,6 +157,9 @@ def confirm(
     }
     if not fresh:
         return result
+    # linha nova num mês já fechado da empresa ficaria pendente para sempre: o administrador reabre
+    for month in sorted({line.posted_on.strftime("%Y-%m") for line, _ in fresh}):
+        period_lock.ensure_open(db, account.company_id, date.fromisoformat(f"{month}-01"))
     statement = BankStatement(
         bank_account_id=account.id,
         filename=re.split(r"[\\/]", filename)[-1][:255] or "extrato",
