@@ -30,8 +30,10 @@ test("campos obrigatórios: o * é vermelho e a mensagem diz quais campos faltam
   // Sem preencher nada além do valor: a mensagem lista os campos que faltam, na ordem da tela
   await form.getByLabel("Valor principal (R$) *").fill("10,00");
   await form.getByRole("button", { name: "Lançar conta" }).click();
-  const alert = form.getByRole("alert");
-  await expect(alert).toContainText("Preencha os campos obrigatórios:");
+  // Pelo texto: o vencimento padrão (hoje + 7 dias) pode cair num feriado, e aí o aviso de dia não útil
+  // também é um alerta no diálogo.
+  const alert = form.getByRole("alert").filter({ hasText: "Preencha os campos obrigatórios:" });
+  await expect(alert).toBeVisible();
   for (const name of ["Fornecedor", "Categoria", "Empresa", "Unidade", "Centro de custo", "Forma de pagamento", "Descrição"]) {
     await expect(alert).toContainText(name);
   }
