@@ -82,6 +82,17 @@ test("Contas a pagar mostra o dia com baixas, vencimentos e provisão, e dar bai
   await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 4.370,00");
 });
 
+test("Contas a receber abre no dia com títulos que vencem hoje", async ({ page }) => {
+  await enter(page);
+  await go(page, "Financeiro", "Contas a receber");
+
+  await expect(page.getByRole("row", { name: /Pesquisa de varejo · entrega final/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Painel de consumo · 2ª parcela/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Satisfação · 3ª parcela/ })).toBeVisible();
+  // a Beta já pagou R$ 700 de um título que vence hoje: continua em aberto, com o que falta
+  await expect(page.getByRole("row", { name: /Tracking mensal · / })).toContainText("R$ 2.500,00");
+});
+
 test("a Conferência bancária mostra o extrato conciliado e os outros meses", async ({ page }) => {
   await enter(page);
   await go(page, "Financeiro", "Conferência bancária");
