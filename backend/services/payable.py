@@ -1297,6 +1297,8 @@ def _launch_real(db: Session, provision: Payable, data: ProvisionReplace, user: 
     if data.amount is None or data.supplierId is None:
         raise PayableInvalid("Informe o valor real e o fornecedor")
     _active(db, Supplier, data.supplierId, "Fornecedor")
+    # O real nasce com emissão de hoje: mês fechado da empresa não recebe lançamento novo.
+    _period_open(db, provision.company_id, today())
     # O real pode ter outro valor: cada projeto segue com a sua proporção, e o resto fica no último.
     allocations = []
     remaining = data.amount
@@ -1425,6 +1427,8 @@ def duplicate_batch(db: Session, ids: list[int], user: User) -> int:
             raise PayableConflict("Lançamento do Connect não é duplicado aqui")
         if any(a.project.status == "encerrado" for a in source.allocations):
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+        # A cópia nasce com emissão de hoje: mês fechado da empresa não recebe lançamento novo.
+        _period_open(db, source.company_id, today())
         due = _next_month(source.dueDate)
         copy = Payable(
             type=source.type,

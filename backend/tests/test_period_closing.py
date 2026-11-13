@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from models.period_closing import PeriodClosing, PeriodClosingEvent
 from models.user import User
 from services.auth import create_access_token
+from services.payable import today
 from tests.test_bank_reconciliation import lines, load, reconcile, revenue  # noqa: F401
 from tests.test_bank_reports import pay
 from tests.test_bank_statements import send
@@ -454,3 +455,46 @@ def test_the_closing_routes_need_a_finance_login(
         for header, expected in (({}, 401), (headers, 403)):
             kwargs: dict[str, Any] = {"json": payload} if payload else {}
             assert getattr(client, method)(path, headers=header, **kwargs).status_code == expected
+
+
+# ---- Lançamento novo nasce com emissão de hoje: mês fechado não recebe (achado da revisão) ----
+
+
+def _close_current_month(db: Session, world: dict[str, Any]) -> None:
+    closer = db.query(User).first()
+    assert closer is not None
+    db.add(
+        PeriodClosing(
+            company_id=world["company"].id, month=today().strftime("%Y-%m"), closed_by_id=closer.id
+        )
+    )
+    db.commit()
+
+
+def test_duplicate_is_refused_when_this_month_is_closed(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    source = create(client, auth, world)
+    _close_current_month(db_session, world)
+
+    response = client.post("/payables/batch/duplicate", json={"ids": [source["id"]]}, headers=auth)
+
+    assert response.status_code == 409
+    assert "está fechado. Só um administrador pode reabrir" in response.json()["detail"]
+
+
+def test_replacing_a_provision_with_a_new_real_one_is_refused_when_this_month_is_closed(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
+    provision = create(client, auth, world, type="provisao", allocations=allocations)
+    _close_current_month(db_session, world)
+
+    response = client.post(
+        f"/payables/{provision['id']}/replace",
+        json={"amount": "900.00", "supplierId": world["supplier"].id},
+        headers=auth,
+    )
+
+    assert response.status_code == 409
+    assert "está fechado. Só um administrador pode reabrir" in response.json()["detail"]
