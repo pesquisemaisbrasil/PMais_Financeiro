@@ -43,13 +43,20 @@ O `netlify.toml` da raiz já tem tudo: roda `frontend/scripts/build-demo.mjs`, c
 
 ## Num site só da demonstração (por exemplo, o Netlify de uma pessoa)
 
-Para publicar **só a demonstração**, sem tocar no site do protótipo: ela sai na **raiz** do site e o "Voltar ao protótipo" leva ao endereço do protótipo. Dentro de `frontend/`:
+Para publicar **só a demonstração**, sem tocar no site do protótipo: ela sai na **raiz** do site, sem link de volta ao protótipo (o aviso de dados fictícios continua). Dentro de `frontend/`:
 
 ```bash
-DEMO_DIST_DIR=out DEMO_BASE_PATH= DEMO_PROTOTYPE_URL=https://endereço-do-protótipo node scripts/build-demo.mjs
+node scripts/package-demo.mjs
+# ou, escolhendo onde gravar o ZIP:
+DEMO_ZIP=C:/caminho/netlify-upload.zip node scripts/package-demo.mjs
 ```
 
-Copie a pasta gerada (`frontend/out/`) para uma pasta de envio e crie nela um arquivo `_headers` com a mesma política de segurança do `netlify.toml`, mas para `/*` (a primeira linha é `/*`, e abaixo dela vão as linhas `Content-Security-Policy: …` e os cabeçalhos que o `netlify.toml` tem em `[[headers]]`). No Netlify: **Add new site → Deploy manually** e arraste a pasta. Cada atualização exige gerar e arrastar de novo.
+O comando gera a demonstração e escreve um **ZIP** (por padrão em `frontend/.demo-cache/netlify-upload.zip`) com o `_headers` da política de segurança. No Netlify:
+
+- **Site novo:** Add new site → **Upload your project files** → "browse files to upload" e o ZIP.
+- **Atualizar o site que já existe:** abra o site → **Deploys** → arraste o ZIP na área de envio. O endereço continua o mesmo.
+
+Se o Netlify disser "We're having some trouble connecting you", é bloqueador de anúncios ou extensão do navegador: use uma janela anônima. `DEMO_PROTOTYPE_URL=https://endereço` faz o aviso do topo ganhar o link "Voltar ao protótipo". Cada atualização exige gerar e arrastar de novo (ou ligar um site ao repositório com uma configuração própria).
 
 ## Limites
 
