@@ -61,14 +61,13 @@ function send(response, file, status, extraHeaders) {
 http
   .createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
-    const pathname = url.pathname.replace(/(?<=.)\/$/, "");
-
-    if (pathname === PREFIX) {
+    if (url.pathname === PREFIX) {
       response.writeHead(301, { Location: `${PREFIX}/` }).end();
       return;
     }
+    const pathname = url.pathname.replace(/(?<=.)\/$/, "");
 
-    if (pathname.startsWith(`${PREFIX}/`)) {
+    if (pathname === PREFIX || pathname.startsWith(`${PREFIX}/`)) {
       const file = find(demoRoot, pathname.slice(PREFIX.length));
       send(response, file ?? path.join(demoRoot, "404.html"), file ? 200 : 404, {
         "Content-Security-Policy": csp,
