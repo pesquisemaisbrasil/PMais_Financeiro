@@ -7,7 +7,7 @@ O botão **Abrir para teste de produção** do protótipo (menu, abaixo de "Rest
 - O Netlify só serve páginas. Por isso o **backend (Python) roda dentro do navegador**, via Pyodide, num SQLite em memória cheio de dados fictícios. Não há API, banco, cofre de arquivos nem conta em outro provedor.
 - É o mesmo código do repositório: toda tela ou regra nova aparece na demonstração quando o site é gerado de novo.
 - O que a pessoa faz fica **só no navegador dela** (IndexedDB) e **sobrevive ao F5**: o banco e a sessão voltam como estavam. Cada navegador tem o seu, nada é compartilhado, e **dado real não entra aqui**. O botão **Restaurar dados de exemplo** (com confirmação) apaga tudo e recomeça.
-- A tela de entrada já vem com o login fictício preenchido: é só clicar em **Entrar** (o código do autenticador também é fictício e entra sozinho). A faixa roxa "Ambiente de teste com dados fictícios" fica no topo, com o link **Voltar ao protótipo**.
+- A tela de entrada já vem com o login fictício preenchido: é só clicar em **Entrar** (o código do autenticador também é fictício e entra sozinho). No site do protótipo (modo `/teste`), uma faixa roxa "Ambiente de teste com dados fictícios" fica no topo, com o link **Voltar ao protótipo**; num site só da demonstração, sem protótipo, não há faixa.
 - O Connect é o **simulado**. O teste real com o Connect fica só na máquina do Bruno: [testar com o Connect de dev](testar-com-o-connect-dev.md).
 - Nunca digite dado real, nem comprovante, planilha ou chave Pix reais: nada sai do navegador, mas a regra do projeto vale (AGENTS.md).
 
@@ -56,7 +56,7 @@ O comando gera a demonstração e escreve um **ZIP** (por padrão em `frontend/.
 - **Site novo:** Add new site → **Upload your project files** → "browse files to upload" e o ZIP.
 - **Atualizar o site que já existe:** abra o site → **Deploys** → arraste o ZIP na área de envio. O endereço continua o mesmo.
 
-Se o Netlify disser "We're having some trouble connecting you", é bloqueador de anúncios ou extensão do navegador: use uma janela anônima. `DEMO_PROTOTYPE_URL=https://endereço` faz o aviso do topo ganhar o link "Voltar ao protótipo". Cada atualização exige gerar e arrastar de novo (ou ligar um site ao repositório com uma configuração própria).
+Se o Netlify disser "We're having some trouble connecting you", é bloqueador de anúncios ou extensão do navegador: use uma janela anônima. `DEMO_PROTOTYPE_URL=https://endereço` liga a faixa roxa do topo ("Ambiente de teste com dados fictícios", com o link "Voltar ao protótipo"); sem ele, o site da demonstração não tem faixa. Cada atualização exige gerar e arrastar de novo (ou ligar um site ao repositório com uma configuração própria).
 
 ## Limites
 
