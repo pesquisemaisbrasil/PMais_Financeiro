@@ -113,6 +113,50 @@ test("a agenda de incentivos e o Início usam as regras de verdade", async ({ pa
   await expect(page.getByText("Vencem hoje")).toBeVisible();
 });
 
+test("recarregar a página mantém o que foi feito e a sessão", async ({ page }) => {
+  await enter(page);
+  await go(page, "Financeiro", "Contas a pagar");
+  await page
+    .getByRole("row", { name: /Incentivos aos entrevistados/ })
+    .getByRole("button", { name: "Dar baixa" })
+    .click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirmar baixa" }).click();
+  await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 4.370,00");
+
+  await page.reload();
+
+  // sem tela de entrada: a sessão e o banco voltaram como estavam
+  await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 4.370,00");
+});
+
+test("uma cópia guardada de outra versão é descartada e a demonstração recomeça do zero", async ({
+  page,
+}) => {
+  await enter(page);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("financeiro-demonstracao", 1);
+        open.onsuccess = () => {
+          const tx = open.result.transaction("estado", "readwrite");
+          tx.objectStore("estado").put({ schemaId: "versao-antiga", bytes: new Uint8Array([1, 2, 3]) }, "banco");
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        };
+        open.onerror = () => reject(open.error);
+      })
+  );
+
+  await page.reload();
+
+  // banco novo: a sessão antiga não existe nele, então volta a tela de entrada, com o login preenchido
+  await expect(page.getByLabel("E-mail")).toHaveValue("demo@pesquisemais.invalid");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /^Boa (tarde|noite)|^Bom dia/ })).toBeVisible();
+  await go(page, "Financeiro", "Contas a pagar");
+  await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 1.570,00");
+});
+
 test("sair e entrar de novo logo em seguida funciona (o código do autenticador é da mesma janela)", async ({
   page,
 }) => {

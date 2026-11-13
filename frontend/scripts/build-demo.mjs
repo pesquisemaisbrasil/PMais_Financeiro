@@ -130,6 +130,13 @@ function bundleBackend() {
   }
   fs.writeFileSync(path.join(DEMO, "backend.json"), JSON.stringify({ files }));
   log(`Backend empacotado: ${Object.keys(files).length} arquivos`);
+  // A cópia do banco guardada no navegador só vale para a mesma estrutura de tabelas: o `schemaId`
+  // muda quando um modelo muda, e aí a demonstração recomeça do zero em vez de abrir uma cópia velha.
+  const models = Object.keys(files).filter((name) => name.startsWith("models/")).sort();
+  return createHash("sha256")
+    .update(models.map((name) => `${name}\n${files[name]}`).join("\n"))
+    .digest("hex")
+    .slice(0, 16);
 }
 
 async function main() {
@@ -139,11 +146,12 @@ async function main() {
   fs.copyFileSync(path.join(FRONTEND, "scripts", "demo-worker.js"), path.join(DEMO, "worker.js"));
   await copyPyodide();
   await copyPureWheels();
-  bundleBackend();
+  const schemaId = bundleBackend();
   fs.writeFileSync(
     path.join(DEMO, "manifest.json"),
     JSON.stringify({
       pyodide: config.pyodide,
+      schemaId,
       pyodidePackages: config.pyodidePackages,
       pureWheels: config.pure.map((wheel) => wheel.file),
     })

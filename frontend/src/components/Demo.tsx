@@ -51,8 +51,8 @@ export function DemoGate({ children }: { children: React.ReactNode }) {
               <Spinner className="mx-auto size-6 text-brand-azul-deep" />
               <p className="text-sm text-brand-cinza-escuro">{state.text}</p>
               <p className="text-xs text-muted-foreground">
-                Na primeira vez pode levar alguns segundos. Todos os dados são fictícios. Recarregar a página
-                volta aos dados de exemplo.
+                Na primeira vez pode levar alguns segundos. Todos os dados são fictícios. O que você fizer fica
+                salvo neste navegador.
               </p>
             </>
           )}

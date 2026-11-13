@@ -4,6 +4,10 @@
  * Os arquivos ao lado (pyodide/, vendor/, backend.json, manifest.json) são gerados por
  * frontend/scripts/build-demo.mjs; nada daqui chama a internet.
  * Um pedido por vez: o banco é uma conexão só, e dois pedidos misturados se atropelariam.
+ *
+ * O banco (em memória) é guardado no IndexedDB do navegador depois de cada escrita e volta na
+ * próxima visita; recarregar a página não apaga o que foi feito. Cada navegador tem o seu. A cópia
+ * só vale para a mesma estrutura de tabelas (`schemaId` do manifest): se mudar, recomeça do zero.
  */
 /* global importScripts, loadPyodide */
 
@@ -11,7 +15,64 @@ const BASE = new URL("./", self.location.href).href;
 
 let pyodide = null;
 let runtime = null;
+let schemaId = "";
 let queue = Promise.resolve();
+
+// ---- O banco guardado no navegador ----
+const STORE = { name: "financeiro-demonstracao", table: "estado", key: "banco" };
+
+function openStore() {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open(STORE.name, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore(STORE.table);
+    open.onsuccess = () => resolve(open.result);
+    open.onerror = () => reject(open.error);
+  });
+}
+
+async function withStore(mode, run) {
+  const db = await openStore();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = run(db.transaction(STORE.table, mode).objectStore(STORE.table));
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+/** A cópia da visita anterior, se for da mesma estrutura de tabelas. Sem armazenamento (janela
+ * privativa), a demonstração funciona do mesmo jeito, só não guarda. */
+async function loadSaved() {
+  try {
+    const found = await withStore("readonly", (store) => store.get(STORE.key));
+    if (found && found.schemaId === schemaId && found.bytes instanceof Uint8Array) return found.bytes;
+  } catch (error) {
+    console.error("[demonstração] não foi possível ler o estado guardado", error);
+  }
+  return null;
+}
+
+async function persist() {
+  try {
+    const proxy = runtime.snapshot();
+    const bytes = proxy.toJs();
+    proxy.destroy();
+    await withStore("readwrite", (store) => store.put({ schemaId, bytes }, STORE.key));
+  } catch (error) {
+    console.error("[demonstração] não foi possível guardar o estado", error);
+  }
+}
+
+async function forgetSaved() {
+  try {
+    await withStore("readwrite", (store) => store.delete(STORE.key));
+  } catch (error) {
+    console.error("[demonstração] não foi possível apagar o estado guardado", error);
+  }
+}
 
 function progress(text) {
   self.postMessage({ type: "progress", text });
@@ -23,6 +84,7 @@ async function boot() {
   pyodide = await loadPyodide({ indexURL: `${BASE}pyodide/` });
 
   const manifest = await (await fetch(`${BASE}manifest.json`)).json();
+  schemaId = String(manifest.schemaId ?? "");
 
   progress("Carregando as bibliotecas…");
   await pyodide.loadPackage(manifest.pyodidePackages);
@@ -46,10 +108,10 @@ async function boot() {
 import sys
 sys.path.insert(0, "/backend")
 sys.path.insert(0, "/vendor")
-import demo_runtime
-demo_runtime.start()
 `);
   runtime = pyodide.pyimport("demo_runtime");
+  // `undefined` (e não `null`) vira `None` no Python: sem cópia guardada, nasce do zero
+  runtime.start((await loadSaved()) ?? undefined);
 }
 
 async function handle({ method, path, headers, body }) {
@@ -77,6 +139,11 @@ self.onmessage = (event) => {
     try {
       if (message.type === "request") {
         const response = await handle(message);
+        // O que mudou o banco fica guardado antes de a tela saber que deu certo: se a pessoa recarregar
+        // logo em seguida, o trabalho está lá.
+        if (response.status < 400 && !["GET", "HEAD", "OPTIONS"].includes(message.method)) {
+          await persist();
+        }
         self.postMessage({ type: "response", id: message.id, ...response }, [response.body.buffer]);
       } else if (message.type === "totp") {
         self.postMessage({ type: "totp", id: message.id, value: runtime.totp_code() });
@@ -87,6 +154,7 @@ self.onmessage = (event) => {
         proxy.destroy();
       } else if (message.type === "reset") {
         runtime.reset();
+        await forgetSaved();
         self.postMessage({ type: "reset", id: message.id });
       }
     } catch (error) {
