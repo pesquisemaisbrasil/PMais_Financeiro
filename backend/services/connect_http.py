@@ -375,7 +375,8 @@ class HttpConnect:
                         "financeUserName": finance_user_name,
                     },
                 },
-                replayable=True,
+                # Não repete sozinha: cada acesso à chave completa entra na trilha da pessoa no
+                # Connect e gasta o teto diário, mesmo sem gravar nada.
             )
             for item in answer["items"]:
                 updated = item.get("pixKeyUpdatedAt")

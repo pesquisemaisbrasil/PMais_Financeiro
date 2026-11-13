@@ -840,3 +840,15 @@ def test_a_cursor_that_never_ends_stops_instead_of_looping_forever(
 
     with pytest.raises(ConnectUnavailable):
         connect.list_projects()
+
+
+def test_payment_data_never_repeats_on_its_own_because_every_access_is_audited(
+    connect: HttpConnect, session: FakeSession, sleeps: list[float]
+) -> None:
+    session.add("POST /integrations/v1/interviewers/payment-data", FakeResponse(503))
+
+    with pytest.raises(ConnectUnavailable):
+        connect.payment_data([87], 12, "payment_sheet", 7, "Equipe Financeiro 1")
+
+    assert sleeps == []
+    assert len([c for c in session.calls if c["path"].endswith("payment-data")]) == 1
