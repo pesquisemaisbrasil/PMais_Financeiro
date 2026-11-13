@@ -137,7 +137,9 @@ def _receivables(db) -> None:  # type: ignore[no-untyped-def]
     revenue = ExpenseCategory(code="1.01", name="Receita de pesquisa", kind="receita")
     alfa = Customer(nickname="Alfa", name="Alfa Pesquisas Ltda", document="11222333000181")
     beta = Customer(nickname="Beta", name="Beta Consultoria")
-    db.add_all([revenue, alfa, beta])
+    gama = Customer(nickname="Gama", name="Gama Mercado Ltda")
+    delta = Customer(nickname="Delta", name="Delta Telecom")
+    db.add_all([revenue, alfa, beta, gama, delta])
     db.flush()
     company = db.query(Company).filter_by(name="PPlus").one()
     unit = db.query(BusinessUnit).filter_by(name="Consumo SP").one()
@@ -176,6 +178,11 @@ def _receivables(db) -> None:  # type: ignore[no-untyped-def]
     title(alfa, "Satisfação · 1ª parcela", -10, "1000.00", "100.00")
     title(alfa, "Satisfação · 2ª parcela", -3, "500.00")
     title(beta, "Tracking mensal", 10, "700.00")
+    # O que vence hoje, para o Contas a receber (que abre no dia) ter o que mostrar
+    title(beta, f"Tracking mensal · {on:%m/%Y}", 0, "3200.00")  # recebe 700 no mês (_current_month)
+    title(gama, "Pesquisa de varejo · entrega final", 0, "4500.00")
+    title(delta, "Painel de consumo · 2ª parcela", 0, "2400.00", "120.00")
+    title(alfa, "Satisfação · 3ª parcela", 0, "1800.00")
     db.commit()
 
 
@@ -316,6 +323,19 @@ def _current_month(db, user, itau, bradesco, pix) -> None:  # type: ignore[no-un
         db,
         _transaction_id(db, "DEMO-0201"),
         ReconcileIn(targetKind="payable", targetId=rent.id, classification="sem_nf"),
+        user,
+    )
+    # O Pix de R$ 700 da Beta paga parte de um título que vence hoje; a linha do extrato fica solta
+    tracking = db.query(Receivable).filter(Receivable.description.like("Tracking mensal · %")).one()
+    receivables.receive(
+        db,
+        tracking.id,
+        ReceiptCreate(
+            receivedOn=day(0),
+            amount=Decimal("700.00"),
+            bankAccountId=itau.id,
+            paymentMethodId=pix.id,
+        ),
         user,
     )
     title = db.query(Receivable).filter_by(description="Satisfação · 2ª parcela").one()

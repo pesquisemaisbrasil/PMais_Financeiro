@@ -132,7 +132,18 @@ def test_receivables_incentives_holidays_and_reports_are_filled(
     client: TestClient, demo: dict[str, str]
 ) -> None:
     receivables = client.get("/receivables", params={"mode": "tudo"}, headers=demo).json()
-    assert {row["situation"] for row in receivables["items"]} >= {"vencido", "recebido", "a_vencer"}
+    assert {row["situation"] for row in receivables["items"]} >= {
+        "vencido",
+        "recebido",
+        "a_vencer",
+        "hoje",
+    }
+    # o Contas a receber abre no dia: o que vence hoje precisa aparecer
+    today_titles = client.get("/receivables", headers=demo).json()
+    assert today_titles["total"] >= 4
+    assert any(
+        row["description"] == "Pesquisa de varejo · entrega final" for row in today_titles["items"]
+    )
 
     agenda = client.get("/incentives/agenda", params={"mode": "tudo"}, headers=demo)
     assert agenda.status_code == 200
