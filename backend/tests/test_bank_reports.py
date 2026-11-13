@@ -189,6 +189,52 @@ def test_a_pix_returned_in_august_and_paid_again_in_september_is_a_return_in_aug
     )
 
 
+def test_a_returned_pix_does_not_use_up_the_ceiling_of_the_payment_made_again(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    account = world["account"].id
+    payable_id, first = pay(client, auth, world, date(2026, 8, 10), amount="300.00")
+    (aug_out,) = load(
+        client, auth, db_session, account, (date(2026, 8, 10), "-300.00", "PIX GRAFICA")
+    )
+    assert reconcile(client, auth, aug_out, targetId=payable_id).status_code == 204
+    back = client.post(
+        f"/payables/{payable_id}/payments/{first}/reverse",
+        json={"kind": "devolucao", "on": "2026-08-12", "reason": "Pix devolvido pelo banco"},
+        headers=auth,
+    )
+    assert back.status_code == 200, back.text
+    again = client.post(
+        f"/payables/{payable_id}/payments",
+        json=payment(world, amount="300.00", paidOn="2026-09-03", note="pago de novo"),
+        headers=auth,
+    )
+    assert again.status_code == 200, again.text
+    (sep_out,) = load(
+        client, auth, db_session, account, (date(2026, 9, 3), "-300.00", "PIX GRAFICA DE NOVO")
+    )
+
+    # as duas saídas são reais: o extrato tem R$ 600 para um lançamento de R$ 300
+    assert reconcile(client, auth, sep_out, targetId=payable_id).status_code == 204
+
+
+def test_a_line_of_another_account_does_not_match_a_payment_made_in_the_first_account(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    second = BankAccount(company_id=world["company"].id, name="Itaú · reserva")
+    db_session.add(second)
+    db_session.commit()
+    payable_id, _ = pay(client, auth, world, date(2026, 10, 5), amount="450.00")
+    (line,) = load(
+        client, auth, db_session, second.id, (date(2026, 10, 5), "-450.00", "PIX GRAFICA")
+    )
+
+    response = reconcile(client, auth, line, targetId=payable_id)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "A baixa desse lançamento foi em outra conta bancária"
+
+
 def test_the_difference_ignores_other_accounts_and_an_empty_month_says_not_imported(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
 ) -> None:

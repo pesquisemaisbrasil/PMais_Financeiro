@@ -99,9 +99,27 @@ def _linked_total(
     return Decimal(str(query.scalar()))
 
 
+def _returned_total(payable: Payable) -> Decimal:
+    """O que saiu e voltou (Pix devolvido pelo banco). A linha da saída continua no extrato e
+    conciliada, então ela não pode gastar o teto do pagamento feito de novo."""
+    amounts = {p.id: p.amount for p in payable.payments}
+    return sum(
+        (
+            amounts[p.reverses_id]
+            for p in payable.payments
+            if p.kind == "devolucao" and p.reverses_id in amounts
+        ),
+        Decimal("0"),
+    )
+
+
 def _payable_ceiling(payable: Payable) -> Decimal:
-    """O valor do lançamento, com juros, multa e descontos das baixas."""
-    return payable_service.pending_amount(payable) + payable_service.paid_amount(payable)
+    """O valor do lançamento, com juros, multa e descontos das baixas, mais o que já voltou."""
+    return (
+        payable_service.pending_amount(payable)
+        + payable_service.paid_amount(payable)
+        + _returned_total(payable)
+    )
 
 
 def _linked_item_ids(db: Session, payable_id: int) -> set[int]:
@@ -359,6 +377,12 @@ def _link_payable(
         raise PayableConflict("O lançamento é de outra empresa, não da dona da conta bancária")
     if payable_service.paid_amount(payable) <= 0:
         raise PayableConflict("Esse lançamento ainda não tem baixa: dê a baixa antes de conciliar")
+    if not any(
+        payment.bank_account_id == tx.bank_account_id
+        for payment in payable_service._active_payments(payable)
+    ):
+        # a sugestão e a diferença olham a mesma conta: ligar a outra deixaria a baixa "sem linha"
+        raise PayableConflict("A baixa desse lançamento foi em outra conta bancária")
     item_id = None
     if payable.items:
         item = next((i for i in payable.items if i.id == data.itemId), None)
