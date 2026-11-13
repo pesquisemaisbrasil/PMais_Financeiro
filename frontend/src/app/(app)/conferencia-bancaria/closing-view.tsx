@@ -1,7 +1,7 @@
 "use client";
 
 import { FileSpreadsheet, Info, Lock, LockOpen } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ReasonDialog } from "@/components/ReasonDialog";
 import { CARD, ErrorBox, TD, TH, Tag } from "@/components/finance";
@@ -32,7 +32,7 @@ import {
   type ClosingStatus,
 } from "@/lib/bank-month";
 import { saveBlob } from "@/lib/documents";
-import { formatDate, plural } from "@/lib/payables";
+import { formatDateTime, plural } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,12 +49,17 @@ export function ClosingView({ month }: { month: string }) {
   const [reopening, setReopening] = useState<{ id: number; name: string; month: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const latest = useRef(0);
+
   const load = useCallback(async () => {
+    const mine = ++latest.current;
     setError(null);
+    setData(null);
     try {
-      setData(await getClosingStatus(month));
+      const result = await getClosingStatus(month);
+      if (mine === latest.current) setData(result);
     } catch (err) {
-      setData(null);
+      if (mine !== latest.current) return;
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar o fechamento");
     }
   }, [month]);
@@ -151,7 +156,7 @@ export function ClosingView({ month }: { month: string }) {
 
                 {company.closed && (
                   <p className="mb-3 text-xs text-muted-foreground">
-                    Fechado em {formatDate(company.closedAt)} por {company.closedBy ?? "—"}.
+                    Fechado em {company.closedAt ? formatDateTime(company.closedAt) : "—"} por {company.closedBy ?? "—"}.
                   </p>
                 )}
 
@@ -191,6 +196,10 @@ export function ClosingView({ month }: { month: string }) {
                     Planilha da contabilidade
                   </Button>
                 </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  A planilha traz a descrição de cada linha do extrato. O download fica registrado no histórico do
+                  fechamento.
+                </p>
                 {!company.closed && !company.ready && (
                   <p role="status" className="mt-2 text-xs text-muted-foreground">
                     Resolva as pendências acima para fechar{blockers.length ? ` (${blockers.join("; ")})` : ""}.
@@ -224,7 +233,7 @@ export function ClosingView({ month }: { month: string }) {
                 <TableRow key={`${row.companyId}-${row.month}`}>
                   <TableCell className={cn(TD, "font-semibold")}>{row.company}</TableCell>
                   <TableCell className={TD}>{monthLabel(row.month)}</TableCell>
-                  <TableCell className={TD}>{formatDate(row.closedAt)}</TableCell>
+                  <TableCell className={TD}>{formatDateTime(row.closedAt)}</TableCell>
                   <TableCell className={TD}>{row.closedBy ?? "—"}</TableCell>
                   <TableCell className={cn(TD, "text-right")}>
                     {isAdmin && (

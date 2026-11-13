@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CARD, ErrorBox, NUM, TD, TH } from "@/components/finance";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -15,12 +15,17 @@ export function BalanceView({ month }: { month: string }) {
   const [data, setData] = useState<Balances | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const latest = useRef(0);
+
   const load = useCallback(async () => {
+    const mine = ++latest.current;
     setError(null);
+    setData(null);
     try {
-      setData(await getBalances(month));
+      const result = await getBalances(month);
+      if (mine === latest.current) setData(result);
     } catch (err) {
-      setData(null);
+      if (mine !== latest.current) return;
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar o saldo");
     }
   }, [month]);

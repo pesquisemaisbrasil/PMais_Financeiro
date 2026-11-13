@@ -6,6 +6,7 @@ import { FilePicker } from "@/components/FilePicker";
 import { Field, FormError, NUM, TD, TH } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
@@ -66,12 +68,16 @@ export function ImportStatementDialog({
   const [preview, setPreview] = useState<StatementPreview | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Linha importada não se apaga: se o arquivo parece de outra conta, a pessoa confirma antes
+  const [acknowledged, setAcknowledged] = useState(false);
+  const needsAcknowledge = (preview?.warnings.length ?? 0) > 0;
 
   async function pick(files: File[]) {
     const chosen = files[0];
     if (!chosen) return;
     setError(null);
     setPreview(null);
+    setAcknowledged(false);
     setFile(chosen);
     const refusal = checkStatement(chosen);
     if (refusal) return setError(refusal);
@@ -153,6 +159,19 @@ export function ImportStatementDialog({
                   <AlertDescription>{warning}</AlertDescription>
                 </Alert>
               ))}
+              {needsAcknowledge && (
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="extrato-conferi"
+                    checked={acknowledged}
+                    onCheckedChange={(checked) => setAcknowledged(checked === true)}
+                  />
+                  <Label htmlFor="extrato-conferi" className="text-xs font-normal leading-snug">
+                    Conferi: este extrato é mesmo da conta {accountName}. As linhas importadas não podem ser apagadas
+                    depois.
+                  </Label>
+                </div>
+              )}
               {preview.sample.length > 0 && (
                 <div>
                   <p className="mb-1.5 text-xs font-semibold text-brand-cinza-escuro">
@@ -189,7 +208,8 @@ export function ImportStatementDialog({
           <Button type="button" variant="outline" disabled={busy !== null} onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="button" disabled={!preview || preview.newLines === 0 || busy !== null} onClick={() => void confirm()}>
+          <Button type="button" disabled={!preview || preview.newLines === 0 || busy !== null || (needsAcknowledge && !acknowledged)}
+            onClick={() => void confirm()}>
             {preview ? importLabel(preview) : "Importar"}
           </Button>
         </DialogFooter>

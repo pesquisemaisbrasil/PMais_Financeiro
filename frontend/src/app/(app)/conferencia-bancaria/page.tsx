@@ -65,6 +65,7 @@ export default function BankReconciliationPage() {
   const [data, setData] = useState<TransactionList | null>(null);
   const [history, setHistory] = useState<StatementRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [situation, setSituation] = useState<LineSituation | null>(null);
   const [reconciling, setReconciling] = useState<Transaction | null>(null);
@@ -72,7 +73,8 @@ export default function BankReconciliationPage() {
   const [view, setView] = useState<View>("conciliacao");
   const [month, setMonth] = useState(currentMonth);
 
-  useEffect(() => {
+  const loadAccounts = useCallback(() => {
+    setAccountsError(null);
     listRecords("bankAccounts").then(
       (rows) => {
         const active = rows.filter((row) => row.active);
@@ -81,10 +83,15 @@ export default function BankReconciliationPage() {
       },
       (err) => {
         setAccounts([]);
-        setError(err instanceof ApiError ? err.message : "Não foi possível carregar as contas bancárias");
+        setAccountsError(err instanceof ApiError ? err.message : "Não foi possível carregar as contas bancárias");
       }
     );
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- busca das contas ao abrir a tela
+    loadAccounts();
+  }, [loadAccounts]);
 
   const load = useCallback(async () => {
     if (accountId === null) return;
@@ -94,6 +101,11 @@ export default function BankReconciliationPage() {
         listTransactions(accountId, { start, end, page, situation }),
         listStatements(accountId),
       ]);
+      const lastPage = Math.max(1, Math.ceil(transactions.total / PAGE_SIZE));
+      if (page > lastPage) {
+        setPage(lastPage); // a última linha da página saiu da lista: busca de novo na página que existe
+        return;
+      }
       setData(transactions);
       setHistory(statements);
     } catch (err) {
@@ -124,9 +136,9 @@ export default function BankReconciliationPage() {
         }
       />
 
-      {error && (
+      {(accountsError ?? error) && (
         <div className="mb-4">
-          <ErrorBox message={error} onRetry={load} />
+          <ErrorBox message={accountsError ?? error ?? ""} onRetry={accountsError ? loadAccounts : load} />
         </div>
       )}
 
@@ -152,7 +164,7 @@ export default function BankReconciliationPage() {
         <div className="flex justify-center p-8">
           <Spinner aria-label="Carregando" className="size-6 text-brand-cinza-escuro/70" />
         </div>
-      ) : !accounts.length ? (
+      ) : accountsError ? null : !accounts.length ? (
         <div className={cn(CARD, "px-5 py-8 text-center text-sm text-muted-foreground")}>
           Nenhuma conta bancária ativa.{" "}
           <Link className="font-semibold text-brand-azul-deep underline" href="/cadastros?aba=bankAccounts">
@@ -174,7 +186,7 @@ export default function BankReconciliationPage() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger id="conta-extrato" className="w-[320px] bg-card">
+                <SelectTrigger id="conta-extrato" className="w-full bg-card sm:w-[320px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,7 +285,9 @@ export default function BankReconciliationPage() {
                       <TableHead className={TH}>Descrição</TableHead>
                       <TableHead className={cn(TH, NUM)}>Valor</TableHead>
                       <TableHead className={TH}>Situação</TableHead>
-                      <TableHead className={TH} />
+                      <TableHead className={TH}>
+                        <span className="sr-only">Ações</span>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
