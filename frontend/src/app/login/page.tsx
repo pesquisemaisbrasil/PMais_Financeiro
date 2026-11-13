@@ -69,7 +69,10 @@ function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; s
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { error, submitting, run } = useFormAction();
-  const shownError = error ?? ssoError;
+  // Na demonstração os botões do Google e da Microsoft são só visuais: o clique avisa, como o login
+  // sem as chaves do provedor (SSO_ERRORS.sso_indisponivel), em vez de ir a um endereço que não existe.
+  const [demoSsoClicked, setDemoSsoClicked] = useState(false);
+  const shownError = error ?? ssoError ?? (demoSsoClicked ? SSO_ERRORS.sso_indisponivel : null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -151,24 +154,32 @@ function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; s
           {submitting ? "Entrando…" : "Entrar"}
         </Button>
 
-        {/* Na demonstração não há Google nem Microsoft: o endereço de lá não existe. */}
-        {!DEMO && (
-          <>
-            <div className="my-1 flex w-full items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" aria-hidden="true" />
-              ou
-              <span className="h-px flex-1 bg-border" aria-hidden="true" />
-            </div>
+        <div className="my-1 flex w-full items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          ou
+          <span className="h-px flex-1 bg-border" aria-hidden="true" />
+        </div>
 
-            {SSO_PROVIDERS.map(({ id, name, icon }) => (
-              <Button key={id} asChild variant="outline" className="w-full bg-card">
-                <a href={ssoLoginUrl(id)}>
-                  {icon}
-                  Entrar com {name}
-                </a>
-              </Button>
-            ))}
-          </>
+        {SSO_PROVIDERS.map(({ id, name, icon }) =>
+          DEMO ? (
+            <Button
+              key={id}
+              type="button"
+              variant="outline"
+              className="w-full bg-card"
+              onClick={() => setDemoSsoClicked(true)}
+            >
+              {icon}
+              Entrar com {name}
+            </Button>
+          ) : (
+            <Button key={id} asChild variant="outline" className="w-full bg-card">
+              <a href={ssoLoginUrl(id)}>
+                {icon}
+                Entrar com {name}
+              </a>
+            </Button>
+          )
         )}
       </CardFooter>
     </form>

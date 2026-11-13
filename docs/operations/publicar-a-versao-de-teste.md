@@ -46,7 +46,7 @@ O `netlify.toml` da raiz já tem tudo: roda `frontend/scripts/build-demo.mjs`, c
 - Recarregar a página volta aos dados de exemplo e derruba a sessão (guardar no navegador entre visitas é melhoria futura).
 - Primeira abertura: alguns segundos com a tela "Preparando a demonstração" (o Python liga e os dados são criados); depois o navegador guarda os arquivos (a pasta gerada tem cerca de 26 MB).
 - Comprovante em PDF e planilha de importação de verdade não fazem parte (não há arquivo real); o resto das telas funciona, inclusive baixa, conciliação do extrato, fechamento do mês e exportação para Excel.
-- Login com Google e Microsoft não aparece na demonstração.
+- Os botões de Google e Microsoft aparecem na tela de entrada, mas só como visual: o clique avisa que o login ainda não está disponível (na demonstração não há provedor).
 - Python 3.13 e SQLAlchemy 2.0 no navegador, contra 3.11 e 1.4 na produção: a CI roda o teste de tela da demonstração para pegar diferença.
 
 ## Solução de problemas

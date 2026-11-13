@@ -1,6 +1,8 @@
 /**
- * Serve a versão de demonstração como o Netlify serve: a pasta gerada fica em /teste, com a mesma
- * política de segurança (CSP) do netlify.toml. Para conferir na máquina e para o teste de tela.
+ * Serve o site como o Netlify serve: o protótipo (prototipo/financeiro) na raiz e a versão de
+ * demonstração gerada em /teste, esta com a mesma política de segurança (CSP) do netlify.toml.
+ * Para conferir na máquina (inclusive o "Voltar ao protótipo" e o botão do protótipo) e para o
+ * teste de tela da demonstração.
  *
  * Uso: node scripts/serve-demo.mjs [pasta=out] [porta=3020]
  */
@@ -10,7 +12,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const root = path.resolve(FRONTEND, process.argv[2] ?? "out");
+const demoRoot = path.resolve(FRONTEND, process.argv[2] ?? "out");
+const prototypeRoot = path.resolve(FRONTEND, "..", "prototipo", "financeiro");
 const port = Number(process.argv[3] ?? 3020);
 const PREFIX = "/teste";
 
@@ -29,46 +32,56 @@ const TYPES = {
   ".ico": "image/x-icon",
   ".svg": "image/svg+xml",
   ".txt": "text/plain; charset=utf-8",
+  ".md": "text/plain; charset=utf-8",
   ".zip": "application/zip",
   ".whl": "application/octet-stream",
 };
 
-function find(urlPath) {
-  const relative = decodeURIComponent(urlPath.slice(PREFIX.length)).replace(/^\/+/, "");
+/** O arquivo de um endereço dentro de `root`: o próprio, a pasta com index.html ou "URL bonita" (.html). */
+function find(root, relativePath) {
+  const relative = decodeURIComponent(relativePath).replace(/^\/+/, "");
   const full = path.resolve(root, relative);
   if (!full.startsWith(root)) return null;
   if (fs.existsSync(full) && fs.statSync(full).isFile()) return full;
   const index = path.join(full, "index.html");
   if (fs.existsSync(index)) return index;
-  // "URLs bonitas" do Netlify: /teste/login serve login.html
   const page = `${full}.html`;
   return fs.existsSync(page) ? page : null;
+}
+
+function send(response, file, status, extraHeaders) {
+  response.writeHead(status, {
+    "Content-Type": TYPES[path.extname(file)] ?? "application/octet-stream",
+    "Cache-Control": "no-store",
+    ...extraHeaders,
+  });
+  fs.createReadStream(file).pipe(response);
 }
 
 http
   .createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
-    if (url.pathname === PREFIX) {
+    const pathname = url.pathname.replace(/(?<=.)\/$/, "");
+
+    if (pathname === PREFIX) {
       response.writeHead(301, { Location: `${PREFIX}/` }).end();
       return;
     }
-    if (!url.pathname.startsWith(`${PREFIX}/`)) {
-      response.writeHead(404).end("fora de /teste");
+
+    if (pathname.startsWith(`${PREFIX}/`)) {
+      const file = find(demoRoot, pathname.slice(PREFIX.length));
+      send(response, file ?? path.join(demoRoot, "404.html"), file ? 200 : 404, {
+        "Content-Security-Policy": csp,
+        "X-Content-Type-Options": "nosniff",
+        "Cross-Origin-Opener-Policy": "same-origin",
+      });
       return;
     }
-    let file = find(url.pathname.replace(/(?<=.)\/$/, ""));
-    let status = 200;
-    if (!file) {
-      file = path.join(root, "404.html");
-      status = 404;
-    }
-    response.writeHead(status, {
-      "Content-Type": TYPES[path.extname(file)] ?? "application/octet-stream",
-      "Content-Security-Policy": csp,
-      "X-Content-Type-Options": "nosniff",
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cache-Control": "no-store",
-    });
-    fs.createReadStream(file).pipe(response);
+
+    // Fora de /teste é o protótipo, como no site do Netlify
+    const file = find(prototypeRoot, pathname);
+    send(response, file ?? path.join(prototypeRoot, "404.html"), file ? 200 : 404, {});
   })
-  .listen(port, () => console.log(`Demonstração em http://localhost:${port}${PREFIX}/`));
+  .listen(port, () => {
+    console.log(`Protótipo em http://localhost:${port}/ e demonstração em http://localhost:${port}${PREFIX}/`);
+  });

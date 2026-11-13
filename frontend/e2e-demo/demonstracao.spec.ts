@@ -27,14 +27,18 @@ async function go(page: Page, group: string | null, link: string) {
   await target.click();
 }
 
-test("a tela de entrada mostra a demonstração, sem Google nem Microsoft, e a faixa leva ao protótipo", async ({
+test("a tela de entrada mostra a demonstração, Google e Microsoft só como visual, e a faixa leva ao protótipo", async ({
   page,
 }) => {
   await open(page);
 
   await expect(page.getByText("Versão de demonstração, só com dados fictícios")).toBeVisible();
-  await expect(page.getByText("Entrar com Google")).toHaveCount(0);
-  await expect(page.getByText("Entrar com Microsoft")).toHaveCount(0);
+  // Os botões aparecem, mas não levam a lugar nenhum: o clique só avisa que o login ainda não está disponível
+  for (const provider of ["Google", "Microsoft"]) {
+    await page.getByRole("button", { name: `Entrar com ${provider}` }).click();
+    await expect(page.getByText("Esse login ainda não está disponível. Use e-mail e senha.")).toBeVisible();
+    expect(new URL(page.url()).pathname).toMatch(/^\/teste\/(login\/)?$/);
+  }
   await expect(page.getByText("Ambiente de teste com dados fictícios")).toBeVisible();
   await expect(page.getByRole("link", { name: "Voltar ao protótipo" })).toHaveAttribute("href", "/");
 });
