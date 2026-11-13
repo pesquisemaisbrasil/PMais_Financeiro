@@ -4,7 +4,7 @@ import hmac
 
 import bcrypt
 
-from core.config import SECRET_KEY
+from core.config import PIX_SECRET_KEY, SECRET_KEY
 
 # O bcrypt só olha os 72 primeiros bytes. Cortamos aqui, como o passlib fazia, porque o bcrypt 5
 # recusa senha maior em vez de cortar. Acima de 4096 bytes ou com byte nulo é recusa.
@@ -51,3 +51,10 @@ def hash_token(token: str) -> str:
 def hash_email(email: str) -> str:
     """HMAC, não SHA puro: e-mail é fácil de adivinhar e o hash fica em `login_events`."""
     return hmac.new(SECRET_KEY.encode(), email.encode(), hashlib.sha256).hexdigest()
+
+
+def hash_statement_key(base: str) -> str:
+    """HMAC com a chave permanente de hash, não SHA puro: a chave de repetição fica ao lado da
+    descrição cifrada, e sem segredo quem lê o banco calcularia o hash de "pix enviado fulano" mais
+    a data e o valor e confirmaria quem recebeu o Pix."""
+    return hmac.new(PIX_SECRET_KEY.encode(), base.encode(), hashlib.sha256).hexdigest()

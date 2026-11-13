@@ -15,6 +15,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 UNREADABLE = "Não foi possível ler o extrato — envie OFX ou CSV do banco"
+MAX_AMOUNT = Decimal(10) ** 12  # a coluna é Numeric(14,2): menos de R$ 1 trilhão por linha
 MAX_LINES = 20_000
 MAX_DESCRIPTION = 500
 
@@ -58,6 +59,8 @@ def _two_places(value: Decimal) -> Decimal:
     rounded = value.quantize(Decimal("0.01"))
     if rounded != value:
         raise StatementError(UNREADABLE)  # valor com mais de duas casas: nunca arredonda calado
+    if abs(rounded) >= MAX_AMOUNT:
+        raise StatementError(UNREADABLE)  # não cabe na coluna do banco de dados: seria erro 500
     return rounded
 
 

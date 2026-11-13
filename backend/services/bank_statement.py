@@ -15,6 +15,7 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from core.crypto import decrypt_payload, encrypt_payload
+from core.security import hash_statement_key
 from core.statement import ParsedStatement, StatementLine, parse_statement
 from models.bank_reconciliation import BankReconciliation
 from models.bank_statement import BankStatement, BankTransaction
@@ -55,7 +56,7 @@ def _keys(lines: list[StatementLine]) -> list[str]:
         base = f"id:{line.external_id}" if line.external_id else _text_key(line)
         seen[base] += 1
         suffix = f"|{seen[base]}" if seen[base] > 1 else ""
-        keys.append(hashlib.sha256(f"{base}{suffix}".encode()).hexdigest())
+        keys.append(hash_statement_key(f"{base}{suffix}"))
     return keys
 
 

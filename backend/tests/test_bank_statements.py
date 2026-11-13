@@ -537,3 +537,16 @@ def test_amount_precision_is_kept_to_the_cent(
         ofx(("20261110", "0.10", "C1", "a"), ("20261110", "0.20", "C2", "b")),
     )
     assert sum(row.amount for row in rows(db_session)) == Decimal("0.30")
+
+
+@pytest.mark.parametrize("raw", ["1000000000000,00", "-1000000000000.00", "999999999999999,99"])
+def test_an_amount_that_does_not_fit_the_column_is_an_unreadable_file_not_a_server_error(
+    raw: str,
+) -> None:
+    with pytest.raises(StatementError) as refused:
+        parse_amount(raw)
+    assert str(refused.value) == UNREADABLE
+
+
+def test_the_largest_amount_that_fits_is_still_read() -> None:
+    assert parse_amount("999999999999,99") == Decimal("999999999999.99")

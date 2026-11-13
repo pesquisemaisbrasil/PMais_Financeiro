@@ -1,6 +1,13 @@
+import hashlib
+
 import pytest
 
-from core.security import dummy_verify_password, hash_password, verify_password
+from core.security import (
+    dummy_verify_password,
+    hash_password,
+    hash_statement_key,
+    verify_password,
+)
 
 # Hash feito pela versão antiga (passlib) para uma senha fictícia: as já gravadas continuam valendo.
 PASSLIB_HASH = "$2b$12$CldyS/1AQRNyiTyJSehyzOjlSCEYbZv6HDzD0i4X3XLGjVafWYOCC"  # gitleaks:allow
@@ -44,3 +51,14 @@ def test_malformed_hash_is_just_a_wrong_password() -> None:
 
 def test_dummy_verify_runs_without_error() -> None:
     dummy_verify_password()
+
+
+def test_statement_key_is_a_keyed_hash_not_a_bare_sha256() -> None:
+    base = "txt:2026-10-05|-450.00|pix enviado fulano"
+
+    key = hash_statement_key(base)
+
+    assert key == hash_statement_key(base)  # estável: reimportar gera a mesma chave
+    assert len(key) == 64
+    # sem o segredo ninguém confirma "quem recebeu o Pix" calculando o hash da descrição
+    assert key != hashlib.sha256(base.encode()).hexdigest()
