@@ -6,7 +6,7 @@ O botão **Abrir para teste de produção** do protótipo (menu, abaixo de "Rest
 
 - O Netlify só serve páginas. Por isso o **backend (Python) roda dentro do navegador**, via Pyodide, num SQLite em memória cheio de dados fictícios. Não há API, banco, cofre de arquivos nem conta em outro provedor.
 - É o mesmo código do repositório: toda tela ou regra nova aparece na demonstração quando o site é gerado de novo.
-- O que a pessoa faz fica **só no navegador dela**. **Recarregar a página volta aos dados de exemplo** (e pede para entrar de novo); o botão **Restaurar dados de exemplo** faz o mesmo de propósito. Navegue pelo menu: abrir um endereço direto também recarrega.
+- O que a pessoa faz fica **só no navegador dela** (IndexedDB) e **sobrevive ao F5**: o banco e a sessão voltam como estavam. Cada navegador tem o seu, nada é compartilhado, e **dado real não entra aqui**. O botão **Restaurar dados de exemplo** (com confirmação) apaga tudo e recomeça.
 - A tela de entrada já vem com o login fictício preenchido: é só clicar em **Entrar** (o código do autenticador também é fictício e entra sozinho). A faixa roxa "Ambiente de teste com dados fictícios" fica no topo, com o link **Voltar ao protótipo**.
 - O Connect é o **simulado**. O teste real com o Connect fica só na máquina do Bruno: [testar com o Connect de dev](testar-com-o-connect-dev.md).
 - Nunca digite dado real, nem comprovante, planilha ou chave Pix reais: nada sai do navegador, mas a regra do projeto vale (AGENTS.md).
@@ -60,7 +60,7 @@ Se o Netlify disser "We're having some trouble connecting you", é bloqueador de
 
 ## Limites
 
-- Recarregar a página volta aos dados de exemplo e derruba a sessão (guardar no navegador entre visitas é melhoria futura).
+- O trabalho fica guardado **no navegador de cada pessoa**: não é compartilhado, e limpar os dados do site ou trocar de navegador começa do zero. **Quando o app muda a estrutura das tabelas, a demonstração recomeça do zero** e quem testava perde o que tinha (avise antes de subir uma versão nova). Duas abas abertas ao mesmo tempo guardam por cima uma da outra.
 - Primeira abertura: alguns segundos com a tela "Preparando a demonstração" (o Python liga e os dados são criados); depois o navegador guarda os arquivos (a pasta gerada tem cerca de 26 MB).
 - Comprovante em PDF e planilha de importação de verdade não fazem parte (não há arquivo real); o resto das telas funciona, inclusive baixa, conciliação do extrato, fechamento do mês e exportação para Excel.
 - Os botões de Google e Microsoft aparecem na tela de entrada, mas só como visual: o clique avisa que o login ainda não está disponível (na demonstração não há provedor).
