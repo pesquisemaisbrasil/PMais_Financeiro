@@ -90,11 +90,22 @@ def reset() -> None:
 
 
 def totp_code() -> str:
-    """O código do autenticador da demonstração, para a tela de entrada mostrar."""
+    """O código do autenticador da demonstração, para o "Entrar" usar. O backend recusa uma janela
+    de 30 segundos já usada (quem vê um código passar não o repete); aqui o código é do próprio
+    navegador, então liberar a janela deixa entrar, sair e entrar de novo logo em seguida."""
     import pyotp
 
-    from scripts.seed_demonstracao import DEMO_TOTP_SECRET
+    from db.connection import SessionLocal
+    from models.user import User
+    from scripts.seed_demonstracao import DEMO_EMAIL, DEMO_TOTP_SECRET
 
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(email=DEMO_EMAIL).one()
+        user.totpLastUsedStep = None
+        db.commit()
+    finally:
+        db.close()
     return pyotp.TOTP(DEMO_TOTP_SECRET).now()
 
 

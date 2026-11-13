@@ -39,6 +39,8 @@ async def sign_in():
 async def main():
     demo_runtime.start()
     auth = await sign_in()
+    # sair e entrar de novo logo em seguida (mesma janela de 30 s do código) não pode dar "inválido"
+    await sign_in()
     status, _, body = await call("GET", "/home", auth)
     assert status == 200, (status, body)
     status, _, body = await call("GET", "/payables?mode=tudo", auth)
