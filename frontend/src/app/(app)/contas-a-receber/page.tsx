@@ -413,7 +413,7 @@ export default function ReceivablesPage() {
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div data-tour="indicadores" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3">
         {INDICATORS.map((option, index) => {
           const value = data?.indicators[option.id];
           const look = INDICATOR_LOOK[option.id];
@@ -436,7 +436,7 @@ export default function ReceivablesPage() {
 
       <div className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-tour="barra" className="flex flex-wrap items-center gap-2">
             {data && (
               <PeriodPicker
                 label={
@@ -506,7 +506,7 @@ export default function ReceivablesPage() {
             </DropdownMenu>
             <PrintButton load={() => printReceivables(query)} />
           </div>
-          <div className="relative w-full max-w-[300px]">
+          <div data-tour="busca" className="relative w-full max-w-[300px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
             <Input
               className="bg-card pl-8"
@@ -547,7 +547,7 @@ export default function ReceivablesPage() {
           )
         ) : rows.length ? (
           <>
-            <Table className="border-t border-border/60">
+            <Table data-tour="lista" className="border-t border-border/60">
               <TableHeader className="[&_tr]:border-border/60">
                 <TableRow>
                   {COLUMNS.map((column) => {

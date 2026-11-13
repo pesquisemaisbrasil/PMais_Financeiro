@@ -3,16 +3,18 @@
 import "driver.js/dist/driver.css";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { availableSteps, markTourSeen, tourSeen, tourSelector } from "@/lib/tour";
+import { TOUR_STEPS, availableSteps, markTourSeen, tourFor, tourSeen, tourSelector } from "@/lib/tour";
 
 /**
- * Passeio de introdução (Driver.js, licença MIT): destaca o menu e conta o que cada parte faz.
- * A biblioteca só é baixada quando o passeio abre. Abrir já marca como visto: recarregar a página ou
- * fechar a aba no meio não o faz voltar sozinho (ele volta pelo botão).
+ * Passeio (Driver.js, licença MIT): destaca partes da tela e conta o que cada uma faz. Com o endereço da
+ * tela, mostra o passeio dela; sem ele (ou numa tela sem passeio próprio), o geral, do menu.
+ * A biblioteca só é baixada quando o passeio abre. Abrir o geral já marca como visto: recarregar a página
+ * ou fechar a aba no meio não o faz voltar sozinho (ele volta pelo botão). O de cada tela só abre pelo botão.
  */
-export async function startTour(): Promise<void> {
+export async function startTour(pathname?: string | null): Promise<void> {
   const { driver } = await import("driver.js");
-  const steps = availableSteps((selector) => document.querySelector(selector) !== null);
+  const screen = tourFor(pathname);
+  const steps = availableSteps((selector) => document.querySelector(selector) !== null, screen);
   const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const tour = driver({
     animate: !calm,
@@ -34,7 +36,7 @@ export async function startTour(): Promise<void> {
     })),
   });
   tour.drive();
-  markTourSeen();
+  if (screen === TOUR_STEPS) markTourSeen();
 }
 
 /** Abre o passeio sozinho, uma vez por navegador, na primeira visita ao Início. */

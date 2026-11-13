@@ -344,7 +344,7 @@ export function Sidebar() {
               "mt-1 w-full justify-start gap-3 rounded-xl px-3 text-brand-cinza-escuro/70 hover:text-brand-azul-deep",
               collapsed && "md:justify-center md:px-0"
             )}
-            onClick={() => void startTour()}
+            onClick={() => void startTour(pathname)}
           >
             <Compass size={16} />
             <span className={cn(collapsed && "md:hidden")}>Conhecer o sistema</span>

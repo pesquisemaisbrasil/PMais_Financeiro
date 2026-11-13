@@ -142,7 +142,7 @@ export default function BankReconciliationPage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div data-tour="abas" className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs value={view} onValueChange={(next) => setView(next as View)}>
           <TabsList>
             <TabsTrigger value="conciliacao">
@@ -174,7 +174,7 @@ export default function BankReconciliationPage() {
         </div>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div data-tour="conta" className="mb-4 flex flex-wrap items-end gap-3">
             <Field label="Conta bancária" id="conta-extrato">
               <Select
                 value={accountId === null ? undefined : String(accountId)}
@@ -211,7 +211,7 @@ export default function BankReconciliationPage() {
             <Tile label="Saídas" value={data ? brl(data.expense) : "—"} tone="vermelho" />
           </div>
 
-          <div className={CARD}>
+          <div data-tour="extrato" className={CARD}>
             <div className="flex flex-wrap items-end gap-3 px-4 py-4">
               <Field label="De" id="extrato-de">
                 <Input

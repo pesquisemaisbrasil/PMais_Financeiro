@@ -1172,7 +1172,7 @@ function Records({ tab }: { tab: TabId }) {
         </div>
       )}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div data-tour="totais" className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <CountCard
           label="Exibindo"
           value={tab === "projects" ? (reference ? projects.length : null) : rows ? shown.length : null}
@@ -1203,7 +1203,7 @@ function Records({ tab }: { tab: TabId }) {
         />
       </div>
 
-      <div className={CARD}>
+      <div data-tour="lista" className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
           <div className="relative w-full max-w-[320px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />

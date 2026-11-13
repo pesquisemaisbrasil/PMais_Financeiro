@@ -102,7 +102,7 @@ function ProjectList() {
         </div>
       )}
       {projects && (
-        <div className={cn(CARD, "overflow-hidden")}>
+        <div data-tour="lista" className={cn(CARD, "overflow-hidden")}>
           {projects.length ? (
             <Table>
               <TableHeader>
@@ -257,7 +257,7 @@ function Report({ code }: { code: string }) {
         </AlertDescription>
       </Alert>
 
-      <div className="mb-4 grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3">
+      <div data-tour="cartoes" className="mb-4 grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3">
         <StatCard
           label="Orçamento"
           value={report.budget === null ? "—" : brl(report.budget)}
@@ -309,6 +309,7 @@ function Report({ code }: { code: string }) {
       )}
 
       <Lines
+        tour="lancamentos"
         title="Lançamentos de Contas a pagar"
         hint="Só a parte deste projeto em cada conta"
         lines={report.lines}
@@ -347,12 +348,15 @@ const WIDE = "hidden 2xl:table-cell";
 const WIDER = "hidden xl:table-cell";
 
 function Lines({
+  tour,
   title,
   hint,
   lines,
   totals,
   empty,
 }: {
+  /** O `data-tour` desta seção, quando o passeio da tela a destaca. */
+  tour?: string;
   title: string;
   hint: string;
   lines: ReportLine[];
@@ -360,7 +364,7 @@ function Lines({
   empty: string;
 }) {
   return (
-    <section className={cn(CARD, "mb-6 overflow-hidden")}>
+    <section data-tour={tour} className={cn(CARD, "mb-6 overflow-hidden")}>
       <header className="px-5 pb-2 pt-4">
         <h2 className="text-base font-semibold text-brand-cinza-escuro">{title}</h2>
         <p className="text-xs text-muted-foreground">{hint}</p>
@@ -448,7 +452,7 @@ function Documents({ documents }: { documents: ReportDocument[] }) {
   }
 
   return (
-    <section className={cn(CARD, "mb-6 overflow-hidden")}>
+    <section data-tour="documentos" className={cn(CARD, "mb-6 overflow-hidden")}>
       <header className="px-5 pb-2 pt-4">
         <h2 className="text-base font-semibold text-brand-cinza-escuro">Documentos dos lançamentos</h2>
         <p className="text-xs text-muted-foreground">

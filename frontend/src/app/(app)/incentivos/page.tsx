@@ -187,7 +187,7 @@ export default function IncentiveAgendaPage() {
         </Alert>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div data-tour="indicadores" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {GROUPS.map((option, index) => {
           const bucket = data?.summary[option.id];
           return (
@@ -208,7 +208,7 @@ export default function IncentiveAgendaPage() {
       </div>
 
       <div className={CARD}>
-        <div className="flex flex-wrap items-center gap-2 px-4 py-4">
+        <div data-tour="barra" className="flex flex-wrap items-center gap-2 px-4 py-4">
           {data && (
             <PeriodPicker
               label={viewLabel}
@@ -258,7 +258,7 @@ export default function IncentiveAgendaPage() {
             </div>
           )
         ) : days.length ? (
-          <Table>
+          <Table data-tour="lista">
             <TableHeader>
               <TableRow>
                 <TableHead className={TH}>Lançamento</TableHead>

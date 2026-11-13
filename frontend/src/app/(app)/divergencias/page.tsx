@@ -44,12 +44,12 @@ export default function DivergencesPage() {
       {error && <ErrorBox message={error} onRetry={retry} />}
       {!error && rows === null && <Skeleton className="h-32 w-full rounded-2xl" />}
       {rows && rows.length === 0 && (
-        <div className={`${CARD} px-6 py-10 text-center text-sm text-muted-foreground`}>
+        <div data-tour="lista" className={`${CARD} px-6 py-10 text-center text-sm text-muted-foreground`}>
           Nenhuma divergência. Toda baixa enviada ao Connect foi aceita.
         </div>
       )}
       {rows && rows.length > 0 && (
-        <div className={`${CARD} overflow-x-auto`}>
+        <div data-tour="lista" className={`${CARD} overflow-x-auto`}>
           <Table>
             <TableHeader>
               <TableRow>

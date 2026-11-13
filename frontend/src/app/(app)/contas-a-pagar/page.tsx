@@ -660,7 +660,7 @@ function PayablesContent() {
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div data-tour="indicadores" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
         {INDICATORS.map((option, index) => {
           const value = data?.indicators[option.id];
           return (
@@ -682,7 +682,7 @@ function PayablesContent() {
 
       <div className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-tour="barra" className="flex flex-wrap items-center gap-2">
             {data && (
               <PeriodPicker
                 label={
@@ -759,7 +759,7 @@ function PayablesContent() {
               Colunas
             </Button>
           </div>
-          <div className="relative w-full max-w-[300px]">
+          <div data-tour="busca" className="relative w-full max-w-[300px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
             <Input
               className="bg-card pl-8"
@@ -835,6 +835,7 @@ function PayablesContent() {
         ) : rows.length ? (
           <>
             <Table
+              data-tour="lista"
               className="border-t border-border/60 data-[density=compact]:[&_td:not([colspan])]:py-1.5"
               data-density={density}
             >

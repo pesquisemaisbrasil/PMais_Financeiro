@@ -102,7 +102,7 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div data-tour="tela" className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
         {overline && (
           <div className="mb-1 text-xs font-semibold uppercase tracking-[.05em] text-brand-azul-deep">{overline}</div>

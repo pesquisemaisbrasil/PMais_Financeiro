@@ -1,6 +1,6 @@
-/** Passeio de introdução do sistema: os passos, o texto e o "já vi" guardado no navegador. */
+/** Passeios do sistema: os passos, o texto e o "já vi" guardado no navegador. */
 
-/** Guarda que este navegador já viu (ou fechou) o passeio: ele só abre sozinho uma vez. */
+/** Guarda que este navegador já viu (ou fechou) o passeio geral: ele só abre sozinho uma vez. */
 export const TOUR_SEEN_KEY = "financeiro:passeio-visto";
 
 export interface TourStep {
@@ -10,6 +10,7 @@ export interface TourStep {
   text: string;
 }
 
+/** O passeio geral: o menu e o que cada parte faz. Abre sozinho na primeira visita ao Início. */
 export const TOUR_STEPS: TourStep[] = [
   {
     target: null,
@@ -49,9 +50,176 @@ export const TOUR_STEPS: TourStep[] = [
   {
     target: "passeio",
     title: "Ver o passeio de novo",
-    text: "Quando quiser rever, é só clicar aqui.",
+    text: "Quando quiser rever, é só clicar aqui. Em cada tela, este botão mostra o passeio daquela tela.",
   },
 ];
+
+/**
+ * O passeio de cada tela, pelo endereço dela. O primeiro passo é sempre o cabeçalho (`tela`), e os
+ * demais destacam o que a pessoa vê e usa ali. Tela sem passeio próprio mostra o geral.
+ */
+export const SCREEN_TOURS: Record<string, TourStep[]> = {
+  "/contas-a-pagar": [
+    {
+      target: "tela",
+      title: "Contas a pagar",
+      text: "Aqui ficam todas as contas que a empresa tem a pagar. Use Nova conta a pagar para lançar uma (dá para dividir entre projetos e repetir todo mês) e Importar planilha para lançar várias de uma vez.",
+    },
+    {
+      target: "indicadores",
+      title: "Cartões de resumo",
+      text: "Cada cartão soma as contas de uma situação: total, pagas, pendentes, vencidas, de hoje, a vencer, provisões e canceladas. Clique num cartão para ver só aquelas contas; a lista e os totais acompanham.",
+    },
+    {
+      target: "barra",
+      title: "Período, filtros e exportação",
+      text: "Escolha o período por dia, semana, mês, ano ou tudo, ou clique na data para marcar uma data inicial e uma final. Filtros abre o painel lateral, e cada filtro aceita mais de uma opção. Exportar gera Excel ou CSV, Imprimir abre a folha com todos os resultados e Colunas escolhe o que aparece.",
+    },
+    {
+      target: "busca",
+      title: "Busca",
+      text: "Digite o nome da conta, o fornecedor ou o número da nota para achar na lista.",
+    },
+    {
+      target: "lista",
+      title: "A lista de contas",
+      text: "Clique em qualquer lugar da linha para abrir a conta: detalhes, baixas, documentos, histórico e repetição. Marque as caixas para dar baixa, reclassificar, duplicar ou excluir várias de uma vez. A seta da linha mostra as pessoas de um incentivo ou de uma folha.",
+    },
+  ],
+  "/contas-a-receber": [
+    {
+      target: "tela",
+      title: "Contas a receber",
+      text: "Aqui ficam os valores que os clientes devem à empresa. Use Nova conta a receber para lançar um título (dá para parcelar e repetir) e Inadimplência para ver o que está vencido, por cliente e por faixa de atraso.",
+    },
+    {
+      target: "indicadores",
+      title: "Cartões de resumo",
+      text: "Total, recebidos, pendentes, vencidos, de hoje e a vencer. Clique num cartão para ver só aqueles títulos; a lista e os totais acompanham.",
+    },
+    {
+      target: "barra",
+      title: "Período, filtros e exportação",
+      text: "O período e os Filtros funcionam como em Contas a pagar. Exportar gera Excel ou CSV do que está na tela, e Imprimir abre a folha com todos os resultados.",
+    },
+    {
+      target: "busca",
+      title: "Busca",
+      text: "Digite o título, o cliente ou o contrato para achar na lista.",
+    },
+    {
+      target: "lista",
+      title: "A lista de títulos",
+      text: "Em cada linha, Registrar recebimento aceita o valor todo ou só uma parte. Clique na linha para abrir o título: recebimentos (com estorno, que pede o motivo), documentos, repetição e histórico.",
+    },
+  ],
+  "/conferencia-bancaria": [
+    {
+      target: "tela",
+      title: "Conferência bancária",
+      text: "Aqui o extrato do banco é conferido com o sistema. Importar extrato lê um arquivo OFX (ou um CSV) e mostra uma prévia: nada é gravado até você confirmar.",
+    },
+    {
+      target: "abas",
+      title: "As quatro visões",
+      text: "Conferência liga cada linha do extrato a uma conta que já tem baixa. Extrato × sistema compara o que o banco pagou com o que o sistema baixou, dia a dia. Saldo do mês mostra entradas, saídas e saldo de cada conta. Fechamento fecha o mês por empresa e baixa a planilha da contabilidade.",
+    },
+    {
+      target: "conta",
+      title: "Conta bancária",
+      text: "Escolha a conta: cada conta tem o seu extrato. As contas se cadastram em Cadastros, em Contas bancárias.",
+    },
+    {
+      target: "extrato",
+      title: "As linhas do extrato",
+      text: "Da mais nova para a mais antiga. De e Até limitam o período, e as abas separam as linhas Pendentes, Conciliadas e Exceções. Conciliar liga a linha a uma conta paga, do mesmo valor. Se nenhuma servir, marque como exceção e escreva o motivo. Desfazer devolve a linha a Pendente.",
+    },
+  ],
+  "/divergencias": [
+    {
+      target: "tela",
+      title: "Divergências",
+      text: "Aqui aparecem as baixas que o Connect recusou. O Pix já saiu do banco, mas o Connect não aceitou marcar as entrevistas como pagas. Nada é corrigido sozinho: confira com o time do Connect e decida o que fazer.",
+    },
+    {
+      target: "lista",
+      title: "O que o Connect disse",
+      text: "Cada baixa recusada vira uma linha com o projeto, de quem veio o Pix, o valor, o dia e a resposta do Connect. A referência ajuda o time do Connect a achar a baixa. Sem linhas, toda baixa foi aceita.",
+    },
+  ],
+  "/cadastros": [
+    {
+      target: "tela",
+      title: "Cadastros",
+      text: "Aqui ficam as listas que o sistema usa nos lançamentos: empresas, unidades, centros de custo, clientes, fornecedores, plano de contas, projetos, contas bancárias e formas de pagamento. Escolha a lista no menu Cadastros. O botão do alto cria um registro novo; em Projetos, ele traz os projetos do Connect.",
+    },
+    {
+      target: "totais",
+      title: "Quatro totais",
+      text: "Mostram quantos registros aparecem agora (muda com a busca), o total da lista, os ativos e os inativos. Em Projetos, são os em andamento e os encerrados.",
+    },
+    {
+      target: "lista",
+      title: "A lista",
+      text: "Busque pelo campo do alto e clique no nome de uma coluna para ordenar. Um cadastro que já tem lançamento não se exclui: inative. O inativo some das listas de escolha e continua nos relatórios.",
+    },
+  ],
+  "/relatorios/projeto": [
+    {
+      target: "tela",
+      title: "Relatório do projeto",
+      text: "Escolha um projeto para ver quanto foi lançado, pago e falta pagar, com os documentos de todos os lançamentos dele. Aqui não se paga: para pagar, abra a conta em Contas a pagar.",
+    },
+    {
+      target: "lista",
+      title: "Os projetos",
+      text: "Cada linha é um projeto do Connect, com o que foi lançado, o que foi pago e o que falta pagar. Abrir relatório mostra o detalhe do projeto.",
+    },
+    {
+      target: "cartoes",
+      title: "Cartões do projeto",
+      text: "Orçamento e saldo vêm do Connect e ficam em traço até o Financeiro ler o orçamento de lá. Lançado, pago e a pagar vêm das contas do projeto. As provisões em aberto ficam à parte, porque ainda não são gasto.",
+    },
+    {
+      target: "lancamentos",
+      title: "Lançamentos",
+      text: "Cada conta de Contas a pagar com a parte que cabe a este projeto, quando a conta é dividida entre projetos. Abrir leva à conta em Contas a pagar.",
+    },
+    {
+      target: "documentos",
+      title: "Documentos",
+      text: "Planilhas, comprovantes e notas anexados às contas do projeto. Dá para baixar daqui, e cada download fica no histórico da conta.",
+    },
+  ],
+  "/incentivos": [
+    {
+      target: "tela",
+      title: "Incentivos",
+      text: "Aqui estão as datas de pagamento dos incentivos, com as pessoas e a situação de cada uma. Importar planilha traz os entrevistados de uma planilha. Quem paga e dá a baixa continua sendo o Contas a pagar.",
+    },
+    {
+      target: "indicadores",
+      title: "Cartões de resumo",
+      text: "Vencidos, vencem hoje, a vencer e pagos. Clique num cartão para ver só aquelas datas; clique de novo para voltar.",
+    },
+    {
+      target: "barra",
+      title: "Período",
+      text: "Escolha o período por dia, semana, mês, ano ou tudo, ou marque uma data inicial e uma final. Hoje volta para o dia de hoje.",
+    },
+    {
+      target: "lista",
+      title: "A lista de datas",
+      text: "Uma linha por lançamento, em ordem de vencimento, com a data na frente (vermelha se já venceu e falta pagar). A seta mostra as pessoas, e Abrir leva à conta em Contas a pagar, onde se dá a baixa.",
+    },
+  ],
+};
+
+/** O passeio da tela em que a pessoa está. O endereço pode vir com barra no fim (site exportado). */
+export function tourFor(pathname: string | null | undefined): TourStep[] {
+  const path = pathname && pathname.length > 1 ? pathname.replace(/\/+$/, "") : "/";
+  return SCREEN_TOURS[path] ?? TOUR_STEPS;
+}
 
 /** O endereço do elemento destacado na tela. */
 export function tourSelector(target: string): string {
