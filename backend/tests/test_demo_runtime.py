@@ -77,3 +77,111 @@ def test_demo_runtime_starts_from_scratch_logs_in_and_serves_screens() -> None:
 
     assert result.returncode == 0, result.stderr[-2000:]
     assert result.stdout.strip().endswith("OK")
+
+
+# ---- O banco volta como estava (guardado pelo navegador entre as visitas) ----
+
+PRELUDE = SCRIPT[: SCRIPT.index("async def main():")]
+
+FIRST_VISIT = (
+    PRELUDE
+    + """
+import sys
+
+async def main():
+    demo_runtime.start()
+    auth = await sign_in()
+    status, _, body = await call(
+        "POST",
+        "/holidays",
+        auth + [("content-type", "application/json")],
+        json.dumps(
+            {"date": "2031-05-05", "name": "Feriado guardado", "scope": "nacional"}
+        ).encode(),
+    )
+    assert status == 201, (status, body)
+    status, _, body = await call("GET", "/payables?mode=tudo", auth)
+    total = json.loads(body)["total"]
+    open(sys.argv[1], "wb").write(demo_runtime.snapshot())
+    print(total)
+
+asyncio.run(main())
+"""
+)
+
+SECOND_VISIT = (
+    PRELUDE
+    + """
+import sys
+
+async def main():
+    saved = open(sys.argv[1], "rb").read()
+    demo_runtime.start(saved)
+    auth = await sign_in()
+    status, _, body = await call("GET", "/holidays", auth)
+    assert any(h["name"] == "Feriado guardado" for h in json.loads(body)), body
+    status, _, body = await call("GET", "/payables?mode=tudo", auth)
+    # o seed não rodou de novo: nada duplicou
+    assert json.loads(body)["total"] == int(sys.argv[2]), (json.loads(body)["total"], sys.argv[2])
+    print("OK")
+
+asyncio.run(main())
+"""
+)
+
+
+def _run(script: str, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-X",
+            "utf8",
+            "-c",
+            f"import sys; sys.path.insert(0, {str(BACKEND)!r})\n{script}",
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=BACKEND,
+        timeout=180,
+    )
+
+
+def test_the_database_comes_back_as_it_was_from_the_snapshot(tmp_path: Path) -> None:
+    saved = tmp_path / "banco.db"
+
+    first = _run(FIRST_VISIT, str(saved))
+    assert first.returncode == 0, first.stderr[-2000:]
+    total = first.stdout.strip().splitlines()[-1]
+
+    second = _run(SECOND_VISIT, str(saved), total)
+
+    assert second.returncode == 0, second.stderr[-2000:]
+    assert second.stdout.strip().endswith("OK")
+
+
+def test_a_corrupt_snapshot_starts_from_scratch_instead_of_breaking(tmp_path: Path) -> None:
+    broken = tmp_path / "quebrado.db"
+    broken.write_bytes(b"isto nao e um banco sqlite" * 100)
+
+    script = (
+        PRELUDE
+        + """
+import sys
+
+async def main():
+    demo_runtime.start(open(sys.argv[1], "rb").read())
+    auth = await sign_in()
+    status, _, body = await call("GET", "/payables?mode=tudo", auth)
+    assert status == 200 and json.loads(body)["total"] >= 10
+    print("OK")
+
+asyncio.run(main())
+"""
+    )
+    result = _run(script, str(broken))
+
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert result.stdout.strip().endswith("OK")
