@@ -36,7 +36,12 @@ const sha256 = (buffer) => createHash("sha256").update(buffer).digest("hex");
 async function download(url, expected, name) {
   fs.mkdirSync(CACHE, { recursive: true });
   const cached = path.join(CACHE, `${expected}-${name}`);
-  if (fs.existsSync(cached)) return fs.readFileSync(cached);
+  if (fs.existsSync(cached)) {
+    // Uma escrita interrompida deixa arquivo truncado no cache: confere o hash também aqui.
+    const buffer = fs.readFileSync(cached);
+    if (sha256(buffer) === expected) return buffer;
+    fs.rmSync(cached, { force: true });
+  }
   const response = await fetch(url);
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -125,7 +130,7 @@ async function main() {
   const onlyPackages = process.argv.includes("--so-pacotes");
   if (!onlyPackages) buildApp();
   fs.mkdirSync(DEMO, { recursive: true });
-  fs.copyFileSync(path.join(FRONTEND, "public", "demo", "worker.js"), path.join(DEMO, "worker.js"));
+  fs.copyFileSync(path.join(FRONTEND, "scripts", "demo-worker.js"), path.join(DEMO, "worker.js"));
   await copyPyodide();
   await copyPureWheels();
   bundleBackend();

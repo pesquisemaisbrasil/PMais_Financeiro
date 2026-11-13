@@ -153,6 +153,26 @@ describe("estado da demonstração", () => {
     expect(getDemoState().phase).toBe("ready");
   });
 
+  it("se o navegador não consegue criar o worker, a tela recebe um texto simples e o detalhe vai ao console", async () => {
+    vi.stubGlobal(
+      "Worker",
+      class {
+        constructor() {
+          throw new Error("Worker is not defined (detalhe técnico em inglês)");
+        }
+      }
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { getDemoState, startDemo } = await load();
+
+    await expect(startDemo()).rejects.toThrow("Não foi possível ligar a demonstração");
+
+    expect(getDemoState()).toMatchObject({ phase: "error" });
+    expect(getDemoState().text).not.toMatch(/Worker|defined|inglês/);
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
+
   it("sem NEXT_PUBLIC_DEMO a demonstração fica desligada", async () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO", "");
     expect((await load()).DEMO).toBe(false);

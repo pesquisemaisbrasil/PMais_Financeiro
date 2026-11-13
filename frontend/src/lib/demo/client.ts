@@ -1,6 +1,6 @@
 /**
  * Versão de demonstração (NEXT_PUBLIC_DEMO=1): o backend real roda dentro do navegador, num Web
- * Worker com o Pyodide (public/demo/worker.js), e este arquivo faz o papel do `fetch`.
+ * Worker com o Pyodide (scripts/demo-worker.js), e este arquivo faz o papel do `fetch`.
  *
  * Fora da demonstração (desenvolvimento e produção) nada daqui roda: o `fetch` de verdade é usado.
  * docs/operations/publicar-a-versao-de-teste.md
@@ -13,6 +13,9 @@ export const DEMO = process.env.NEXT_PUBLIC_DEMO === "1";
 const REFRESH_KEY = "financeiro:demo:refresh";
 // Endereço de enfeite: a tela monta URLs absolutas, e só o caminho vale para o backend do navegador.
 const ORIGIN = "http://demonstracao.invalid";
+
+const FAILURE_TEXT =
+  "Não foi possível ligar a demonstração neste navegador. Atualize a página; se continuar, tente o Chrome, o Edge ou o Firefox.";
 
 export interface DemoState {
   phase: "starting" | "ready" | "error";
@@ -49,7 +52,22 @@ export function subscribeDemo(listener: (state: DemoState) => void): () => void 
 /** Liga o backend do navegador (uma vez só). Quem precisa dele espera por esta promessa. */
 export function startDemo(): Promise<void> {
   ready ??= new Promise<void>((resolve, reject) => {
-    worker = new Worker(`${BASE_PATH}/demo/worker.js`);
+    // O detalhe técnico vai para o console; a tela mostra só o texto simples, e quem espera uma
+    // resposta não fica para sempre com o círculo girando.
+    const fail = (detail: unknown) => {
+      console.error("[demonstração]", detail);
+      emit({ phase: "error", text: FAILURE_TEXT });
+      const failure = new Error(FAILURE_TEXT);
+      pending.forEach((waiting) => waiting.reject(failure));
+      pending.clear();
+      reject(failure);
+    };
+    try {
+      worker = new Worker(`${BASE_PATH}/demo/worker.js`);
+    } catch (error) {
+      fail(error);
+      return;
+    }
     worker.onmessage = (event: MessageEvent<Reply & { text?: string; message?: string }>) => {
       const message = event.data;
       if (message.type === "progress") emit({ phase: "starting", text: String(message.text) });
@@ -57,8 +75,7 @@ export function startDemo(): Promise<void> {
         emit({ phase: "ready", text: "" });
         resolve();
       } else if (message.type === "error") {
-        emit({ phase: "error", text: String(message.message) });
-        reject(new Error(String(message.message)));
+        fail(message.message);
       } else {
         const waiting = pending.get(message.id);
         if (!waiting) return;
@@ -67,11 +84,7 @@ export function startDemo(): Promise<void> {
         else waiting.resolve(message);
       }
     };
-    worker.onerror = () => {
-      const text = "Não foi possível carregar a demonstração neste navegador.";
-      emit({ phase: "error", text });
-      reject(new Error(text));
-    };
+    worker.onerror = (event) => fail(event.message);
   });
   return ready;
 }
