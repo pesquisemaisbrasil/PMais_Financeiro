@@ -92,6 +92,8 @@ WITH_MFA = [
     "extrato@e2e.invalid",
     "conciliacao@e2e.invalid",
     "fechamento@e2e.invalid",
+    "paginacao@e2e.invalid",
+    "contas-erro@e2e.invalid",
 ]
 # Só quem é administrador reabre um mês fechado.
 ADMINS = ["fechamento@e2e.invalid"]

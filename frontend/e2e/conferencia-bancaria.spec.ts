@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./fixtures";
-import { ofx } from "./ofx";
+import { ofx, type OfxLine } from "./ofx";
 
 const NAME = "MARIA EXEMPLO DA SILVA"; // fictício: o nome de quem pagou, que vai na descrição do Pix
 
@@ -103,6 +103,24 @@ test("conta bancária com os dados do banco e extrato importado sem duplicar", a
   await expect(page.getByText("4 linhas · página 1 de 1")).toBeVisible();
   await expect(history.getByRole("row", { name: /extrato-sobreposto\.ofx/ })).toBeVisible();
 
+  // Extrato que parece ser de outra conta: o aviso fica e só importa depois de a pessoa confirmar,
+  // porque a linha importada não se apaga
+  await page.getByRole("button", { name: "Importar extrato" }).click();
+  await importer.getByLabel("Extrato do banco").setInputFiles({
+    name: "extrato-outra-conta.ofx",
+    mimeType: "application/x-ofx",
+    buffer: Buffer.from(
+      ofx(["20300309", "-50.00", "X9", "PIX ENVIADO Outra conta"]).toString("latin1").replace("98765-4", "11111-1"),
+      "latin1"
+    ),
+  });
+  await expect(importer.getByText("O arquivo parece ser de outra conta bancária")).toBeVisible();
+  const importOther = importer.getByRole("button", { name: "Importar 1 linha nova" });
+  await expect(importOther).toBeDisabled();
+  await importer.getByLabel(/Conferi: este extrato é mesmo da conta/).check();
+  await expect(importOther).toBeEnabled();
+  await importer.getByRole("button", { name: "Cancelar" }).click();
+
   // O período filtra as linhas e os totais
   await page.getByLabel("De", { exact: true }).fill("2030-03-06");
   await page.getByLabel("Até", { exact: true }).fill("2030-03-06");
@@ -123,4 +141,63 @@ test("conta bancária com os dados do banco e extrato importado sem duplicar", a
   await page.goto("/conferencia-bancaria");
   await page.getByRole("combobox", { name: "Conta bancária" }).click();
   await expect(page.getByRole("option", { name: "Itaú · Extrato E2E" })).toHaveCount(0);
+});
+
+test("conciliar a última linha da última página volta para a página que existe", async ({ page }) => {
+  await signIn(page, "paginacao@e2e.invalid");
+  await page.goto("/conferencia-bancaria");
+  await page.getByRole("combobox", { name: "Conta bancária" }).click();
+  await page.getByRole("option", { name: "Bradesco · MC" }).click();
+
+  // 51 saídas, cada uma num dia: 50 na primeira página e a mais antiga sozinha na segunda
+  const lines = Array.from({ length: 51 }, (_, index): OfxLine => {
+    const day = String((index % 28) + 1).padStart(2, "0");
+    const month = index < 28 ? "05" : "06";
+    return [`2031${month}${day}`, "-10.00", `PG${index}`, `PIX ENVIADO LINHA ${String(index).padStart(2, "0")}`];
+  });
+  await page.getByRole("button", { name: "Importar extrato" }).click();
+  const importer = page.getByRole("dialog");
+  await importer.getByLabel("Extrato do banco").setInputFiles({
+    name: "extrato-longo.ofx",
+    mimeType: "application/x-ofx",
+    buffer: ofx(...lines),
+  });
+  await importer.getByRole("button", { name: "Importar 51 linhas novas" }).click();
+  await expect(page.getByText("51 linhas importadas.")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Pendentes 51" }).click();
+  await page.getByRole("button", { name: "Próxima" }).click();
+  await expect(page.getByText("51 linhas · página 2 de 2")).toBeVisible();
+
+  // Marcar a única linha da página 2 como exceção: a lista fica com 50 e volta para a página 1
+  await page.getByRole("button", { name: "Conciliar PIX ENVIADO LINHA 00" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("tab", { name: "Marcar exceção" }).click();
+  await dialog.getByLabel("Motivo *").fill("Teste de paginação");
+  await dialog.getByRole("combobox", { name: "Classificação" }).click();
+  await page.getByRole("option", { name: "Tarifa", exact: true }).click();
+  await dialog.getByRole("button", { name: "Marcar exceção" }).last().click();
+  await expect(page.getByText("Linha marcada como exceção.")).toBeVisible();
+
+  await expect(page.getByRole("tab", { name: "Pendentes 50" })).toBeVisible();
+  await expect(page.getByText("50 linhas · página 1 de 1")).toBeVisible();
+  await expect(page.getByText("Nenhuma linha nessa situação.")).toHaveCount(0);
+});
+
+test("se as contas bancárias não carregam, a tela diz o erro, não diz que não há conta, e tenta de novo", async ({
+  page,
+}) => {
+  await signIn(page, "contas-erro@e2e.invalid");
+  await page.route("**/records/bankAccounts", (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Falha de teste" }) })
+  );
+  await page.goto("/conferencia-bancaria");
+
+  await expect(page.getByText("Falha de teste")).toBeVisible();
+  await expect(page.getByText("Nenhuma conta bancária ativa.")).toHaveCount(0);
+
+  await page.unroute("**/records/bankAccounts");
+  await page.getByRole("button", { name: "Tentar de novo" }).click();
+  await expect(page.getByRole("combobox", { name: "Conta bancária" })).toBeVisible();
+  await expect(page.getByText("Falha de teste")).toHaveCount(0);
 });

@@ -113,6 +113,27 @@ test("a agenda de incentivos e o Início usam as regras de verdade", async ({ pa
   await expect(page.getByText("Vencem hoje")).toBeVisible();
 });
 
+test("sair e entrar de novo logo em seguida funciona (o código do autenticador é da mesma janela)", async ({
+  page,
+}) => {
+  await enter(page);
+
+  await page.getByRole("button", { name: "Sair" }).click();
+  await expect(page.getByLabel("E-mail")).toHaveValue("demo@pesquisemais.invalid");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: /^Boa (tarde|noite)|^Bom dia/ })).toBeVisible();
+});
+
+test("restaurar pede confirmação e cancelar não apaga nada", async ({ page }) => {
+  await enter(page);
+
+  await page.getByRole("button", { name: "Restaurar dados de exemplo" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Cancelar" }).click();
+
+  await expect(page.getByRole("heading", { name: /^Boa (tarde|noite)|^Bom dia/ })).toBeVisible();
+});
+
 test("restaurar os dados de exemplo volta para a tela de entrada e desfaz o que foi feito", async ({
   page,
 }) => {
@@ -126,6 +147,8 @@ test("restaurar os dados de exemplo volta para a tela de entrada e desfaz o que 
   await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 4.370,00");
 
   await page.getByRole("button", { name: "Restaurar dados de exemplo" }).click();
+  // apagar tudo pede confirmação
+  await page.getByRole("alertdialog").getByRole("button", { name: "Restaurar", exact: true }).click();
   await expect(page.getByLabel("E-mail")).toHaveValue("demo@pesquisemais.invalid");
 
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
