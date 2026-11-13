@@ -23,7 +23,8 @@ const BACKEND = path.resolve(FRONTEND, "..", "backend");
 const DIST_DIR = process.env.DEMO_DIST_DIR;
 // Por padrão a demonstração vive em /teste do site do protótipo e o "Voltar ao protótipo" leva à raiz.
 // Num site só dela (por exemplo o Netlify de uma pessoa): DEMO_BASE_PATH= (vazio, na raiz) e
-// DEMO_PROTOTYPE_URL=https://endereço-do-protótipo.
+// DEMO_PROTOTYPE_URL=https://endereço-do-protótipo. Sem protótipo para voltar (DEMO_PROTOTYPE_URL vazio),
+// o site não leva a faixa "Ambiente de teste com dados fictícios": ela existe para o link de volta.
 const BASE_PATH = process.env.DEMO_BASE_PATH ?? "/teste";
 const PROTOTYPE_URL = process.env.DEMO_PROTOTYPE_URL ?? "/";
 const OUT = path.join(FRONTEND, DIST_DIR || "out");
@@ -62,7 +63,7 @@ function buildApp() {
     ...process.env,
     NEXT_PUBLIC_DEMO: "1",
     NEXT_PUBLIC_BASE_PATH: BASE_PATH,
-    NEXT_PUBLIC_TEST_ENV: "1",
+    NEXT_PUBLIC_TEST_ENV: PROTOTYPE_URL ? "1" : "",
     NEXT_PUBLIC_PROTOTYPE_URL: PROTOTYPE_URL,
     // Só para o app montar os endereços: nenhuma chamada sai do navegador.
     NEXT_PUBLIC_API_URL: "http://demonstracao.invalid",
