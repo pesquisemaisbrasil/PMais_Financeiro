@@ -6,18 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { login, verifyMfa } from "@/lib/api";
-import {
-  DEMO,
-  demoCode,
-  demoCredentials,
-  getDemoState,
-  resetDemo,
-  startDemo,
-  subscribeDemo,
-  type DemoCredentials,
-} from "@/lib/demo/client";
-import { useFormAction } from "@/lib/use-form-action";
+import { DEMO, getDemoState, resetDemo, startDemo, subscribeDemo } from "@/lib/demo/client";
 
 /**
  * Na versão de demonstração o backend roda dentro do navegador e leva alguns segundos para ligar:
@@ -60,63 +49,6 @@ export function DemoGate({ children }: { children: React.ReactNode }) {
         </CardContent>
       </Card>
     </main>
-  );
-}
-
-/** Na tela de entrada da demonstração: e-mail, senha e código fictícios, e um botão que entra. */
-export function DemoLoginHelp({ onSignedIn }: { onSignedIn: () => Promise<void> }) {
-  const [credentials, setCredentials] = useState<DemoCredentials | null>(null);
-  const [code, setCode] = useState("");
-  const { error, submitting, run } = useFormAction();
-
-  useEffect(() => {
-    let alive = true;
-    demoCredentials()
-      .then((value) => alive && setCredentials(value))
-      .catch(() => undefined);
-    const refresh = () =>
-      demoCode()
-        .then((value) => alive && setCode(value))
-        .catch(() => undefined);
-    refresh();
-    // o código do autenticador muda a cada 30 segundos
-    const timer = window.setInterval(refresh, 5000);
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-
-  function enter() {
-    if (!credentials) return;
-    run(async () => {
-      const challenge = await login(credentials.email, credentials.password);
-      await verifyMfa(challenge.mfa_token, await demoCode());
-      await onSignedIn();
-    });
-  }
-
-  return (
-    <CardContent className="space-y-3 pt-0">
-      <Alert>
-        <AlertDescription className="space-y-1 text-xs">
-          <p className="font-semibold text-brand-cinza-escuro">Versão de demonstração, só com dados fictícios</p>
-          <p>
-            Para entrar, use o botão abaixo. Ou digite: e-mail <strong>{credentials?.email ?? "…"}</strong>,
-            senha <strong>{credentials?.password ?? "…"}</strong> e o código <strong>{code || "…"}</strong>{" "}
-            (muda a cada 30 segundos).
-          </p>
-        </AlertDescription>
-      </Alert>
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      <Button type="button" className="w-full" disabled={submitting || !credentials} onClick={enter}>
-        {submitting ? "Entrando…" : "Entrar na demonstração"}
-      </Button>
-    </CardContent>
   );
 }
 

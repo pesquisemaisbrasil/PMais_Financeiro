@@ -7,7 +7,7 @@ O botão **Abrir para teste de produção** do protótipo (menu, abaixo de "Rest
 - O Netlify só serve páginas. Por isso o **backend (Python) roda dentro do navegador**, via Pyodide, num SQLite em memória cheio de dados fictícios. Não há API, banco, cofre de arquivos nem conta em outro provedor.
 - É o mesmo código do repositório: toda tela ou regra nova aparece na demonstração quando o site é gerado de novo.
 - O que a pessoa faz fica **só no navegador dela**. **Recarregar a página volta aos dados de exemplo** (e pede para entrar de novo); o botão **Restaurar dados de exemplo** faz o mesmo de propósito. Navegue pelo menu: abrir um endereço direto também recarrega.
-- A tela de entrada mostra o e-mail, a senha e o código fictícios, com o botão **Entrar na demonstração**. A faixa roxa "Ambiente de teste com dados fictícios" fica no topo, com o link **Voltar ao protótipo**.
+- A tela de entrada já vem com o login fictício preenchido: é só clicar em **Entrar** (o código do autenticador também é fictício e entra sozinho). A faixa roxa "Ambiente de teste com dados fictícios" fica no topo, com o link **Voltar ao protótipo**.
 - O Connect é o **simulado**. O teste real com o Connect fica só na máquina do Bruno: [testar com o Connect de dev](testar-com-o-connect-dev.md).
 - Nunca digite dado real, nem comprovante, planilha ou chave Pix reais: nada sai do navegador, mas a regra do projeto vale (AGENTS.md).
 

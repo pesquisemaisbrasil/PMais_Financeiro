@@ -4,16 +4,15 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { DemoLoginHelp } from "@/components/Demo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, ssoLoginUrl, startMfaSetup } from "@/lib/api";
+import { login, ssoLoginUrl, startMfaSetup, verifyMfa } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { publicAsset } from "@/lib/basePath";
-import { DEMO } from "@/lib/demo/client";
+import { DEMO, demoCode, demoCredentials } from "@/lib/demo/client";
 import { useFormAction } from "@/lib/use-form-action";
 import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep } from "./MfaSteps";
 
@@ -64,7 +63,15 @@ const SSO_PROVIDERS = [
   },
 ];
 
-function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; ssoError: string | null }) {
+function CredentialsStep({
+  onStep,
+  onSignedIn,
+  ssoError,
+}: {
+  onStep: (step: Step) => void;
+  onSignedIn: () => Promise<void>;
+  ssoError: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -74,10 +81,32 @@ function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; s
   const [demoSsoClicked, setDemoSsoClicked] = useState(false);
   const shownError = error ?? ssoError ?? (demoSsoClicked ? SSO_ERRORS.sso_indisponivel : null);
 
+  // Na demonstração o login é sempre o mesmo (fictício): já vem preenchido, e o Entrar vai direto.
+  useEffect(() => {
+    if (!DEMO) return;
+    let alive = true;
+    demoCredentials()
+      .then((credentials) => {
+        if (!alive) return;
+        setEmail(credentials.email);
+        setPassword(credentials.password);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     run(async () => {
       const challenge = await login(email, password);
+      if (DEMO) {
+        // O código do autenticador da demonstração é fictício e vem do próprio navegador: não se digita.
+        await verifyMfa(challenge.mfa_token, await demoCode());
+        await onSignedIn();
+        return;
+      }
       if (!challenge.setup_required) {
         onStep({ name: "verify", mfaToken: challenge.mfa_token });
         return;
@@ -217,8 +246,9 @@ function LoginContent() {
           </h1>
         </CardHeader>
 
-        {step.name === "credentials" && <CredentialsStep onStep={setStep} ssoError={ssoError} />}
-        {step.name === "credentials" && DEMO && <DemoLoginHelp onSignedIn={loadUser} />}
+        {step.name === "credentials" && (
+          <CredentialsStep onStep={setStep} onSignedIn={loadUser} ssoError={ssoError} />
+        )}
         {step.name === "verify" && (
           <MfaVerifyStep mfaToken={step.mfaToken} onVerified={loadUser} onBack={restart} />
         )}

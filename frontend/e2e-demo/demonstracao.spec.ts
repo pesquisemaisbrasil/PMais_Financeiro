@@ -5,12 +5,13 @@ const BASE = "/teste/";
 /** O backend (Python) liga dentro do navegador: a primeira tela só aparece depois. */
 async function open(page: Page) {
   await page.goto(BASE);
-  await expect(page.getByRole("button", { name: "Entrar na demonstração" })).toBeEnabled();
+  // o login da demonstração já vem preenchido, depois que o backend do navegador liga
+  await expect(page.getByLabel("E-mail")).toHaveValue("demo@pesquisemais.invalid");
 }
 
 async function enter(page: Page) {
   await open(page);
-  await page.getByRole("button", { name: "Entrar na demonstração" }).click();
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("heading", { name: /^Boa (tarde|noite)|^Bom dia/ })).toBeVisible();
 }
 
@@ -32,7 +33,7 @@ test("a tela de entrada mostra a demonstração, Google e Microsoft só como vis
 }) => {
   await open(page);
 
-  await expect(page.getByText("Versão de demonstração, só com dados fictícios")).toBeVisible();
+  await expect(page.getByLabel("Senha", { exact: true })).not.toHaveValue("");
   // Os botões aparecem, mas não levam a lugar nenhum: o clique só avisa que o login ainda não está disponível
   for (const provider of ["Google", "Microsoft"]) {
     await page.getByRole("button", { name: `Entrar com ${provider}` }).click();
@@ -114,9 +115,9 @@ test("restaurar os dados de exemplo volta para a tela de entrada e desfaz o que 
   await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 4.370,00");
 
   await page.getByRole("button", { name: "Restaurar dados de exemplo" }).click();
-  await expect(page.getByRole("button", { name: "Entrar na demonstração" })).toBeEnabled();
+  await expect(page.getByLabel("E-mail")).toHaveValue("demo@pesquisemais.invalid");
 
-  await page.getByRole("button", { name: "Entrar na demonstração" }).click();
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page.getByRole("heading", { name: /^Boa (tarde|noite)|^Bom dia/ })).toBeVisible();
   await go(page, "Financeiro", "Contas a pagar");
   await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 1.570,00");

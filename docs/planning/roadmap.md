@@ -179,7 +179,7 @@ Não tem tela. É o cliente das rotas do Connect (baixa, consulta e cancelamento
 O botão **Abrir para teste de produção** do protótipo abre `teste/`, onde fica o **Financeiro real com dados fictícios**: as mesmas telas e regras do repositório, com o backend (Python) rodando dentro do navegador, sem servidor ([ADR 0017](../architecture/adr/0017-demonstracao-com-o-backend-no-navegador.md)). O teste real com o Connect continua só na máquina do Bruno.
 
 1. Gerar e ver na máquina (em `frontend/`): `DEMO_DIST_DIR=.next-demo node scripts/build-demo.mjs` e `node scripts/serve-demo.mjs .next-demo 3020`; abrir <http://localhost:3020/teste/>. Detalhes em [publicar a versão de teste](../operations/publicar-a-versao-de-teste.md).
-2. Na tela de entrada, **Entrar na demonstração**: abre o Início, com contas vencidas, vencendo hoje, fluxo previsto e agenda de incentivos.
+2. Na tela de entrada o login fictício já vem preenchido: clique em **Entrar** e abre o Início, com contas vencidas, vencendo hoje, fluxo previsto e agenda de incentivos.
 3. Navegue **pelo menu** (recarregar a página volta aos dados de exemplo): em **Contas a pagar**, dê baixa no lançamento de incentivos e veja **Pagos** subir; na **Conferência bancária**, veja o extrato conciliado e o Fechamento do mês.
 4. **Restaurar dados de exemplo** (menu) desfaz o que foi feito.
 5. Os testes: `DEMO_DIST_DIR=.next-demo npx playwright test -c playwright.demo.config.ts` (6 testes), e `pytest tests/test_seed_demonstracao.py tests/test_demo_runtime.py tests/test_security.py` em `backend/`.
