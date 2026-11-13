@@ -196,6 +196,9 @@ class PayableItem(Base):
     connect_interviewer_id = Column(Integer, nullable=True, index=True)
     # Dia do Pix que pagou esta pessoa.
     paidOn = Column(Date, nullable=True)
+    # Incentivo: a chave Pix do respondente já mascarada (3 primeiros e 2 últimos caracteres, como o
+    # Connect mostra). A chave completa nunca é guardada nem volta para a tela (Q22).
+    pix_masked = Column(String(255), nullable=True)
 
 
 class PayablePayment(Base):

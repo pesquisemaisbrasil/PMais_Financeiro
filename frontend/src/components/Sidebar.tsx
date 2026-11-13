@@ -23,7 +23,9 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getHome } from "@/lib/api";
+import { DemoResetButton } from "@/components/Demo";
 import { useAuth } from "@/lib/auth-context";
+import { publicAsset } from "@/lib/basePath";
 import { PAYABLES_CHANGED } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +47,7 @@ const NAV: Entry[] = [
       { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
       { href: "/contas-a-receber", label: "Contas a receber" },
       { label: "Notas e RPA" },
-      { label: "Conferência bancária" },
+      { href: "/conferencia-bancaria", label: "Conferência bancária" },
       { href: "/divergencias", label: "Divergências" },
     ],
   },
@@ -55,6 +57,7 @@ const NAV: Entry[] = [
     icon: ChartColumn,
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
+      { href: "/incentivos", label: "Incentivos" },
       { label: "Fluxo de caixa" },
       { label: "DRE" },
       { label: "Resultado por projeto" },
@@ -75,6 +78,7 @@ const NAV: Entry[] = [
       { href: "/cadastros?aba=projects", label: "Projetos" },
       { href: "/cadastros?aba=bankAccounts", label: "Contas bancárias" },
       { href: "/cadastros?aba=paymentMethods", label: "Formas de pagamento" },
+      { href: "/cadastros?aba=holidays", label: "Feriados" },
     ],
   },
 ];
@@ -189,7 +193,7 @@ export function Sidebar() {
         )}
       >
         <div className={cn("flex items-center gap-2.5", collapsed && "md:hidden")}>
-          <Image src="/logo-branco.png" alt="P+ Financeiro" width={77} height={28} priority />
+          <Image src={publicAsset("/logo-branco.png")} alt="P+ Financeiro" width={77} height={28} priority />
           <span className="border-l border-white/40 pl-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-white">
             Financeiro
           </span>
@@ -314,6 +318,7 @@ export function Sidebar() {
       </nav>
 
       <div className={cn("border-t border-border p-3", collapsed && "md:px-2")}>
+        <DemoResetButton compact={collapsed} />
         <div className={cn("flex items-center gap-2.5 p-1", collapsed && "md:justify-center md:px-0")}>
           <Hint show={collapsed} label={user.name}>
             <Avatar className="size-[34px]">

@@ -69,6 +69,13 @@ def today() -> date:
     return launch_date(datetime.now(UTC))
 
 
+def _period_open(db: Session, company_id: int, day: date) -> None:
+    """Recusa data de mês fechado. Import preguiçoso: `period_lock` importa este módulo."""
+    from services import period_lock
+
+    period_lock.ensure_open(db, company_id, day)
+
+
 # ---- Valores e situação: sempre calculados, nunca gravados ----
 
 
@@ -615,6 +622,78 @@ def export_xlsx(db: Session, **query: Any) -> bytes:
     )
 
 
+ITEM_EXPORT_HEADERS = [
+    "Pessoa",
+    "Chave Pix (mascarada)",
+    "Data da pesquisa",
+    "Nota",
+    "Valor",
+    "Situação",
+]
+
+
+def _item_note(item: PayableItem) -> str:
+    """A coluna Nota: "Sem nota" para incentivo e Sem NF; NF com o número; RPA como está."""
+    if item.documentType in ("Incentivo", "Sem NF"):
+        return "Sem nota"
+    if item.documentType == "NF":
+        return f"NF {item.invoiceNumber}" if item.invoiceNumber else "NF"
+    return str(item.documentType)
+
+
+def _item_status(payable: Payable, item: PayableItem) -> str:
+    """Como a pessoa está de pagamento (o mesmo texto da tela): vale o do lançamento inteiro, e a
+    pessoa paga pelo comprovante sabe o próprio dia."""
+    if payable.canceledAt is not None:
+        return "Cancelada"
+    if item.paidOn:
+        return f"Paga em {format_date_br(item.paidOn)}"
+    if paid_amount(payable) == 0:
+        return "A pagar"
+    if pending_amount(payable) > 0:
+        return "Baixa parcial do lançamento"
+    days = sorted(p.paidOn for p in _active_payments(payable) if p.kind == "pagamento")
+    return f"Paga em {format_date_br(days[-1])}" if days else "Paga"
+
+
+def export_items_xlsx(db: Session, payable_id: int, user: User) -> tuple[bytes, str]:
+    """As pessoas do lançamento em Excel, com a chave Pix mascarada (a completa não é guardada).
+    Vale para todo lançamento com pessoas (incentivo, folha); cada download fica no histórico."""
+    payable = _get(db, payable_id)
+    people = sorted(payable.items, key=lambda item: item.id)
+    if not people:
+        raise PayableInvalid("Esse lançamento não tem pessoas")
+    projects = ", ".join(f"PRJ-{a.project.code}" for a in payable.allocations) or "sem projeto"
+    title = (
+        f"{payable.description} · {projects} · vence {format_date_br(payable.dueDate)} · "
+        f"{len(people)} {'pessoa' if len(people) == 1 else 'pessoas'}"
+    )
+    rows = [
+        [
+            item.name,
+            item.pix_masked or "",
+            item.surveyDate,
+            _item_note(item),
+            item.amount,
+            _item_status(payable, item),
+        ]
+        for item in people
+    ]
+    audit(db, payable, user, f"Documento baixado: planilha das pessoas ({len(people)} pessoas)")
+    db.commit()
+    code = payable.allocations[0].project.code if len(payable.allocations) == 1 else None
+    kind = "incentivos" if payable.origin == "incentivo" else "pessoas"
+    name = (
+        f"{kind}-PRJ-{code}-{payable.dueDate:%Y-%m-%d}.xlsx"
+        if code
+        else f"{kind}-{payable.id}.xlsx"
+    )
+    content = build_xlsx(
+        sheet="Pessoas", title=title, headers=ITEM_EXPORT_HEADERS, rows=rows, total_columns=(4,)
+    )
+    return content, name
+
+
 def _get(db: Session, payable_id: int, lock: bool = False) -> Payable:
     query = db.query(Payable).filter(Payable.id == payable_id, Payable.deletedAt.is_(None))
     if lock:
@@ -665,6 +744,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "grossAmount": i.grossAmount,
                 "surveyDate": i.surveyDate,
                 "paidOn": i.paidOn,
+                "pixMasked": i.pix_masked,
             }
             for i in payable.items
         ],
@@ -783,6 +863,7 @@ def new_payable(db: Session, data: PayableCreate, user: User) -> Payable:
         costCenterId=data.costCenterId,
         paymentMethodId=data.paymentMethodId,
     )
+    _period_open(db, data.companyId, data.issueDate)
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
     _check_allocations(db, data.allocations, data.amount)
@@ -1057,6 +1138,7 @@ def pay(db: Session, payable_id: int, data: PaymentCreate, user: User) -> Decima
     payable = _get(db, payable_id, lock=True)
     _check_payable(payable)
     _check_paid_on(data.paidOn, data.note)
+    _period_open(db, payable.company_id, data.paidOn)
     account = _bank_account(db, data.bankAccountId, payable.company_id)
     _active(db, PaymentMethod, data.paymentMethodId, "Forma de pagamento")
     pending = pending_amount(payable)
@@ -1100,6 +1182,7 @@ def pay_batch(db: Session, data: BatchPaymentCreate, user: User) -> Decimal:
     for payable_id in sorted(set(data.ids)):
         payable = _get(db, payable_id, lock=True)
         _check_payable(payable)
+        _period_open(db, payable.company_id, data.paidOn)
         account = _bank_account(db, data.bankAccountId, payable.company_id)
         pending = pending_amount(payable)
         if pending <= 0:
@@ -1138,6 +1221,9 @@ def reverse_payment(
     on = data.on if data.kind == "devolucao" and data.on else today()
     if on < original.paidOn or on > today():
         raise PayableInvalid("A data precisa estar entre a baixa e hoje")
+    # estornar ou devolver mexe no mês da baixa e no mês em que a volta é registrada
+    _period_open(db, payable.company_id, original.paidOn)
+    _period_open(db, payable.company_id, on)
     db.add(
         PayablePayment(
             payable_id=payable.id,
@@ -1211,6 +1297,8 @@ def _launch_real(db: Session, provision: Payable, data: ProvisionReplace, user: 
     if data.amount is None or data.supplierId is None:
         raise PayableInvalid("Informe o valor real e o fornecedor")
     _active(db, Supplier, data.supplierId, "Fornecedor")
+    # O real nasce com emissão de hoje: mês fechado da empresa não recebe lançamento novo.
+    _period_open(db, provision.company_id, today())
     # O real pode ter outro valor: cada projeto segue com a sua proporção, e o resto fica no último.
     allocations = []
     remaining = data.amount
@@ -1339,6 +1427,8 @@ def duplicate_batch(db: Session, ids: list[int], user: User) -> int:
             raise PayableConflict("Lançamento do Connect não é duplicado aqui")
         if any(a.project.status == "encerrado" for a in source.allocations):
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+        # A cópia nasce com emissão de hoje: mês fechado da empresa não recebe lançamento novo.
+        _period_open(db, source.company_id, today())
         due = _next_month(source.dueDate)
         copy = Payable(
             type=source.type,

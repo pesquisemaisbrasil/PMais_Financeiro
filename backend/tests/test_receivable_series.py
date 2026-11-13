@@ -159,13 +159,17 @@ def test_a_failure_in_one_installment_creates_none(
     assert (
         db_session.query(Receivable).count() == 0 and db_session.query(PayableSeries).count() == 0
     )
-    no_project = client.post(
+
+
+def test_a_series_without_a_project_is_allowed(
+    client: TestClient, db_session: Session, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # Q27: nem toda receita tem projeto
+    response = client.post(
         "/receivables/recurrence", json=recurring(world, projectId=None), headers=auth
     )
-    assert (no_project.status_code, no_project.json()["detail"]) == (
-        422,
-        "Informe o projeto da receita",
-    )
+    assert response.status_code == 201, response.text
+    assert {r.project_id for r in db_session.query(Receivable).all()} == {None}
 
 
 def test_installments_may_not_swallow_the_value_in_withholdings(

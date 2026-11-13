@@ -1,2 +1,26 @@
+# Site do protótipo (HTML puro, dados fictícios) + a versão de demonstração do Financeiro real em /teste.
+# A demonstração é o app de verdade com o backend rodando no navegador (Python via Pyodide), só com
+# dados fictícios. docs/operations/publicar-a-versao-de-teste.md
+
 [build]
   publish = "prototipo/financeiro"
+  # Gera o app estático (frontend/out) e o coloca dentro do site, em teste/. Sem `base = "frontend"`: o
+  # Netlify instalaria o plugin do Next, que não serve a uma exportação estática.
+  command = "cd frontend && npm ci && node scripts/build-demo.mjs && cd .. && rm -rf prototipo/financeiro/teste && mkdir -p prototipo/financeiro/teste && cp -R frontend/out/. prototipo/financeiro/teste/"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# O HTML estático tem scripts em linha sem nonce, então 'unsafe-inline'; 'wasm-unsafe-eval' é o que o
+# WebAssembly do Pyodide exige. Nenhuma chamada sai do navegador (connect-src 'self').
+# frontend/scripts/serve-demo.mjs lê esta linha para testar com a mesma política.
+[[headers]]
+  for = "/teste/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Cross-Origin-Opener-Policy = "same-origin"

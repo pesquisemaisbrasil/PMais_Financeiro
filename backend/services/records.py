@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from core.document import clean_cnpj, is_cpf_shaped, valid_cnpj
 from core.pix import is_valid_cpf
+from models.bank_statement import BankStatement, BankTransaction
 from models.payable import Payable, PayablePayment
 from models.receivable import Receivable, ReceivablePayment
 from models.reference import (
@@ -69,7 +71,12 @@ KINDS: dict[str, Kind] = {
     "bankAccounts": Kind(
         BankAccount,
         "conta bancária",
-        (PayablePayment.bank_account_id, ReceivablePayment.bank_account_id),
+        (
+            PayablePayment.bank_account_id,
+            ReceivablePayment.bank_account_id,
+            BankStatement.bank_account_id,
+            BankTransaction.bank_account_id,
+        ),
     ),
     "paymentMethods": Kind(
         PaymentMethod,
@@ -100,6 +107,17 @@ CUSTOMER_DETAILS = (
     "addressCity",
     "addressState",
 )
+# Os dados da conta bancária: banco, agência, conta, tipo e saldo inicial com a data.
+BANK_DETAILS = (
+    "bankName",
+    "agency",
+    "accountNumber",
+    "accountType",
+    "openingBalance",
+    "openingDate",
+)
+ACCOUNT_TYPES = ("corrente", "aplicacao", "caixa")
+BANK_NUMBER = re.compile(r"[0-9][0-9.\-/xX]*")
 UFS = frozenset(
     "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split()
 )
@@ -135,7 +153,7 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "phone": getattr(record, "phone", None),
         "email": getattr(record, "email", None),
         "paymentTerms": getattr(record, "paymentTerms", None),
-        **{name: getattr(record, name, None) for name in CUSTOMER_DETAILS},
+        **{name: getattr(record, name, None) for name in (*CUSTOMER_DETAILS, *BANK_DETAILS)},
         "kind": getattr(record, "kind", None),
     }
 
@@ -314,6 +332,29 @@ def _customer_details(data: RecordIn) -> dict[str, Any]:
     return details
 
 
+def _bank_details(data: RecordIn) -> dict[str, Any]:
+    """Banco (obrigatório), agência e conta, tipo e saldo inicial. São dados da conta da empresa."""
+    bank = _filled(data.bankName)
+    if not bank:
+        raise PayableInvalid("Preencha o banco")
+    _check_length(BankAccount, "bankName", bank, "O banco")
+    details: dict[str, Any] = {"bankName": bank}
+    for attribute, label in (("agency", "A agência"), ("accountNumber", "A conta")):
+        value = _filled(getattr(data, attribute))
+        if value:
+            _check_length(BankAccount, attribute, value, label)
+            if not BANK_NUMBER.fullmatch(value):
+                raise PayableInvalid(f"{label} tem só números, hífen e o dígito (pode ser X)")
+        details[attribute] = value
+    details["accountType"] = data.accountType or "corrente"
+    balance = data.openingBalance if data.openingBalance is not None else Decimal("0")
+    if balance != 0 and data.openingDate is None:
+        raise PayableInvalid("Informe a data do saldo inicial")
+    details["openingBalance"] = balance
+    details["openingDate"] = data.openingDate
+    return details
+
+
 def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> dict[str, Any]:
     model = KINDS[kind].model
     name = data.name.strip()
@@ -360,6 +401,8 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if _taken(db, kind, record_id, same_name, model.company_id == company_id):
             raise PayableConflict(f"Essa empresa já tem {KINDS[kind].one} com esse nome")
         fields["company_id"] = company_id
+        if kind == "bankAccounts":
+            fields.update(_bank_details(data))
     elif kind == "costCenters":
         parent_id = _cost_center_parent(db, record_id, data.parentId)
         same_parent = model.parent_id == parent_id if parent_id else model.parent_id.is_(None)

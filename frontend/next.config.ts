@@ -1,13 +1,27 @@
 import type { NextConfig } from "next";
 
+// Versão de demonstração (site do protótipo): o app roda debaixo de /teste. Valor lido na geração do
+// app; sem ele (desenvolvimento e produção), nada muda. docs/operations/publicar-a-versao-de-teste.md
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || undefined;
+if (basePath && !/^\/[\w-]+(\/[\w-]+)*$/.test(basePath)) {
+  throw new Error("NEXT_PUBLIC_BASE_PATH precisa ser um caminho como /teste, sem barra no fim");
+}
+
+// Versão de demonstração: o app é estático e o backend roda no navegador (src/lib/demo). A CSP e os
+// cabeçalhos dela vêm do netlify.toml, porque a exportação estática não tem proxy.ts nem headers().
+const demo = process.env.NEXT_PUBLIC_DEMO === "1";
+
 const nextConfig: NextConfig = {
-  output: "standalone",
+  output: demo ? "export" : "standalone",
+  basePath,
+  ...(demo ? { trailingSlash: true, images: { unoptimized: true } } : {}),
   // O E2E local usa outra pasta de build: com a mesma, ele derrubava o servidor de dev (porta 3010).
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // O botão de desenvolvimento do Next ficava por cima do "Sair" e do botão de recolher o menu.
   devIndicators: false,
   // A CSP com nonce e o HSTS saem por pedido, em src/proxy.ts.
   async headers() {
+    if (demo) return [];
     return [
       {
         source: "/:path*",

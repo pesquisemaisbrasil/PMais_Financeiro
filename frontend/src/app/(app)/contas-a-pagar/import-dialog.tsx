@@ -3,6 +3,7 @@
 import { Copy, FileUp } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { Field, FormError, NUM, TD, TH, Tag } from "@/components/finance";
 import { FilePicker } from "@/components/FilePicker";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
@@ -28,10 +29,12 @@ import {
   formatDate,
   plural,
   schedulesText,
+  shiftNote,
   type ImportPreview,
   type ImportResult,
   type Reference,
 } from "@/lib/payables";
+import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 
@@ -53,11 +56,14 @@ function Count({ label, value, detail }: { label: string; value: string; detail?
 export function ImportDialog({
   reference,
   today,
+  kind,
   onClose,
   onDone,
 }: {
   reference: Reference;
   today: string;
+  /** Tipo fixo da planilha (a página de Incentivos só importa incentivos); sem ele, a pessoa escolhe. */
+  kind?: "incentivos" | "folha";
   onClose: () => void;
   onDone: (result: ImportResult) => void;
 }) {
@@ -66,7 +72,7 @@ export function ImportDialog({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [form, setForm] = useState({
-    kind: "incentivos",
+    kind: kind ?? "incentivos",
     // Cada campo guarda os ids marcados, separados por vírgula. Vazio = todos os da planilha.
     projectIds: "",
     categoryIds: "",
@@ -93,9 +99,13 @@ export function ImportDialog({
 
   async function read(event: FormEvent) {
     event.preventDefault();
-    if (payroll && (!form.description.trim() || !form.dueDate)) {
-      return setLocalError("Preencha os campos com *.");
-    }
+    const missing = payroll
+      ? missingFieldsMessage([
+          ["Descrição", form.description.trim()],
+          ["Vencimento", form.dueDate],
+        ])
+      : null;
+    if (missing) return setLocalError(missing);
     if (!file) return setLocalError("Escolha a planilha.");
     setLocalError(null);
     await run(async () => setPreview(await previewImport(formData())));
@@ -142,16 +152,18 @@ export function ImportDialog({
         {!preview ? (
           <form onSubmit={read} noValidate>
             <DialogHeader>
-              <DialogTitle>Importar planilha</DialogTitle>
+              <DialogTitle>{kind === "incentivos" ? "Importar incentivos" : "Importar planilha"}</DialogTitle>
               <DialogDescription>
                 A planilha é conferida antes de criar qualquer lançamento. Ela é lida e não fica guardada.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-3.5 py-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Tipo *" id="i-tipo">
-                  <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={KINDS} />
-                </Field>
+              <div className={cn("grid gap-3", !kind && "sm:grid-cols-2")}>
+                {!kind && (
+                  <Field label="Tipo *" id="i-tipo">
+                    <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={KINDS} />
+                  </Field>
+                )}
                 <Field label="Projeto" id="i-proj">
                   <MultiSearchSelect
                     id="i-proj"
@@ -247,13 +259,14 @@ export function ImportDialog({
                   </Field>
                 </div>
               )}
+              {payroll && <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />}
               <Field
                 label="Planilha *"
                 id="i-arq"
                 hint={
                   payroll
                     ? "Arquivo .xlsx ou .csv, com as colunas: nome, documento (NF, RPA, Incentivo ou Sem NF), valor, número da NF e emissão."
-                    : "Arquivo .xlsx ou .csv, com as colunas: nome, valor, data da pesquisa e, se já tiver, data de pagamento. Chave Pix e CPF não são lidos."
+                    : "Arquivo .xlsx ou .csv, com as colunas: nome, valor, data da pesquisa e, se já tiver, data de pagamento e chave Pix. A chave Pix fica só mascarada; o CPF não é lido."
                 }
               >
                 <FilePicker
@@ -322,6 +335,27 @@ export function ImportDialog({
                   </AlertDescription>
                 </Alert>
               )}
+              {(preview.shiftedCount ?? 0) > 0 && (
+                <Alert>
+                  <AlertTitle>
+                    {plural(preview.shiftedCount ?? 0, "pessoa", "pessoas")} com data de pagamento em fim de semana ou
+                    feriado
+                  </AlertTitle>
+                  <AlertDescription>
+                    <span className="block">Essas datas vão para o próximo dia útil. Confira antes de criar:</span>
+                    <ul className="mt-1 list-disc pl-5">
+                      {preview.groups.flatMap((group) =>
+                        (group.shifts ?? []).map((shift) => (
+                          <li key={`${group.projectId}-${group.classification}-${group.payDate}-${shift.day}`}>
+                            {manyProjects && <strong>PRJ-{group.projectCode}: </strong>}
+                            {shiftNote(shift, group.payDate)}
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
               {preview.groups.length > 0 && (
                 <div className="rounded-xl border border-border">
                   <Table>
@@ -345,7 +379,14 @@ export function ImportDialog({
                           {preview.hasClassificationColumns && (
                             <TableCell className={cn(TD, "whitespace-normal text-xs")}>{group.classification}</TableCell>
                           )}
-                          <TableCell className={cn(TD, "font-semibold")}>{formatDate(group.payDate)}</TableCell>
+                          <TableCell className={cn(TD, "font-semibold")}>
+                            {formatDate(group.payDate)}
+                            {(group.shifts ?? []).length > 0 && (
+                              <span className="block text-[11px] font-normal text-muted-foreground">
+                                ajustada de {(group.shifts ?? []).map((shift) => formatDate(shift.day).slice(0, 5)).join(" e ")}
+                              </span>
+                            )}
+                          </TableCell>
                           <TableCell className={TD}>
                             {group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ") || "—"}
                           </TableCell>

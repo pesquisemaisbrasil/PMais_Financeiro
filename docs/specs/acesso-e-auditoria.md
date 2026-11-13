@@ -90,7 +90,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - [x] Reapresentar um refresh já usado revoga a família inteira.
 - [ ] Rebaixar o único admin é recusado com 409.
 - [ ] A tela Auditoria mostra criação, confirmação e cancelamento de lote e cada download de planilha, com autor.
-- [x] Teste de schema: nenhuma coluna de CPF nem de chave Pix em claro no banco do Financeiro.
+- [x] Teste de schema: nenhuma coluna de CPF nem de chave Pix em claro no banco do Financeiro (exceção: `payable_items.pix_masked`, a chave do respondente de incentivo já mascarada; veja o ADR 0004).
 - [ ] Toda rota tem teste sem token, com token expirado, com papel sem permissão e com conta inativa.
 
 ## Onde está no código

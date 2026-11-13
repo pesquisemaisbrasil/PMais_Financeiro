@@ -108,7 +108,7 @@ test("Contas a receber: indicadores, filtros, inadimplência, recebimento parcia
   await expect(detail.getByText("R$ 900,00").last()).toBeVisible();
 });
 
-test("Contas a receber: título novo exige o projeto e o cadastro de cliente existe", async ({ page }) => {
+test("Contas a receber: título novo pode ficar sem projeto e o cadastro de cliente existe", async ({ page }) => {
   // outra conta: o mesmo código do autenticador não vale duas vezes no mesmo período
   await signIn(page, "receber2@e2e.invalid");
   await page.goto("/contas-a-receber");
@@ -127,8 +127,9 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   expect(description.height).toBeGreaterThan(80);
   expect(documentField.y).toBeGreaterThan(description.y + description.height);
   // O projeto tem busca, mesmo com poucas opções
-  await form.getByRole("combobox", { name: "Projeto *" }).click();
+  await form.getByRole("combobox", { name: "Projeto", exact: true }).click();
   await expect(page.getByLabel("Buscar na lista")).toBeVisible();
+  await expect(page.getByRole("option", { name: "Sem projeto" })).toBeVisible();
   await page.keyboard.press("Escape");
   await form.getByLabel("Valor principal (R$) *").fill("1.000,00");
   // Os impostos retidos entram pelo botão: uma linha por lançamento, e o líquido aparece na hora
@@ -139,10 +140,11 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   await taxes.getByRole("button", { name: "Salvar impostos" }).click();
   await expect(form.getByLabel("Valor líquido")).toHaveValue(/885,00/);
   await form.getByRole("button", { name: "Lançar conta" }).click();
-  await expect(form.getByText("Informe o projeto da receita.")).toBeVisible();
+  // Campo vazio: a mensagem diz quais são. O projeto não está entre eles (nem toda receita tem projeto)
+  await expect(form.getByText(/Preencha os campos obrigatórios: .*Cliente.*Conta de receita.*Descrição\./)).toBeVisible();
+  await expect(form.getByText(/Preencha os campos obrigatórios:.*Projeto/)).toHaveCount(0);
 
   await choose(page, "Cliente *", /Alfa/);
-  await choose(page, "Projeto *", /PRJ-1804/);
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
   await form.getByLabel("Descrição *").fill("Pesquisa de teste");
   await choose(page, "Empresa *", "PPlus");
@@ -158,6 +160,11 @@ test("Contas a receber: título novo exige o projeto e o cadastro de cliente exi
   await taxes.getByRole("button", { name: "Salvar impostos" }).click();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(page.getByText(/Conta lançada: R\$\s885,00/)).toBeVisible();
+  // Sem projeto escolhido, o título entra e a lista diz "Sem projeto"
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Tudo" }).click();
+  await page.getByLabel("Buscar título, cliente ou contrato").fill("Pesquisa de teste");
+  await expect(page.getByRole("row", { name: /Pesquisa de teste/ })).toContainText("Sem projeto");
 
   // O cliente é um cadastro, com CNPJ e sem CPF
   await page.goto("/cadastros?aba=customers");
@@ -172,7 +179,7 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   await form.getByLabel("Vencimento *").fill("2027-01-15");
   await form.getByLabel("Valor principal (R$) *").fill("1.000,00");
   await choose(page, "Cliente *", /Beta/);
-  await choose(page, "Projeto *", /PRJ-1804/);
+  await choose(page, "Projeto", /PRJ-1804/);
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
   await form.getByLabel("Descrição *").fill("Receita parcelada de teste");
   await choose(page, "Empresa *", "PPlus");
@@ -268,7 +275,7 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await form.getByLabel("Vencimento *").fill("2027-04-15");
   await form.getByLabel("Valor principal (R$) *").fill("2.000,00");
   await choose(page, "Cliente *", /Beta/);
-  await choose(page, "Projeto *", /PRJ-1804/);
+  await choose(page, "Projeto", /PRJ-1804/);
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
   await form.getByLabel("Descrição *").fill("Receita com ajustes");
   await choose(page, "Empresa *", "PPlus");

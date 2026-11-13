@@ -185,6 +185,8 @@ export interface PayableItem {
   surveyDate: string | null;
   // dia do Pix que pagou esta pessoa (baixa por comprovante)
   paidOn: string | null;
+  /** A chave Pix já mascarada ("419***78"), só nos incentivos; a completa nunca chega à tela. */
+  pixMasked?: string | null;
 }
 
 export interface Payment {
@@ -608,6 +610,19 @@ export interface ImportGroup {
   count: number;
   total: string;
   source: string;
+  /** Datas da planilha que caíam em dia não útil e foram para o próximo dia útil, e o motivo de cada uma. */
+  shifts?: ImportShift[];
+}
+
+export interface ImportShift {
+  day: string;
+  /** "sábado", "domingo", "feriado nacional" ou "feriado: Nome". */
+  reason: string;
+}
+
+/** O aviso de uma data que mudou: "07/11 caiu em sábado; vai para 09/11". */
+export function shiftNote(shift: ImportShift, payDate: string): string {
+  return `${formatDate(shift.day).slice(0, 5)} caiu em ${shift.reason}; vai para ${formatDate(payDate).slice(0, 5)}`;
 }
 
 export interface ImportLine {
@@ -655,6 +670,8 @@ export interface ImportPreview {
   skippedCount: number;
   /** Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou por classificação (folha). */
   payableCount: number;
+  /** Quantas linhas tinham data de pagamento em dia não útil e foram para o próximo dia útil. */
+  shiftedCount?: number;
   groups: ImportGroup[];
   lines: ImportLine[];
 }
@@ -678,7 +695,8 @@ export function scheduleText(preview: ImportPreview, project: ImportProject): st
       const days = group.surveyDates.map((day) => formatDate(day).slice(0, 5)).join(" e ");
       const from = days ? `Pesquisas de ${days}` : "Pesquisas";
       const where = preview.hasClassificationColumns ? ` · ${group.classification}` : "";
-      return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})${where}`;
+      const moved = (group.shifts ?? []).map((shift) => ` [${shiftNote(shift, group.payDate)}]`).join("");
+      return `- ${from}: ${plural(group.count, "incentivo", "incentivos")} → pagar ${formatDate(group.payDate).slice(0, 5)} · ${brl(group.total)} (data ${group.source})${where}${moved}`;
     });
   return [
     `Cronograma de pagamento dos incentivos · PRJ-${project.code} ${project.title}`,
@@ -738,6 +756,13 @@ export interface RecordRow {
   addressState: string | null;
   // só na conta do plano de contas
   kind: "despesa" | "receita" | null;
+  // só na conta bancária: os dados da conta da empresa e o saldo inicial (com a data dele)
+  bankName: string | null;
+  agency: string | null;
+  accountNumber: string | null;
+  accountType: "corrente" | "aplicacao" | "caixa" | null;
+  openingBalance: string | null;
+  openingDate: string | null;
 }
 
 export function expenseCategories(reference: Reference) {
@@ -791,6 +816,37 @@ export function itemPaymentLabel(
     .map((payment) => payment.paidOn)
     .sort();
   return days.length ? `Paga em ${formatDate(days[days.length - 1])}` : "Paga";
+}
+
+/** A coluna Nota de cada pessoa: "Sem nota" para incentivo e Sem NF; NF com o número; RPA como está. */
+export function noteLabel(item: Pick<PayableItem, "documentType" | "invoiceNumber">): string {
+  if (item.documentType === "Incentivo" || item.documentType === "Sem NF") return "Sem nota";
+  if (item.documentType === "NF") return item.invoiceNumber ? `NF ${item.invoiceNumber}` : "NF";
+  return item.documentType;
+}
+
+/** De onde veio o lançamento e o que vale para as pessoas dele, como o protótipo diz embaixo do resumo. */
+export function originNotes(origin: string): string[] {
+  if (origin === "incentivo") {
+    return [
+      "Veio da planilha de incentivos.",
+      "Incentivo não tem nota fiscal.",
+      "Chave Pix mascarada: a completa não é guardada.",
+    ];
+  }
+  if (origin === "folha") return ["Veio da planilha da folha de campo."];
+  if (origin === "connect") return ["Veio do Connect."];
+  return [];
+}
+
+/** A pessoa já foi paga? Pelo dia do comprovante dela, ou porque o lançamento inteiro foi pago. */
+export function itemIsPaid(
+  payable: Pick<PayableDetail, "situation" | "paid" | "pending">,
+  item?: Pick<PayableItem, "paidOn">
+): boolean {
+  if (payable.situation === "cancelado") return false;
+  if (item?.paidOn) return true;
+  return toCents(payable.paid) > 0 && toCents(payable.pending) <= 0;
 }
 
 /** Quanto o INSS descontou do bruto do RPA, em reais. */

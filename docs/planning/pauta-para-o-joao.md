@@ -2,7 +2,7 @@
 
 **Posição em 06/11/2026.** Este documento junta, num lugar só, tudo o que está parado esperando uma decisão ou uma ajuda sua. Cada item diz o que o sistema faz hoje (vale se ninguém responder), a nossa proposta e o que a resposta destrava. Para responder, basta dizer o número e "aceito", "outra" ou "depois", por exemplo: "D1 aceito, D2 outra: ..., A3 faço segunda". As perguntas completas estão em [perguntas-abertas](perguntas-abertas.md).
 
-O que foi construído até aqui e como testar está em [roadmap](roadmap.md) e [proximos-passos](proximos-passos.md).
+Para conduzir a conversa tarefa por tarefa do Jira, veja o [roteiro com o João](roteiro-com-o-joao.md). O que foi construído até aqui e como testar está em [roadmap](roadmap.md) e [proximos-passos](proximos-passos.md).
 
 ## Resumo
 
@@ -70,8 +70,8 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### D6. Chave Pix do respondente e CPF de fornecedor pessoa física (Q22, Q23)
 
-- **Hoje:** a planilha de incentivos só lê nome, valor e datas (a chave Pix não é lida nem guardada); fornecedor só com CNPJ.
-- **Proposta:** manter assim até o DPO responder.
+- **Hoje:** a planilha de incentivos lê nome, valor, datas e, desde 12/11/2026 (provisório, pedido do Bruno), a chave Pix **só mascarada** (a completa não é guardada); fornecedor só com CNPJ.
+- **Proposta:** manter assim até o DPO responder, sem guardar a chave completa.
 - **Destrava:** importar planilha já com a chave, e cadastrar fornecedor pessoa física.
 
 ### D7. Plano de contas completo e linhas do DRE (F3)
@@ -100,7 +100,8 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### A3. Revisão do `.github/` e PR `homolog` → `main`
 
-- Mudanças nos workflows que precisam da sua revisão antes de qualquer merge: `tests.yml` (chave de teste do Pix e um passo novo de teste em Postgres para pedidos simultâneos de login) e `security.yml` (o `pip-audit` agora roda **sem nenhuma exceção**).
+- Mudanças nos workflows que precisam da sua revisão antes de qualquer merge: `tests.yml` (chave de teste do Pix e um passo novo de teste em Postgres para pedidos simultâneos de login) e `security.yml` (o `pip-audit` agora roda **sem nenhuma exceção**). E `e2e.yml` (13/11/2026): dois passos novos que **geram a demonstração** (Pyodide e pacotes de Python baixados com hash conferido) e rodam o teste de tela dela, e o limite do job passou de 30 para 45 minutos.
+- **O repositório do GitHub é público** (Q47): confirmar que isso é intencional antes de enviar a `homolog`; ela leva 76 commits novos, com docs internos (roteiro com o João, guia do Connect dev sem segredo) e o código do backend. O `netlify.toml` na raiz, quando o site do Netlify for ligado ao repositório, gera e publica a demonstração em `/teste` no primeiro deploy.
 - O trabalho está todo na `homolog`, com a verificação completa verde (backend com 96% de cobertura, front, E2E). **Merge na `main` só com a sua autorização.** Antes do push, ainda precisa rodar a simulação de CI em Linux com Python 3.11 e a auditoria de segredos.
 
 ### A4. Tirar o Claude da lista de contribuidores do GitHub
@@ -133,7 +134,7 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### Com a Vivi
 
-- **Q21:** provisão conta em "Hoje" e "Vencidos"? **Q24:** as datas do lançamento precisam seguir emissão ≤ competência ≤ vencimento? **Q25:** fornecedor com nome parecido só avisa ou bloqueia? **Q27:** existe receita sem projeto? **Q28:** aviso de inadimplência ao comercial depois de quantos dias?
+- **Q21:** provisão conta em "Hoje" e "Vencidos"? **Q24:** as datas do lançamento precisam seguir emissão ≤ competência ≤ vencimento? **Q25:** fornecedor com nome parecido só avisa ou bloqueia? **Q28:** aviso de inadimplência ao comercial depois de quantos dias?
 - **Faixas de atraso:** a inadimplência mostra 1 a 30, 31 a 60, 61 a 90 e mais de 90 dias (faixas-padrão). Confirmar os limites.
 - **Acréscimos, descontos e impostos (Q29):** valem na conta comum, a pagar e a receber. Contas com pessoas (folha, incentivo) não aceitam, e o parcelado recusa na criação. Confirmar se o imposto lançado é retenção (reduz o líquido), como está hoje.
 

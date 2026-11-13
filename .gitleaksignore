@@ -7,3 +7,8 @@ bd0fccb670cb22d4a41c28d1b8ca1b5e36d4616d:docs/handoff/07-integracao-com-o-connec
 # Chaves fictícias, só de teste, no conftest (SECRET_KEY e PIX_SECRET_KEY).
 dfbdb9f6549a730f71aa9d56863d8963b42eea6f:backend/tests/conftest.py:generic-api-key:4
 e392d385884b30c516c5b3c6aab176aacb6036b2:backend/tests/conftest.py:generic-api-key:9
+
+# Exemplo do guia do Connect dev (docs/connect-dev-integracao-financeiro.md): `curl -u "financeiro-dev:<SEGREDO>"`,
+# com o marcador <SEGREDO> no lugar do segredo. Falso positivo revisado em 13/11/2026.
+f2939c5de355e3e777ecb8ae6f63bb54e4f0a0be:docs/connect-dev-integracao-financeiro.md:curl-auth-user:49
+f2939c5de355e3e777ecb8ae6f63bb54e4f0a0be:docs/connect-dev-integracao-financeiro.md:curl-auth-user:50

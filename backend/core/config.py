@@ -47,6 +47,11 @@ CONNECT_CLIENT_SECRET = os.getenv("CONNECT_CLIENT_SECRET", "")
 # valor para desligar.
 CNPJ_LOOKUP_MODE = os.getenv("CNPJ_LOOKUP_MODE", "brasilapi")
 
+# Busca dos feriados nacionais do ano no cadastro de feriados (services/holiday_sync.py):
+# "brasilapi" (padrão, dados públicos, sem chave), "simulated" (feriados inventados, só fora de
+# produção) ou outro valor para desligar. Os locais (municipal, estadual) são cadastrados à mão.
+HOLIDAYS_LOOKUP_MODE = os.getenv("HOLIDAYS_LOOKUP_MODE", "brasilapi")
+
 # Cofre de arquivos dos anexos (core/file_vault.py): um bucket S3, no MinIO. Sem a configuração,
 # anexar fica indisponível. "memory" é um cofre de mentira, só fora de produção (testes de tela).
 FILES_MODE = os.getenv("FILES_MODE", "off")

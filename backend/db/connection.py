@@ -4,6 +4,7 @@ from typing import Any
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from core.config import DATABASE_URL
 
@@ -20,8 +21,11 @@ def make_engine(url: str) -> Engine:
         # hide_parameters: erros do banco não levam os valores (dado pessoal) para o log.
         return create_engine(url, hide_parameters=True)
 
+    # SQLite em memória (a demonstração) só existe numa conexão: com o pool padrão, cada thread
+    # veria um banco vazio.
+    pool: dict[str, Any] = {"poolclass": StaticPool} if ":memory:" in url else {}
     sqlite_engine = create_engine(
-        url, hide_parameters=True, connect_args={"check_same_thread": False}
+        url, hide_parameters=True, connect_args={"check_same_thread": False}, **pool
     )
 
     @event.listens_for(sqlite_engine, "connect")

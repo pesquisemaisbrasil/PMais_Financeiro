@@ -10,6 +10,14 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core.config import MIGRATION_DATABASE_URL  # noqa: E402
 from db.connection import Base  # noqa: E402
+from models.bank_reconciliation import (  # noqa: E402,F401 (registers model on Base.metadata)
+    BankReconciliation,
+    BankReconciliationEvent,
+)
+from models.bank_statement import (  # noqa: E402,F401 (registers model on Base.metadata)
+    BankStatement,
+    BankTransaction,
+)
 from models.connect_payable_item import (  # noqa: E402,F401 (registers model on Base.metadata)
     ConnectPayableItem,
 )
@@ -23,6 +31,10 @@ from models.payable import (  # noqa: E402,F401 (registers model on Base.metadat
     PayableAdjustment,
     PayableAttachment,
     PayableSeries,
+)
+from models.period_closing import (  # noqa: E402,F401 (registers model on Base.metadata)
+    PeriodClosing,
+    PeriodClosingEvent,
 )
 from models.project_ref import ProjectRef  # noqa: E402,F401 (registers model on Base.metadata)
 from models.receipt import (  # noqa: E402,F401 (registers model on Base.metadata)

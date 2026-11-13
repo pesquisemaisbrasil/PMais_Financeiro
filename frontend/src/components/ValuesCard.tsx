@@ -2,7 +2,7 @@
 
 import { Plus, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { FormError } from "@/components/finance";
+import { FormError, RedStars } from "@/components/finance";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,7 +46,7 @@ function Row({
         htmlFor={htmlFor}
         className={cn("col-span-2 text-[13px]", strong ? "font-semibold" : "font-normal text-muted-foreground")}
       >
-        {label}
+        <RedStars text={label} />
       </Label>
       {children}
     </div>

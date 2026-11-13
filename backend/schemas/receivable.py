@@ -31,7 +31,7 @@ Text = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
 
 class ReceivableCreate(BaseModel):
     customerId: int
-    # Obrigatório pela regra 2, mas a mensagem é a da spec ("Informe o projeto da receita")
+    # Opcional: nem toda receita tem projeto (Q27)
     projectId: int | None = None
     companyId: int
     unitId: int
@@ -81,8 +81,8 @@ class ReceivableRow(BaseModel):
     situation: ReceivableSituation
     dueDate: date
     customer: str
-    projectCode: str
-    projectTitle: str
+    projectCode: str | None
+    projectTitle: str | None
     description: str
     contract: str | None
     documentType: str

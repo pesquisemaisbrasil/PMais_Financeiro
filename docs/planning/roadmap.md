@@ -120,6 +120,73 @@ Em **Cadastros**, no menu:
 3. Um cadastro com lançamento não mostra **Excluir**, só **Inativar**. Inativado, ele some da **Nova conta a pagar** e continua na lista de contas.
 4. Em **Projetos (Connect)**, marque o tipo, o incentivo e o prazo. Volte ao **Importar planilha**: o projeto passa a calcular o cronograma.
 
+### Incentivos: agenda, dia útil e feriados
+
+Com o sistema rodando, em **Cadastros → Feriados**:
+
+1. **Buscar nacionais do ano** traz os feriados nacionais do ano escolhido (a BrasilAPI, ou os inventados no modo de teste). Buscar de novo avisa que já estavam cadastrados.
+2. **Novo feriado** cadastra um local, por exemplo o aniversário da cidade (âmbito municipal, com UF e cidade). Campo vazio diz quais faltam, e o mesmo feriado de novo é recusado.
+3. Em **Incentivos → Importar planilha**, use uma planilha fictícia com `Nome`, `Valor` e `Data de pagamento` numa **sexta-feira, sábado ou domingo** e outra num feriado cadastrado. **Ler planilha** avisa cada data que mudou e o motivo ("07/11 caiu em sábado; vai para 09/11"), e **Criar** abre os lançamentos já no próximo dia útil.
+4. **Incentivos** (menu Relatórios, abaixo de Relatório do projeto; a lista aparece sozinha depois da importação): uma linha por lançamento, em ordem de vencimento, com **a data na frente do nome** (vermelha se já venceu e falta pagar), as pessoas e o que falta pagar. Os cartões **Vencidos**, **Vencem hoje**, **A vencer** e **Pagos** filtram a lista, e **Abrir** leva à conta no Contas a pagar, com as pessoas.
+   Na seta de cada lançamento, o dropdown abre as **pessoas a pagar**: o resumo ("0 de 2 pagos · R$ 200,00 em aberto"), a busca por nome, as abas **Todos**, **Em aberto** e **Pagos** e a tabela com pessoa, **chave Pix mascarada** (a planilha precisa da coluna "Chave Pix"), data da pesquisa, **nota** ("Sem nota") e valor e situação. Embaixo do resumo, a tela diz **de onde o lançamento veio** ("Veio da planilha de incentivos." ou "Veio do Connect."). A chave completa nunca aparece.
+   No topo do dropdown: **Baixar planilha** baixa um Excel de controle das pessoas (com a chave mascarada, total no fim e a situação de cada uma); **Enviar PDF de comprovantes** anexa um ou vários PDFs ao lançamento (outro tipo de arquivo é recusado, com o nome dele). O PDF aparece em "comprovante anexado", com **Baixar**, e ninguém passa a "pago": a baixa continua no Contas a pagar. Use só PDF e planilha fictícios.
+5. Em **Contas a pagar → Nova conta → Repetir esta conta → Simular**, um vencimento que cai num feriado cadastrado vai para o próximo dia útil.
+6. **Aviso na hora de lançar:** em **Nova conta a pagar** ou **Nova conta a receber**, digite num **Vencimento** que cai em sábado, domingo ou feriado. Embaixo do campo aparece "é sábado" (ou "é feriado nacional", ou o nome do feriado cadastrado) e os botões **Antecipar para** (dia útil anterior), **Postergar para** (próximo dia útil) e **Manter**. Clicar troca a data do campo. O mesmo vale na edição (só se a data mudou) e no vencimento da folha de campo, na importação.
+
+### Conferência bancária: conta e extrato (PF-69)
+
+Com o sistema rodando. Use só um extrato **fictício** (nome e valores inventados): extrato real nunca vai para o repositório nem para o chat.
+
+1. Em **Cadastros → Contas bancárias → Nova conta bancária**, escolha a empresa e veja o **Banco** já preenchido com Itaú. Preencha **Agência**, **Conta**, **Tipo** e **Saldo inicial**. Agência com letras é recusada, e saldo sem **Data do saldo** também. A lista mostra "Itaú · ag. 1234 · conta 12345-6 · Conta corrente" embaixo do nome.
+2. Em **Financeiro → Conferência bancária**, escolha a conta e clique em **Importar extrato**. Envie um **OFX** (ou um CSV com as colunas data, lançamento e valor). Um arquivo que não é extrato mostra "Não foi possível ler o extrato — envie OFX ou CSV do banco", e outro tipo de arquivo é recusado antes de enviar.
+3. A **prévia** mostra as linhas novas, as que já estavam, o período, as entradas e saídas novas e as primeiras linhas, e **nada é gravado** até o botão **Importar N linhas novas**. Se o arquivo parece ser de outra conta, aparece um aviso.
+4. Importe **o mesmo arquivo de novo**: a prévia avisa que ele já foi importado e o botão vira **Nada novo para importar**. Importe um **outro extrato que se sobrepõe**: só as linhas novas entram.
+5. A lista mostra as linhas da mais nova para a mais antiga, com **De** e **Até** para filtrar (os totais de entradas e saídas acompanham), e **Extratos importados** diz quem importou o quê. A conta com extrato não se exclui, só se inativa.
+6. Ainda **não concilia**: ligar cada linha a uma conta a pagar, classificar e fechar o mês são as próximas etapas (PF-70 a PF-72). O layout real do CSV do Itaú e o prazo de guarda do extrato dependem da Q44.
+
+### Conferência bancária: conciliar o extrato (PF-70, fatia 1)
+
+Com o extrato importado (seção anterior) e pelo menos uma conta a pagar **com baixa** na mesma conta bancária e de valor igual a uma linha do extrato. Só dados fictícios.
+
+1. Em **Financeiro → Conferência bancária**, cada linha tem uma **Situação** (Pendente, Conciliada ou Exceção) e as abas **Todas**, **Pendentes**, **Conciliadas** e **Exceções** mostram as contagens e filtram a lista.
+2. **Conciliar** numa linha abre a conciliação: à esquerda a linha, à direita os **lançamentos sugeridos** (com baixa na mesma conta, valor igual e até 3 dias de diferença), cada um dizendo por que foi sugerido ("valor igual · 1 dia(s) de diferença · nome na descrição"). Escolha um, confira a **Classificação** e clique em **Conciliar**. **Pagamento com NF** pede o número e a emissão da nota. Lançamento com pessoas (incentivo, folha) pede a pessoa, e o valor da linha tem de ser o dela.
+3. Sem lançamento que sirva, a mesma janela diz o que fazer ("Dê a baixa no Contas a pagar ou marque a linha como exceção"). Na aba **Marcar exceção**, escreva o **motivo** e escolha a **classificação** (os dois obrigatórios): a linha vira **Exceção** e conta como conciliada.
+4. **Desfazer** (na linha conciliada ou na exceção) pede o **motivo**, devolve a linha a **Pendente** e fica no histórico, com quem desfez.
+5. As linhas de um lançamento nunca passam do valor dele, e uma pessoa só casa com uma linha: a tela mostra a mensagem do servidor ("As linhas somam R$ X, mas o lançamento é de R$ Y").
+6. **Ainda não faz:** dar a baixa a partir da linha, criar o lançamento (tarifa, rendimento) e tratar o Pix devolvido como volta. A Q45 pergunta à Vivi se isso muda a regra de só conciliar com lançamento que já tem baixa.
+
+### Conferência bancária: extrato × sistema, saldo do mês e fechamento (PF-71 e PF-72)
+
+Em **Financeiro → Conferência bancária**, as abas **Extrato × sistema**, **Saldo do mês** e **Fechamento** têm o seletor de mês (anterior e próximo). Com um extrato importado e algumas linhas conciliadas (seções anteriores). Só dados fictícios.
+
+1. **Extrato × sistema:** escolha a conta e o mês. Os três números no alto são as **saídas do extrato**, as **baixas no sistema** e a **diferença** (verde se bate). A tabela **Por dia** destaca os dias com diferença, e **O que explica a diferença** lista as **saídas do extrato sem par** (cada uma diz se está pendente ou é exceção), as **baixas sem linha no extrato** e as **voltas** (Pix devolvido). Um Pix devolvido em um mês e pago de novo no seguinte aparece como volta no primeiro, e o segundo mês bate.
+2. **Saldo do mês:** uma linha por conta e o **Consolidado**: saldo inicial, entradas, saídas, saldo final pelo extrato, saldo pelo sistema (só as linhas já conferidas) e o que falta **conferir**. O saldo inicial é o cadastrado na conta (com a data dele), e cada mês começa onde o anterior terminou.
+3. **Fechamento:** um cartão por empresa. Ele diz o que falta (extrato não importado, linhas sem conferir, linhas sem classificação), e **Fechar {mês}** só liga quando tudo está resolvido. **Planilha da contabilidade** baixa o Excel do mês a qualquer hora (uma linha por transação, com classificação, NF, lançamento e situação).
+4. Depois de **Fechar**, ninguém dá baixa, estorna, recebe nem lança com data daquele mês: a tela mostra "O período de {mês} está fechado. Só um administrador pode reabrir". Desfazer a conciliação de uma linha do mês também é recusado.
+5. **Reabrir (administrador)** pede o motivo. Quem não é administrador não vê o botão, e a API recusa (403). **Meses fechados** lista o que está fechado.
+6. A **exceção** agora exige a classificação, porque sem ela o mês não fecha. O que a trava ainda **não** cobre (editar ou cancelar lançamento existente, anexar documento) está na Q46.
+
+### Integração com o Connect de dev (cliente e roteiro de teste)
+
+Não tem tela. É o cliente das rotas do Connect (baixa, consulta e cancelamento de baixa, chave completa, casamento de chave, feed de eventos) e o comando que o confere contra o **dev**. Detalhes em [testar-com-o-connect-dev](../operations/testar-com-o-connect-dev.md).
+
+1. Sem o Connect: `pytest tests/test_connect_http.py tests/test_connect_check.py tests/test_connect_dev_script.py` (em `backend/`) roda o cliente e o roteiro contra um Connect de mentira que segue o guia do João.
+2. Com o Connect de dev: o João cria a conta `financeiro-dev`; o segredo vai para `backend/.env.connect` (nunca para o chat ou o git); de `backend/`, `python scripts/connect_dev_check.py`. O comando recusa qualquer endereço que não seja o do dev, e cada passo sai como `OK`, `FALHOU` ou `PULADO`.
+3. O que o Financeiro ainda não faz: receber o webhook, ler orçamento e situação fiscal pelo Connect e usar essas chamadas nas telas.
+
+### Demonstração: as telas reais no site do protótipo
+
+O botão **Abrir para teste de produção** do protótipo abre `teste/`, onde fica o **Financeiro real com dados fictícios**: as mesmas telas e regras do repositório, com o backend (Python) rodando dentro do navegador, sem servidor ([ADR 0017](../architecture/adr/0017-demonstracao-com-o-backend-no-navegador.md)). O teste real com o Connect continua só na máquina do Bruno.
+
+1. Gerar e ver na máquina (em `frontend/`): `DEMO_DIST_DIR=.next-demo node scripts/build-demo.mjs` e `node scripts/serve-demo.mjs .next-demo 3020`; abrir <http://localhost:3020/teste/>. Detalhes em [publicar a versão de teste](../operations/publicar-a-versao-de-teste.md).
+2. Na tela de entrada o login fictício já vem preenchido: clique em **Entrar** e abre o Início, com contas vencidas, vencendo hoje, fluxo previsto e agenda de incentivos.
+3. Navegue **pelo menu** (recarregar a página volta aos dados de exemplo): em **Contas a pagar**, dê baixa no lançamento de incentivos e veja **Pagos** subir; na **Conferência bancária**, veja o extrato conciliado e o Fechamento do mês.
+4. **Restaurar dados de exemplo** (menu) desfaz o que foi feito.
+5. Os testes: `DEMO_DIST_DIR=.next-demo npx playwright test -c playwright.demo.config.ts` (9 testes), e `pytest tests/test_seed_demonstracao.py tests/test_demo_runtime.py tests/test_security.py` em `backend/`.
+6. Para publicar: o site do Netlify precisa estar ligado ao repositório (o `netlify.toml` gera o `teste/`), e o João precisa responder a **Q47** (o código Python do backend fica baixável no site).
+
+Troca do `passlib` pelo `bcrypt` direto (`backend/core/security.py`): mesmo hash, as senhas já gravadas continuam valendo.
+
 ### Comprovantes e baixa (PF-56)
 
 Com o sistema rodando e as contas fictícias carregadas. Para testar sem o Connect, ponha `CONNECT_MODE=simulated` no `backend/.env` (só fora de produção) e reinicie a API:
@@ -144,7 +211,7 @@ A baixa real depende das entregas 1 e 2 do Connect ([entregas-do-connect](../spe
 Com o sistema rodando. Em **Financeiro > Contas a receber**:
 
 1. Em **Cadastros > Plano de contas**, crie uma conta do tipo **Receita**; em **Cadastros > Clientes**, um cliente com CNPJ.
-2. **Nova conta a receber:** cliente, projeto, conta de receita, empresa, unidade, centro de custo, valor principal e, pelos botões **Acréscimos**, **Descontos** e **Impostos**, o que soma ou tira dele (uma linha por lançamento). O líquido aparece enquanto você digita. Sem projeto, o sistema avisa "Informe o projeto da receita".
+2. **Nova conta a receber:** cliente, projeto (opcional: nem toda receita tem projeto), conta de receita, empresa, unidade, centro de custo, valor principal e, pelos botões **Acréscimos**, **Descontos** e **Impostos**, o que soma ou tira dele (uma linha por lançamento). O líquido aparece enquanto você digita. Sem projeto, o título entra e a lista mostra "Sem projeto". Com campo obrigatório vazio, a mensagem diz quais faltam.
 3. Os seis cards (Total, Recebidos, Pendentes, Vencidos, Hoje e A vencer) abrem a lista já filtrada, com a mesma contagem e o mesmo total. O período e os **Filtros** (cliente, projeto, conta, empresa, unidade, centro de custo, situação e "período por") funcionam como no Contas a pagar, inclusive com mais de uma opção por filtro (a situação "Cancelada" não combina com as outras).
 4. **Registrar recebimento** (botão da linha): data, valor, conta e forma. Menos que o saldo é recebimento parcial; mais que o saldo é recusado.
 5. **Ver detalhes:** resumo, recebimentos (com **Estornar**, que pede o motivo) e histórico. Dá para alterar, cancelar (sem recebimento) e excluir.

@@ -173,10 +173,36 @@ def test_creating_keeps_the_gross_the_withholding_and_the_net(
     assert title["events"][0]["text"].startswith("Lançada: Pesquisa de satisfação")
 
 
+def test_a_title_without_a_project_is_created_listed_exported_and_edited(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # Q27: nem toda receita tem projeto
+    title = create(client, auth, world, projectId=None)
+    assert (title["projectCode"], title["projectTitle"]) == (None, None)
+
+    (row,) = listing(client, auth)["items"]
+    assert (row["id"], row["projectCode"], row["projectTitle"]) == (title["id"], None, None)
+
+    export = client.get("/receivables/export?mode=tudo", headers=auth)
+    assert export.status_code == 200 and "PRJ-" not in export.text
+
+    edited = client.patch(
+        f"/receivables/{title['id']}",
+        json={
+            "description": title["description"],
+            "amount": "1200.00",
+            "adjustments": [],
+            "dueDate": title["dueDate"],
+        },
+        headers=auth,
+    )
+    assert edited.status_code == 200, edited.text
+    assert Decimal(edited.json()["net"]) == Decimal("1200.00")
+
+
 @pytest.mark.parametrize(
     ("overrides", "status", "detail"),
     [
-        ({"projectId": None}, 422, "Informe o projeto da receita"),
         (
             {"adjustments": tax("1000.00")},
             422,

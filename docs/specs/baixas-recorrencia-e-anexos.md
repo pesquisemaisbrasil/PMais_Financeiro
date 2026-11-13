@@ -60,7 +60,7 @@ Contrato das três abas compartilhadas por contas a pagar e a receber: **Baixas*
 | Situação | HTTP | `detail` |
 |---|---|---|
 | Baixa acima do saldo pendente | 409 | O valor passa do saldo pendente (R$ X) |
-| Baixa em período fechado | 409 | O período de {mês} está fechado |
+| Baixa em período fechado | 409 | O período de {mês/ano} está fechado. Só um administrador pode reabrir |
 | Editar ou apagar uma baixa | 409 | Baixas não são alteradas — faça um estorno |
 | Alterar ocorrência já paga pela série | 409 | Ocorrências pagas não são alteradas pela série |
 | Arquivo com tipo não permitido ou acima do limite | 422 | Envie PDF, imagem, planilha, documento ou XML de até 20 MB |

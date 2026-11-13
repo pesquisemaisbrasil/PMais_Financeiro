@@ -28,9 +28,13 @@ import {
   replacesNote,
   scheduleText,
   schedulesText,
+  shiftNote,
   formatCnpj,
   inssAmount,
+  itemIsPaid,
   itemPaymentLabel,
+  noteLabel,
+  originNotes,
   type PayableDetail,
   formatCompetence,
   formatDateTime,
@@ -315,6 +319,34 @@ describe("cronograma para o projeto", () => {
     expect(text.split("Cronograma de pagamento dos incentivos")).toHaveLength(3);
     expect(text).toMatch(/- Pesquisas: 1 incentivo → pagar 09\/11/);
   });
+
+  it("avisa no cronograma a data da planilha que foi para o próximo dia útil", () => {
+    const moved = {
+      ...preview,
+      groups: [
+        {
+          ...preview.groups[1],
+          payDate: "2026-11-09",
+          shifts: [
+            { day: "2026-11-07", reason: "sábado" },
+            { day: "2026-11-08", reason: "domingo" },
+          ],
+        },
+      ],
+    };
+    const text = scheduleText(moved, health);
+    expect(text).toContain("→ pagar 09/11");
+    expect(text).toContain("[07/11 caiu em sábado; vai para 09/11] [08/11 caiu em domingo; vai para 09/11]");
+  });
+});
+
+describe("aviso de data ajustada", () => {
+  it("diz o dia, o motivo e para onde foi", () => {
+    expect(shiftNote({ day: "2026-11-07", reason: "sábado" }, "2026-11-09")).toBe("07/11 caiu em sábado; vai para 09/11");
+    expect(shiftNote({ day: "2026-11-10", reason: "feriado: Recesso da empresa" }, "2026-11-11")).toBe(
+      "10/11 caiu em feriado: Recesso da empresa; vai para 11/11",
+    );
+  });
 });
 
 describe("CNPJ na tela", () => {
@@ -354,6 +386,18 @@ describe("detalhes de cada pessoa", () => {
 
   it("avisa que a baixa parcial não diz quem foi pago", () => {
     expect(itemPaymentLabel({ ...base, paid: "40.00", pending: "60.00" })).toBe("Baixa parcial do lançamento");
+  });
+
+  it("conta como paga a pessoa do comprovante e todas as de um lançamento pago, e nenhuma em aberto, parcial ou cancelada", () => {
+    const partial = { ...base, paid: "40.00", pending: "60.00" };
+    const done = { ...base, situation: "pago" as const, paid: "100.00", pending: "0" };
+    expect(itemIsPaid(base)).toBe(false);
+    expect(itemIsPaid(partial)).toBe(false);
+    expect(itemIsPaid(partial, { paidOn: "2026-02-03" })).toBe(true);
+    expect(itemIsPaid(done)).toBe(true);
+    expect(itemIsPaid(done, { paidOn: null })).toBe(true);
+    expect(itemIsPaid({ ...done, situation: "cancelado" as const })).toBe(false);
+    expect(itemIsPaid({ ...partial, situation: "cancelado" as const }, { paidOn: "2026-02-03" })).toBe(false);
   });
 
   it("calcula o INSS pelo bruto e pelo líquido, sem erro de centavos", () => {
@@ -484,5 +528,26 @@ describe("tabela simulada da repetição", () => {
 
   it("não vale sem simulação", () => {
     expect(simulationIsCurrent({ rows: null, simulatedFor: null }, "2026-12-10", "100.00")).toBe(false);
+  });
+});
+
+describe("o que o painel das pessoas diz de cada uma e de onde o lançamento veio", () => {
+  it("escreve Sem nota para incentivo e Sem NF, e o número da NF quando tem", () => {
+    expect(noteLabel({ documentType: "Incentivo", invoiceNumber: null })).toBe("Sem nota");
+    expect(noteLabel({ documentType: "Sem NF", invoiceNumber: null })).toBe("Sem nota");
+    expect(noteLabel({ documentType: "NF", invoiceNumber: "5521" })).toBe("NF 5521");
+    expect(noteLabel({ documentType: "NF", invoiceNumber: null })).toBe("NF");
+    expect(noteLabel({ documentType: "RPA", invoiceNumber: null })).toBe("RPA");
+  });
+
+  it("diz se veio da planilha ou do Connect, e as regras do incentivo", () => {
+    expect(originNotes("incentivo")).toEqual([
+      "Veio da planilha de incentivos.",
+      "Incentivo não tem nota fiscal.",
+      "Chave Pix mascarada: a completa não é guardada.",
+    ]);
+    expect(originNotes("folha")).toEqual(["Veio da planilha da folha de campo."]);
+    expect(originNotes("connect")).toEqual(["Veio do Connect."]);
+    expect(originNotes("manual")).toEqual([]);
   });
 });

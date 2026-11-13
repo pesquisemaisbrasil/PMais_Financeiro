@@ -396,9 +396,18 @@ def test_readyz_reports_database(client: TestClient) -> None:
     assert client.get("/readyz").json() == {"status": "ok", "db": "reachable"}
 
 
+# A única exceção: a chave Pix do respondente de incentivo, já mascarada (3 primeiros e 2 últimos
+# caracteres). A chave completa nunca é guardada (Q22, provisório; ADR 0004).
+MASKED_PIX_COLUMNS = {"pix_masked"}
+
+
 def test_schema_has_no_cpf_nor_pix_column() -> None:
     columns = [c.name.lower() for table in Base.metadata.tables.values() for c in table.columns]
-    assert not [name for name in columns if "cpf" in name or "pix" in name]
+    assert not [
+        name
+        for name in columns
+        if ("cpf" in name or "pix" in name) and name not in MASKED_PIX_COLUMNS
+    ]
 
 
 @pytest.mark.parametrize(

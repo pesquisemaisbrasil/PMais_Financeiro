@@ -1,8 +1,10 @@
 """Importar planilha de incentivos ou de folha de campo para o Contas a pagar.
 
 A planilha é lida em memória e descartada. Só ficam nome e valor de cada pessoa, e o resumo
-criptográfico do arquivo, para avisar quando ela for importada de novo. Chave Pix e CPF nunca são
-lidos: só as colunas abaixo saem do arquivo (pergunta Q22).
+criptográfico do arquivo, para avisar quando ela for importada de novo. O CPF nunca é lido, e a
+chave Pix do respondente (só na planilha de incentivos) fica **mascarada** (3 primeiros e 2 últimos
+caracteres): a chave completa não é guardada, não vai para a prévia nem para o log (pergunta Q22,
+provisório até o DPO decidir). Só as colunas abaixo saem do arquivo.
 """
 
 import csv
@@ -12,6 +14,7 @@ import re
 import unicodedata
 import zipfile
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -21,7 +24,8 @@ from typing import Any
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from core.business_days import add_business_days
+from core.business_days import NO_EXTRA, add_business_days, next_business_day, why_not_business
+from core.pix import mask_pix_key, normalize_pix_key
 from core.text import format_brl, format_date_br
 from models.payable import Payable, PayableAllocation, PayableItem
 from models.reference import (
@@ -35,6 +39,8 @@ from models.reference import (
 from models.user import User
 from schemas.payable import ImportFields
 from services import payable as payable_service
+from services import period_lock
+from services.holidays import holiday_names
 from services.payable import PayableConflict, PayableInvalid, _active, today
 
 MAX_BYTES = 5 * 1024 * 1024
@@ -95,6 +101,8 @@ INCENTIVE_COLUMNS = {
     "data da pesquisa": "surveyDate",
     "data da resposta": "surveyDate",
     "data de pagamento": "payDate",
+    "chave pix": "pix",
+    "pix": "pix",
     **DIM_COLUMNS,
 }
 PAYROLL_COLUMNS = {
@@ -126,6 +134,11 @@ class Line:
     surveyDate: date | None = None
     givenPayDate: date | None = None
     payDate: date | None = None
+    # A chave Pix da planilha, já mascarada: a completa nunca fica na linha (nem em `typed`)
+    pixMasked: str | None = None
+    # A data da planilha caía em dia não útil: de que dia veio e por quê (sábado, feriado...)
+    shiftedFrom: date | None = None
+    shiftReason: str | None = None
     typed: dict[str, str] = field(default_factory=dict)  # o que a planilha escreveu, por campo
     refs: dict[str, Any] = field(default_factory=dict)  # o cadastro que cada campo achou
     skipped: bool = False  # fora do que a pessoa marcou: não é erro, só não entra
@@ -241,10 +254,21 @@ def _text(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
+def _masked_pix(value: Any) -> str | None:
+    """A chave Pix da célula já mascarada, ou None sem chave. A completa não sai daqui."""
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)  # CPF digitado como número no Excel: sem o ".0" no fim
+    key = _text(value)
+    if not key:
+        return None
+    return mask_pix_key(normalize_pix_key(key))[:255]
+
+
 def _table(
     rows: list[tuple[Any, ...]], columns: dict[str, str]
 ) -> list[tuple[int, dict[str, Any]]]:
-    """Só as colunas conhecidas saem daqui: CPF, chave Pix e o resto da planilha ficam para trás."""
+    """Só as colunas conhecidas saem daqui: o CPF e o resto da planilha ficam para trás (a chave Pix
+    só entra na de incentivos, e mascarada)."""
     if not rows:
         raise PayableInvalid("A planilha está vazia")
     positions = {}
@@ -305,6 +329,7 @@ def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
     lines = []
     for number, cells in table:
         line = _base_line(number, cells)
+        line.pixMasked = _masked_pix(cells.get("pix"))
         line.surveyDate, survey_ok = _date(cells.get("surveyDate"))
         line.givenPayDate, pay_ok = _date(cells.get("payDate"))
         if not pay_ok:
@@ -352,16 +377,45 @@ def _deadline(project: Project) -> int | None:
     return project.incentiveDays if project.hasIncentive else None
 
 
-def _groups(lines: list[Line], days: int | None) -> dict[date, list[Line]]:
-    """Um lançamento por data de pagamento: a da planilha, ou a da pesquisa mais o prazo."""
+def _groups(
+    lines: list[Line], days: int | None, extra: Mapping[date, str] = NO_EXTRA
+) -> dict[date, list[Line]]:
+    """Um lançamento por data de pagamento: a da planilha, ou a da pesquisa mais o prazo em dias
+    úteis. A data da planilha que cai em fim de semana ou feriado vai para o próximo dia útil
+    (a linha guarda de onde veio, para a prévia avisar); `extra` são os feriados cadastrados."""
     groups: dict[date, list[Line]] = {}
     for line in lines:
         line.payDate = line.givenPayDate
+        line.shiftedFrom = line.shiftReason = None
         if line.payDate is None and line.surveyDate is not None and days:
-            line.payDate = add_business_days(line.surveyDate, days)
+            line.payDate = add_business_days(line.surveyDate, days, extra)
+        elif line.payDate is not None:
+            reason = why_not_business(line.payDate, extra)
+            if reason:
+                line.shiftedFrom, line.shiftReason = line.payDate, reason
+                line.payDate = next_business_day(line.payDate, extra)
         if line.payDate is not None:
             groups.setdefault(line.payDate, []).append(line)
     return dict(sorted(groups.items()))
+
+
+def _shifts(group: list[Line]) -> list[dict[str, Any]]:
+    """As datas da planilha deste grupo que foram para o próximo dia útil, e por quê."""
+    found = {
+        (line.shiftedFrom, line.shiftReason)
+        for line in group
+        if line.shiftedFrom and line.shiftReason
+    }
+    return [{"day": day, "reason": reason} for day, reason in sorted(found)]
+
+
+def _shift_text(group: list[Line], pay_date: date) -> str:
+    """Para o histórico do lançamento: de que data da planilha ele foi ajustado e por quê."""
+    shifts = _shifts(group)
+    if not shifts:
+        return ""
+    moved = ", ".join(f"{format_date_br(s['day'])} ({s['reason']})" for s in shifts)
+    return f"; data da planilha ajustada para {format_date_br(pay_date)}: {moved}"
 
 
 def _project(db: Session, project_id: int) -> Project:
@@ -579,9 +633,10 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
             }
         )
     groups = []
+    extra = holiday_names(db)
     for refs, bucket_lines in _buckets(good) if incentives else []:
         project = refs["project"]
-        for pay_date, group in _groups(bucket_lines, _deadline(project)).items():
+        for pay_date, group in _groups(bucket_lines, _deadline(project), extra).items():
             groups.append(
                 {
                     "projectId": project.id,
@@ -593,6 +648,7 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
                     "count": len(group),
                     "total": sum((g.amount for g in group if g.amount), Decimal("0")),
                     "source": _source(group),
+                    "shifts": _shifts(group),
                 }
             )
     groups.sort(key=lambda g: (g["payDate"], g["projectCode"], g["classification"]))
@@ -616,6 +672,7 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
         "errorCount": sum(1 for line in lines if line.errors),
         "skippedCount": sum(1 for line in lines if line.skipped and not line.errors),
         "payableCount": len(groups) if incentives else len(_buckets(good)),
+        "shiftedCount": sum(1 for line in good if line.shiftedFrom),
         "groups": groups,
         "lines": [
             {
@@ -654,6 +711,7 @@ def _items(lines: list[Line]) -> list[PayableItem]:
                 invoiceDate=line.invoiceDate,
                 surveyDate=line.surveyDate,
                 invoiceStatus=status,
+                pix_masked=line.pixMasked,
             )
         )
     return items
@@ -674,6 +732,7 @@ def _create(
 ) -> Payable:
     project = refs["project"]
     total = sum((line.amount for line in lines if line.amount), Decimal("0"))
+    period_lock.ensure_open(db, refs["company"].id, today())
     payable = Payable(
         origin=origin,
         payeeName=payee,
@@ -727,9 +786,10 @@ def confirm(
             raise PayableConflict(
                 f"Defina o prazo do incentivo {where} antes de importar a planilha"
             )
+        extra = holiday_names(db)
         for refs, bucket_lines in buckets:
             project = refs["project"]
-            for pay_date, group in _groups(bucket_lines, _deadline(project)).items():
+            for pay_date, group in _groups(bucket_lines, _deadline(project), extra).items():
                 surveys = sorted({line.surveyDate for line in group if line.surveyDate})
                 payable = _create(
                     db,
@@ -752,7 +812,7 @@ def confirm(
                     f"Criado pela planilha {shown_name}: "
                     f"{_count(len(group), 'incentivo', 'incentivos')}{origin_text}, "
                     f"{format_brl(payable.amount)}, vence {format_date_br(pay_date)} "
-                    f"(data {_source(group)})",
+                    f"(data {_source(group)}){_shift_text(group, pay_date)}",
                 )
                 created.append(payable)
     else:

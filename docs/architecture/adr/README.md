@@ -18,3 +18,6 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0012](0012-anexos-das-contas-cifrados-por-arquivo.md) | Anexos das contas, cifrados um a um no backend com chave-mestra própria | Aceito (provisório) |
 | [0013](0013-consulta-de-cnpj-pela-brasilapi.md) | Consulta de CNPJ pela BrasilAPI, feita pelo servidor | Aceito (provisório) |
 | [0014](0014-passeio-de-introducao-com-driver-js.md) | Passeio de introdução com o Driver.js (MIT), e não o Intro.js (AGPL) | Aceito |
+| [0015](0015-feriados-por-cadastro-e-brasilapi.md) | Feriados por cadastro, com os nacionais buscados na BrasilAPI | Aceito (provisório) |
+| [0016](0016-extrato-bancario-imutavel-e-descricao-cifrada.md) | Extrato bancário: linhas imutáveis, descrição cifrada e reimportação sem duplicar | Aceito (provisório) |
+| [0017](0017-demonstracao-com-o-backend-no-navegador.md) | Versão de demonstração com o backend rodando no navegador (Pyodide) | Aceito (provisório) |

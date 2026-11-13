@@ -34,6 +34,8 @@ const backendEnv = {
   // Cofre de arquivos de mentira (na memória), com uma chave de teste: o MinIO nunca entra no e2e.
   // Consulta de CNPJ de mentira (CNPJs inventados): a BrasilAPI de verdade nunca entra no e2e.
   CNPJ_LOOKUP_MODE: "simulated",
+  // Busca de feriados de mentira: a BrasilAPI de verdade também nunca entra no e2e.
+  HOLIDAYS_LOOKUP_MODE: "simulated",
   FILES_MODE: "memory",
   FILES_MASTER_KEY: Buffer.alloc(32, "f").toString("base64"), // gitleaks:allow
   CORS_ORIGINS: FRONTEND_URL,

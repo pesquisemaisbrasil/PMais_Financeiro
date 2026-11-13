@@ -4,6 +4,7 @@ import { Check, CircleCheck, Hourglass, Pencil, Undo2, Wallet } from "lucide-rea
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { AmountSummary } from "@/components/AmountSummary";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { ReasonDialog } from "@/components/ReasonDialog";
 import {
@@ -16,7 +17,7 @@ import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
 import { ValuesCard } from "@/components/ValuesCard";
-import { ErrorBox, Field, FormError, NUM, TAB_BUTTON, TAB_BUTTON_DANGER, TD, TH, Tag } from "@/components/finance";
+import { ErrorBox, Field, FormError, NUM, RedStars, TAB_BUTTON, TAB_BUTTON_DANGER, TD, TH, Tag } from "@/components/finance";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,9 +82,12 @@ import {
   parseDrafts,
   type AdjustmentDraft,
 } from "@/lib/adjustments";
+import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { ReceivableDetailFields } from "./detail-fields";
+
+const NO_PROJECT = "sem-projeto";
 
 const COLORS: Record<ReceivableSituation, "verde" | "azul" | "vermelho" | "ambar" | "cinza"> = {
   recebido: "verde",
@@ -160,18 +164,17 @@ export function NewReceivableDialog({
     if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
       return setLocalError("Em título parcelado, lance acréscimos, descontos e impostos em cada parcela depois.");
     }
-    if (!form.projectId) return setLocalError("Informe o projeto da receita.");
-    const required = [
-      form.customerId,
-      form.categoryId,
-      form.companyId,
-      form.unitId,
-      form.costCenterId,
-      form.description.trim(),
-      form.issueDate,
-      form.dueDate,
-    ];
-    if (required.some((value) => !value)) return setLocalError("Preencha os campos com *.");
+    const missing = missingFieldsMessage([
+      ["Cliente", form.customerId],
+      ["Emissão", form.issueDate],
+      ["Vencimento", form.dueDate],
+      ["Conta de receita", form.categoryId],
+      ["Empresa", form.companyId],
+      ["Unidade", form.unitId],
+      ["Centro de custo", form.costCenterId],
+      ["Descrição", form.description.trim()],
+    ]);
+    if (missing) return setLocalError(missing);
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
@@ -180,7 +183,7 @@ export function NewReceivableDialog({
     }
     const body = {
           customerId: Number(form.customerId),
-          projectId: Number(form.projectId),
+          projectId: form.projectId ? Number(form.projectId) : null,
           categoryId: Number(form.categoryId),
           companyId: Number(form.companyId),
           unitId: Number(form.unitId),
@@ -222,7 +225,7 @@ export function NewReceivableDialog({
           <DialogHeader>
             <DialogTitle>Nova conta a receber</DialogTitle>
             <DialogDescription>
-              Os campos com * são obrigatórios. Toda receita pertence a um projeto.
+              <RedStars text="Os campos com * são obrigatórios. O projeto é opcional: nem toda receita tem um." />
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
@@ -240,15 +243,18 @@ export function NewReceivableDialog({
                   options={reference.customers.map((c) => ({ id: c.id, label: `${c.nickname} · ${c.name}` }))}
                 />
               </Field>
-              <Field label="Projeto *" id="r-proj">
+              <Field label="Projeto" id="r-proj">
                 <Choice
                   id="r-proj"
                   searchable
-                  value={form.projectId}
-                  onChange={set("projectId")}
-                  options={reference.projects
-                    .filter((p) => p.status !== "encerrado")
-                    .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
+                  value={form.projectId || NO_PROJECT}
+                  onChange={(value) => set("projectId")(value === NO_PROJECT ? "" : value)}
+                  options={[
+                    { id: NO_PROJECT, label: "Sem projeto" },
+                    ...reference.projects
+                      .filter((p) => p.status !== "encerrado")
+                      .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
+                  ]}
                 />
               </Field>
             </div>
@@ -263,6 +269,7 @@ export function NewReceivableDialog({
                 <Input id="r-comp" type="month" {...input("competence")} />
               </Field>
             </div>
+            <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Conta de receita *" id="r-cat">
                 <Choice
@@ -630,6 +637,11 @@ function EditForm({
       <Field label="Vencimento *" id="ed-venc">
         <Input id="ed-venc" type="date" {...input("dueDate")} />
       </Field>
+      <BusinessDayNotice
+        date={form.dueDate}
+        unlessDate={row.dueDate}
+        onPick={(day) => setForm((current) => ({ ...current, dueDate: day }))}
+      />
       <ValuesCard
         grossId="ed-valor"
         grossLabel="Valor principal (R$) *"
@@ -750,7 +762,9 @@ export function DetailDialog({
         <DialogHeader>
           <DialogTitle>{detail ? detail.description : "Título a receber"}</DialogTitle>
           <DialogDescription>
-            {detail ? `${detail.customer} · PRJ-${detail.projectCode}` : "Carregando…"}
+            {detail
+              ? `${detail.customer}${detail.projectCode ? ` · PRJ-${detail.projectCode}` : ""}`
+              : "Carregando…"}
           </DialogDescription>
         </DialogHeader>
         {error && <ErrorBox message={error} />}

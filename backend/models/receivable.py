@@ -37,9 +37,9 @@ class Receivable(Base):
     customer_id = Column(
         Integer, ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    # Toda receita pertence a um projeto (regra 2 da spec): um só, sem rateio.
+    # Nem toda receita tem projeto (Q27, resposta de 11/11/2026); quando tem, é um só, sem rateio.
     project_id = Column(
-        Integer, ForeignKey("projects.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("projects.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True

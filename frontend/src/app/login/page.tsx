@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, ssoLoginUrl, startMfaSetup } from "@/lib/api";
+import { login, ssoLoginUrl, startMfaSetup, verifyMfa } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { publicAsset } from "@/lib/basePath";
+import { DEMO, demoCode, demoCredentials } from "@/lib/demo/client";
 import { useFormAction } from "@/lib/use-form-action";
 import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep } from "./MfaSteps";
 
@@ -61,17 +63,50 @@ const SSO_PROVIDERS = [
   },
 ];
 
-function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; ssoError: string | null }) {
+function CredentialsStep({
+  onStep,
+  onSignedIn,
+  ssoError,
+}: {
+  onStep: (step: Step) => void;
+  onSignedIn: () => Promise<void>;
+  ssoError: string | null;
+}) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { error, submitting, run } = useFormAction();
-  const shownError = error ?? ssoError;
+  // Na demonstração os botões do Google e da Microsoft são só visuais: o clique avisa, como o login
+  // sem as chaves do provedor (SSO_ERRORS.sso_indisponivel), em vez de ir a um endereço que não existe.
+  const [demoSsoClicked, setDemoSsoClicked] = useState(false);
+  const shownError = error ?? ssoError ?? (demoSsoClicked ? SSO_ERRORS.sso_indisponivel : null);
+
+  // Na demonstração o login é sempre o mesmo (fictício): já vem preenchido, e o Entrar vai direto.
+  useEffect(() => {
+    if (!DEMO) return;
+    let alive = true;
+    demoCredentials()
+      .then((credentials) => {
+        if (!alive) return;
+        setEmail(credentials.email);
+        setPassword(credentials.password);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     run(async () => {
       const challenge = await login(email, password);
+      if (DEMO) {
+        // O código do autenticador da demonstração é fictício e vem do próprio navegador: não se digita.
+        await verifyMfa(challenge.mfa_token, await demoCode());
+        await onSignedIn();
+        return;
+      }
       if (!challenge.setup_required) {
         onStep({ name: "verify", mfaToken: challenge.mfa_token });
         return;
@@ -154,14 +189,27 @@ function CredentialsStep({ onStep, ssoError }: { onStep: (step: Step) => void; s
           <span className="h-px flex-1 bg-border" aria-hidden="true" />
         </div>
 
-        {SSO_PROVIDERS.map(({ id, name, icon }) => (
-          <Button key={id} asChild variant="outline" className="w-full bg-card">
-            <a href={ssoLoginUrl(id)}>
+        {SSO_PROVIDERS.map(({ id, name, icon }) =>
+          DEMO ? (
+            <Button
+              key={id}
+              type="button"
+              variant="outline"
+              className="w-full bg-card"
+              onClick={() => setDemoSsoClicked(true)}
+            >
               {icon}
               Entrar com {name}
-            </a>
-          </Button>
-        ))}
+            </Button>
+          ) : (
+            <Button key={id} asChild variant="outline" className="w-full bg-card">
+              <a href={ssoLoginUrl(id)}>
+                {icon}
+                Entrar com {name}
+              </a>
+            </Button>
+          )
+        )}
       </CardFooter>
     </form>
   );
@@ -184,7 +232,7 @@ function LoginContent() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <div className="mb-6 flex justify-center">
-            <Image src="/logo.png" alt="P+ Financeiro" width={180} height={65} priority />
+            <Image src={publicAsset("/logo.png")} alt="P+ Financeiro" width={180} height={65} priority />
           </div>
 
           <div className="mb-6 flex justify-center">
@@ -198,7 +246,9 @@ function LoginContent() {
           </h1>
         </CardHeader>
 
-        {step.name === "credentials" && <CredentialsStep onStep={setStep} ssoError={ssoError} />}
+        {step.name === "credentials" && (
+          <CredentialsStep onStep={setStep} onSignedIn={loadUser} ssoError={ssoError} />
+        )}
         {step.name === "verify" && (
           <MfaVerifyStep mfaToken={step.mfaToken} onVerified={loadUser} onBack={restart} />
         )}

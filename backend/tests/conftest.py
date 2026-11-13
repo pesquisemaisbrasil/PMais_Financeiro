@@ -23,6 +23,8 @@ for _key in (
     "CONNECT_MODE",
     # a consulta de CNPJ de verdade (BrasilAPI) também não: cada teste liga o que precisa
     "CNPJ_LOOKUP_MODE",
+    # e a busca de feriados (BrasilAPI) idem
+    "HOLIDAYS_LOOKUP_MODE",
     # o cofre de arquivos de verdade (MinIO) também nunca entra nos testes
     "FILES_MODE",
     "FILES_ENDPOINT_URL",

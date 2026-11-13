@@ -20,7 +20,7 @@ Tudo é simulado e fictício: extrato, planilhas, PDF de comprovantes e notas do
 
 ## Abrir a versão real em teste
 
-No menu, abaixo de **Restaurar dados de exemplo**, o botão **Abrir para teste de produção** abre `teste/` **no mesmo site**, em outra aba: é onde vai ficar a versão real do Financeiro em teste (branch `homolog`), para alternar entre as duas. Enquanto nada estiver publicado nesse caminho, o site mostra a página `404.html`, que explica isso e volta ao protótipo. O que falta para publicar: [docs/operations/publicar-a-versao-de-teste.md](../../docs/operations/publicar-a-versao-de-teste.md).
+No menu, abaixo de **Restaurar dados de exemplo**, o botão **Abrir para teste de produção** abre `teste/` **no mesmo site**, em outra aba: é o **Financeiro real** (as telas e as regras do repositório), **só com dados fictícios**, com o backend rodando dentro do navegador. O login fictício já vem preenchido: é só clicar em **Entrar**, e a faixa do topo leva de volta ao protótipo. O `netlify.toml` da raiz gera essa pasta a cada deploy; sem ele (site criado arrastando a pasta), o endereço mostra a página `404.html`. Como gerar, publicar e o que conferir: [docs/operations/publicar-a-versao-de-teste.md](../../docs/operations/publicar-a-versao-de-teste.md).
 
 ## Juntar as respostas de todo mundo (Netlify Forms)
 

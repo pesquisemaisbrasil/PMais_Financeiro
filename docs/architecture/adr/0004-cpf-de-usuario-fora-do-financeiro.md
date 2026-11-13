@@ -19,5 +19,5 @@ No Connect, o CPF identifica a pessoa no login e fica só como hash, com `CPF_SE
 
 ## Consequências
 
-- `test_schema_has_no_cpf_nor_pix_column`, em `backend/tests/test_auth.py`, falha se alguém criar uma coluna de CPF.
+- `test_schema_has_no_cpf_nor_pix_column`, em `backend/tests/test_auth.py`, falha se alguém criar uma coluna de CPF ou de chave Pix. **Exceção única e explícita (12/11/2026, provisória, Q22; numa chave que é CPF a máscara deixa 5 dos 11 dígitos, os 2 de controle entre eles, e isso também depende do DPO):** `payable_items.pix_masked`, que guarda só a chave Pix do respondente de incentivo já mascarada (3 primeiros e 2 últimos caracteres), nunca a completa. Qualquer outra coluna com "pix" ou "cpf" no nome continua barrada.
 - **Quando os dados de RPA entrarem:** a decisão D7, de 21/10, pede CPF e PIS/NIT, e esse caso precisa de um ADR próprio e de passar pelo inventário de dados e pelo ROPA antes do código.

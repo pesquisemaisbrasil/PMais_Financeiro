@@ -56,6 +56,10 @@ if [ "$E2E" = "1" ]; then
   else
     fail "script e2e não existe no frontend/package.json"
   fi
+  # A versão de demonstração (backend no navegador): DEMO_DIST_DIR evita mexer na .next de um next dev aberto.
+  step "frontend: demonstração (geração estática + teste de tela)"
+  DEMO_DIST_DIR=.next-demo node scripts/build-demo.mjs || fail "geração da demonstração"
+  DEMO_DIST_DIR=.next-demo npx playwright test -c playwright.demo.config.ts || fail "e2e da demonstração"
 fi
 
 printf '\n\033[32mTudo verde.\033[0m\n'

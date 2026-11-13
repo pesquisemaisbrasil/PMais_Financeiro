@@ -1,23 +1,59 @@
-# Publicar a versão de teste no mesmo site do protótipo
+# Versão de demonstração no mesmo site do protótipo
 
-Pedido do Bruno em 11/11/2026: a versão real do Financeiro em teste (a da branch `homolog`) abrir a partir do **mesmo site do protótipo**, para dar para alternar entre as duas.
+O botão **Abrir para teste de produção** do protótipo (menu, abaixo de "Restaurar dados de exemplo") abre `teste/`, no mesmo site, em outra aba. Ali fica **o Financeiro real, com as telas e as regras de verdade, só com dados fictícios**. Decisão do Bruno em 12/11/2026; o porquê e as alternativas estão no [ADR 0017](../architecture/adr/0017-demonstracao-com-o-backend-no-navegador.md).
 
-## Como está hoje
+## Como funciona
 
-- O **protótipo** (HTML puro, dados fictícios) é publicado no Netlify a partir da pasta `prototipo/financeiro` (`netlify.toml`, `publish`).
-- O protótipo tem, no menu, abaixo de "Restaurar dados de exemplo", o botão **Abrir para teste de produção**. Ele abre `teste/` **no mesmo site**, em outra aba.
-- Enquanto não houver nada publicado em `teste/`, o site mostra a página `404.html`, que explica isso e volta ao protótipo.
-- O **Financeiro real** (frontend Next.js, API FastAPI, Postgres e cofre de arquivos) só roda na máquina de quem desenvolve. **Nada dele está publicado.**
+- O Netlify só serve páginas. Por isso o **backend (Python) roda dentro do navegador**, via Pyodide, num SQLite em memória cheio de dados fictícios. Não há API, banco, cofre de arquivos nem conta em outro provedor.
+- É o mesmo código do repositório: toda tela ou regra nova aparece na demonstração quando o site é gerado de novo.
+- O que a pessoa faz fica **só no navegador dela**. **Recarregar a página volta aos dados de exemplo** (e pede para entrar de novo); o botão **Restaurar dados de exemplo** faz o mesmo de propósito. Navegue pelo menu: abrir um endereço direto também recarrega.
+- A tela de entrada já vem com o login fictício preenchido: é só clicar em **Entrar** (o código do autenticador também é fictício e entra sozinho). A faixa roxa "Ambiente de teste com dados fictícios" fica no topo, com o link **Voltar ao protótipo**.
+- O Connect é o **simulado**. O teste real com o Connect fica só na máquina do Bruno: [testar com o Connect de dev](testar-com-o-connect-dev.md).
+- Nunca digite dado real, nem comprovante, planilha ou chave Pix reais: nada sai do navegador, mas a regra do projeto vale (AGENTS.md).
 
-## O que falta para `teste/` funcionar
+## Ver na sua máquina
 
-1. **Onde roda a API.** O Netlify serve o frontend, mas não roda a API (Python), o Postgres nem o cofre de arquivos. É preciso escolher a hospedagem deles (e o que substitui o MinIO: Q18), com as chaves e senhas do `backend/.env.example` guardadas no cofre do provedor, e nunca no repositório.
-2. **Mesmo endereço para tudo.** O cookie de renovação da sessão é `SameSite=Strict`: a API tem de responder no **mesmo site** da tela. A saída é o Netlify encaminhar (`[[redirects]]`, `status = 200`) `/teste/api/*` para a API e `/teste/*` para o frontend publicado, e o frontend ser gerado com `basePath: "/teste"`.
-3. **Só dados fictícios (decidido pelo Bruno em 11/11/2026).** O ambiente de teste do site usa o `seed_demo.py`. Os testes com dados reais ficam **só na máquina do Bruno**. Nada de dado real, de comprovante real nem de chave Pix real no ambiente publicado; o Connect fica simulado (`CONNECT_MODE=simulated`) ou aponta para o Connect de teste, se o João liberar.
-4. **Entrada.** O login pede e-mail, senha e código do autenticador (MFA obrigatório): criar os usuários de teste e passar os códigos de recuperação a quem for testar.
-5. **LGPD.** Com só dados fictícios, a hospedagem de teste não guarda dado pessoal e não entra no [ROPA](../architecture/seguranca/lgpd/ropa.md). Se um dia for receber dado real, ela vira um operador a mais: aí o ROPA e o inventário de dados mudam no mesmo PR, e a decisão volta ao DPO.
-6. **Faixa e volta ao protótipo (feito).** O Financeiro real mostra, no topo de toda tela (login inclusive), a faixa fixa **"Ambiente de teste com dados fictícios. Não digite dado real."**, com o link **Voltar ao protótipo**. Ela só aparece quando o frontend é gerado com `NEXT_PUBLIC_TEST_ENV=1`; o link vem de `NEXT_PUBLIC_PROTOTYPE_URL` (`/` quando o protótipo fica na raiz do mesmo site; aceita também um endereço `http(s)`). Sem essas variáveis (desenvolvimento e produção), nada aparece. O menu lateral desce a altura da faixa e continua inteiro na tela.
+Dentro de `frontend/` (o `DEMO_DIST_DIR` evita mexer na pasta `.next` do seu `next dev`; precisa de internet na primeira vez, para baixar o Pyodide e os pacotes, que ficam em `.demo-cache/`):
 
-## Quem decide
+```bash
+DEMO_DIST_DIR=.next-demo node scripts/build-demo.mjs      # gera o app e o que roda ao lado (alguns minutos)
+node scripts/serve-demo.mjs .next-demo 3020               # serve em /teste, com a CSP do netlify.toml
+```
 
-A escolha da hospedagem, dos custos e das contas é do **João** (infraestrutura e repositório) e do **PO**; a parte dos dados já está decidida (só fictícios, item 3). Pergunta **Q41** em [perguntas-abertas](../planning/perguntas-abertas.md). Nada disto foi publicado, e a `main` do repositório não foi tocada.
+Abra <http://localhost:3020/teste/>. Se só o backend ou os pacotes mudaram, `node scripts/build-demo.mjs --so-pacotes` refaz só isso, sem o `next build`.
+
+Testes de tela da demonstração (sobem o servidor sozinhos; `DEMO_DIST_DIR` igual ao da geração):
+
+```bash
+DEMO_DIST_DIR=.next-demo npx playwright test -c playwright.demo.config.ts
+```
+
+## Publicar (Netlify)
+
+O `netlify.toml` da raiz já tem tudo: roda `frontend/scripts/build-demo.mjs`, copia o resultado para `prototipo/financeiro/teste/` e publica a pasta `prototipo/financeiro`, e põe a política de segurança (CSP) em `/teste/*`. Cada deploy gera a demonstração do commit que o Netlify estiver lendo.
+
+**O que conferir no painel do Netlify (o `prototipo/financeiro/README.md` fala em "Netlify Drop"):**
+
+1. O site precisa estar **ligado ao repositório** no GitHub. Um site criado arrastando a pasta não lê o `netlify.toml`, e o `teste/` nunca seria gerado. Se estiver assim, ligue o site ao repositório (Site configuration → Build & deploy → Link repository) ou publique pela CLI.
+2. **Qual branch é a de produção.** O trabalho está na `homolog`; a `main` só recebe com o João ([AGENTS.md](../../AGENTS.md)). Escolha a branch do site de teste de acordo.
+3. **Netlify Forms:** depois do primeiro deploy com o `teste/`, confira que o formulário de validação do protótipo continua recebendo respostas.
+4. Se o Node do Netlify reclamar, a versão está em `NODE_VERSION` (22) no `netlify.toml`.
+
+**Pergunta ao João (Q47):** o código Python do backend (as regras de negócio, sem nenhum segredo) vai junto no site (`teste/demo/backend.json`) e fica baixável por quem abrir o endereço. Hoje o repositório do GitHub é **público** e já traz esse código, então a demonstração não expõe nada novo. Se o João quiser o código fechado, o repositório e o site precisam ficar fechados (senha do Netlify).
+
+## Limites
+
+- Recarregar a página volta aos dados de exemplo e derruba a sessão (guardar no navegador entre visitas é melhoria futura).
+- Primeira abertura: alguns segundos com a tela "Preparando a demonstração" (o Python liga e os dados são criados); depois o navegador guarda os arquivos (a pasta gerada tem cerca de 26 MB).
+- Comprovante em PDF e planilha de importação de verdade não fazem parte (não há arquivo real); o resto das telas funciona, inclusive baixa, conciliação do extrato, fechamento do mês e exportação para Excel.
+- Os botões de Google e Microsoft aparecem na tela de entrada, mas só como visual: o clique avisa que o login ainda não está disponível (na demonstração não há provedor).
+- Python 3.13 e SQLAlchemy 2.0 no navegador, contra 3.11 e 1.4 na produção: a CI roda o teste de tela da demonstração para pegar diferença.
+
+## Solução de problemas
+
+| Sintoma | Causa provável |
+|---|---|
+| "Preparando a demonstração" não sai | Navegador sem WebAssembly ou com a política de conteúdo diferente da do `netlify.toml`; abra o console (F12) e procure o erro. A tela mostra "Tentar de novo" quando o Python falha ao ligar |
+| `/teste/` mostra o aviso "este endereço ainda não existe" | O deploy não gerou o `teste/`: o site não está ligado ao repositório ou o build falhou (veja o log do deploy) |
+| Pedidos 404 em `__next.…txt` no console | Pré-carregamentos que o Next pede e a exportação estática não gera; não afetam o uso |
+| O build local falha ao baixar pacotes | Sem internet ou hash diferente do esperado em `frontend/scripts/demo-packages.json` (o script para de propósito) |

@@ -2,7 +2,9 @@
 
 Como o Financeiro e o P+ Connect conversam: identidade de serviço, contrato da API nos dois sentidos, eventos, idempotência, testes locais e reconciliação quando algo falha. Este é o contrato que os dois times implementam. Mudou aqui, muda nos dois lados.
 
-**Estado atual:** o Connect **não tem** integração máquina a máquina (`docs/architecture/integracao-entre-sistemas.md`). Não há conta de serviço, escopo, webhook, outbox nem rota `/v1`. **Tudo neste documento é (proposta)**, exceto o que aparece citado como código existente. A base é o padrão já descrito em `integracao-entre-sistemas.md`.
+**Atualização de 12/11/2026:** o João mandou o guia do **Connect de dev** ([connect-dev-integracao-financeiro](../connect-dev-integracao-financeiro.md)), que descreve as rotas, os escopos, os erros e o webhook já no ar **no dev**. Onde este documento e o guia divergirem, vale o guia (é o que o Connect entrega). O Financeiro confere o dev com [testar-com-o-connect-dev](../operations/testar-com-o-connect-dev.md). Em produção, essas rotas só existem na rede interna.
+
+**Estado atual (anterior ao guia):** o Connect **não tem** integração máquina a máquina (`docs/architecture/integracao-entre-sistemas.md`). Não há conta de serviço, escopo, webhook, outbox nem rota `/v1`. **Tudo neste documento é (proposta)**, exceto o que aparece citado como código existente. A base é o padrão já descrito em `integracao-entre-sistemas.md`.
 
 ## 1. Arquitetura
 

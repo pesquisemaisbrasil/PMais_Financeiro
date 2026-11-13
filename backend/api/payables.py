@@ -65,6 +65,7 @@ from schemas.payable import (
 from services import attachments, payable_import, recurrence
 from services import payable as payable_service
 from services.auth import get_current_user
+from services.holidays import holiday_names
 
 router = APIRouter(tags=["contas a pagar"])
 
@@ -367,6 +368,27 @@ def add_attachment(
 
 
 @router.get(
+    "/payables/{payable_id}/items/export",
+    response_class=Response,
+    description="As pessoas do lançamento em Excel (.xlsx), com a chave Pix mascarada; "
+    "cada download fica no histórico da conta",
+)
+@limiter.limit(READ_LIMIT)
+def export_items(request: Request, payable_id: int, db: DbSession, user: FinanceUser) -> Response:
+    content, filename = _in_transaction(
+        db, lambda: payable_service.export_items_xlsx(db, payable_id, user)
+    )
+    return Response(
+        content,
+        media_type=xlsx.MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get(
     "/payables/{payable_id}/attachments/{attachment_id}/download",
     response_class=Response,
     description="Baixa o documento, decifrado aqui; cada download fica no histórico da conta",
@@ -540,10 +562,13 @@ def cancel_payable(
     description="Mostra as ocorrências de uma série, sem gravar nada",
 )
 @limiter.limit(READ_LIMIT)
-def simulate_recurrence(request: Request, data: SimulateIn, _: FinanceUser) -> list[dict[str, Any]]:
+def simulate_recurrence(
+    request: Request, data: SimulateIn, db: DbSession, _: FinanceUser
+) -> list[dict[str, Any]]:
+    extra = holiday_names(db)
     return [
         {"index": o.index, "dueDate": o.dueDate, "amount": o.amount}
-        for o in recurrence.simulate(data.kind, data.startDate, data.count, data.amount)
+        for o in recurrence.simulate(data.kind, data.startDate, data.count, data.amount, extra)
     ]
 
 

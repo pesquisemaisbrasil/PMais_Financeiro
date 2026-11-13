@@ -1,22 +1,21 @@
 "use client";
 
-import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Search, Tags, Undo2, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Tags, Undo2, Wallet } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
+import { ItemsPanel } from "@/components/ItemsPanel";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import {
   ErrorBox,
   Field,
   FormError,
-  NUM,
   OriginTag,
   ProvisionTag,
+  RedStars,
   SituationTag,
   TAB_BUTTON,
   TAB_BUTTON_DANGER,
-  TD,
-  TH,
-  Tag,
 } from "@/components/finance";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { AmountSummary } from "@/components/AmountSummary";
@@ -76,8 +74,6 @@ import {
   brl,
   expenseCategories,
   formatDate,
-  inssAmount,
-  itemPaymentLabel,
   occurrenceEdits,
   buildAllocations,
   parseMoney,
@@ -101,6 +97,7 @@ import {
   parseDrafts,
   type AdjustmentDraft,
 } from "@/lib/adjustments";
+import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { DetailFields } from "./detail-fields";
@@ -177,18 +174,18 @@ export function NewPayableDialog({
     if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
       return setLocalError("Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois.");
     }
-    const required = [
-      form.isProvision || form.supplierId,
-      form.categoryId,
-      form.companyId,
-      form.unitId,
-      form.costCenterId,
-      form.paymentMethodId,
-      form.description.trim(),
-      form.issueDate,
-      form.dueDate,
-    ];
-    if (required.some((value) => !value)) return setLocalError("Preencha os campos com *.");
+    const missing = missingFieldsMessage([
+      ["Programação", form.issueDate],
+      ["Vencimento", form.dueDate],
+      ["Fornecedor", form.isProvision || form.supplierId],
+      ["Categoria", form.categoryId],
+      ["Empresa", form.companyId],
+      ["Unidade", form.unitId],
+      ["Centro de custo", form.costCenterId],
+      ["Forma de pagamento", form.paymentMethodId],
+      ["Descrição", form.description.trim()],
+    ]);
+    if (missing) return setLocalError(missing);
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
@@ -251,7 +248,9 @@ export function NewPayableDialog({
         <form onSubmit={submit} noValidate>
           <DialogHeader>
             <DialogTitle>Nova conta a pagar</DialogTitle>
-            <DialogDescription>Os campos com * são obrigatórios. O resto fica em &quot;Mais informações&quot;.</DialogDescription>
+            <DialogDescription>
+              <RedStars text={'Os campos com * são obrigatórios. O resto fica em "Mais informações".'} />
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
             {missingRecords.length > 0 && (
@@ -267,6 +266,7 @@ export function NewPayableDialog({
                 <Input id="p-venc" type="date" {...input("dueDate")} />
               </Field>
             </div>
+            <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />
             <div className="flex items-center gap-2 text-xs">
               <Checkbox
                 id="p-prov"
@@ -1082,81 +1082,6 @@ export function ColumnsDialog({
   );
 }
 
-/** Pessoas do lançamento agrupado, abertas na própria linha da lista (kickoff de 03/11, K3). */
-export function ItemsPanel({ payable }: { payable: PayableDetail }) {
-  const [term, setTerm] = useState("");
-  const items = useMemo(() => {
-    const clean = term.trim().toLowerCase();
-    return clean ? payable.items.filter((item) => item.name.toLowerCase().includes(clean)) : payable.items;
-  }, [payable.items, term]);
-  // Só incentivo tem data da pesquisa: nas outras folhas a coluna ficaria vazia.
-  const withSurvey = payable.items.some((item) => item.surveyDate);
-  return (
-    <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <strong className="text-[13px]">
-          {plural(payable.items.length, "pessoa", "pessoas")} · {brl(payable.amount)}
-        </strong>
-        <div className="relative w-full max-w-[260px]">
-          <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
-          <Input
-            className="h-8 bg-card pl-8 text-[13px]"
-            aria-label="Buscar pessoa"
-            placeholder="Buscar pessoa…"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-          />
-        </div>
-      </div>
-      {items.length ? (
-        <div className="rounded-xl border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className={TH}>Pessoa</TableHead>
-                {withSurvey && <TableHead className={TH}>Data da pesquisa</TableHead>}
-                <TableHead className={TH}>Documento</TableHead>
-                <TableHead className={TH}>Pagamento</TableHead>
-                <TableHead className={cn(TH, NUM)}>Valor</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className={cn(TD, "font-semibold text-brand-cinza-escuro")}>{item.name}</TableCell>
-                  {withSurvey && <TableCell className={TD}>{formatDate(item.surveyDate)}</TableCell>}
-                  <TableCell className={TD}>
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      {item.documentType}
-                      {item.invoiceNumber && ` ${item.invoiceNumber}`}
-                      {item.invoiceStatus === "Pendente" && <Tag color="ambar">NF pendente</Tag>}
-                      {item.invoiceStatus === "Recebida" && <Tag color="verde">NF recebida</Tag>}
-                    </span>
-                    {item.invoiceDate && (
-                      <span className="block text-xs text-muted-foreground">emitida em {formatDate(item.invoiceDate)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className={cn(TD, "text-muted-foreground")}>{itemPaymentLabel(payable, item)}</TableCell>
-                  <TableCell className={cn(TD, NUM, "font-bold")}>
-                    {brl(item.amount)}
-                    {item.grossAmount && (
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        bruto {brl(item.grossAmount)} · INSS −{brl(inssAmount(item.grossAmount, item.amount))}
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <p className="py-3 text-center text-sm text-muted-foreground">Ninguém com esse nome.</p>
-      )}
-    </div>
-  );
-}
-
 const PAYMENT_KINDS: Record<Payment["kind"], string> = {
   pagamento: "Baixa",
   estorno: "Estorno",
@@ -1667,6 +1592,7 @@ function EditForm({
           <Input id="e-comp" type="month" {...input("competence")} />
         </Field>
       </div>
+      <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} unlessDate={payable.dueDate} />
       <div className="grid gap-3 sm:grid-cols-2">
         {editSupplier && (
           <Field label="Fornecedor" id="e-forn">

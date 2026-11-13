@@ -503,8 +503,8 @@ test("Importar planilha com vários projetos: todos os da planilha, ou só os ma
   await page.goto("/contas-a-pagar");
   const sheet = [
     "Nome;Valor;Data de pagamento;Projeto;Empresa;Unidade",
-    "Respondente A;100,00;20/11/2026;1804;PPlus;Consumo SP",
-    "Respondente B;50,00;20/11/2026;1790;MC;Matriz",
+    "Respondente A;100,00;19/11/2026;1804;PPlus;Consumo SP",
+    "Respondente B;50,00;19/11/2026;1790;MC;Matriz",
     "Respondente C;70,00;27/11/2026;PRJ-1804;PPlus;CATI Curitiba",
     "Respondente D;30,00;27/11/2026;9999;PPlus;Consumo SP",
   ].join("\r\n");
@@ -541,9 +541,10 @@ test("Importar planilha com vários projetos: todos os da planilha, ou só os ma
   await importer.getByRole("button", { name: "Criar 2 lançamentos com 2 itens" }).click();
   await expect(page.getByText(/2 lançamentos criados, 2 itens/)).toBeVisible();
   // O banco é compartilhado com os outros testes: confere só as datas desta planilha.
-  // Em 20/11 entrou só a Respondente A (1804); a B (1790) ficou de fora.
+  // Em 19/11 entrou só a Respondente A (1804); a B (1790) ficou de fora. (Não é 20/11: é feriado nacional, e a
+  // data de pagamento da planilha em feriado vai para o próximo dia útil.)
   const created = page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ });
-  await expect(created.filter({ hasText: "20/11/2026" })).toHaveCount(1);
+  await expect(created.filter({ hasText: "19/11/2026" })).toHaveCount(1);
   await expect(created.filter({ hasText: "27/11/2026" })).toHaveCount(1);
 });
 

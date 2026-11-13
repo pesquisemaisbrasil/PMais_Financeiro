@@ -24,15 +24,14 @@ Contrato dos títulos a receber de clientes, simétrico ao [contas-a-pagar](cont
 ## Regras
 
 1. Mesmas regras de situação derivada, pendente calculado, auditoria, exclusão e interseção de filtros de contas a pagar (regras 1, 2, 4, 5 e 6).
-2. Projeto é obrigatório no título a receber: toda receita pertence a um projeto (a validar: há receita sem projeto?).
+2. O projeto é **opcional** no título a receber: nem toda receita tem projeto (Q27, 11/11/2026). Quando há projeto, é um só, sem rateio, e projeto encerrado não recebe título novo. Sem projeto, o título não entra na receita de nenhum projeto.
 3. A soma das parcelas é igual ao valor do título. Diferença bloqueia o salvamento.
-4. Recebimento retroativo em período fechado é bloqueado ([bancos-e-conciliacao](bancos-e-conciliacao.md) regra 4).
+4. Recebimento retroativo em período fechado é bloqueado ([bancos-e-conciliacao](bancos-e-conciliacao.md) regra 6).
 
 ## Casos negados
 
 | Situação | HTTP | `detail` |
 |---|---|---|
-| Título sem projeto | 422 | Informe o projeto da receita |
 | Parcelas não somam o valor do título | 422 | As parcelas somam R$ X, mas o título é de R$ Y |
 | Receber mais que o pendente | 409 | O valor recebido passa do saldo pendente (R$ X) |
 | Excluir título com recebimento | 409 | Esse título tem recebimentos — estorne antes de excluir ou cancele |
@@ -69,7 +68,7 @@ Origem do requisito:
 - 2026-11-06: **atraso** em dias corridos, a partir do dia seguinte ao vencimento (vencido ontem = 1 dia). No dia do vencimento o título é "Vence hoje", não inadimplente. O aviso ao comercial no vencimento + N dias fica fora até o financeiro dizer o N (Q28).
 - 2026-11-06: **situação.** Título vencido continua "Vencida" mesmo com recebimento parcial (como no Contas a pagar); "Parcial" é do que ainda não venceu. O indicador **Recebidos** soma só o que foi recebido por inteiro, como "Pagos". Os cancelados saem do Total e têm indicador próprio, aberto pela situação "Cancelada" nos Filtros.
 - 2026-11-06: **contrato** é texto livre (sem cadastro de contratos). **Conta de receita:** o plano de contas ganhou o tipo despesa ou receita: Contas a pagar só aceita despesa, Contas a receber só receita, e o tipo de uma conta em uso não muda. Recebimento no passado pede observação, e o mesmo ID de transação não vale para dois recebimentos.
-- 2026-11-06: **projeto obrigatório** (regra 2), com a mensagem "Informe o projeto da receita"; projeto fechado não recebe título novo. Se existe receita sem projeto é pergunta ao financeiro (Q27).
+- 2026-11-06: **projeto obrigatório** (regra 2), com a mensagem "Informe o projeto da receita"; projeto fechado não recebe título novo. Se existe receita sem projeto é pergunta ao financeiro (Q27). *(Substituído em 11/11/2026: o projeto passou a ser opcional, veja o último ajuste.)*
 - 2026-11-06 (fatia 2 entregue): **parcelamento e recorrência da receita** (todo mês, toda semana ou parcelado, de 2 a 60 ocorrências) com a tabela simulada editável antes de salvar, e **exportação em CSV** com os filtros e a busca na primeira linha. As regras são as do Contas a pagar: dia que não existe vira o último do mês, fim de semana e feriado vão para o próximo dia útil, a diferença de centavos do parcelado fica na última parcela, e só a primeira ocorrência leva o número e a data da nota.
 - 2026-11-06: no **parcelado**, a soma das parcelas tem de ser igual ao valor do título: se não for, 422 "As parcelas somam R$ X, mas o título é de R$ Y" e nada é criado. Dá para ajustar valor e data de cada parcela antes de salvar (por exemplo, 30% na aprovação e 70% na entrega).
 - 2026-11-06: **alterar ou cancelar a série** ("só este", "este e os seguintes", "todos em aberto") nunca mexe em título que já tem recebimento: ele fica de fora, e se o título escolhido em "só este" já recebeu, a resposta é 409 ("Títulos com recebimento não são alterados pela série").
@@ -83,3 +82,6 @@ Origem do requisito:
 - 2026-11-09 (título aberto): o mesmo resumo do Contas a pagar (**valor, recebido e pendente**, com a barra) acima das abas; a aba **Repetir** nos títulos de série (`GET /receivables/{id}/series`); e a aba **Documentos**, com tipo, baixar, renomear e tirar com motivo, no mesmo cofre cifrado (ver [baixas-recorrencia-e-anexos](baixas-recorrencia-e-anexos.md)).
 - 2026-11-09 (imprimir): o botão **Imprimir**, ao lado de Exportar, como no Contas a pagar: todos os resultados dos filtros, folha A4 deitada, com as colunas Vencimento, Cliente, Descrição, Documento, Projeto, Situação, Líquido, Recebido e Pendente e o total. Rota `GET /receivables/print`.
 - 2026-11-09 (título aberto, no desenho da conta a pagar): o detalhe tem uma linha de abas com cara de botão: **Detalhes** (antes "Resumo", agora com rótulo e valor ao lado, tudo à esquerda), **Editar título**, **Recebimentos**, **Documentos**, **Repetir** (só em série), **Cancelar título** e **Histórico**. Abre em Detalhes. **Registrar recebimento** fica dentro da aba Recebimentos; editar e cancelar são abas (título cancelado perde as duas), e o rodapé fica só com Excluir e Fechar. Na **nova conta a receber**, a **Descrição** vem abaixo do valor líquido, numa caixa de várias linhas (até 255 letras), e o **Projeto** tem busca. "Programação" e "Pagar em" não têm par aqui: a Emissão é outro conceito, e a data prevista de recebimento não foi pedida.
+- 2026-11-11 (campos obrigatórios): como no Contas a pagar, a mensagem de campo obrigatório vazio **nomeia os campos que faltam** (Cliente, Emissão, Vencimento, Conta de receita, Empresa, Unidade, Centro de custo, Descrição) e todo `*` da tela é vermelho.
+- 2026-11-11 (**receita sem projeto**, Q27): **nem toda receita tem projeto**, então o projeto passou a ser **opcional** (resposta do Bruno; a Vivi pode confirmar). O campo "Projeto" deixa de ter `*` e ganha a opção "Sem projeto"; a API aceita `projectId` vazio (a mensagem "Informe o projeto da receita" deixou de existir) e a série (`/receivables/recurrence`) também. A lista e o detalhe mostram "Sem projeto", e a exportação deixa a coluna Projeto vazia. Projeto encerrado continua não recebendo título novo, e só se confere quando há projeto. Esses títulos não entram na receita de nenhum projeto nem no relatório do projeto. Migration `a4c6e8f0b2d4` (`receivables.project_id` passa a aceitar nulo; voltar a migração só funciona se nenhum título estiver sem projeto).
+- 2026-11-11 (**aviso de dia não útil ao lançar**): o **Vencimento** da nova conta a receber e da edição do título avisam na hora quando a data cai em fim de semana ou feriado, com **Antecipar**, **Postergar** ou **Manter**, como no Contas a pagar (veja o spec dele).

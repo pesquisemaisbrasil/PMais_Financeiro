@@ -1,11 +1,14 @@
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
+    UniqueConstraint,
     false,
     func,
     text,
@@ -135,6 +138,14 @@ class BankAccount(Base):
     )
     name = Column(String(100), nullable=False)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+    # Os dados da conta da empresa (não de uma pessoa). Contas antigas ficam sem banco até editar.
+    bankName = Column(String(60), nullable=True)
+    agency = Column(String(20), nullable=True)
+    accountNumber = Column(String(30), nullable=True)
+    # corrente, aplicacao ou caixa
+    accountType = Column(String(20), nullable=True)
+    openingBalance = Column(Numeric(14, 2), nullable=False, default=0, server_default="0")
+    openingDate = Column(Date, nullable=True)
 
 
 class Customer(Base):
@@ -279,4 +290,23 @@ class RecordEvent(Base):
         Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     text = Column(String(500), nullable=False)
+    createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Holiday(Base):
+    """Feriado cadastrado: os nacionais vêm da BrasilAPI e os locais, do financeiro. Todos contam
+    como dia não útil (`core/business_days.py`), além dos nacionais fixos que já estão no código."""
+
+    __tablename__ = "holidays"
+    __table_args__ = (UniqueConstraint("day", "name", name="uq_holidays_day_name"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    day = Column(Date, nullable=False, index=True)
+    name = Column(String(120), nullable=False)
+    # nacional | estadual | municipal
+    scope = Column(String(12), nullable=False)
+    uf = Column(String(2))
+    city = Column(String(80))
+    # brasilapi | manual
+    source = Column(String(12), nullable=False)
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

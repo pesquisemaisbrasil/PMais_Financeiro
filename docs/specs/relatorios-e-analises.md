@@ -29,7 +29,7 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 
 1. Totais do relatório = soma exata das linhas exibidas (mesma interseção de filtros).
 2. DRE e "Resultado por projeto" usam **competência**. O fluxo de caixa e o relatório de contas pagas usam a **data de baixa** (realizado), nunca a data do lançamento; o previsto usa o vencimento. No SGE4B o relatório puxa pela data de lançamento e não bate com o extrato quando há volta [Reunião 21/10 17:01–17:40].
-3. Períodos fechados ficam congelados. Um lançamento novo em período fechado é impossível ([bancos-e-conciliacao](bancos-e-conciliacao.md) regra 4).
+3. Períodos fechados ficam congelados. Um lançamento novo em período fechado é impossível ([bancos-e-conciliacao](bancos-e-conciliacao.md) regra 6).
 4. O usuário só vê as linhas do seu escopo. Os totais não incluem o que está fora dele.
 5. Exportação com nome de pessoa de campo grava `export_log`. Nenhum relatório exporta chave Pix completa ou CPF (só o lote faz isso).
 6. Exportação: campos de texto saem como texto (evita injeção de fórmula), como no Connect.
