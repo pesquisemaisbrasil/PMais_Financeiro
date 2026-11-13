@@ -182,7 +182,7 @@ O botão **Abrir para teste de produção** do protótipo abre `teste/`, onde fi
 2. Na tela de entrada o login fictício já vem preenchido: clique em **Entrar** e abre o Início, com contas vencidas, vencendo hoje, fluxo previsto e agenda de incentivos.
 3. Navegue **pelo menu** (recarregar a página volta aos dados de exemplo): em **Contas a pagar**, dê baixa no lançamento de incentivos e veja **Pagos** subir; na **Conferência bancária**, veja o extrato conciliado e o Fechamento do mês.
 4. **Restaurar dados de exemplo** (menu) desfaz o que foi feito.
-5. Os testes: `DEMO_DIST_DIR=.next-demo npx playwright test -c playwright.demo.config.ts` (6 testes), e `pytest tests/test_seed_demonstracao.py tests/test_demo_runtime.py tests/test_security.py` em `backend/`.
+5. Os testes: `DEMO_DIST_DIR=.next-demo npx playwright test -c playwright.demo.config.ts` (9 testes), e `pytest tests/test_seed_demonstracao.py tests/test_demo_runtime.py tests/test_security.py` em `backend/`.
 6. Para publicar: o site do Netlify precisa estar ligado ao repositório (o `netlify.toml` gera o `teste/`), e o João precisa responder a **Q47** (o código Python do backend fica baixável no site).
 
 Troca do `passlib` pelo `bcrypt` direto (`backend/core/security.py`): mesmo hash, as senhas já gravadas continuam valendo.

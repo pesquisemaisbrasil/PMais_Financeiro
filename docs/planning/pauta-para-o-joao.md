@@ -100,7 +100,8 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### A3. Revisão do `.github/` e PR `homolog` → `main`
 
-- Mudanças nos workflows que precisam da sua revisão antes de qualquer merge: `tests.yml` (chave de teste do Pix e um passo novo de teste em Postgres para pedidos simultâneos de login) e `security.yml` (o `pip-audit` agora roda **sem nenhuma exceção**).
+- Mudanças nos workflows que precisam da sua revisão antes de qualquer merge: `tests.yml` (chave de teste do Pix e um passo novo de teste em Postgres para pedidos simultâneos de login) e `security.yml` (o `pip-audit` agora roda **sem nenhuma exceção**). E `e2e.yml` (13/11/2026): dois passos novos que **geram a demonstração** (Pyodide e pacotes de Python baixados com hash conferido) e rodam o teste de tela dela, e o limite do job passou de 30 para 45 minutos.
+- **O repositório do GitHub é público** (Q47): confirmar que isso é intencional antes de enviar a `homolog`; ela leva 76 commits novos, com docs internos (roteiro com o João, guia do Connect dev sem segredo) e o código do backend. O `netlify.toml` na raiz, quando o site do Netlify for ligado ao repositório, gera e publica a demonstração em `/teste` no primeiro deploy.
 - O trabalho está todo na `homolog`, com a verificação completa verde (backend com 96% de cobertura, front, E2E). **Merge na `main` só com a sua autorização.** Antes do push, ainda precisa rodar a simulação de CI em Linux com Python 3.11 e a auditoria de segredos.
 
 ### A4. Tirar o Claude da lista de contribuidores do GitHub

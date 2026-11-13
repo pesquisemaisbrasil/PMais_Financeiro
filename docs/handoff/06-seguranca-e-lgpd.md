@@ -13,7 +13,7 @@ Fontes no repositório do Connect: `backend/core/{security,crypto,pix,permission
 | Item | Connect hoje | Onde |
 |---|---|---|
 | Login | `POST /token` (form `username` + `password`, formato OAuth2 password do FastAPI). `username` é o **CPF**; a busca é pelo HMAC do CPF, nunca em claro | `api/auth.py`, `services/auth.py: authenticate_user` |
-| Senha | **bcrypt** direto (`core/security.py`; senhas além de 72 bytes são cortadas e acima de 4096 bytes ou com byte nulo são recusadas, como antes com o `passlib`). 8 a 72 caracteres, maiúscula, minúscula, número, especial, fora de lista de senhas comuns | `core/security.py`, `schemas/user.py: validate_password_strength` |
+| Senha | **bcrypt** (no Financeiro, direto em `core/security.py`; o Connect segue com `passlib`). Senhas além de 72 bytes são cortadas e acima de 4096 bytes ou com byte nulo são recusadas. 8 a 72 caracteres, maiúscula, minúscula, número, especial, fora de lista de senhas comuns | `core/security.py`, `schemas/user.py: validate_password_strength` |
 | Token de acesso | JWT **HS256** com **PyJWT**, assinado com `SECRET_KEY`. Claims: `sub` (id do usuário), `exp`. Validade `ACCESS_TOKEN_EXPIRE_MINUTES` = **15 min** | `services/auth.py: create_access_token` |
 | Refresh token | JWT com `sub`, `exp`, `type: "refresh"`, `jti` aleatório. **7 dias**. No banco fica **só o SHA-256** (`refresh_tokens.token_hash`) | `services/auth.py`, `models/refresh_token.py` |
 | Rotação | Cada `POST /token/refresh` revoga o refresh usado e emite um par novo | `rotate_refresh_token` |

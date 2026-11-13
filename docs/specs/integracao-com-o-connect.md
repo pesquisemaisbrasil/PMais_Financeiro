@@ -4,10 +4,10 @@ Contrato do que o **Financeiro** implementa para conversar com o P+ Connect. O c
 
 ## Comportamento
 
-- **`ConnectClient`** (httpx):
-  - token de serviço (`client_credentials`) em cache na memória, renovado 60 s antes de expirar;
-  - `X-Request-Id` em toda chamada;
-  - timeout;
+- **`ConnectClient`** (`requests`, `services/connect_http.py`):
+  - token de serviço (`client_credentials`) em cache na memória, renovado 30 s antes de expirar;
+  - `X-Request-Id` em toda chamada: **ainda não** (entra com o registro das chamadas);
+  - timeout de 10 s em toda chamada;
   - nova tentativa com backoff só em 429, 5xx e timeout, respeitando `Retry-After`.
 - **O que o Financeiro chama:**
 
@@ -57,7 +57,7 @@ Contrato do que o **Financeiro** implementa para conversar com o P+ Connect. O c
 
 1. O Financeiro nunca recebe `DATABASE_URL`, credencial de MinIO nem segredo de hash do Connect.
 2. O espelho guarda só ids, valores, datas e status. Nome e chave nunca vão para o banco do Financeiro.
-3. Cada chamada vira `integration_call_logs` (direção, rota, status, duração), **sem corpo**. O corpo de `payment-data` e de `pix-key-matches` nunca é logado.
+3. Cada chamada vira `integration_call_logs` (direção, rota, status, duração), **sem corpo** (**a tabela ainda não existe**; hoje só o código HTTP de um erro vai para o log). O corpo de `payment-data` e de `pix-key-matches` nunca é logado.
 4. Evento mais velho que o estado já aplicado (`connectUpdatedAt`) é ignorado.
 5. Diferença encontrada na conferência **nunca corrige pagamento sozinha**: vira linha em Divergências.
 6. Toda escrita leva `Idempotency-Key`, gerada **antes** da primeira tentativa e guardada junto do pedido.
@@ -105,3 +105,5 @@ Quando o Financeiro recebe eventos:
 - 2026-11-06: **cliente HTTP do Financeiro** (`backend/services/connect_http.py`) para o que o Connect **já entrega**: token de serviço (`POST /oauth/token`, client_credentials, sem pedir escopo: o Connect dá os da conta), `GET /projects`, `GET /payables` (uma chamada por pessoa, seguindo o cursor até o fim) e `GET /interviewers`. Token guardado até 30 s antes de vencer; um 401 renova o token uma vez; 429, 5xx e falha de rede repetem até 3 vezes, esperando o `Retry-After` (no máximo 5 s) e só em leitura; timeout de 10 s em toda chamada; em produção só HTTPS; segredo e corpo da resposta nunca vão para o log. `pix-key-matches` e `payments` continuam "fora do ar" no cliente até o Connect entregar (entregas 1 e 2): sem elas, enviar um PDF responde 503 e nenhuma baixa é feita no escuro. Liga com `CONNECT_BASE_URL`, `CONNECT_CLIENT_ID` e `CONNECT_CLIENT_SECRET` no `backend/.env`.
 
 - 2026-11-11: `POST /finance/connect/sync` (o botão **Atualizar do Connect** em Cadastros → Projetos) agora também cria ou atualiza o **projeto de Contas a pagar** (`projects`), com código igual ao ID do Connect, além do espelho dos comprovantes (`project_refs`). O Financeiro **ainda não lê** `GET /projects/{id}/budget` nem a situação do projeto: orçamento e saldo do relatório do projeto ficam em branco até lá (Q40). Piloto com um projeto do Connect.
+- 2026-11-13 (**correções da revisão do cliente**): (a) uma resposta 200 que **não é JSON ou não tem o campo do contrato** (HTML de um proxy, por exemplo) não escapa mais como erro 500: numa **escrita** vira `ConnectBadAnswer` (um `ConnectTimeout`: a baixa pode ter sido aplicada, confira com `GET /payments/{ref}`) e numa **leitura**, `ConnectUnavailable`; (b) o `Retry-After` em data HTTP vira a espera padrão, e um cursor que nunca acaba para em 1.000 páginas; (c) **`payment-data` nunca repete sozinha**: cada acesso à chave completa entra na trilha da pessoa no Connect e gasta o teto diário, mesmo sem gravar nada (só `pix-key-matches` é consulta que repete como a leitura); (d) `reverse_payment` (cancelar baixa) existe no cliente **só para o roteiro de teste do dev** desfazer a baixa de teste: nenhuma tela o chama, e a regra 8 de entregas-do-connect continua valendo (Q4). **Para o João:** o `handoff/07` §6 fala em 409 com `Retry-After` para "primeira chamada ainda em andamento", e o guia do dev só cita `idempotency_conflict` para corpo diferente; hoje o cliente trata todo 409 como recusa final. Confirmar se o Connect devolve esse 409 de "em andamento" e, se sim, o cliente deve tratá-lo como "não sei".
+

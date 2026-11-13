@@ -26,7 +26,7 @@ Contrato dos títulos a receber de clientes, simétrico ao [contas-a-pagar](cont
 1. Mesmas regras de situação derivada, pendente calculado, auditoria, exclusão e interseção de filtros de contas a pagar (regras 1, 2, 4, 5 e 6).
 2. O projeto é **opcional** no título a receber: nem toda receita tem projeto (Q27, 11/11/2026). Quando há projeto, é um só, sem rateio, e projeto encerrado não recebe título novo. Sem projeto, o título não entra na receita de nenhum projeto.
 3. A soma das parcelas é igual ao valor do título. Diferença bloqueia o salvamento.
-4. Recebimento retroativo em período fechado é bloqueado ([bancos-e-conciliacao](bancos-e-conciliacao.md) regra 4).
+4. Recebimento retroativo em período fechado é bloqueado ([bancos-e-conciliacao](bancos-e-conciliacao.md) regra 6).
 
 ## Casos negados
 

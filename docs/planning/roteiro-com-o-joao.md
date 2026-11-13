@@ -117,6 +117,8 @@ Não bloqueiam o que está na sprint, mas travam ou mudam as próximas tarefas.
 |---|---|---|
 | PF-66 a PF-68 (Notas e RPA) | **Q15** CPF e PIS/NIT do RPA: guardar cifrado ou a contabilidade coleta fora? **Q17** prazo de guarda de notas. **N3** teto do INSS, retenções e regime do PJ. **N2** captura automática de notas | DPO, contabilidade, Camila |
 | PF-69 a PF-72 (Conferência bancária) | **Q44 (nova):** o layout real do extrato do Itaú, e se o extrato pode ser guardado (traz nome de quem recebeu o Pix). **N1** pagar pelo Itaú: API Pix em lote ou remessa | Vivi, DPO, pesquisa técnica |
+| Demonstração em `teste/` (botão do protótipo) | **Q47:** o repositório do GitHub é público e já traz o backend: é intencional? Se o código tiver de ficar fechado, o repositório e o site da demonstração (que leva o `backend.json`) ficam fechados. **Q41** está decidida (sem hospedagem) | João |
+| PF-70 (fatia 2) | **Q45:** conciliar só com lançamento que já tem baixa, ou dar a baixa pela linha do extrato; lista de classificações; Pix pago a mais ou a menos. **Q46:** a trava de período (mês corrente pode fechar?) | Vivi |
 | PF-73 a PF-76 (Relatórios) | **F3/D7** plano de contas e DRE. **Q39** gasto do projeto líquido ou bruto. **Q40** orçamento do Connect | Vivi, direção, João |
 
 **Para a Vivi** (uma conversa curta, pode ser por mensagem):

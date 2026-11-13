@@ -39,7 +39,7 @@ O `netlify.toml` da raiz já tem tudo: roda `frontend/scripts/build-demo.mjs`, c
 3. **Netlify Forms:** depois do primeiro deploy com o `teste/`, confira que o formulário de validação do protótipo continua recebendo respostas.
 4. Se o Node do Netlify reclamar, a versão está em `NODE_VERSION` (22) no `netlify.toml`.
 
-**Antes de publicar de verdade, decisão do João (Q47):** o código Python do backend (as regras de negócio, sem nenhum segredo) vai junto no site (`teste/demo/backend.json`) e fica baixável por quem abrir o endereço. Confirmar se o site é fechado ao público (senha do Netlify) ou se isso é aceitável.
+**Pergunta ao João (Q47):** o código Python do backend (as regras de negócio, sem nenhum segredo) vai junto no site (`teste/demo/backend.json`) e fica baixável por quem abrir o endereço. Hoje o repositório do GitHub é **público** e já traz esse código, então a demonstração não expõe nada novo. Se o João quiser o código fechado, o repositório e o site precisam ficar fechados (senha do Netlify).
 
 ## Limites
 
