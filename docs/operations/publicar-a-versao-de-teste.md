@@ -41,6 +41,16 @@ O `netlify.toml` da raiz já tem tudo: roda `frontend/scripts/build-demo.mjs`, c
 
 **Pergunta ao João (Q47):** o código Python do backend (as regras de negócio, sem nenhum segredo) vai junto no site (`teste/demo/backend.json`) e fica baixável por quem abrir o endereço. Hoje o repositório do GitHub é **público** e já traz esse código, então a demonstração não expõe nada novo. Se o João quiser o código fechado, o repositório e o site precisam ficar fechados (senha do Netlify).
 
+## Num site só da demonstração (por exemplo, o Netlify de uma pessoa)
+
+Para publicar **só a demonstração**, sem tocar no site do protótipo: ela sai na **raiz** do site e o "Voltar ao protótipo" leva ao endereço do protótipo. Dentro de `frontend/`:
+
+```bash
+DEMO_DIST_DIR=out DEMO_BASE_PATH= DEMO_PROTOTYPE_URL=https://endereço-do-protótipo node scripts/build-demo.mjs
+```
+
+Copie a pasta gerada (`frontend/out/`) para uma pasta de envio e crie nela um arquivo `_headers` com a mesma política de segurança do `netlify.toml`, mas para `/*` (a primeira linha é `/*`, e abaixo dela vão as linhas `Content-Security-Policy: …` e os cabeçalhos que o `netlify.toml` tem em `[[headers]]`). No Netlify: **Add new site → Deploy manually** e arraste a pasta. Cada atualização exige gerar e arrastar de novo.
+
 ## Limites
 
 - Recarregar a página volta aos dados de exemplo e derruba a sessão (guardar no navegador entre visitas é melhoria futura).

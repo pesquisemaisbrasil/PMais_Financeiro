@@ -3,7 +3,8 @@
  * navegador (Python via Pyodide), tudo estático, em `frontend/out/`. Quem publica copia `out/` para
  * dentro do site do protótipo, em `teste/` (ver netlify.toml e docs/operations/publicar-a-versao-de-teste.md).
  *
- * Uso: node scripts/build-demo.mjs            (gera tudo; DEMO_DIST_DIR=.next-demo muda a pasta de saída)
+ * Uso: node scripts/build-demo.mjs            (gera tudo; DEMO_DIST_DIR=.next-demo muda a pasta de saída;
+ *      DEMO_BASE_PATH e DEMO_PROTOTYPE_URL geram a demonstração na raiz de um site só dela)
  *      node scripts/build-demo.mjs --so-pacotes (refaz só o que vai ao lado do app, sem o next build)
  *
  * Variáveis de ambiente de verdade, não `VAR=x npm run`: isto roda igual no Windows, no Netlify e na CI.
@@ -20,6 +21,11 @@ const BACKEND = path.resolve(FRONTEND, "..", "backend");
 // No Netlify e na CI a saída é `out/`. Localmente, com um `next dev` aberto, use DEMO_DIST_DIR=.next-demo:
 // com `output: "export"` a pasta de build é também o destino da exportação (e `.next` é a do servidor).
 const DIST_DIR = process.env.DEMO_DIST_DIR;
+// Por padrão a demonstração vive em /teste do site do protótipo e o "Voltar ao protótipo" leva à raiz.
+// Num site só dela (por exemplo o Netlify de uma pessoa): DEMO_BASE_PATH= (vazio, na raiz) e
+// DEMO_PROTOTYPE_URL=https://endereço-do-protótipo.
+const BASE_PATH = process.env.DEMO_BASE_PATH ?? "/teste";
+const PROTOTYPE_URL = process.env.DEMO_PROTOTYPE_URL ?? "/";
 const OUT = path.join(FRONTEND, DIST_DIR || "out");
 const DEMO = path.join(OUT, "demo");
 const CACHE = path.join(FRONTEND, ".demo-cache");
@@ -55,9 +61,9 @@ function buildApp() {
   const env = {
     ...process.env,
     NEXT_PUBLIC_DEMO: "1",
-    NEXT_PUBLIC_BASE_PATH: "/teste",
+    NEXT_PUBLIC_BASE_PATH: BASE_PATH,
     NEXT_PUBLIC_TEST_ENV: "1",
-    NEXT_PUBLIC_PROTOTYPE_URL: "/",
+    NEXT_PUBLIC_PROTOTYPE_URL: PROTOTYPE_URL,
     // Só para o app montar os endereços: nenhuma chamada sai do navegador.
     NEXT_PUBLIC_API_URL: "http://demonstracao.invalid",
   };
