@@ -56,6 +56,7 @@ def test_with_a_variable_missing_it_stops(
         "https://api.dev.connect.pesquisemais.com.br@evil.example",  # o endereço é o depois do @
         "https://evil.example/api.dev.connect.pesquisemais.com.br",
         "http://10.0.0.5:8000",
+        "http://api.dev.connect.pesquisemais.com.br",  # o dev público só com https
     ],
 )
 def test_it_never_runs_against_an_address_that_is_not_the_dev(

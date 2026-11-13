@@ -29,6 +29,16 @@ class ConnectTimeout(ConnectUnavailable):
     """O pedido saiu e a resposta não voltou: o Connect pode ter aplicado ou não."""
 
 
+class ConnectBadAnswer(ConnectTimeout):
+    """Deu 200, mas a resposta não é a do contrato (HTML de um proxy, campo faltando). Numa escrita
+    a baixa pode ter sido aplicada, então vale como `ConnectTimeout`: confira com `get_payment`.
+    `field` é só o nome do campo que faltou, nunca um valor da resposta."""
+
+    def __init__(self, field: str | None = None) -> None:
+        self.field = field
+        super().__init__(field or "resposta fora do contrato")
+
+
 class ConnectRefused(Exception):
     """O Connect entendeu e recusou (`already_paid`, `duplicate_e2e`, `amount_mismatch`...).
     Nunca é corrigido sozinho: vira divergência para decisão humana."""

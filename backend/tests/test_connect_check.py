@@ -9,6 +9,7 @@ from datetime import date
 from typing import Any
 
 import pytest
+import requests
 
 from core.pix import normalize_pix_key
 from services.connect_check import DevCheck, Step
@@ -56,6 +57,7 @@ class FakeConnectDev:
         emit_events: bool = True,
         enforce_scope: bool = True,
         fail_first_reversal: bool = False,
+        lose_first_payment_answer: bool = False,
         matches_key: str = "matches",
         with_items: bool = True,
     ) -> None:
@@ -65,6 +67,7 @@ class FakeConnectDev:
         self.emit_events = emit_events
         self.enforce_scope = enforce_scope
         self.fail_first_reversal = fail_first_reversal
+        self.lose_first_payment_answer = lose_first_payment_answer
         self.matches_key = matches_key
         status = "to_pay" if with_items else "paid"
         self.items: dict[int, dict[str, Any]] = {
@@ -122,7 +125,10 @@ class FakeConnectDev:
         if method == "POST" and route == "/pix-key-matches":
             return "pix:match", self._matches
         if method == "POST" and route == "/payments":
-            return "payments:write", self._pay
+            return (
+                "payments:write",
+                self._pay_losing_the_answer if self.lose_first_payment_answer else self._pay,
+            )
         if method == "GET" and route.startswith("/payments/"):
             return "payments:write", lambda kw: self._get_payment(route.removeprefix("/payments/"))
         if method == "POST" and route.endswith("/reversal"):
@@ -288,6 +294,12 @@ class FakeConnectDev:
             },
         )
 
+    def _pay_losing_the_answer(self, kw: dict[str, Any]) -> Reply:
+        """Aplica a baixa e some com a resposta: o cliente não sabe se foi aplicada."""
+        self.lose_first_payment_answer = False
+        self._pay(kw)
+        raise requests.ReadTimeout("sem resposta")
+
     def _reverse(self, ref: str, kw: dict[str, Any]) -> Reply:
         if self.fail_first_reversal:
             self.fail_first_reversal = False
@@ -418,6 +430,14 @@ def test_if_the_cancellation_fails_in_the_middle_the_script_undoes_the_payment_a
     steps = make_check(fake).run()
     assert by_name(steps, "Cancelar a baixa (reversal)").status == "falhou"
     assert "pode ter sido aplicada" in by_name(steps, "Cancelar a baixa (reversal)").detail
+    assert by_name(steps, "Limpeza").status == "ok"
+    assert all(item["status"] == "to_pay" for item in fake.items.values())
+
+
+def test_a_payment_whose_answer_was_lost_is_still_undone_at_the_end() -> None:
+    fake = FakeConnectDev(lose_first_payment_answer=True)
+    steps = make_check(fake).run()
+    assert by_name(steps, "Baixa (POST /payments)").status == "falhou"
     assert by_name(steps, "Limpeza").status == "ok"
     assert all(item["status"] == "to_pay" for item in fake.items.values())
 

@@ -18,6 +18,7 @@ from decimal import Decimal
 
 from core.pix import normalize_pix_key
 from services.connect_gateway import (
+    ConnectBadAnswer,
     ConnectPayable,
     ConnectRefused,
     ConnectTimeout,
@@ -56,6 +57,9 @@ def _describe(exc: Exception) -> str:
     """Por que o passo falhou, sem nunca ecoar corpo, chave ou segredo."""
     if isinstance(exc, ConnectRefused):
         return f"o Connect recusou: {exc.code}"
+    if isinstance(exc, ConnectBadAnswer):
+        where = f" (campo: {exc.field})" if exc.field else ""
+        return f"o Connect respondeu fora do contrato{where}; a baixa pode ter sido aplicada"
     if isinstance(exc, ConnectTimeout):
         return "a resposta não voltou (a baixa pode ter sido aplicada)"
     if isinstance(exc, ConnectUnavailable):
@@ -97,6 +101,8 @@ class DevCheck:
         self.pix_key: str | None = None
         self.order: PaymentOrder | None = None
         self.applied: PaymentApplied | None = None
+        # a baixa saiu, mesmo que a resposta não tenha voltado: o Connect pode ter aplicado
+        self.attempted = False
         self.reversed = False
         self.last_seq = 0
         # baixas que o Connect aceitou quando devia recusar: o fim do roteiro desfaz
@@ -261,6 +267,7 @@ class DevCheck:
     def _pay(self) -> str:
         self._need()
         self.order = self._new_order()
+        self.attempted = True
         self.applied = self.connect.create_payment(self.order)
         _expect(
             sorted(self.applied.interview_ids) == sorted(self.order.interview_ids),
@@ -380,7 +387,7 @@ class DevCheck:
         """Desfaz o que ficou aplicado (um passo falhou no meio, ou o Connect aceitou o que devia
         recusar): o dev volta como estava."""
         pending = list(self.stray)
-        if self.order is not None and self.applied is not None and not self.reversed:
+        if self.order is not None and (self.applied or self.attempted) and not self.reversed:
             pending.insert(0, self.order.payment_ref)
         for ref in pending:
             try:
@@ -394,6 +401,15 @@ class DevCheck:
                     approved_by_user_id=self.approver,
                 )
                 self.steps.append(Step("Limpeza", "ok", f"a baixa {ref} foi desfeita"))
+            except ConnectRefused as exc:
+                if exc.code not in ("not_found", "not_reversible"):
+                    self.steps.append(
+                        Step("Limpeza", "falhou", f"o Connect recusou: {exc.code}: desfaça {ref}")
+                    )
+                else:
+                    self.steps.append(
+                        Step("Limpeza", "ok", f"a baixa {ref} não existe mais no Connect")
+                    )
             except Exception as exc:  # noqa: BLE001
                 self.steps.append(
                     Step("Limpeza", "falhou", f"{_describe(exc)}: desfaça a baixa {ref} à mão")

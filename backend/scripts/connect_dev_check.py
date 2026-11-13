@@ -27,6 +27,9 @@ from services.connect_http import HttpConnect  # noqa: E402
 ENV_FILE = BACKEND / ".env.connect"
 # Só o Connect de dev (ou um dev na mesma máquina ou na rede interna do dev). Nunca produção.
 DEV_HOSTS = {"api.dev.connect.pesquisemais.com.br", "connect-dev-api", "localhost", "127.0.0.1"}
+# Só a máquina local e a rede interna do dev podem usar http; o endereço público exige https, senão
+# o segredo da conta de serviço iria em claro.
+PLAIN_HTTP_HOSTS = {"connect-dev-api", "localhost", "127.0.0.1"}
 REQUIRED = ("CONNECT_BASE_URL", "CONNECT_CLIENT_ID", "CONNECT_CLIENT_SECRET")
 
 
@@ -49,6 +52,10 @@ def main() -> int:
             f"Recusado: {host or base} não é o Connect de dev. Este teste dá baixa e desfaz a "
             "baixa, e só roda em: " + ", ".join(sorted(DEV_HOSTS))
         )
+        return 2
+
+    if urlparse(base).scheme != "https" and host not in PLAIN_HTTP_HOSTS:
+        print(f"Recusado: {host} só com https://. Com http o segredo iria em claro.")
         return 2
 
     connect = HttpConnect(base, client_id, secret)

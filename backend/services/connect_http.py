@@ -24,6 +24,7 @@ from urllib.parse import quote
 import requests
 
 from services.connect_gateway import (
+    ConnectBadAnswer,
     ConnectPayable,
     ConnectProject,
     ConnectRefused,
@@ -42,6 +43,7 @@ TIMEOUT_SECONDS = 10
 ATTEMPTS = 3
 MAX_RETRY_WAIT = 5.0
 PAGE_SIZE = 500
+MAX_PAGES = 1000
 MATCH_BATCH = 500  # chaves por chamada em `pix-key-matches`
 PAYMENT_DATA_BATCH = 200  # pessoas por chamada em `payment-data`
 # Renova o token um pouco antes de vencer, para a chamada não sair com ele no limite.
@@ -55,6 +57,43 @@ def _to_datetime(value: str) -> datetime:
 
 def _midnight(day: date) -> datetime:
     return datetime.combine(day, day_start.min, tzinfo=UTC)
+
+
+def _retry_after(response: requests.Response, fallback: float) -> float:
+    """O `Retry-After` em segundos; uma data HTTP ou lixo vira a espera padrão, nunca um erro."""
+    try:
+        return max(0.0, float(response.headers.get("Retry-After", fallback)))
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _object(response: requests.Response, error: Exception) -> dict[str, Any]:
+    """O corpo JSON de um 200. Um proxy que devolve HTML não pode escapar como `ValueError`."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise error from exc
+    if not isinstance(body, dict):
+        raise error
+    return body
+
+
+def _missing(exc: Exception) -> str | None:
+    """O nome do campo que faltou (só o nome, nunca um valor da resposta)."""
+    return str(exc.args[0]) if isinstance(exc, KeyError) and exc.args else None
+
+
+def _applied(answer: dict[str, Any], error: type[ConnectUnavailable]) -> PaymentApplied:
+    try:
+        return PaymentApplied(
+            str(answer["paymentRef"]),
+            [int(i) for i in answer["interviewIds"]],
+            _to_datetime(answer["appliedAt"]),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        if error is ConnectBadAnswer:
+            raise ConnectBadAnswer(_missing(exc)) from exc
+        raise error from exc
 
 
 def _refusal_code(response: Any) -> str:
@@ -129,9 +168,12 @@ class HttpConnect:
             # só o código do erro: nunca o corpo, que pode ecoar o que foi enviado
             logger.error("O Connect recusou o token de serviço (HTTP %s)", response.status_code)
             raise ConnectUnavailable
-        body = response.json()
-        self._token = str(body["access_token"])
-        self._expires_at = time.monotonic() + int(body["expires_in"]) - TOKEN_MARGIN_SECONDS
+        body = _object(response, ConnectUnavailable())
+        try:
+            self._token = str(body["access_token"])
+            self._expires_at = time.monotonic() + int(body["expires_in"]) - TOKEN_MARGIN_SECONDS
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ConnectUnavailable from exc
 
     def _bearer(self) -> str:
         if self._token is None or time.monotonic() >= self._expires_at:
@@ -156,15 +198,14 @@ class HttpConnect:
                 time.sleep(min(2.0**attempt * 0.25, MAX_RETRY_WAIT))
                 continue
             if response.status_code == 200:
-                return dict(response.json())
+                return _object(response, ConnectUnavailable())
             if response.status_code == 401 and not refreshed:
                 # token vencido ou revogado: pega outro uma vez e repete
                 refreshed = True
                 self._token = None
                 continue
             if response.status_code in (429, 500, 502, 503, 504) and attempt < ATTEMPTS:
-                wait = float(response.headers.get("Retry-After", 2.0**attempt * 0.25))
-                time.sleep(min(wait, MAX_RETRY_WAIT))
+                time.sleep(min(_retry_after(response, 2.0**attempt * 0.25), MAX_RETRY_WAIT))
                 continue
             if response.status_code == 404 and not_found:
                 raise ConnectRefused("not_found")
@@ -209,7 +250,9 @@ class HttpConnect:
                 raise ConnectTimeout from exc  # o pedido pode ter saído
             status = response.status_code
             if status in (200, 201):
-                return dict(response.json())
+                # escrita com resposta ilegível: o pedido pode ter sido aplicado
+                error = ConnectUnavailable() if replayable else ConnectBadAnswer()
+                return _object(response, error)
             if status == 401 and not refreshed:
                 # token vencido ou revogado: o pedido não foi processado, então vale repetir uma vez
                 refreshed = True
@@ -220,8 +263,7 @@ class HttpConnect:
                 raise ConnectRefused(_refusal_code(response))
             logger.error("O Connect respondeu HTTP %s em POST %s", status, path)
             if replayable and status in (429, 500, 502, 503, 504) and attempt < attempts:
-                wait = float(response.headers.get("Retry-After", 2.0**attempt * 0.25))
-                time.sleep(min(wait, MAX_RETRY_WAIT))
+                time.sleep(min(_retry_after(response, 2.0**attempt * 0.25), MAX_RETRY_WAIT))
                 continue
             if not replayable and status in (500, 502, 504):
                 raise ConnectTimeout  # pode ter aplicado: confira em GET /payments/{ref}
@@ -232,13 +274,18 @@ class HttpConnect:
         """Segue o cursor até ele vir nulo (a resposta pode vir curta ou vazia com cursor)."""
         items: list[dict[str, Any]] = []
         cursor: str | None = None
-        while True:
+        for _ in range(MAX_PAGES):
             query = {**params, "limit": PAGE_SIZE, **({"cursor": cursor} if cursor else {})}
             body = self._get(path, query)
-            items.extend(body["items"])
+            page = body.get("items")
+            if not isinstance(page, list):
+                raise ConnectUnavailable
+            items.extend(page)
             cursor = body.get("nextCursor")
             if not cursor:
                 return items
+        # um cursor que nunca acaba prenderia a requisição e encheria a memória
+        raise ConnectUnavailable
 
     # ---- O que o Connect já entrega ----
 
@@ -364,11 +411,7 @@ class HttpConnect:
             },
             idempotency_key=order.payment_ref,
         )
-        return PaymentApplied(
-            str(answer["paymentRef"]),
-            [int(i) for i in answer["interviewIds"]],
-            _to_datetime(answer["appliedAt"]),
-        )
+        return _applied(answer, ConnectBadAnswer)
 
     def get_payment(self, payment_ref: str) -> PaymentApplied | None:
         """`GET /payments/{ref}`: None se o Connect não conhece a baixa."""
@@ -378,11 +421,7 @@ class HttpConnect:
             if exc.code == "not_found":
                 return None
             raise
-        return PaymentApplied(
-            str(answer["paymentRef"]),
-            [int(i) for i in answer["interviewIds"]],
-            _to_datetime(answer["appliedAt"]),
-        )
+        return _applied(answer, ConnectUnavailable)
 
     def reverse_payment(
         self,
@@ -410,8 +449,11 @@ class HttpConnect:
             },
             idempotency_key=idempotency_key,
         )
-        return PaymentReversed(
-            str(answer["paymentRef"]),
-            [int(i) for i in answer["interviewIds"]],
-            _to_datetime(answer["reversedAt"]),
-        )
+        try:
+            return PaymentReversed(
+                str(answer["paymentRef"]),
+                [int(i) for i in answer["interviewIds"]],
+                _to_datetime(answer["reversedAt"]),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ConnectBadAnswer(_missing(exc)) from exc

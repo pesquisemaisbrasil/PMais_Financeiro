@@ -765,3 +765,78 @@ def test_simulated_mode_wins_outside_production(monkeypatch: pytest.MonkeyPatch)
     assert isinstance(connect_gateway.get_connect(), connect_gateway.SimulatedConnect)
     monkeypatch.setattr(connect_gateway, "ENVIRONMENT", "production")
     assert not isinstance(connect_gateway.get_connect(), connect_gateway.SimulatedConnect)
+
+
+# ---- Resposta 200 fora do contrato (achado da revisão) ----
+
+
+class HtmlResponse(FakeResponse):
+    """O 200 que um proxy devolve no lugar do JSON do Connect."""
+
+    def json(self) -> dict[str, Any]:
+        raise ValueError("não é JSON")
+
+
+def test_a_payment_answered_with_html_is_a_timeout_because_it_may_have_been_applied(
+    connect: HttpConnect, session: FakeSession
+) -> None:
+    session.add("POST /integrations/v1/payments", HtmlResponse(200))
+
+    with pytest.raises(ConnectTimeout) as caught:
+        connect.create_payment(order())
+
+    assert isinstance(caught.value, connect_gateway.ConnectBadAnswer)
+
+
+def test_a_payment_answer_without_a_field_names_the_field_and_is_a_timeout(
+    connect: HttpConnect, session: FakeSession
+) -> None:
+    session.add("POST /integrations/v1/payments", FakeResponse(201, {"paymentRef": "p-1"}))
+
+    with pytest.raises(ConnectTimeout) as caught:
+        connect.create_payment(order())
+
+    assert isinstance(caught.value, connect_gateway.ConnectBadAnswer)
+    assert caught.value.field == "interviewIds"  # só o nome do campo, nunca um valor
+
+
+def test_a_read_answered_with_html_is_unavailable_not_a_crash(
+    connect: HttpConnect, session: FakeSession
+) -> None:
+    session.add("GET /integrations/v1/projects", HtmlResponse(200))
+
+    with pytest.raises(ConnectUnavailable):
+        connect.list_projects()
+
+
+def test_a_token_answer_that_is_not_json_is_unavailable(
+    session: FakeSession, connect: HttpConnect
+) -> None:
+    session.routes["POST /oauth/token"] = [HtmlResponse(200)]
+
+    with pytest.raises(ConnectUnavailable):
+        connect.list_projects()
+
+
+def test_a_retry_after_that_is_an_http_date_falls_back_to_the_default_wait(
+    connect: HttpConnect, session: FakeSession, sleeps: list[float]
+) -> None:
+    session.add(
+        "GET /integrations/v1/projects",
+        FakeResponse(429, headers={"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}),
+        FakeResponse(200, {"items": [], "nextCursor": None}),
+    )
+
+    assert connect.list_projects() == []
+    assert len(sleeps) == 1
+
+
+def test_a_cursor_that_never_ends_stops_instead_of_looping_forever(
+    connect: HttpConnect, session: FakeSession
+) -> None:
+    session.add(
+        "GET /integrations/v1/projects", FakeResponse(200, {"items": [], "nextCursor": "x"})
+    )
+
+    with pytest.raises(ConnectUnavailable):
+        connect.list_projects()
