@@ -4,7 +4,7 @@ from core.security import dummy_verify_password, hash_password, verify_password
 
 # Hash feito pela versão antiga (passlib) para uma senha fictícia: as já gravadas continuam valendo.
 PASSLIB_HASH = "$2b$12$CldyS/1AQRNyiTyJSehyzOjlSCEYbZv6HDzD0i4X3XLGjVafWYOCC"  # gitleaks:allow
-PASSLIB_PASSWORD = "Senha-ficticia-1!"
+PASSLIB_PASSWORD = "Senha-ficticia-1!"  # gitleaks:allow
 
 
 def test_hash_is_bcrypt_and_verifies() -> None:

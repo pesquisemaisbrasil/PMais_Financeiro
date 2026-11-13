@@ -44,7 +44,7 @@ from services.payable import today  # noqa: E402
 
 DEMO_NAME = "Bruna Demonstração"
 DEMO_EMAIL = "demo@pesquisemais.invalid"
-DEMO_PASSWORD = "Demo!Financeiro1"
+DEMO_PASSWORD = "Demo!Financeiro1"  # gitleaks:allow
 # Segredo do autenticador da demonstração (fictício): a tela de entrada mostra o código do momento.
 DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"  # gitleaks:allow
 
