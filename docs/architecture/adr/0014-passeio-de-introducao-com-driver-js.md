@@ -20,4 +20,14 @@ O Bruno pediu, em 11/11/2026, um **passeio de introdução do sistema** e citou 
 
 - Uma dependência a mais no frontend (MIT, sem dependências próprias). A CSP não muda: o Driver.js usa estilo em linha, que a política já permite (`style-src 'unsafe-inline'`).
 - Trocar de biblioteca depois é barato: ela só aparece em `components/ProductTour.tsx`.
-- O passeio é só o menu. Passeios por tela (por exemplo, dentro do Contas a pagar) ficam para quando o PO pedir.
+- O passeio geral é só o menu. Os passeios de cada tela vieram depois, na decisão abaixo.
+
+## Ajuste de 13/11/2026: passeio de cada tela
+
+O Bruno pediu que o botão **Conhecer o sistema** valha também para cada tela. O que ficou decidido:
+
+- **O botão abre o passeio da tela em que a pessoa está.** No Início, e em tela sem passeio próprio, abre o geral, do menu. Os passeios de tela ficam em `SCREEN_TOURS` (`frontend/src/lib/tour.ts`), pelo endereço da tela (com ou sem barra no fim, por causa do site exportado da demonstração).
+- **Cada passo é um `data-tour` na própria tela.** O cabeçalho (`PageHeader`) leva `data-tour="tela"` e abre todo passeio de tela; cada tela marca os seus blocos (cartões de resumo, barra de período e filtros, busca, lista, abas). O passo cujo elemento não está na tela (lista vazia, aba que não mostra o bloco) é pulado, como no geral.
+- **Só o passeio geral abre sozinho e marca "já visto".** O de cada tela só abre pelo botão: abrir sozinho em toda tela atrapalharia quem usa o sistema todo dia.
+- **Telas com passeio:** Contas a pagar, Contas a receber, Conferência bancária, Divergências, Cadastros, Relatório do projeto e Incentivos. Tela nova entra em `SCREEN_TOURS` com o seu `data-tour`; o Vitest confere que todo passeio começa pelo cabeçalho e não repete elemento, e o E2E abre o de cada tela e anda até o fim.
+- O último passo do passeio geral diz que, em cada tela, o botão mostra o passeio daquela tela.
