@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TOUR_SEEN_KEY, TOUR_STEPS, availableSteps, markTourSeen, tourSeen, tourSelector } from "./tour";
+import {
+  SCREEN_TOURS,
+  TOUR_SEEN_KEY,
+  TOUR_STEPS,
+  availableSteps,
+  markTourSeen,
+  tourFor,
+  tourSeen,
+  tourSelector,
+} from "./tour";
 
 /** O armazenamento do navegador, de mentira (os testes de lib rodam em Node). */
 function stubStorage(initial: Record<string, string> = {}) {
@@ -37,6 +46,55 @@ describe("passos do passeio", () => {
     const present = new Set([tourSelector("menu"), tourSelector("avisos")]);
     const steps = availableSteps((selector) => present.has(selector));
     expect(steps.map((step) => step.target)).toEqual([null, "menu", "avisos"]);
+  });
+});
+
+describe("passeio de cada tela", () => {
+  const screens = Object.entries(SCREEN_TOURS);
+
+  it("cobre as telas do menu, menos o Início, que tem o passeio geral", () => {
+    expect(Object.keys(SCREEN_TOURS).sort()).toEqual([
+      "/cadastros",
+      "/conferencia-bancaria",
+      "/contas-a-pagar",
+      "/contas-a-receber",
+      "/divergencias",
+      "/incentivos",
+      "/relatorios/projeto",
+    ]);
+  });
+
+  it.each(screens)("%s começa pelo cabeçalho da tela e cada passo tem título e texto", (_path, steps) => {
+    expect(steps[0].target).toBe("tela");
+    expect(steps.length).toBeGreaterThanOrEqual(2);
+    for (const step of steps) {
+      expect(step.title.length).toBeGreaterThan(0);
+      expect(step.text.length).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(screens)("%s não repete o elemento destacado", (_path, steps) => {
+    const targets = steps.map((step) => step.target);
+    expect(new Set(targets).size).toBe(targets.length);
+  });
+
+  it("escolhe o passeio pelo endereço, com ou sem barra no fim", () => {
+    expect(tourFor("/contas-a-pagar")).toBe(SCREEN_TOURS["/contas-a-pagar"]);
+    expect(tourFor("/contas-a-pagar/")).toBe(SCREEN_TOURS["/contas-a-pagar"]);
+    expect(tourFor("/relatorios/projeto/")).toBe(SCREEN_TOURS["/relatorios/projeto"]);
+  });
+
+  it("no Início, numa tela sem passeio próprio ou sem endereço, mostra o geral", () => {
+    expect(tourFor("/")).toBe(TOUR_STEPS);
+    expect(tourFor("/tela-que-nao-existe")).toBe(TOUR_STEPS);
+    expect(tourFor(null)).toBe(TOUR_STEPS);
+    expect(tourFor(undefined)).toBe(TOUR_STEPS);
+  });
+
+  it("tela estreita ou sem dados deixa de fora só o passo cujo elemento não existe", () => {
+    const present = new Set([tourSelector("tela"), tourSelector("busca")]);
+    const steps = availableSteps((selector) => present.has(selector), SCREEN_TOURS["/contas-a-pagar"]);
+    expect(steps.map((step) => step.target)).toEqual(["tela", "busca"]);
   });
 });
 
