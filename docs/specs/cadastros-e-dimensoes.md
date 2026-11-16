@@ -73,6 +73,7 @@ Origem do requisito:
 
 ## Ajustes
 
+- 2026-11-16 (unidade opcional): **nem toda empresa tem unidade**, então a unidade é a única das quatro dimensões que o lançamento pode deixar em branco (Contas a pagar e a receber, na tela, na API e na importação de planilha). Empresa e centro de custo continuam obrigatórios; o projeto já era opcional no Contas a receber. Pedido do Bruno.
 - 2026-10-23: o Grupo tem **4 empresas** (MC, PPlus, P Plus Log e Medtrek). A **I-hea** é uma unidade de negócio com sistema próprio e fica **fora** do Financeiro por enquanto (pergunta F13) ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A1).
 - 2026-11-04 (tela de cadastros): o fornecedor aceita só **CNPJ**, opcional, inclusive o alfanumérico. O spec pede CPF/CNPJ, mas a regra do projeto é não guardar CPF, e o hash com os 4 últimos dígitos ainda depende do DPO; por isso fornecedor pessoa física fica sem documento até a Q23. A chave Pix de fornecedor também fica de fora até lá.
 - 2026-11-04 (tela de cadastros): **projeto não é criado aqui**, só recebe o tipo, o "tem incentivo" e o prazo (F23). Até a integração com o Connect (PF-6), os projetos só existem se entrarem pela carga inicial.
