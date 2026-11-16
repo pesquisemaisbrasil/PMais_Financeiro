@@ -236,8 +236,7 @@ export function ImportDialog({
               <p className="-mt-1 text-xs text-muted-foreground">
                 Em cada campo, marque um, vários ou deixe em “Todos”. Para valer linha a linha, a planilha traz uma
                 coluna com o mesmo nome (projeto, categoria, forma de pagamento, empresa, unidade ou centro de custo)
-                com o nome cadastrado. Sem a coluna, marque um só. A unidade é a exceção: nem toda empresa tem uma, e
-                sem coluna e sem unidade marcada o lançamento entra sem unidade.
+                com o nome cadastrado. Sem a coluna, marque um só.
               </p>
               {payroll && (
                 <div className="grid gap-3 sm:grid-cols-[1fr_180px]">

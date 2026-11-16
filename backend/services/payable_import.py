@@ -62,15 +62,13 @@ class Dim:
     title: str  # nas mensagens: "Projeto 9999 não existe"
     label: str  # nome da coluna
     one: str  # "A planilha não tem a coluna ... Escolha um só projeto"
-    # Sem coluna e sem escolha na tela, o lançamento fica sem ele (a unidade: nem toda empresa tem)
-    optional: bool = False
 
 
 # A ordem importa: a unidade só se resolve depois da empresa.
 DIMS = (
     Dim("project", Project, "Projeto", "projeto", "um só projeto"),
     Dim("company", Company, "Empresa", "empresa", "uma só empresa"),
-    Dim("unit", BusinessUnit, "Unidade", "unidade", "uma só unidade", optional=True),
+    Dim("unit", BusinessUnit, "Unidade", "unidade", "uma só unidade"),
     Dim("center", CostCenter, "Centro de custo", "centro de custo", "um só centro de custo"),
     Dim("category", ExpenseCategory, "Categoria", "categoria", "uma só categoria"),
     Dim(
@@ -512,8 +510,6 @@ def _resolve_one(
         record = found[0]
     elif len(chosen) == 1:
         record = chosen[0]
-    elif dim.optional and not chosen:
-        return  # sem unidade na linha, na coluna e na tela: o lançamento entra sem ela
     else:
         line.errors.append(f"Sem {dim.label} na linha")
         return
@@ -537,14 +533,12 @@ def _resolve(
     linha de outro cadastro fica de fora sem ser erro.
     """
     for dim in DIMS:
-        marked = len(selected[dim.key])
-        if dim.key in columns or marked == 1 or (dim.optional and marked == 0):
-            continue
-        raise PayableInvalid(
-            f'A planilha não tem a coluna "{dim.label}". '
-            f"Escolha {dim.one} na tela ou inclua a coluna na planilha"
-        )
-    if not {"company", "unit"} & columns and selected["unit"]:
+        if dim.key not in columns and len(selected[dim.key]) != 1:
+            raise PayableInvalid(
+                f'A planilha não tem a coluna "{dim.label}". '
+                f"Escolha {dim.one} na tela ou inclua a coluna na planilha"
+            )
+    if not {"company", "unit"} & columns:
         if selected["unit"][0].company_id != selected["company"][0].id:
             raise PayableInvalid("A unidade não é dessa empresa")
     lookups = {dim.key: _lookup(db, dim) for dim in DIMS if dim.key in columns}
@@ -561,20 +555,15 @@ def _resolve(
 
 
 def _enters(line: Line) -> bool:
-    return (
-        not line.errors
-        and not line.skipped
-        and all(dim.key in line.refs for dim in DIMS if not dim.optional)
-    )
+    return not line.errors and not line.skipped and all(dim.key in line.refs for dim in DIMS)
 
 
 def _classification(refs: dict[str, Any]) -> str:
     category = refs["category"]
-    unit = refs.get("unit")
     return " · ".join(
         [
             refs["company"].name,
-            *([unit.name] if unit else []),
+            refs["unit"].name,
             refs["center"].path,
             f"{category.code} {category.name}",
             refs["method"].name,
@@ -586,10 +575,7 @@ def _buckets(lines: list[Line]) -> list[tuple[dict[str, Any], list[Line]]]:
     """As linhas que entram, uma lista por combinação de campos: cada uma vira lançamento."""
     grouped: dict[tuple[int, ...], tuple[dict[str, Any], list[Line]]] = {}
     for line in lines:
-        key = tuple(
-            line.refs[dim.key].id if dim.key in line.refs else 0  # 0: sem esse cadastro (a unidade)
-            for dim in DIMS
-        )
+        key = tuple(line.refs[dim.key].id for dim in DIMS)
         grouped.setdefault(key, (line.refs, []))[1].append(line)
     return sorted(
         grouped.values(),
@@ -745,7 +731,6 @@ def _create(
     lines: list[Line],
 ) -> Payable:
     project = refs["project"]
-    unit = refs.get("unit")
     total = sum((line.amount for line in lines if line.amount), Decimal("0"))
     period_lock.ensure_open(db, refs["company"].id, today())
     payable = Payable(
@@ -753,7 +738,7 @@ def _create(
         payeeName=payee,
         category_id=refs["category"].id,
         company_id=refs["company"].id,
-        unit_id=unit.id if unit else None,
+        unit_id=refs["unit"].id,
         cost_center_id=refs["center"].id,
         payment_method_id=refs["method"].id,
         issueDate=today(),

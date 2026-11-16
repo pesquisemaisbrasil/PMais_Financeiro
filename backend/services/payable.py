@@ -720,7 +720,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
         "categoryId": payable.category_id,
         "costCenterId": payable.cost_center_id,
         "paymentMethodId": payable.payment_method_id,
-        "unitName": payable.unit.name if payable.unit else None,
+        "unitName": payable.unit.name,
         "issueDate": payable.issueDate,
         "competence": payable.competence,
         "documentDate": payable.documentDate,
@@ -828,7 +828,7 @@ def check_classification(
     *,
     categoryId: int,
     companyId: int,
-    unitId: int | None,
+    unitId: int,
     costCenterId: int,
     paymentMethodId: int,
 ) -> None:
@@ -838,10 +838,9 @@ def check_classification(
     _active(db, Company, companyId, "Empresa")
     _active(db, CostCenter, costCenterId, "Centro de custo")
     _active(db, PaymentMethod, paymentMethodId, "Forma de pagamento")
-    if unitId is not None:  # a unidade é opcional: nem toda empresa tem uma
-        unit = _active(db, BusinessUnit, unitId, "Unidade")
-        if unit.company_id != companyId:
-            raise PayableInvalid("A unidade não é dessa empresa")
+    unit = _active(db, BusinessUnit, unitId, "Unidade")
+    if unit.company_id != companyId:
+        raise PayableInvalid("A unidade não é dessa empresa")
 
 
 def create(db: Session, data: PayableCreate, user: User) -> Payable:

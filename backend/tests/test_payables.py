@@ -2559,6 +2559,7 @@ def test_fields_without_a_column_need_exactly_one_chosen_register(
     url = "/payables/import/preview"
     for field, label, article in (
         ("companyIds", "empresa", "uma só empresa"),
+        ("unitIds", "unidade", "uma só unidade"),
         ("costCenterIds", "centro de custo", "um só centro de custo"),
         ("categoryIds", "categoria", "uma só categoria"),
         ("paymentMethodIds", "forma de pagamento", "uma só forma de pagamento"),
@@ -3367,77 +3368,3 @@ def test_a_payable_on_a_sub_center_shows_the_superior_in_front_of_the_name(
     items = client.get("/payables?mode=tudo", headers=auth).json()["items"]
     row = next(r for r in items if r["id"] == on_sub["id"])
     assert row["costCenterName"] == "Campo › Geral"
-
-
-# ---- Unidade opcional: nem toda empresa tem unidade (Bruno, 16/11/2026) ----
-
-
-def test_a_payable_without_a_unit_is_created_listed_and_duplicated(
-    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
-) -> None:
-    created = create(client, auth, world, unitId=None)
-    omitted = body(world)
-    del omitted["unitId"]  # a tela pode nem mandar o campo
-    assert client.post("/payables", json=omitted, headers=auth).status_code == 201
-
-    detail = client.get(f"/payables/{created['id']}", headers=auth).json()
-    assert detail["unitName"] is None
-    assert client.get("/payables?mode=tudo", headers=auth).json()["total"] == 2
-
-    copied = client.post("/payables/batch/duplicate", json={"ids": [created["id"]]}, headers=auth)
-    assert copied.json() == {"count": 1}
-    assert db_session.query(Payable).filter(Payable.unit_id.is_(None)).count() == 3
-
-
-def test_a_unit_that_is_given_must_still_be_active_and_from_the_company(
-    client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
-) -> None:
-    other_company_unit = client.post(
-        "/payables", json=body(world, unitId=more_registers["unit_mc"].id), headers=auth
-    )
-    assert other_company_unit.status_code == 422
-    assert other_company_unit.json()["detail"] == "A unidade não é dessa empresa"
-    missing = client.post("/payables", json=body(world, unitId=999999), headers=auth)
-    assert missing.status_code == 422
-
-
-def test_import_without_a_unit_creates_the_payable_without_one(
-    client: TestClient,
-    auth: dict[str, str],
-    world: dict[str, Any],
-    incentive_project: Project,
-    db_session: Session,
-) -> None:
-    content = _incentives(("2026-10-30", 3), value=200)
-    fields = _import_fields(world, unitIds="")  # sem coluna e sem unidade marcada
-    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
-    assert preview["goodCount"] == 3
-    assert preview["errorCount"] == 0
-    assert "Consumo SP" not in preview["groups"][0]["classification"]
-
-    assert _send(client, auth, "/payables/import", fields, content).status_code == 201
-    assert db_session.query(Payable).one().unit_id is None
-
-
-def test_import_with_an_empty_unit_cell_enters_that_line_without_a_unit(
-    client: TestClient,
-    auth: dict[str, str],
-    world: dict[str, Any],
-    incentive_project: Project,
-    db_session: Session,
-) -> None:
-    content = _xlsx(
-        [
-            ["Nome", "Valor", "Data de pagamento", "Unidade"],
-            ["Ana", 100, "2026-11-20", None],
-            ["Bia", 100, "2026-11-20", "Consumo SP"],
-        ]
-    )
-    fields = _import_fields(world, unitIds="")
-    preview = _send(client, auth, "/payables/import/preview", fields, content).json()
-    assert (preview["goodCount"], preview["errorCount"]) == (2, 0)
-    assert preview["payableCount"] == 2  # sem unidade e com unidade são lançamentos diferentes
-
-    assert _send(client, auth, "/payables/import", fields, content).status_code == 201
-    units = sorted((payable.unit_id is not None) for payable in db_session.query(Payable).all())
-    assert units == [False, True]
