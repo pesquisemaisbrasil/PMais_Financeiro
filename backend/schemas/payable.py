@@ -41,7 +41,8 @@ class PayableCreate(BaseModel):
     supplierId: int | None = None
     categoryId: int
     companyId: int
-    unitId: int
+    # Opcional: nem toda empresa tem unidade.
+    unitId: int | None = None
     costCenterId: int
     paymentMethodId: int
     description: ShortText
@@ -274,7 +275,7 @@ class PayableDetail(PayableRow):
     categoryId: int
     costCenterId: int
     paymentMethodId: int
-    unitName: str
+    unitName: str | None
     issueDate: date
     competence: str | None
     documentDate: date | None

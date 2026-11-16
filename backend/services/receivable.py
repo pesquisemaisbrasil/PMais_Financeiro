@@ -581,7 +581,7 @@ def detail(db: Session, receivable_id: int) -> dict[str, Any]:
     return {
         **row(receivable, today()),
         "company_id": receivable.company_id,
-        "unitName": receivable.unit.name,
+        "unitName": receivable.unit.name if receivable.unit else None,
         "costCenterName": receivable.cost_center.path,
         "issueDate": receivable.issueDate,
         "competence": receivable.competence,
@@ -671,9 +671,10 @@ def new_receivable(db: Session, data: ReceivableCreate, user: User) -> Receivabl
     _active(db, Company, data.companyId, "Empresa")
     period_lock.ensure_open(db, data.companyId, data.issueDate)
     _active(db, CostCenter, data.costCenterId, "Centro de custo")
-    unit = _active(db, BusinessUnit, data.unitId, "Unidade")
-    if unit.company_id != data.companyId:
-        raise PayableInvalid("A unidade não é dessa empresa")
+    if data.unitId is not None:  # a unidade é opcional: nem toda empresa tem uma
+        unit = _active(db, BusinessUnit, data.unitId, "Unidade")
+        if unit.company_id != data.companyId:
+            raise PayableInvalid("A unidade não é dessa empresa")
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
     _check_net(data.amount, data.adjustments)

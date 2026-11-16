@@ -34,7 +34,8 @@ class ReceivableCreate(BaseModel):
     # Opcional: nem toda receita tem projeto (Q27)
     projectId: int | None = None
     companyId: int
-    unitId: int
+    # Opcional: nem toda empresa tem unidade.
+    unitId: int | None = None
     costCenterId: int
     categoryId: int
     description: ShortText
@@ -129,7 +130,7 @@ class ReceiptOut(BaseModel):
 
 class ReceivableDetail(ReceivableRow):
     company_id: int
-    unitName: str
+    unitName: str | None
     costCenterName: str
     issueDate: date
     competence: str

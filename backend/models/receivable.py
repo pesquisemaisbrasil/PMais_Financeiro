@@ -44,8 +44,9 @@ class Receivable(Base):
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    # Nem toda empresa tem unidade (Bruno, 16/11/2026): sem unidade, o título fica sem ela.
     unit_id = Column(
-        Integer, ForeignKey("business_units.id", ondelete="RESTRICT"), nullable=False, index=True
+        Integer, ForeignKey("business_units.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     cost_center_id = Column(
         Integer, ForeignKey("cost_centers.id", ondelete="RESTRICT"), nullable=False, index=True
