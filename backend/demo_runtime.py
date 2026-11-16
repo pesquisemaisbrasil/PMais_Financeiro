@@ -87,6 +87,7 @@ def start(saved: Any = None) -> None:
         _import_models()
         try:
             _restore(data)
+            _ensure_accounts()
         except Exception:  # cópia corrompida ou de outra versão: recomeça do zero
             from db.connection import Base, engine
 
@@ -166,7 +167,26 @@ def reset() -> None:
     _build_database()
 
 
-def totp_code() -> str:
+def _ensure_accounts() -> None:
+    """Uma cópia guardada antes do acesso do desenvolvimento ganha a conta que faltava."""
+    from db.connection import SessionLocal
+    from scripts.seed_demonstracao import ACCOUNTS, ensure_account
+
+    db = SessionLocal()
+    try:
+        for access in ACCOUNTS:
+            ensure_account(db, access)
+    finally:
+        db.close()
+
+
+def _access(kind: Any) -> str:
+    """O acesso pedido pela tela: "dev" é o do desenvolvimento; qualquer outra coisa (inclusive o
+    `undefined` do JavaScript, que chega como None) é o do financeiro."""
+    return "dev" if kind == "dev" else "financeiro"
+
+
+def totp_code(kind: Any = None) -> str:
     """O código do autenticador da demonstração, para o "Entrar" usar. O backend recusa uma janela
     de 30 segundos já usada (quem vê um código passar não o repete); aqui o código é do próprio
     navegador, então liberar a janela deixa entrar, sair e entrar de novo logo em seguida."""
@@ -174,11 +194,11 @@ def totp_code() -> str:
 
     from db.connection import SessionLocal
     from models.user import User
-    from scripts.seed_demonstracao import DEMO_EMAIL, DEMO_TOTP_SECRET
+    from scripts.seed_demonstracao import ACCOUNTS, DEMO_TOTP_SECRET
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter_by(email=DEMO_EMAIL).one()
+        user = db.query(User).filter_by(email=ACCOUNTS[_access(kind)][1]).one()
         user.totpLastUsedStep = None
         db.commit()
     finally:
@@ -186,10 +206,11 @@ def totp_code() -> str:
     return pyotp.TOTP(DEMO_TOTP_SECRET).now()
 
 
-def credentials() -> dict[str, str]:
-    from scripts.seed_demonstracao import DEMO_EMAIL, DEMO_PASSWORD
+def credentials(kind: Any = None) -> dict[str, str]:
+    from scripts.seed_demonstracao import ACCOUNTS
 
-    return {"email": DEMO_EMAIL, "password": DEMO_PASSWORD}
+    _, email, password = ACCOUNTS[_access(kind)]
+    return {"email": email, "password": password}
 
 
 async def handle(

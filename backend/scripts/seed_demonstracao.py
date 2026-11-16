@@ -1,7 +1,8 @@
 """Seed da versão de demonstração (o backend rodando dentro do navegador): só dados FICTÍCIOS.
 
 Parte do `seed_demo` (cadastros e 12 contas a pagar com datas em volta de hoje) e acrescenta o que
-faz as outras telas terem o que mostrar: um usuário administrador, baixas (paga, parcial e
+faz as outras telas terem o que mostrar: dois usuários administradores (o acesso do financeiro e o
+do desenvolvimento), baixas (paga, parcial e
 cancelada), contas a receber com recebimento, extratos do Itaú com linhas conciliadas, pendentes
 e uma exceção, um mês fechado, um feriado local e uma segunda agenda de incentivos.
 
@@ -47,6 +48,15 @@ DEMO_EMAIL = "demo@pesquisemais.invalid"
 DEMO_PASSWORD = "Demo!Financeiro1"  # gitleaks:allow
 # Segredo do autenticador da demonstração (fictício): a tela de entrada mostra o código do momento.
 DEMO_TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"  # gitleaks:allow
+# O acesso do desenvolvimento, que vê as solicitações da equipe. A senha daqui não protege nada
+# (o código roda no navegador): quem protege as solicitações é a chave guardada no Netlify.
+DEV_NAME = "Desenvolvimento"
+DEV_EMAIL = "dev@pesquisemais.invalid"
+DEV_PASSWORD = "Dev!Financeiro1"  # gitleaks:allow
+ACCOUNTS = {
+    "financeiro": (DEMO_NAME, DEMO_EMAIL, DEMO_PASSWORD),
+    "dev": (DEV_NAME, DEV_EMAIL, DEV_PASSWORD),
+}
 
 
 def ofx(*lines: tuple[date, str, str, str], account: str = "98765-4") -> bytes:
@@ -64,11 +74,18 @@ def ofx(*lines: tuple[date, str, str, str], account: str = "98765-4") -> bytes:
     ).encode("latin1")
 
 
-def _user(db) -> User:  # type: ignore[no-untyped-def]
+def ensure_account(db, access: str) -> User:  # type: ignore[no-untyped-def]
+    """A conta de um dos dois acessos ("financeiro" ou "dev"), administradora e com o
+    autenticador fictício. Cria só se ainda não existe: uma cópia guardada no navegador antes do
+    acesso do desenvolvimento ganha a conta sem perder o que foi feito."""
+    name, email, password = ACCOUNTS[access]
+    user: User | None = db.query(User).filter_by(email=email).first()
+    if user is not None:
+        return user
     user = User(
-        name=DEMO_NAME,
-        email=DEMO_EMAIL,
-        passwordHash=hash_password(DEMO_PASSWORD),
+        name=name,
+        email=email,
+        passwordHash=hash_password(password),
         role="admin",
         status="active",
     )
@@ -363,7 +380,8 @@ def seed_demonstracao(db) -> User:  # type: ignore[no-untyped-def]
     """Popula um banco novo. Devolve o usuário de demonstração."""
     seed_payables(db)
     db.commit()
-    user = _user(db)
+    user = ensure_account(db, "financeiro")
+    ensure_account(db, "dev")
     itau, bradesco = _accounts(db)
     pix = db.query(PaymentMethod).filter_by(name="Pix").one()
     _receivables(db)
