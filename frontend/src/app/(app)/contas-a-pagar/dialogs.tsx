@@ -105,6 +105,7 @@ import { DetailFields } from "./detail-fields";
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
 const NO_PROJECT = "sem-projeto";
+const NO_UNIT = "sem-unidade"; // nem toda empresa tem unidade
 const KEEP = "nao-mudar";
 const NEW_REAL = "novo";
 const NO_ACCOUNT_HINT = "Esta empresa não tem conta bancária cadastrada.";
@@ -159,7 +160,6 @@ export function NewPayableDialog({
     !reference.suppliers.length && "fornecedores",
     !expenseCategories(reference).length && "categorias",
     !reference.companies.length && "empresas",
-    !reference.units.length && "unidades",
     !reference.costCenters.length && "centros de custo",
     !reference.paymentMethods.length && "formas de pagamento",
   ].filter(Boolean);
@@ -181,7 +181,6 @@ export function NewPayableDialog({
       ["Fornecedor", form.isProvision || form.supplierId],
       ["Categoria", form.categoryId],
       ["Empresa", form.companyId],
-      ["Unidade", form.unitId],
       ["Centro de custo", form.costCenterId],
       ["Forma de pagamento", form.paymentMethodId],
       ["Descrição", form.description.trim()],
@@ -210,7 +209,7 @@ export function NewPayableDialog({
         supplierId: form.supplierId ? Number(form.supplierId) : null,
         categoryId: Number(form.categoryId),
         companyId: Number(form.companyId),
-        unitId: Number(form.unitId),
+        unitId: form.unitId ? Number(form.unitId) : null,
         costCenterId: Number(form.costCenterId),
         paymentMethodId: Number(form.paymentMethodId),
         description: form.description,
@@ -305,15 +304,17 @@ export function NewPayableDialog({
                   options={reference.companies.map((c) => ({ id: c.id, label: c.name }))}
                 />
               </Field>
-              <Field label="Unidade *" id="p-uni">
+              <Field label="Unidade" id="p-uni">
                 <Choice
                   id="p-uni"
-                  value={form.unitId}
-                  onChange={set("unitId")}
-                  placeholder={form.companyId ? "Selecione" : "Escolha a empresa"}
-                  options={reference.units
-                    .filter((u) => String(u.companyId) === form.companyId)
-                    .map((u) => ({ id: u.id, label: u.name }))}
+                  value={form.unitId || NO_UNIT}
+                  onChange={(value) => set("unitId")(value === NO_UNIT ? "" : value)}
+                  options={[
+                    { id: NO_UNIT, label: "Sem unidade" },
+                    ...reference.units
+                      .filter((u) => String(u.companyId) === form.companyId)
+                      .map((u) => ({ id: u.id, label: u.name })),
+                  ]}
                 />
               </Field>
               <Field label="Centro de custo *" id="p-cc">

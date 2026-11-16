@@ -70,7 +70,8 @@ export interface Receipt {
 
 export interface ReceivableDetail extends ReceivableRow {
   company_id: number;
-  unitName: string;
+  /** Nem toda empresa tem unidade: sem ela, vem null. */
+  unitName: string | null;
   costCenterName: string;
   issueDate: string;
   competence: string;

@@ -89,6 +89,7 @@ import { cn } from "@/lib/utils";
 import { ReceivableDetailFields } from "./detail-fields";
 
 const NO_PROJECT = "sem-projeto";
+const NO_UNIT = "sem-unidade"; // nem toda empresa tem unidade
 
 const COLORS: Record<ReceivableSituation, "verde" | "azul" | "vermelho" | "ambar" | "cinza"> = {
   recebido: "verde",
@@ -149,7 +150,6 @@ export function NewReceivableDialog({
     !reference.customers.length && "clientes",
     !categories.length && "contas de receita",
     !reference.companies.length && "empresas",
-    !reference.units.length && "unidades",
     !reference.costCenters.length && "centros de custo",
   ].filter(Boolean);
 
@@ -171,7 +171,6 @@ export function NewReceivableDialog({
       ["Vencimento", form.dueDate],
       ["Conta de receita", form.categoryId],
       ["Empresa", form.companyId],
-      ["Unidade", form.unitId],
       ["Centro de custo", form.costCenterId],
       ["Descrição", form.description.trim()],
     ]);
@@ -187,7 +186,7 @@ export function NewReceivableDialog({
           projectId: form.projectId ? Number(form.projectId) : null,
           categoryId: Number(form.categoryId),
           companyId: Number(form.companyId),
-          unitId: Number(form.unitId),
+          unitId: form.unitId ? Number(form.unitId) : null,
           costCenterId: Number(form.costCenterId),
           description: form.description,
           contract: form.contract.trim() || null,
@@ -293,15 +292,17 @@ export function NewReceivableDialog({
                   options={reference.companies.map((c) => ({ id: c.id, label: c.name }))}
                 />
               </Field>
-              <Field label="Unidade *" id="r-uni">
+              <Field label="Unidade" id="r-uni">
                 <Choice
                   id="r-uni"
-                  value={form.unitId}
-                  onChange={set("unitId")}
-                  placeholder={form.companyId ? "Selecione" : "Escolha a empresa"}
-                  options={reference.units
-                    .filter((u) => String(u.companyId) === form.companyId)
-                    .map((u) => ({ id: u.id, label: u.name }))}
+                  value={form.unitId || NO_UNIT}
+                  onChange={(value) => set("unitId")(value === NO_UNIT ? "" : value)}
+                  options={[
+                    { id: NO_UNIT, label: "Sem unidade" },
+                    ...reference.units
+                      .filter((u) => String(u.companyId) === form.companyId)
+                      .map((u) => ({ id: u.id, label: u.name })),
+                  ]}
                 />
               </Field>
               <Field label="Centro de custo *" id="r-cc">
