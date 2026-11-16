@@ -331,7 +331,7 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **`payable_series`** (PF-57): `kind` (`mensal`|`semanal`|`parcelado`), `count`, `startDate`, `estimated`, `created_by_user_id` (SET NULL). `payables.series_id` (RESTRICT, nulo em conta avulsa) e `payables.seriesIndex` ligam cada ocorrência à série.
 
-**`payables.unit_id` e `receivables.unit_id`** (migration `c3e5a7b9d1f3`, 16/11/2026): passaram a aceitar nulo, porque nem toda empresa tem unidade (a FK continua `ondelete=RESTRICT`). A migration de volta recusa se houver lançamento sem unidade: ela não inventa uma.
+**`receivables.unit_id`** (migration `c3e5a7b9d1f3`, 16/11/2026): passou a aceitar nulo, porque nem toda empresa tem unidade (a FK continua `ondelete=RESTRICT`). A migration de volta recusa se houver título sem unidade: ela não inventa uma. **`payables.unit_id` continua obrigatório** (a Nova conta a pagar é como a do sistema antigo: a empresa vem da unidade).
 
 **`payables.payOn`** (Date, nulo): o "Pagar em", a data prevista de pagamento. Só informa; nada usa para filtrar ou pagar.
 
