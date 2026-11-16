@@ -17,8 +17,8 @@ async def call(method, path, headers=(), body=b""):
     return await demo_runtime.handle(method, path, list(headers), body)
 
 
-async def sign_in():
-    creds = demo_runtime.credentials()
+async def sign_in(kind=None):
+    creds = demo_runtime.credentials(kind)
     form = urllib.parse.urlencode(
         {"username": creds["email"], "password": creds["password"]}
     ).encode()
@@ -29,11 +29,17 @@ async def sign_in():
         "POST",
         "/auth/token/mfa",
         [("authorization", f"Bearer {mfa}"), ("content-type", "application/json")],
-        json.dumps({"code": demo_runtime.totp_code()}).encode(),
+        json.dumps({"code": demo_runtime.totp_code(kind)}).encode(),
     )
     assert status == 200, (status, body)
     assert any(k.lower() == "set-cookie" and v.startswith("refresh_token=") for k, v in headers)
     return [("authorization", "Bearer " + json.loads(body)["access_token"])]
+
+
+async def who(auth):
+    status, _, body = await call("GET", "/auth/me", auth)
+    assert status == 200, (status, body)
+    return json.loads(body)
 
 
 async def main():
@@ -41,6 +47,10 @@ async def main():
     auth = await sign_in()
     # sair e entrar de novo logo em seguida (mesma janela de 30 s do código) não pode dar "inválido"
     await sign_in()
+    # os dois acessos: o do financeiro (o de sempre) e o do desenvolvimento
+    assert (await who(auth))["email"] == "demo@pesquisemais.invalid"
+    dev = await who(await sign_in("dev"))
+    assert (dev["email"], dev["name"]) == ("dev@pesquisemais.invalid", "Desenvolvimento"), dev
     status, _, body = await call("GET", "/home", auth)
     assert status == 200, (status, body)
     status, _, body = await call("GET", "/payables?mode=tudo", auth)
@@ -102,6 +112,14 @@ async def main():
     assert status == 201, (status, body)
     status, _, body = await call("GET", "/payables?mode=tudo", auth)
     total = json.loads(body)["total"]
+    # uma cópia guardada antes de existir o acesso do desenvolvimento
+    from db.connection import SessionLocal
+    from models.user import User
+
+    db = SessionLocal()
+    db.query(User).filter_by(email="dev@pesquisemais.invalid").delete()
+    db.commit()
+    db.close()
     open(sys.argv[1], "wb").write(demo_runtime.snapshot())
     print(total)
 
@@ -123,6 +141,8 @@ async def main():
     status, _, body = await call("GET", "/payables?mode=tudo", auth)
     # o seed não rodou de novo: nada duplicou
     assert json.loads(body)["total"] == int(sys.argv[2]), (json.loads(body)["total"], sys.argv[2])
+    # a conta do desenvolvimento, que faltava na cópia, foi criada sem apagar o que foi feito
+    await sign_in("dev")
     print("OK")
 
 asyncio.run(main())

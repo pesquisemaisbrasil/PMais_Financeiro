@@ -17,6 +17,9 @@ from scripts.seed_demonstracao import (
     DEMO_EMAIL,
     DEMO_PASSWORD,
     DEMO_TOTP_SECRET,
+    DEV_EMAIL,
+    DEV_PASSWORD,
+    ensure_account,
     seed_demonstracao,
 )
 from services.payable import today
@@ -45,6 +48,19 @@ def test_demo_user_is_an_admin_with_mfa_and_a_fictitious_address(
     assert user.role == "admin"
     assert user.mfaEnabledAt is not None
     assert DEMO_EMAIL.endswith(".invalid")
+
+
+def test_the_development_access_is_a_second_account_and_is_never_duplicated(
+    db_session: Session, client: TestClient, demo: dict[str, str]
+) -> None:
+    dev = db_session.query(User).filter_by(email=DEV_EMAIL).one()
+
+    assert (dev.name, dev.role) == ("Desenvolvimento", "admin")
+    assert dev.mfaEnabledAt is not None and DEV_EMAIL.endswith(".invalid")
+    assert ensure_account(db_session, "dev").id == dev.id
+    assert db_session.query(User).filter_by(email=DEV_EMAIL).count() == 1
+    entered = client.post("/auth/token", data={"username": DEV_EMAIL, "password": DEV_PASSWORD})
+    assert entered.status_code == 200
 
 
 def test_payables_cover_every_situation(client: TestClient, demo: dict[str, str]) -> None:
