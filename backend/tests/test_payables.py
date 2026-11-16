@@ -133,6 +133,8 @@ def create(
         ("post", "/payables/batch/delete"),
         ("post", "/payables/import"),
         ("post", "/payables/import/preview"),
+        ("post", "/payables/import-report"),
+        ("post", "/payables/import-report/preview"),
         ("post", "/payables/batch/reclassify"),
         ("post", "/payables/batch/duplicate"),
         ("get", "/payables/export"),
@@ -165,6 +167,8 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables/batch/delete"),
         ("post", "/payables/import"),
         ("post", "/payables/import/preview"),
+        ("post", "/payables/import-report"),
+        ("post", "/payables/import-report/preview"),
         ("post", "/payables/batch/reclassify"),
         ("post", "/payables/batch/duplicate"),
         ("get", "/payables/export"),
@@ -936,7 +940,13 @@ def test_tabs_separate_grouped_provision_and_connect(
     db_session.commit()
 
     data = client.get("/payables", headers=auth).json()
-    assert data["tabs"] == {"todas": 3, "agrupados": 1, "provisoes": 1, "connect": 1}
+    assert data["tabs"] == {
+        "todas": 3,
+        "agrupados": 1,
+        "provisoes": 1,
+        "connect": 1,
+        "relatorio": 0,
+    }
     assert client.get("/payables?tab=agrupados", headers=auth).json()["items"][0]["id"] == grouped
     row = client.get("/payables?tab=connect", headers=auth).json()["items"][0]
     assert row["itemCount"] == 1
