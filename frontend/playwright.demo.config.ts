@@ -40,6 +40,8 @@ export default defineConfig({
   webServer: {
     command: `node scripts/serve-demo.mjs ${DIR} ${PORT}`,
     cwd: __dirname,
+    // a chave do desenvolvimento do teste (a de verdade fica só no Netlify); e2e-demo/ usa a mesma
+    env: { SOLICITACOES_CHAVE: "chave-de-teste" },
     url: `http://localhost:${PORT}/teste/`,
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

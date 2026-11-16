@@ -28,20 +28,68 @@ async function go(page: Page, group: string | null, link: string) {
   await target.click();
 }
 
-test("a tela de entrada mostra a demonstração, Google e Microsoft só como visual, e a faixa leva ao protótipo", async ({
+test("a tela de entrada tem os dois acessos, sem Google nem Microsoft, e a faixa leva ao protótipo", async ({
   page,
 }) => {
   await open(page);
 
   await expect(page.getByLabel("Senha", { exact: true })).not.toHaveValue("");
-  // Os botões aparecem, mas não levam a lugar nenhum: o clique só avisa que o login ainda não está disponível
-  for (const provider of ["Google", "Microsoft"]) {
-    await page.getByRole("button", { name: `Entrar com ${provider}` }).click();
-    await expect(page.getByText("Esse login ainda não está disponível. Use e-mail e senha.")).toBeVisible();
-    expect(new URL(page.url()).pathname).toMatch(/^\/teste\/(login\/)?$/);
-  }
+  await expect(page.getByRole("tab", { name: "Financeiro" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Desenvolvimento" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Entrar com (Google|Microsoft)/ })).toHaveCount(0);
+  await expect(page.getByText("ou", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Ambiente de teste com dados fictícios")).toBeVisible();
   await expect(page.getByRole("link", { name: "Voltar ao protótipo" })).toHaveAttribute("href", "/");
+});
+
+// Um PNG de 1 × 1 ponto: o print da solicitação
+const PRINT = {
+  name: "print.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64"
+  ),
+};
+
+test("solicitações: a equipe envia com tipo, descrição e imagem, e só o acesso do desenvolvimento, com a chave, vê", async ({
+  page,
+}) => {
+  await enter(page);
+  const menu = page.getByRole("navigation");
+  // a equipe não tem a tela de Solicitações
+  await expect(menu.getByRole("link", { name: /^Solicitações/ })).toHaveCount(0);
+
+  // o modal exige o tipo, a descrição e a imagem
+  await page.getByRole("button", { name: "Enviar solicitação" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(dialog.getByText("Preencha os campos obrigatórios: Tipo, Descrição e Imagem.")).toBeVisible();
+  await dialog.getByRole("radio", { name: /Correção de regra/ }).click();
+  await dialog.getByLabel("Descrição *").fill("A agenda de incentivos deveria pular o feriado municipal.");
+  await dialog.getByLabel("Imagem *").setInputFiles(PRINT);
+  await expect(dialog.getByRole("img", { name: "Imagem anexada" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Enviar", exact: true }).click();
+  await expect(page.getByText("Solicitação enviada. Obrigado!")).toBeVisible();
+
+  // o acesso do desenvolvimento: a chave errada não entra; a certa abre as solicitações
+  await page.getByRole("button", { name: "Sair" }).click();
+  await page.getByRole("tab", { name: "Desenvolvimento" }).click();
+  await page.getByLabel("Chave de acesso").fill("chave-errada");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByText("Chave errada.")).toBeVisible();
+  await page.getByLabel("Chave de acesso").fill("chave-de-teste");
+  await page.getByRole("button", { name: "Entrar", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Desenvolvimento/ })).toBeVisible();
+
+  await go(page, null, "Solicitações");
+  await expect(page.getByRole("heading", { name: "Solicitações" })).toBeVisible();
+  const row = page.getByRole("row", { name: /A agenda de incentivos deveria pular o feriado municipal/ });
+  await expect(row).toContainText("Correção de regra");
+  await expect(row).toContainText("Início");
+  await expect(row).toContainText("Bruna Demonstração");
+  await row.getByRole("button", { name: "Ver imagem" }).click();
+  await expect(page.getByRole("dialog").getByRole("img", { name: /Imagem da solicitação/ })).toBeVisible();
 });
 
 test("nada sai do navegador: todo pedido vai para o próprio site", async ({ page, baseURL }) => {

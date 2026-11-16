@@ -9,7 +9,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    // netlify/: a regra das solicitações, que roda na função do Netlify e no servidor de teste
+    include: ["src/**/*.test.ts", "netlify/**/*.test.ts"],
     // e2e/ é do Playwright (npm run e2e), não do vitest
     exclude: ["e2e/**", "node_modules/**"],
   },

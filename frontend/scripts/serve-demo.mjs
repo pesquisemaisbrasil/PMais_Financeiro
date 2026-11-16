@@ -1,6 +1,7 @@
 /**
  * Serve o site como o Netlify serve: o protótipo (prototipo/financeiro) na raiz e a versão de
- * demonstração gerada em /teste, esta com a mesma política de segurança (CSP) do netlify.toml.
+ * demonstração gerada em /teste, esta com a mesma política de segurança (CSP) do netlify.toml, e as
+ * solicitações da equipe em /api/solicitacoes (a regra da função do Netlify, guardando em memória).
  * Para conferir na máquina (inclusive o "Voltar ao protótipo" e o botão do protótipo) e para o
  * teste de tela da demonstração.
  *
@@ -10,6 +11,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { handle, memoryStore } from "../netlify/solicitacoes.mjs";
 
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const demoRoot = path.resolve(FRONTEND, process.argv[2] ?? "out");
@@ -58,9 +60,36 @@ function send(response, file, status, extraHeaders) {
   fs.createReadStream(file).pipe(response);
 }
 
+// As solicitações da equipe: a mesma regra da função do Netlify, com o armazenamento em memória e a
+// chave de teste (SOLICITACOES_CHAVE). Somem quando o servidor para.
+const feedbackStore = memoryStore();
+const feedbackKey = process.env.SOLICITACOES_CHAVE ?? "chave-de-teste-local";
+
+async function feedback(request, response) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  const body = Buffer.concat(chunks);
+  const answer = await handle(
+    new Request(`http://localhost:${port}${request.url}`, {
+      method: request.method,
+      headers: Object.entries(request.headers).flatMap(([name, value]) =>
+        value === undefined ? [] : [[name, Array.isArray(value) ? value.join(", ") : value]]
+      ),
+      body: body.length ? body : undefined,
+    }),
+    { store: feedbackStore, key: feedbackKey }
+  );
+  response.writeHead(answer.status, Object.fromEntries(answer.headers));
+  response.end(Buffer.from(await answer.arrayBuffer()));
+}
+
 http
   .createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    if (url.pathname === "/api/solicitacoes" || url.pathname.startsWith("/api/solicitacoes/")) {
+      feedback(request, response).catch(() => response.writeHead(500).end());
+      return;
+    }
     if (url.pathname === PREFIX) {
       response.writeHead(301, { Location: `${PREFIX}/` }).end();
       return;
