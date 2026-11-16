@@ -3368,3 +3368,13 @@ def test_a_payable_on_a_sub_center_shows_the_superior_in_front_of_the_name(
     items = client.get("/payables?mode=tudo", headers=auth).json()["items"]
     row = next(r for r in items if r["id"] == on_sub["id"])
     assert row["costCenterName"] == "Campo › Geral"
+
+
+def test_a_payable_needs_a_unit_as_in_the_old_system(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # A Nova conta a pagar não tem campo Empresa (ela vem da unidade): a unidade é obrigatória.
+    omitted = body(world)
+    del omitted["unitId"]
+    assert client.post("/payables", json=omitted, headers=auth).status_code == 422
+    assert client.post("/payables", json=body(world, unitId=None), headers=auth).status_code == 422
