@@ -557,6 +557,7 @@ Um `<Toast>` por página, com estados `message`/`error`. Sucesso diz o que acont
 | Hoje | `todayInSaoPaulo()` → "aaaa-mm-dd" no fuso de São Paulo (mesmo relógio do backend) | `time.ts` |
 | Relativo | `formatRelativeTime(iso)` → "agora", "há 5 min", "ontem" | notificações |
 | CPF / CNPJ / CEP / telefone | `CpfInput`, `CnpjInput`, `CepInput`, `PhoneInput` | `MaskedInput.tsx` |
+| Valor em reais (campo de digitar) | `MoneyInput`, no lugar do `Input`: os números entram pela direita e o ponto e a vírgula vêm sozinhos (`123456` → `1.234,56`). `event.target.value` já chega com a máscara e `parseMoney` o lê como antes; `allowNegative` para saldo de conta | `components/MoneyInput.tsx`, `lib/money.ts` |
 | Chave Pix | **mascarada pelo backend** (`keyMasked`); o front só exibe, em `font-mono text-xs text-muted-foreground` | tela de comprovantes |
 
 Atenção: algumas telas antigas ainda usam `toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })` sem fixar o fuso. No Financeiro, use sempre os helpers de `time.ts`.

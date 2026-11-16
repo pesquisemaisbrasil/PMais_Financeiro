@@ -149,6 +149,7 @@ Origem do requisito:
 
 ## Ajustes
 
+- 2026-11-16 (campo de valor): todo campo de **digitar valor** passa a ter **máscara de reais** (`MoneyInput`): os números entram pela direita e o ponto e a vírgula aparecem sozinhos, como nos apps de banco. Digitar `26000` mostra `260,00`, e `260` mostra `2,60`; apagar tira o último centavo, e apagar tudo esvazia o campo. Entrar no campo seleciona o valor, e o primeiro número digitado o troca. Colar um valor inteiro (`1.234,56`, `1500.50`, `R$ 1.234,56`) mantém o valor copiado. Passou de 12 números (limite do banco de dados), a tecla é ignorada e o valor nunca é cortado. O valor enviado ao servidor não muda, e o que o servidor aceita também não (duas casas, maior que zero). Pedido do Bruno.
 - 2026-10-23: o lançamento ganha o campo **código de barras / linha digitável**, separado da observação, porque hoje o financeiro o guarda na observação e copia para o banco ([respostas do financeiro](../transcricoes/2026-10-23-respostas-do-financeiro-e-decisoes-do-po.md), A3). Ler o boleto do e-mail automaticamente é futuro (F16).
 - 2026-10-23: gasto de **cartão de crédito** é lançamento rateado por fornecedor, projeto e categoria, conforme o extrato (A2). Importar a fatura é futuro (F17).
 - 2026-10-23: **boletos de impostos** vêm da contabilidade e entram como contas a pagar comuns; o sistema não apura impostos (A5). **Adiantamentos de viagem** são lançamentos comuns com anexos; o controle de saldo a comprovar é futuro ([spec](futuro/adiantamentos-e-prestacao-de-contas.md)).
