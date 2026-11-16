@@ -112,7 +112,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await choose(page, "Categoria *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Consultoria de teste");
   await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Unidade", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
   // Forma de pagamento e Projeto têm busca, mesmo com poucas opções
   await form.getByRole("combobox", { name: "Forma de pagamento *" }).click();
@@ -562,7 +562,7 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await choose(page, "Categoria *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Conta com ajustes");
   await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Unidade", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Pix");
 

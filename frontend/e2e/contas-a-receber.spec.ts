@@ -148,7 +148,7 @@ test("Contas a receber: título novo pode ficar sem projeto e o cadastro de clie
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
   await form.getByLabel("Descrição *").fill("Pesquisa de teste");
   await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Unidade", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
   await form.getByRole("button", { name: /Impostos/ }).click();
   await taxes.getByLabel("Valor da linha 1").fill("1.000,00");
@@ -183,7 +183,7 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
   await form.getByLabel("Descrição *").fill("Receita parcelada de teste");
   await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Unidade", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
 
   // Parcelar exige conferir a tabela antes de salvar
@@ -279,7 +279,7 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await choose(page, "Conta de receita *", /Receita de pesquisa/);
   await form.getByLabel("Descrição *").fill("Receita com ajustes");
   await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade *", "Consumo SP");
+  await choose(page, "Unidade", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
 
   await form.getByRole("button", { name: "Acréscimos" }).click();

@@ -34,8 +34,11 @@ test("campos obrigatórios: o * é vermelho e a mensagem diz quais campos faltam
   // também é um alerta no diálogo.
   const alert = form.getByRole("alert").filter({ hasText: "Preencha os campos obrigatórios:" });
   await expect(alert).toBeVisible();
-  for (const name of ["Fornecedor", "Categoria", "Empresa", "Unidade", "Centro de custo", "Forma de pagamento", "Descrição"]) {
+  for (const name of ["Fornecedor", "Categoria", "Empresa", "Centro de custo", "Forma de pagamento", "Descrição"]) {
     await expect(alert).toContainText(name);
   }
+  // Nem toda empresa tem unidade: ela não é obrigatória e não aparece na lista dos que faltam
+  await expect(alert).not.toContainText("Unidade");
   await expect(alert).not.toContainText("campos com *");
+  await expect(form.getByText("Unidade", { exact: true })).toBeVisible(); // o rótulo, sem asterisco
 });
