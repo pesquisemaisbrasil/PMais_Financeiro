@@ -200,6 +200,25 @@ def test_a_title_without_a_project_is_created_listed_exported_and_edited(
     assert Decimal(edited.json()["net"]) == Decimal("1200.00")
 
 
+def test_a_title_without_a_unit_is_created_and_shown_without_one(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    # Nem toda empresa tem unidade (Bruno, 16/11/2026)
+    title = create(client, auth, world, unitId=None)
+    omitted = body(world)
+    del omitted["unitId"]
+    assert client.post("/receivables", json=omitted, headers=auth).status_code == 201
+
+    detail = client.get(f"/receivables/{title['id']}", headers=auth).json()
+    assert detail["unitName"] is None
+    assert listing(client, auth)["total"] == 2
+    # a unidade que vem continua valendo só se existir
+    assert (
+        client.post("/receivables", json=body(world, unitId=999999), headers=auth).status_code
+        == 422
+    )
+
+
 @pytest.mark.parametrize(
     ("overrides", "status", "detail"),
     [
