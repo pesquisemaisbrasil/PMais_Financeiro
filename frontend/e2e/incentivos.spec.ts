@@ -68,7 +68,7 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   const menu = page.getByRole("navigation", { name: "Menu principal" });
   await menu.getByRole("button", { name: "Relatórios" }).click();
   await menu.getByRole("link", { name: "Incentivos", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Incentivos", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relatórios - Incentivos", exact: true })).toBeVisible();
   // Os incentivos ficam só no menu Relatórios, abaixo do Relatório do projeto: com o Financeiro aberto, não há outro link
   await menu.getByRole("button", { name: "Financeiro" }).click();
   await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(1);

@@ -90,6 +90,7 @@ WITH_MFA = [
     "mascara@e2e.invalid",
     "unidade@e2e.invalid",
     "relatorio-antigo@e2e.invalid",
+    "menu@e2e.invalid",
     "faixa@e2e.invalid",
     "agenda@e2e.invalid",
     "diautil@e2e.invalid",

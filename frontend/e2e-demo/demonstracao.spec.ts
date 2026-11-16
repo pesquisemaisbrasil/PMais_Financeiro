@@ -125,6 +125,27 @@ test("importar o relatório do sistema antigo (.xls) lê o arquivo no navegador,
   await expect(page.getByText(/2 contas importadas do relatório, 1 paga/)).toBeVisible();
 });
 
+test("o menu marca a página e a seção atuais e o título diz Seção - Página, mesmo com a barra no fim do endereço do site exportado", async ({
+  page,
+}) => {
+  await enter(page);
+  const menu = page.getByRole("navigation");
+  const current = menu.locator('[aria-current="page"]');
+
+  await go(page, "Financeiro", "Contas a pagar");
+  // o site exportado termina o endereço com barra: o menu comparava com o endereço sem ela e não marcava nada
+  expect(new URL(page.url()).pathname).toMatch(/\/$/);
+  await expect(page.getByRole("heading", { name: "Financeiro - Contas a pagar", exact: true })).toBeVisible();
+  await expect(current).toHaveText(/^Contas a pagar/);
+  await expect(menu.getByRole("button", { name: "Financeiro" })).toHaveAttribute("data-current", "true");
+
+  await go(page, "Cadastros", "Fornecedores");
+  await expect(page.getByRole("heading", { name: "Cadastros - Fornecedores", exact: true })).toBeVisible();
+  await expect(current).toHaveText("Fornecedores");
+  await expect(menu.getByRole("button", { name: "Cadastros" })).toHaveAttribute("data-current", "true");
+  await expect(menu.getByRole("button", { name: "Financeiro" })).not.toHaveAttribute("data-current", "true");
+});
+
 test("Contas a receber abre no dia com títulos que vencem hoje", async ({ page }) => {
   await enter(page);
   await go(page, "Financeiro", "Contas a receber");
