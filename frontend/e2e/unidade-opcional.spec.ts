@@ -30,6 +30,8 @@ test("unidade opcional: conta a pagar e título a receber são lançados sem uni
   // O vencimento padrão é daqui a 7 dias, e a lista abre só no dia de hoje: "Tudo" mostra a conta
   await page.getByRole("combobox", { name: "Visão por período" }).click();
   await page.getByRole("option", { name: "Tudo" }).click();
+  // Pela busca: com as contas dos outros testes, a nova pode cair na segunda página da lista
+  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("Conta sem unidade");
   await expect(page.getByRole("row", { name: /Conta sem unidade/ })).toBeVisible();
 
   // Os detalhes mostram traço no lugar da unidade

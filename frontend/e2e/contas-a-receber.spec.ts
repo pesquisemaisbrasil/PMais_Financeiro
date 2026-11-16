@@ -193,18 +193,18 @@ test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a sér
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Clique em Simular para conferir as parcelas antes de salvar.")).toBeVisible();
   await form.getByRole("button", { name: "Simular" }).click();
-  await expect(form.getByLabel("Valor da ocorrência 1")).toHaveValue("333.33");
-  await expect(form.getByLabel("Valor da ocorrência 3")).toHaveValue("333.34");
+  await expect(form.getByLabel("Valor da ocorrência 1")).toHaveValue("333,33");
+  await expect(form.getByLabel("Valor da ocorrência 3")).toHaveValue("333,34");
 
   // Parcelas que não somam o título são recusadas, sem criar nada
-  await form.getByLabel("Valor da ocorrência 1").fill("300.00");
+  await form.getByLabel("Valor da ocorrência 1").fill("300,00");
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText(/As parcelas somam R\$\s966,67, mas o título é de R\$\s1\.000,00/)).toBeVisible();
 
   // 30% na aprovação e o resto nas demais: a soma fecha com o título
-  await form.getByLabel("Valor da ocorrência 1").fill("300.00");
-  await form.getByLabel("Valor da ocorrência 2").fill("350.00");
-  await form.getByLabel("Valor da ocorrência 3").fill("350.00");
+  await form.getByLabel("Valor da ocorrência 1").fill("300,00");
+  await form.getByLabel("Valor da ocorrência 2").fill("350,00");
+  await form.getByLabel("Valor da ocorrência 3").fill("350,00");
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(page.getByText(/3 títulos lançados, o primeiro vence em 15\/01\/2027/)).toBeVisible();
 
