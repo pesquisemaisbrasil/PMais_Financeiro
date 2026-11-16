@@ -11,6 +11,7 @@ import {
   invalidOccurrence,
   occurrenceEdits,
   occurrencesTotal,
+  reportDoneText,
   cleanCnpj,
   looksLikeCnpj,
   percentOf,
@@ -578,5 +579,21 @@ describe("o que o painel das pessoas diz de cada uma e de onde o lançamento vei
     expect(originNotes("folha")).toEqual(["Veio da planilha da folha de campo."]);
     expect(originNotes("connect")).toEqual(["Veio do Connect."]);
     expect(originNotes("manual")).toEqual([]);
+  });
+});
+
+describe("importar o relatório do sistema antigo", () => {
+  it("diz quantas contas entraram, quantas pagas e o total", () => {
+    const result = { count: 12, paidCount: 5, total: "10234.50", paidTotal: "4000.00", pendingTotal: "6234.50" };
+    expect(reportDoneText(result)).toMatch(/^12 contas importadas do relatório, 5 pagas, R\$\s10\.234,50\.$/);
+  });
+
+  it("no singular e sem falar de pagas quando nenhuma foi paga", () => {
+    const result = { count: 1, paidCount: 0, total: "657.80", paidTotal: "0.00", pendingTotal: "657.80" };
+    expect(reportDoneText(result)).toMatch(/^1 conta importada do relatório, R\$\s657,80\.$/);
+  });
+
+  it("a origem do relatório tem a sua nota", () => {
+    expect(originNotes("relatorio")).toEqual(["Veio do relatório do sistema antigo."]);
   });
 });

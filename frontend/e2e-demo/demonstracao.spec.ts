@@ -82,6 +82,49 @@ test("Contas a pagar mostra o dia com baixas, vencimentos e provisão, e dar bai
   await expect(page.getByRole("button", { name: /^Pagos/ })).toContainText("R$ 4.370,00");
 });
 
+// O relatório "Lançamentos a Pagar" do jeito que o sistema antigo exporta: uma tabela HTML com a extensão .xls.
+// A chave Pix da primeira linha é um CPF de teste, que o sistema retira do texto.
+const REPORT_TITLES =
+  "Programação;Pagamento;Fornecedor;Plano de Contas;R$ Líquido;R$ Pago;R$ Pendente;Projeto;Unidade;CCusto;Empresa;Conta;Situação;Descrição;Documento".split(
+    ";",
+  );
+const REPORT_LINES = [
+  ["21/12/2030", "", "Exata", "Serviços de terceiros", "300,00", "", "300,00", "", "Consumo SP", "Administrativo", "PPlus", "", "PENDENTE", "Aluguel PIX CPF 529.982.247-25", ""],
+  ["05/09/2025", "05/09/2025", "Fornecedor Antigo", "Aluguel e condomínio", "500,00", "500,00", "0,00", "", "Consumo SP", "Administrativo", "PPlus", "Banco Itaú", "PAGO", "Aluguel do relatório", ""],
+];
+const REPORT_XLS = {
+  name: "DADOSAPAGAR_20261116_111257.xls",
+  mimeType: "application/vnd.ms-excel",
+  buffer: Buffer.from(
+    `﻿<html><body><table border=1>${[REPORT_TITLES, ...REPORT_LINES]
+      .map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`)
+      .join("")}</table></body></html>`,
+    "utf-8",
+  ),
+};
+
+test("importar o relatório do sistema antigo (.xls) lê o arquivo no navegador, retira o CPF e cria as contas", async ({
+  page,
+}) => {
+  await enter(page);
+  await go(page, "Financeiro", "Contas a pagar");
+
+  await page.getByRole("button", { name: "Importar planilha" }).click();
+  const importer = page.getByRole("dialog");
+  await importer.getByRole("combobox", { name: "Tipo *" }).click();
+  await page.getByRole("option", { name: "Relatório do sistema antigo" }).click();
+  await importer.getByRole("combobox", { name: "Forma de pagamento" }).click();
+  await page.getByRole("option", { name: "Pix" }).click();
+  await importer.getByLabel("Relatório *").setInputFiles(REPORT_XLS);
+  await importer.getByRole("button", { name: "Ler relatório" }).click();
+
+  await expect(importer.getByRole("heading", { name: "Conferir antes de importar" })).toBeVisible();
+  await expect(importer.getByText("CPF retirado da coluna Descrição: o sistema não guarda CPF")).toBeVisible();
+  await expect(importer.getByText("529.982.247-25")).toHaveCount(0);
+  await importer.getByRole("button", { name: "Importar 2 contas" }).click();
+  await expect(page.getByText(/2 contas importadas do relatório, 1 paga/)).toBeVisible();
+});
+
 test("Contas a receber abre no dia com títulos que vencem hoje", async ({ page }) => {
   await enter(page);
   await go(page, "Financeiro", "Contas a receber");
