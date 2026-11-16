@@ -77,6 +77,7 @@ import {
   plural,
   replacedMessage,
   replacesNote,
+  reportDoneText,
   expenseCategories,
   seriesLabel,
   type DateField,
@@ -139,6 +140,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "agrupados", label: "Planilhas e agrupados" },
   { id: "provisoes", label: "Provisões" },
   { id: "connect", label: "Do Connect" },
+  { id: "relatorio", label: "Importados de relatório" },
 ];
 
 const MODES: { id: PeriodMode; label: string }[] = [
@@ -1231,6 +1233,20 @@ function PayablesContent() {
           reference={reference}
           today={data.today}
           onClose={() => setImporting(false)}
+          onReportDone={(result) => {
+            setImporting(false);
+            toast.success(reportDoneText(result));
+            // A lista passa a mostrar as contas importadas, em qualquer data.
+            resetPageAnd(() => {
+              setMode("tudo");
+              setTab("relatorio");
+              setIndicator("total");
+              setFilters({});
+              setSearchText("");
+              setSearch("");
+            });
+            changed();
+          }}
           onDone={(result) => {
             setImporting(false);
             toast.success(

@@ -18,7 +18,7 @@ export type Indicator =
   | "avencer"
   | "provisoes"
   | "cancelados";
-export type Tab = "todas" | "agrupados" | "provisoes" | "connect";
+export type Tab = "todas" | "agrupados" | "provisoes" | "connect" | "relatorio";
 export type SortColumn =
   | "vencimento"
   | "fornecedor"
@@ -697,6 +697,60 @@ export interface ImportResult {
   total: string;
 }
 
+/** Uma linha do relatório "Lançamentos a Pagar" do sistema antigo, como a prévia a mostra. */
+export interface ReportLine {
+  line: number;
+  scheduled: string | null;
+  dueDate: string | null;
+  paidOn: string | null;
+  supplier: string;
+  description: string;
+  net: string | null;
+  paid: string;
+  /** Empresa · unidade · centro de custo · plano de contas que a conta vai ter. */
+  classification: string | null;
+  account: string | null;
+  project: string | null;
+  /** Entra com a baixa (linha paga e a opção ligada). */
+  willPay: boolean;
+  /** Fora sem ser erro: "Cancelada no relatório" ou "Já importada antes". */
+  skipped: string | null;
+  /** O que o sistema decidiu sozinho. */
+  notes: string[];
+  errors: string[];
+}
+
+export interface ReportPreview {
+  columns: string[];
+  goodCount: number;
+  paidCount: number;
+  pendingCount: number;
+  errorCount: number;
+  cancelledCount: number;
+  alreadyCount: number;
+  supplierOnlyNameCount: number;
+  noProjectCount: number;
+  usedDefaultCount: number;
+  total: string;
+  paidTotal: string;
+  pendingTotal: string;
+  lines: ReportLine[];
+}
+
+export interface ReportResult {
+  count: number;
+  paidCount: number;
+  total: string;
+  paidTotal: string;
+  pendingTotal: string;
+}
+
+/** O aviso depois de importar o relatório: quantas contas, quantas já pagas e o total. */
+export function reportDoneText(result: ReportResult): string {
+  const paid = result.paidCount ? `, ${plural(result.paidCount, "paga", "pagas")}` : "";
+  return `${plural(result.count, "conta importada", "contas importadas")} do relatório${paid}, ${brl(result.total)}.`;
+}
+
 /** O texto que o financeiro devolve a um projeto, hoje calculado à mão (kickoff de 03/11, K6). */
 export function scheduleText(preview: ImportPreview, project: ImportProject): string {
   const deadline = project.deadlineDays
@@ -851,6 +905,7 @@ export function originNotes(origin: string): string[] {
   }
   if (origin === "folha") return ["Veio da planilha da folha de campo."];
   if (origin === "connect") return ["Veio do Connect."];
+  if (origin === "relatorio") return ["Veio do relatório do sistema antigo."];
   return [];
 }
 

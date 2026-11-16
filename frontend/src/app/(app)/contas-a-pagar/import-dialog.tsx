@@ -33,14 +33,17 @@ import {
   type ImportPreview,
   type ImportResult,
   type Reference,
+  type ReportResult,
 } from "@/lib/payables";
 import { missingFieldsMessage } from "@/lib/forms";
+import { ReportImport } from "./report-import";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 
 const KINDS = [
   { id: "incentivos", label: "Incentivos" },
   { id: "folha", label: "Folha de campo" },
+  { id: "relatorio", label: "Relatório do sistema antigo" },
 ];
 
 function Count({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -59,6 +62,7 @@ export function ImportDialog({
   kind,
   onClose,
   onDone,
+  onReportDone,
 }: {
   reference: Reference;
   today: string;
@@ -66,13 +70,16 @@ export function ImportDialog({
   kind?: "incentivos" | "folha";
   onClose: () => void;
   onDone: (result: ImportResult) => void;
+  /** Quem aceita o relatório do sistema antigo (só o Contas a pagar): sem isso, o tipo não aparece. */
+  onReportDone?: (result: ReportResult) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [form, setForm] = useState({
-    kind: kind ?? "incentivos",
+    // texto solto: o Tipo também aceita "relatorio", que abre a janela própria do relatório
+    kind: (kind ?? "incentivos") as string,
     // Cada campo guarda os ids marcados, separados por vírgula. Vazio = todos os da planilha.
     projectIds: "",
     categoryIds: "",
@@ -85,6 +92,7 @@ export function ImportDialog({
   });
   const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
   const payroll = form.kind === "folha";
+  const kinds = onReportDone ? KINDS : KINDS.filter((option) => option.id !== "relatorio");
 
   function formData(): FormData {
     const data = new FormData();
@@ -146,6 +154,22 @@ export function ImportDialog({
     }));
   }
 
+  // O relatório do sistema antigo é outro formato (uma conta por linha, com a baixa): tem a sua janela.
+  if (form.kind === "relatorio" && onReportDone) {
+    return (
+      <ReportImport
+        reference={reference}
+        onClose={onClose}
+        onDone={onReportDone}
+        typeField={
+          <Field label="Tipo *" id="i-tipo">
+            <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={kinds} />
+          </Field>
+        }
+      />
+    );
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[820px]">
@@ -161,7 +185,7 @@ export function ImportDialog({
               <div className={cn("grid gap-3", !kind && "sm:grid-cols-2")}>
                 {!kind && (
                   <Field label="Tipo *" id="i-tipo">
-                    <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={KINDS} />
+                    <Choice id="i-tipo" value={form.kind} onChange={set("kind")} options={kinds} />
                   </Field>
                 )}
                 <Field label="Projeto" id="i-proj">

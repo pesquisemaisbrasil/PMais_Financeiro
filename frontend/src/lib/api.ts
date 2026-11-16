@@ -11,6 +11,8 @@ import type {
   ReplacementCandidate,
   ImportPreview,
   ImportResult,
+  ReportPreview,
+  ReportResult,
   Occurrence,
   Project,
   RecordKind,
@@ -427,6 +429,15 @@ export function previewImport(form: FormData): Promise<ImportPreview> {
 
 export function importPayables(form: FormData): Promise<ImportResult> {
   return request<ImportResult>("/payables/import", { method: "POST", body: form });
+}
+
+/** O relatório "Lançamentos a Pagar" do sistema antigo: conferir antes e depois criar as contas. */
+export function previewReport(form: FormData): Promise<ReportPreview> {
+  return request<ReportPreview>("/payables/import-report/preview", { method: "POST", body: form });
+}
+
+export function importReport(form: FormData): Promise<ReportResult> {
+  return request<ReportResult>("/payables/import-report", { method: "POST", body: form });
 }
 
 // ---- Cadastros ----

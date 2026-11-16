@@ -77,6 +77,7 @@ export function OriginTag({ origin }: { origin: string }) {
   }
   if (origin === "incentivo") return <Tag color="roxo">Incentivos</Tag>;
   if (origin === "folha") return <Tag color="cinza">Folha</Tag>;
+  if (origin === "relatorio") return <Tag color="azul">Importado de relatório</Tag>;
   return null;
 }
 
