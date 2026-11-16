@@ -13,14 +13,15 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import zlib from "node:zlib";
 
-const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = path.join(FRONTEND, "out");
+export const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+export const OUT = path.join(FRONTEND, "out");
 const ZIP = path.resolve(process.env.DEMO_ZIP ?? path.join(FRONTEND, ".demo-cache", "netlify-upload.zip"));
 
-function build() {
+/** Gera o site da demonstração em out/, na raiz (o scripts/deploy-demo.mjs usa também). */
+export function build() {
   const env = {
     ...process.env,
     DEMO_DIST_DIR: "out",
@@ -32,7 +33,7 @@ function build() {
   if (result.status !== 0) throw new Error("a geração da demonstração falhou");
 }
 
-function headersFile() {
+export function headersFile() {
   const toml = fs.readFileSync(path.join(FRONTEND, "..", "netlify.toml"), "utf8");
   const csp = toml.match(/Content-Security-Policy\s*=\s*"([^"]+)"/)?.[1];
   if (!csp) throw new Error("Não achei a Content-Security-Policy no netlify.toml");
@@ -101,17 +102,21 @@ function writeZip(entries, target) {
   fs.writeFileSync(target, Buffer.concat([...parts, centralBytes, end]));
 }
 
-try {
-  build();
-  const entries = listFiles(OUT).map((file) => ({
-    name: path.relative(OUT, file).split(path.sep).join("/"),
-    data: fs.readFileSync(file),
-  }));
-  entries.push({ name: "_headers", data: Buffer.from(headersFile(), "utf8") });
-  writeZip(entries, ZIP);
-  const megabytes = (fs.statSync(ZIP).size / 1048576).toFixed(1);
-  console.log(`[demo] ZIP pronto: ${ZIP} (${megabytes} MB, ${entries.length} arquivos)`);
-} catch (error) {
-  console.error(`[demo] ERRO: ${error.message}`);
-  process.exit(1);
+// Só quando chamado direto (node scripts/package-demo.mjs), não quando outro script importa daqui.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  try {
+    build();
+    const entries = listFiles(OUT).map((file) => ({
+      name: path.relative(OUT, file).split(path.sep).join("/"),
+      data: fs.readFileSync(file),
+    }));
+    entries.push({ name: "_headers", data: Buffer.from(headersFile(), "utf8") });
+    writeZip(entries, ZIP);
+    const megabytes = (fs.statSync(ZIP).size / 1048576).toFixed(1);
+    console.log(`[demo] ZIP pronto: ${ZIP} (${megabytes} MB, ${entries.length} arquivos)`);
+    console.log("[demo] Atenção: o ZIP não leva a função das solicitações. Para ela, use scripts/deploy-demo.mjs.");
+  } catch (error) {
+    console.error(`[demo] ERRO: ${error.message}`);
+    process.exit(1);
+  }
 }
