@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -79,10 +80,9 @@ export function ValuesCard({
   return (
     <div className="flex w-full max-w-[460px] flex-col gap-2">
       <Row label={grossLabel} htmlFor={grossId} strong>
-        <Input
+        <MoneyInput
           id={grossId}
           className="col-span-2"
-          inputMode="decimal"
           placeholder="0,00"
           value={gross}
           onChange={(event) => onGrossChange(event.target.value)}
@@ -171,9 +171,8 @@ function AdjustmentsDialog({
                 value={row.description}
                 onChange={(event) => change(index, { description: event.target.value })}
               />
-              <Input
+              <MoneyInput
                 aria-label={`Valor da linha ${index + 1}`}
-                inputMode="decimal"
                 placeholder="0,00"
                 className="text-right"
                 value={row.amount}

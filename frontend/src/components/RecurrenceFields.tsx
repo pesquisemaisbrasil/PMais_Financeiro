@@ -5,6 +5,7 @@ import { Field } from "@/components/finance";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -170,8 +171,7 @@ export function RecurrenceFields({
                       />
                     </TableCell>
                     <TableCell className="px-2 py-1.5">
-                      <Input
-                        inputMode="decimal"
+                      <MoneyInput
                         aria-label={`Valor da ocorrência ${row.index}`}
                         value={row.amount}
                         onChange={(event) => edit(row.index, { amount: event.target.value })}

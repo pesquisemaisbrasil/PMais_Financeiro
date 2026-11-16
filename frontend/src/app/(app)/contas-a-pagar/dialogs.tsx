@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -542,9 +543,8 @@ export function PaymentDialog({
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Valor pago (R$)" id="b-valor" hint="Menor que o pendente vira baixa parcial.">
-                <Input
+                <MoneyInput
                   id="b-valor"
-                  inputMode="decimal"
                   autoFocus
                   value={amountText}
                   onChange={(event) => {
@@ -577,10 +577,10 @@ export function PaymentDialog({
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Juros/multa (R$)" id="b-juros">
-                <Input id="b-juros" inputMode="decimal" placeholder="0,00" {...input("surcharge")} />
+                <MoneyInput id="b-juros" placeholder="0,00" {...input("surcharge")} />
               </Field>
               <Field label="Desconto (R$)" id="b-desc">
-                <Input id="b-desc" inputMode="decimal" placeholder="0,00" {...input("discount")} />
+                <MoneyInput id="b-desc" placeholder="0,00" {...input("discount")} />
               </Field>
             </div>
             <Field label="ID da transação no banco" id="b-trans">
@@ -967,9 +967,8 @@ export function ReplaceProvisionDialog({
             {choice === NEW_REAL && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Valor real (R$)" id="pr-valor">
-                  <Input
+                  <MoneyInput
                     id="pr-valor"
-                    inputMode="decimal"
                     placeholder="0,00"
                     autoFocus
                     value={amount}
@@ -1643,7 +1642,7 @@ function EditForm({
         // lançamento com pessoas: o valor é a soma delas, e não tem acréscimos, descontos nem impostos
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Valor principal (R$)" id="e-valor">
-            <Input id="e-valor" inputMode="decimal" {...input("amount")} />
+            <MoneyInput id="e-valor" {...input("amount")} />
           </Field>
         </div>
       )}

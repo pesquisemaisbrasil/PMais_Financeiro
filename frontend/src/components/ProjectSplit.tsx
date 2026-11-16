@@ -5,7 +5,7 @@ import { useState } from "react";
 import { FormError } from "@/components/finance";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -80,9 +80,8 @@ export function ProjectSplit({
                 .filter((project) => !taken.has(String(project.id)))
                 .map((project) => ({ id: project.id, label: `PRJ-${project.code} · ${project.title}` }))}
             />
-            <Input
+            <MoneyInput
               aria-label={`Valor da linha ${index + 1} (R$)`}
-              inputMode="decimal"
               placeholder="0,00"
               value={row.amount}
               onChange={(event) => update(index, { amount: event.target.value })}

@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -446,7 +447,7 @@ export function ReceiveDialog({
           <div className="flex flex-col gap-3.5 py-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Valor recebido (R$) *" id="rc-valor" hint="Menos que o saldo é recebimento parcial.">
-                <Input id="rc-valor" inputMode="decimal" autoFocus {...input("amount")} />
+                <MoneyInput id="rc-valor" autoFocus {...input("amount")} />
               </Field>
               <Field label="Data do recebimento *" id="rc-data">
                 <Input id="rc-data" type="date" {...input("receivedOn")} />

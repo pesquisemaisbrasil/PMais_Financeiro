@@ -32,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -735,7 +736,7 @@ function RecordDialog({
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Saldo inicial" id="c-saldo" hint="Em reais. Vazio é zero.">
-                        <Input id="c-saldo" inputMode="decimal" placeholder="0,00" {...input("openingBalance")} />
+                        <MoneyInput id="c-saldo" allowNegative placeholder="0,00" {...input("openingBalance")} />
                       </Field>
                       <Field label="Data do saldo" id="c-saldo-data" hint="Obrigatória se há saldo inicial.">
                         <Input id="c-saldo-data" type="date" {...input("openingDate")} />

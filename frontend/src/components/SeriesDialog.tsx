@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MoneyInput } from "@/components/MoneyInput";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -129,7 +130,7 @@ export function SeriesDialog({
         {mode === "edit" ? (
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Novo valor (R$)" id="s-valor" hint="Deixe vazio para não mudar.">
-              <Input id="s-valor" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <MoneyInput id="s-valor" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </Field>
             <Field label="Nova descrição" id="s-desc" hint="Deixe vazio para não mudar.">
               <Input id="s-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
