@@ -72,6 +72,18 @@ Hoje nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza **já e
 
 O arquivo da planilha **não é guardado**: é lido na hora e descartado.
 
+## Relatório do sistema antigo (migração das contas a pagar)
+
+| Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |
+|---|---|---|---|---|
+| Nome do fornecedor **sem cadastro** (texto do relatório) | `payables.payeeName` | Em claro. Fornecedor que já existe nos cadastros não passa por aqui (a conta liga ao cadastro) | Saber a quem pagar até o fornecedor ser cadastrado | A definir com o DPO (Q5) |
+| Descrição e número do documento de cada conta | `payables.description`, `documentNumber` | Em claro. O sistema antigo põe a chave Pix na descrição ("PIX CPF ..."): **CPF** em qualquer coluna de texto é **retirado** antes de gravar (fica "(CPF retirado)"), a prévia avisa, e ele nunca é guardado nem entra na chave da linha | Reconhecer a conta que veio do sistema antigo | A definir com o DPO (Q5) |
+| **Linha digitável do boleto** (de banco ou de concessionária) que o relatório traz na descrição | `payables.barcode` | Em claro. É o código do boleto a pagar, sem dado de pessoa; sai da descrição antes de se procurar CPF | Pagar o boleto sem digitar de novo | A definir com o DPO (Q5) |
+| Valores, datas e a **baixa** das linhas pagas (data, valor, conta bancária da empresa e a observação "Importada do relatório do sistema antigo") | `payables`, `payable_payments` | Em claro, como qualquer conta e baixa | Ter o histórico pago e o saldo a pagar certos | A definir com o DPO (Q5) |
+| **Chave da linha** do relatório | `payables.importKey` | **HMAC** (SHA-256 com a chave permanente de hash). Não permite recuperar fornecedor, valor nem descrição | Reenviar o relatório, ou um mais novo, só cria o que ainda não existe | Enquanto a conta existir |
+
+O arquivo do relatório **não é guardado**: é lido na hora e descartado. O resumo dele (`payables.importHash`) só serve para saber de que arquivo veio cada conta.
+
 ## Conferência bancária (PF-69 a PF-72)
 
 | Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |

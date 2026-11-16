@@ -21,3 +21,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0015](0015-feriados-por-cadastro-e-brasilapi.md) | Feriados por cadastro, com os nacionais buscados na BrasilAPI | Aceito (provisório) |
 | [0016](0016-extrato-bancario-imutavel-e-descricao-cifrada.md) | Extrato bancário: linhas imutáveis, descrição cifrada e reimportação sem duplicar | Aceito (provisório) |
 | [0017](0017-demonstracao-com-o-backend-no-navegador.md) | Versão de demonstração com o backend rodando no navegador (Pyodide) | Aceito (provisório) |
+| [0018](0018-importar-o-relatorio-do-sistema-antigo.md) | Importar o relatório do sistema antigo: uma conta por linha, chave por linha e CPF retirado do texto | Aceito (provisório) |
