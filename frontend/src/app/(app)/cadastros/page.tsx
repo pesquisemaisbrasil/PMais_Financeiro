@@ -55,6 +55,7 @@ import {
   updateRecord,
 } from "@/lib/api";
 import { ACCOUNT_TYPES, balanceText, bankLine, parseBalance } from "@/lib/bank";
+import { place } from "@/lib/nav";
 import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
 import {
   cleanCnpj,
@@ -1148,7 +1149,7 @@ function Records({ tab }: { tab: TabId }) {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
       <PageHeader
-        title="Cadastros"
+        {...place(`/cadastros?aba=${tab}`)}
         icon={BookUser}
         actions={
           tab === "projects" ? (

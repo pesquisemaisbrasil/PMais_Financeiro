@@ -6,6 +6,7 @@ import { CARD, ErrorBox, NUM, PageHeader, TD, TH } from "@/components/finance";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
+import { place } from "@/lib/nav";
 import { brl, formatDate } from "@/lib/payables";
 import { listDivergences, type Divergence } from "@/lib/receipts";
 
@@ -36,8 +37,7 @@ export default function DivergencesPage() {
   return (
     <main className="p-6">
       <PageHeader
-        overline="Financeiro"
-        title="Divergências"
+        {...place("/divergencias")}
         icon={TriangleAlert}
         subtitle="Baixas que o P+ Connect recusou. O Pix já saiu do banco, mas o Connect não aceitou marcar as entrevistas como pagas: nada é corrigido sozinho. Confira com o time do Connect e decida o que fazer."
       />

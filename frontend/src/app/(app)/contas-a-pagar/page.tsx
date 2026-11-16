@@ -67,6 +67,7 @@ import {
   getReference,
   listPayables,
 } from "@/lib/api";
+import { place } from "@/lib/nav";
 import { projectReportHref } from "@/lib/projectReport";
 import {
   brl,
@@ -632,7 +633,7 @@ function PayablesContent() {
   return (
     <main className="mx-auto w-full max-w-[1920px] px-6 pb-16 pt-8 lg:px-8">
       <PageHeader
-        title="Contas a pagar"
+        {...place("/contas-a-pagar")}
         icon={ArrowUpRight}
         actions={
           <div className="flex flex-wrap gap-2">

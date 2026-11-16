@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError, listRecords } from "@/lib/api";
 import { currentMonth } from "@/lib/bank-month";
+import { place } from "@/lib/nav";
 import {
   PAGE_SIZE,
   SITUATION_LABELS,
@@ -125,7 +126,7 @@ export default function BankReconciliationPage() {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
       <PageHeader
-        title="Conferência bancária"
+        {...place("/conferencia-bancaria")}
         icon={Landmark}
         subtitle="Importe o extrato do banco, confira cada linha com o sistema, veja a diferença e o saldo do mês e feche o mês para a contabilidade."
         actions={

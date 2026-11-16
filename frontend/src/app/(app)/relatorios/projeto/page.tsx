@@ -27,6 +27,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, downloadDocument } from "@/lib/api";
 import { fileSize, kindLabel, saveBlob } from "@/lib/documents";
+import { place } from "@/lib/nav";
 import { brl, formatDate, plural } from "@/lib/payables";
 import {
   getProjectReport,
@@ -90,8 +91,7 @@ function ProjectList() {
   return (
     <>
       <PageHeader
-        overline="Relatórios"
-        title="Relatório do projeto"
+        {...place("/relatorios/projeto")}
         icon={ChartColumn}
         subtitle="Escolha um projeto para ver quanto foi lançado, pago e falta pagar, e os documentos de todos os lançamentos dele. Aqui não se paga."
       />

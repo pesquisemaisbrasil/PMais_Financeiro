@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getPayable, getReference } from "@/lib/api";
+import { place } from "@/lib/nav";
 import { getIncentiveAgenda, groupByDay, overdueNotice, peopleText, type Agenda, type Bucket } from "@/lib/incentives";
 import {
   brl,
@@ -159,7 +160,7 @@ export default function IncentiveAgendaPage() {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
       <PageHeader
-        title="Incentivos"
+        {...place("/incentivos")}
         icon={CalendarClock}
         subtitle="Cada data de pagamento dos incentivos, com as pessoas e a situação. Quem paga e dá a baixa continua no Contas a pagar."
         actions={

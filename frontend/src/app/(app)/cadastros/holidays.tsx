@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError, deleteHoliday } from "@/lib/api";
 import { UFS } from "@/lib/customers";
 import { missingFieldsMessage } from "@/lib/forms";
+import { place } from "@/lib/nav";
 import {
   SCOPES,
   SOURCE_LABELS,
@@ -234,7 +235,7 @@ export function HolidaysTab() {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
       <PageHeader
-        title="Cadastros"
+        {...place("/cadastros?aba=holidays")}
         icon={BookUser}
         actions={
           <div className="flex flex-wrap items-center gap-2">

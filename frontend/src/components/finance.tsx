@@ -91,12 +91,15 @@ export function ProvisionTag() {
 
 export function PageHeader({
   overline,
+  section,
   title,
   icon: Icon,
   subtitle,
   actions,
 }: {
   overline?: string;
+  /** A seção do menu da tela ("Financeiro"): o título fica "Financeiro - Contas a pagar". */
+  section?: string;
   title: string;
   icon: LucideIcon;
   subtitle?: string;
@@ -112,7 +115,7 @@ export function PageHeader({
           <span className="grid size-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#4063ee,#009cef)] text-white shadow-[0_6px_14px_-6px_rgb(64_99_238/.7)]">
             <Icon size={18} />
           </span>
-          {title}
+          {section ? `${section} - ${title}` : title}
         </h1>
         {subtitle && <p className="max-w-[720px] text-sm text-muted-foreground">{subtitle}</p>}
       </div>

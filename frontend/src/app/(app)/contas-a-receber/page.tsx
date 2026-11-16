@@ -44,6 +44,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError, getReference, type ExportFormat } from "@/lib/api";
+import { place } from "@/lib/nav";
 import {
   brl,
   formatDate,
@@ -383,7 +384,7 @@ export default function ReceivablesPage() {
   return (
     <main className="mx-auto w-full max-w-[1920px] px-6 pb-16 pt-8 lg:px-8">
       <PageHeader
-        title="Contas a receber"
+        {...place("/contas-a-receber")}
         icon={Wallet}
         actions={
           <div className="flex flex-wrap gap-2">
