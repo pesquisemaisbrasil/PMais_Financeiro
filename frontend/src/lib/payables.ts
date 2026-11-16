@@ -243,8 +243,7 @@ export interface PayableDetail extends PayableRow {
   categoryId: number;
   costCenterId: number;
   paymentMethodId: number;
-  /** Nem toda empresa tem unidade: sem ela, vem null. */
-  unitName: string | null;
+  unitName: string;
   issueDate: string;
   competence: string | null;
   documentDate: string | null;

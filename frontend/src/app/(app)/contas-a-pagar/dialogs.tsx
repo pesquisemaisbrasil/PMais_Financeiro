@@ -106,7 +106,6 @@ import { DetailFields } from "./detail-fields";
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
 const NO_PROJECT = "sem-projeto";
-const NO_UNIT = "sem-unidade"; // nem toda empresa tem unidade
 const KEEP = "nao-mudar";
 const NEW_REAL = "novo";
 const NO_ACCOUNT_HINT = "Esta empresa não tem conta bancária cadastrada.";
@@ -136,7 +135,6 @@ export function NewPayableDialog({
     supplierId: "",
     categoryId: "",
     description: "",
-    companyId: "",
     unitId: "",
     costCenterId: "",
     paymentMethodId: "",
@@ -160,10 +158,14 @@ export function NewPayableDialog({
   const missingRecords = [
     !reference.suppliers.length && "fornecedores",
     !expenseCategories(reference).length && "categorias",
-    !reference.companies.length && "empresas",
+    !reference.units.length && "unidades",
     !reference.costCenters.length && "centros de custo",
     !reference.paymentMethods.length && "formas de pagamento",
   ].filter(Boolean);
+
+  // Como no sistema antigo, a Nova conta a pagar não tem campo Empresa: ela vem da unidade escolhida.
+  const unit = reference.units.find((u) => String(u.id) === form.unitId);
+  const companyName = (companyId: number) => reference.companies.find((c) => c.id === companyId)?.name ?? "";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -181,12 +183,12 @@ export function NewPayableDialog({
       ["Vencimento", form.dueDate],
       ["Fornecedor", form.isProvision || form.supplierId],
       ["Categoria", form.categoryId],
-      ["Empresa", form.companyId],
+      ["Unidade", unit],
       ["Centro de custo", form.costCenterId],
       ["Forma de pagamento", form.paymentMethodId],
       ["Descrição", form.description.trim()],
     ]);
-    if (missing) return setLocalError(missing);
+    if (missing || !unit) return setLocalError(missing ?? "Escolha a unidade.");
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
@@ -211,8 +213,8 @@ export function NewPayableDialog({
         amount,
         supplierId: form.supplierId ? Number(form.supplierId) : null,
         categoryId: Number(form.categoryId),
-        companyId: Number(form.companyId),
-        unitId: form.unitId ? Number(form.unitId) : null,
+        companyId: unit.companyId,
+        unitId: unit.id,
         costCenterId: Number(form.costCenterId),
         paymentMethodId: Number(form.paymentMethodId),
         description: form.description,
@@ -298,26 +300,15 @@ export function NewPayableDialog({
                 />
               </Field>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Empresa *" id="p-emp">
-                <Choice
-                  id="p-emp"
-                  value={form.companyId}
-                  onChange={(value) => setForm((current) => ({ ...current, companyId: value, unitId: "" }))}
-                  options={reference.companies.map((c) => ({ id: c.id, label: c.name }))}
-                />
-              </Field>
-              <Field label="Unidade" id="p-uni">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Unidade *" id="p-uni">
                 <Choice
                   id="p-uni"
-                  value={form.unitId || NO_UNIT}
-                  onChange={(value) => set("unitId")(value === NO_UNIT ? "" : value)}
-                  options={[
-                    { id: NO_UNIT, label: "Sem unidade" },
-                    ...reference.units
-                      .filter((u) => String(u.companyId) === form.companyId)
-                      .map((u) => ({ id: u.id, label: u.name })),
-                  ]}
+                  searchable
+                  value={form.unitId}
+                  onChange={set("unitId")}
+                  // o nome da empresa distingue unidades de mesmo nome (a empresa vem da unidade)
+                  options={reference.units.map((u) => ({ id: u.id, label: `${u.name} · ${companyName(u.companyId)}` }))}
                 />
               </Field>
               <Field label="Centro de custo *" id="p-cc">
