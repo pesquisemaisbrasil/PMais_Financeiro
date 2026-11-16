@@ -14,7 +14,7 @@ PeriodMode = Literal["dia", "semana", "mes", "ano", "tudo", "periodo"]
 Indicator = Literal[
     "total", "pagos", "pendentes", "vencidos", "hoje", "avencer", "provisoes", "cancelados"
 ]
-Tab = Literal["todas", "agrupados", "provisoes", "connect"]
+Tab = Literal["todas", "agrupados", "provisoes", "connect", "relatorio"]
 SortColumn = Literal[
     "vencimento", "fornecedor", "documento", "categoria", "situacao", "valor", "pago", "pendente"
 ]
@@ -471,6 +471,70 @@ class ImportResult(BaseModel):
     count: int
     items: int
     total: Decimal
+
+
+# ---- Relatório do sistema antigo ("Lançamentos a Pagar" do SGE4B) ----
+
+
+class ReportFields(BaseModel):
+    """O que a pessoa marcou na tela: os padrões para o que o relatório não diz, ou diz com um
+    nome que não existe nos cadastros. A empresa vem da unidade."""
+
+    categoryId: int | None = None
+    paymentMethodId: int | None = None
+    unitId: int | None = None
+    costCenterId: int | None = None
+    projectId: int | None = None
+    bankAccountId: int | None = None
+    # Linha paga (R$ Pago) cria também a baixa; desligado, tudo entra a pagar.
+    registerPayments: bool = True
+
+
+class ReportLine(BaseModel):
+    line: int
+    scheduled: date | None
+    dueDate: date | None
+    paidOn: date | None
+    supplier: str
+    description: str
+    net: Decimal | None
+    paid: Decimal
+    # Empresa · unidade · centro de custo · plano de contas que a conta vai ter
+    classification: str | None
+    account: str | None
+    project: str | None
+    # Entra com a baixa (linha paga e a opção ligada)
+    willPay: bool
+    # Fora sem ser erro: "Cancelada no relatório" ou "Já importada antes"
+    skipped: str | None
+    # O que o sistema decidiu sozinho (padrão usado, fornecedor só com o nome, sem projeto)
+    notes: list[str]
+    errors: list[str]
+
+
+class ReportPreview(BaseModel):
+    columns: list[str]
+    goodCount: int
+    paidCount: int
+    pendingCount: int
+    errorCount: int
+    cancelledCount: int
+    alreadyCount: int
+    supplierOnlyNameCount: int
+    noProjectCount: int
+    usedDefaultCount: int
+    total: Decimal
+    paidTotal: Decimal
+    pendingTotal: Decimal
+    lines: list[ReportLine]
+
+
+class ReportResult(BaseModel):
+    count: int
+    paidCount: int
+    total: Decimal
+    paidTotal: Decimal
+    pendingTotal: Decimal
 
 
 # ---- Recorrência ----

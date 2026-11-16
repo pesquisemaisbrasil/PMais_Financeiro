@@ -52,6 +52,9 @@ from schemas.payable import (
     RecurringCreate,
     Reference,
     ReplacementCandidate,
+    ReportFields,
+    ReportPreview,
+    ReportResult,
     SeriesCancel,
     SeriesCreated,
     SeriesEdit,
@@ -62,7 +65,7 @@ from schemas.payable import (
     SortColumn,
     Tab,
 )
-from services import attachments, payable_import, recurrence
+from services import attachments, payable_import, recurrence, report_import
 from services import payable as payable_service
 from services.auth import get_current_user
 from services.holidays import holiday_names
@@ -342,6 +345,62 @@ def import_payables(
 ) -> dict[str, Any]:
     filename, content = _upload(file)
     return _in_transaction(db, lambda: payable_import.confirm(db, fields, filename, content, user))
+
+
+def _report_fields(
+    # Os padrões marcados na tela para o que o relatório não diz, ou diz com um nome que não existe.
+    categoryId: Annotated[int | None, Form()] = None,
+    paymentMethodId: Annotated[int | None, Form()] = None,
+    unitId: Annotated[int | None, Form()] = None,
+    costCenterId: Annotated[int | None, Form()] = None,
+    projectId: Annotated[int | None, Form()] = None,
+    bankAccountId: Annotated[int | None, Form()] = None,
+    registerPayments: Annotated[bool, Form()] = True,
+) -> ReportFields:
+    return ReportFields(
+        categoryId=categoryId,
+        paymentMethodId=paymentMethodId,
+        unitId=unitId,
+        costCenterId=costCenterId,
+        projectId=projectId,
+        bankAccountId=bankAccountId,
+        registerPayments=registerPayments,
+    )
+
+
+@router.post(
+    "/payables/import-report/preview",
+    response_model=ReportPreview,
+    description="Confere o relatório Lançamentos a Pagar do sistema antigo, sem gravar nada",
+)
+@limiter.limit(WRITE_LIMIT)
+def preview_report(
+    request: Request,
+    file: UploadFile,
+    fields: Annotated[ReportFields, Depends(_report_fields)],
+    db: DbSession,
+    _: FinanceUser,
+) -> dict[str, Any]:
+    filename, content = _upload(file)
+    return _handle(lambda: report_import.preview(db, fields, filename, content))
+
+
+@router.post(
+    "/payables/import-report",
+    response_model=ReportResult,
+    status_code=status.HTTP_201_CREATED,
+    description="Cria as contas do relatório do sistema antigo; o arquivo não fica guardado",
+)
+@limiter.limit(WRITE_LIMIT)
+def import_report(
+    request: Request,
+    file: UploadFile,
+    fields: Annotated[ReportFields, Depends(_report_fields)],
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    filename, content = _upload(file)
+    return _in_transaction(db, lambda: report_import.confirm(db, fields, filename, content, user))
 
 
 @router.post(

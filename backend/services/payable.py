@@ -180,6 +180,7 @@ TABS: dict[str, Callable[[Payable, dict[int, int]], bool]] = {
     "agrupados": lambda p, counts: counts.get(p.id, 0) > 0 and p.origin != "connect",
     "provisoes": lambda p, counts: p.type == "provisao",
     "connect": lambda p, counts: p.origin == "connect",
+    "relatorio": lambda p, counts: p.origin == "relatorio",
 }
 
 

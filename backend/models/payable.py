@@ -4,6 +4,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -52,11 +53,14 @@ class Payable(Base):
     """
 
     __tablename__ = "payables"
+    # A chave de cada linha do relatório do sistema antigo não se repete (NULL pode, nas demais).
+    __table_args__ = (Index("uq_payables_import_key", "importKey", unique=True),)
 
     id = Column(Integer, primary_key=True, index=True)
     # real | provisao. Provisão nunca é paga.
     type = Column(String(20), nullable=False, default="real", index=True)
-    # manual | connect | incentivo | folha. O do Connect se paga pelo PDF de comprovantes.
+    # manual | connect | incentivo | folha | relatorio. O do Connect se paga pelo PDF de
+    # comprovantes.
     origin = Column(String(20), nullable=False, default="manual", index=True)
     company_id = Column(
         Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -99,6 +103,9 @@ class Payable(Base):
     # Provisão trocada pelo lançamento real: sai das contas, e o real entra no lugar.
     # Resumo do arquivo importado, para avisar quando a mesma planilha vier de novo.
     importHash = Column(String(64), nullable=True, index=True)
+    # HMAC da linha do relatório do sistema antigo (origem "relatorio"): reenviar o relatório, ou um
+    # mais novo, só cria as contas que ainda não existem. Nulo nas contas de outra origem.
+    importKey = Column(String(64), nullable=True)
     replaced_by_id = Column(
         Integer, ForeignKey("payables.id", ondelete="SET NULL"), nullable=True, index=True
     )
