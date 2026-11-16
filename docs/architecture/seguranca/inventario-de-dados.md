@@ -84,6 +84,16 @@ O arquivo da planilha **não é guardado**: é lido na hora e descartado.
 
 O arquivo do relatório **não é guardado**: é lido na hora e descartado. O resumo dele (`payables.importHash`) só serve para saber de que arquivo veio cada conta.
 
+## Solicitações da equipe (versão de demonstração)
+
+O botão **Enviar solicitação** da demonstração é a única coisa dela que sai do navegador ([spec](../../specs/solicitacoes.md), [ADR 0019](../adr/0019-solicitacoes-da-demonstracao-no-netlify.md)). Fica **fora da empresa**, no Netlify (operador, servidores fora do Brasil).
+
+| Dado | Onde | Como fica guardado | Por quê | Prazo |
+|---|---|---|---|---|
+| Tipo (bug, regra ou melhoria), **descrição**, tela de origem, **nome de quem estava logado** (hoje a conta fictícia "Bruna Demonstração"), data e hora | Netlify Blobs do site da demonstração, store `solicitacoes`, chave `solicitacao/<id>` | Em claro. A descrição é texto livre: pode citar pessoas, por isso a regra é usar só dados de exemplo | Corrigir e melhorar o sistema a partir do teste da equipe | A definir com o DPO (Q50). Nada apaga hoje; apagar é pelo painel do Netlify |
+| **Imagem** (print da tela) | Mesmo store, chave `imagem/<id>` | Em claro; só PNG, JPG, WEBP ou GIF (conferido pelos bytes), até 4 MB | Mostrar o problema | A definir com o DPO (Q50) |
+| Chave do desenvolvimento | Variável `SOLICITACOES_CHAVE` do site no Netlify; no navegador de quem entra no acesso Desenvolvimento (`localStorage`) | Em claro nas duas pontas | Ler a lista e as imagens | Enquanto valer; trocar a chave no Netlify invalida a do navegador |
+
 ## Conferência bancária (PF-69 a PF-72)
 
 | Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |

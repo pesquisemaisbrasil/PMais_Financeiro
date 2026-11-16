@@ -43,7 +43,27 @@ O `netlify.toml` da raiz já tem tudo: roda `frontend/scripts/build-demo.mjs`, c
 
 ## Num site só da demonstração (por exemplo, o Netlify de uma pessoa)
 
-Para publicar **só a demonstração**, sem tocar no site do protótipo: ela sai na **raiz** do site, sem link de volta ao protótipo (o aviso de dados fictícios continua). Dentro de `frontend/`:
+Para publicar **só a demonstração**, sem tocar no site do protótipo: ela sai na **raiz** do site, sem link de volta ao protótipo (o aviso de dados fictícios continua).
+
+### Com as solicitações da equipe (o jeito de publicar desde 16/11/2026)
+
+O botão **Enviar solicitação** manda o pedido para uma **função do Netlify** do próprio site (`frontend/netlify/functions/solicitacoes.mts`), que guarda tudo no **Netlify Blobs**; o acesso **Desenvolvimento** lê com uma chave ([spec](../specs/solicitacoes.md), [ADR 0019](../architecture/adr/0019-solicitacoes-da-demonstracao-no-netlify.md)). O ZIP arrastado **não leva funções**, então este site passa a ser publicado pelo Netlify CLI:
+
+1. **Uma vez:** `npx netlify-cli@27.16.1 login` (abre o navegador para você entrar no Netlify).
+2. **Uma vez:** no site, em **Site configuration → Environment variables**, crie `SOLICITACOES_CHAVE` com uma chave longa que só você saiba. Ela nunca vai para o código, o chat, prints nem o git. Sem ela, as meninas conseguem enviar, mas a lista responde "A chave do desenvolvimento ainda não foi configurada no Netlify".
+3. **A cada publicação**, dentro de `frontend/`:
+
+```bash
+NETLIFY_SITE=<nome-ou-ID-do-site> node scripts/deploy-demo.mjs
+# só gerar e ver o comando, sem publicar:
+DEMO_DEPLOY_DRY_RUN=1 NETLIFY_SITE=<nome-ou-ID-do-site> node scripts/deploy-demo.mjs
+```
+
+O script gera o site em `frontend/out`, grava o `_headers` e chama `netlify deploy --prod --no-build` com a pasta e a função, rodando fora do repositório (o `netlify.toml` da raiz é do site do protótipo e não vale aqui). Para ver as solicitações: na tela de entrada, aba **Desenvolvimento**, digite a chave; no menu aparece **Solicitações**.
+
+### Só as telas, sem as solicitações (ZIP)
+
+Dentro de `frontend/`:
 
 ```bash
 node scripts/package-demo.mjs
@@ -56,14 +76,15 @@ O comando gera a demonstração e escreve um **ZIP** (por padrão em `frontend/.
 - **Site novo:** Add new site → **Upload your project files** → "browse files to upload" e o ZIP.
 - **Atualizar o site que já existe:** abra o site → **Deploys** → arraste o ZIP na área de envio. O endereço continua o mesmo.
 
-Se o Netlify disser "We're having some trouble connecting you", é bloqueador de anúncios ou extensão do navegador: use uma janela anônima. `DEMO_PROTOTYPE_URL=https://endereço` liga a faixa roxa do topo ("Ambiente de teste com dados fictícios", com o link "Voltar ao protótipo"); sem ele, o site da demonstração não tem faixa. Cada atualização exige gerar e arrastar de novo (ou ligar um site ao repositório com uma configuração própria).
+Se o Netlify disser "We're having some trouble connecting you", é bloqueador de anúncios ou extensão do navegador: use uma janela anônima. `DEMO_PROTOTYPE_URL=https://endereço` liga a faixa roxa do topo ("Ambiente de teste com dados fictícios", com o link "Voltar ao protótipo"); sem ele, o site da demonstração não tem faixa. Cada atualização exige gerar e arrastar de novo (ou ligar um site ao repositório com uma configuração própria). **Publicado por ZIP, o botão Enviar solicitação não funciona** (a função não vai junto): use o `deploy-demo.mjs` acima.
 
 ## Limites
 
 - O trabalho fica guardado **no navegador de cada pessoa**: não é compartilhado, e limpar os dados do site ou trocar de navegador começa do zero. **Quando o app muda a estrutura das tabelas, a demonstração recomeça do zero** e quem testava perde o que tinha (avise antes de subir uma versão nova). Duas abas abertas ao mesmo tempo guardam por cima uma da outra.
 - Primeira abertura: alguns segundos com a tela "Preparando a demonstração" (o Python liga e os dados são criados); depois o navegador guarda os arquivos (a pasta gerada tem cerca de 26 MB).
 - Comprovante em PDF e planilha de importação de verdade não fazem parte (não há arquivo real); o resto das telas funciona, inclusive baixa, conciliação do extrato, fechamento do mês e exportação para Excel.
-- Os botões de Google e Microsoft aparecem na tela de entrada, mas só como visual: o clique avisa que o login ainda não está disponível (na demonstração não há provedor).
+- A tela de entrada tem **dois acessos**: **Financeiro** (o das meninas, já preenchido) e **Desenvolvimento** (pede a chave do Netlify e mostra a tela **Solicitações**). Não há Google nem Microsoft na demonstração.
+- As **solicitações** são a única coisa que sai do navegador: vão para o Netlify Blobs do site (dado fora da empresa). Por isso o print e a descrição só podem ter **dados de exemplo**. O limite é de 500 solicitações guardadas e 4 MB por imagem; apagar é pelo painel do Netlify (Blobs, store `solicitacoes`) até a regra de guarda do DPO (Q50).
 - Python 3.13 e SQLAlchemy 2.0 no navegador, contra 3.11 e 1.4 na produção: a CI roda o teste de tela da demonstração para pegar diferença.
 
 ## Solução de problemas
@@ -74,3 +95,6 @@ Se o Netlify disser "We're having some trouble connecting you", é bloqueador de
 | `/teste/` mostra o aviso "este endereço ainda não existe" | O deploy não gerou o `teste/`: o site não está ligado ao repositório ou o build falhou (veja o log do deploy) |
 | Pedidos 404 em `__next.…txt` no console | Pré-carregamentos que o Next pede e a exportação estática não gera; não afetam o uso |
 | O build local falha ao baixar pacotes | Sem internet ou hash diferente do esperado em `frontend/scripts/demo-packages.json` (o script para de propósito) |
+| "Enviar solicitação" diz "Não encontrado" ou "O serviço está indisponível" | O site foi publicado por ZIP, sem a função: publique com `scripts/deploy-demo.mjs` |
+| Aba Desenvolvimento: "A chave do desenvolvimento ainda não foi configurada no Netlify" | Falta `SOLICITACOES_CHAVE` nas variáveis do site; depois de criar, publique de novo |
+| Aba Desenvolvimento: "Chave errada." | A chave digitada não é a do Netlify (diferença de maiúscula ou espaço conta) |
