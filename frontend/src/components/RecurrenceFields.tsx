@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, simulateRecurrence } from "@/lib/api";
+import { maskMoney } from "@/lib/money";
 import {
   RECURRENCE_KINDS,
   brl,
   formatDate,
+  occurrencesTotal,
   simulationIsCurrent,
   simulationKey,
   type Occurrence,
@@ -77,8 +79,11 @@ export function RecurrenceFields({
     onError(null);
     setSimulating(true);
     try {
-      const rows = await simulateRecurrence({ kind: value.kind, startDate: dueDate, count, amount });
-      onChange({ ...value, simulated: rows, rows, simulatedFor: simulationKey(dueDate, amount) });
+      const simulated = await simulateRecurrence({ kind: value.kind, startDate: dueDate, count, amount });
+      // A tabela mostra o valor como o campo de valor escreve ("1.000,00"), não como a API ("1000.00"):
+      // "333.33" lido em português parece trinta e três mil. `simulated` fica como o servidor mandou.
+      const rows = simulated.map((row) => ({ ...row, amount: maskMoney(row.amount) }));
+      onChange({ ...value, simulated, rows, simulatedFor: simulationKey(dueDate, amount) });
     } catch (error) {
       onError(error instanceof ApiError ? error.message : "Não foi possível simular.");
     } finally {
@@ -186,7 +191,7 @@ export function RecurrenceFields({
             <p className="text-xs text-muted-foreground">
               {rows.length} {noun === "conta" ? "contas" : "títulos"}, de {formatDate(rows[0].dueDate)} a{" "}
               {formatDate(rows[rows.length - 1].dueDate)}, no total de{" "}
-              {brl(rows.reduce((sum, row) => sum + Number(row.amount), 0))}. Vencimento em fim de semana
+              {brl(occurrencesTotal(rows))}. Vencimento em fim de semana
               ou feriado vai para o próximo dia útil.
             </p>
           )}

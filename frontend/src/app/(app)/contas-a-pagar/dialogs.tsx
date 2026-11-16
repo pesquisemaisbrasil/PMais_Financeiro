@@ -75,6 +75,7 @@ import {
   brl,
   expenseCategories,
   formatDate,
+  invalidOccurrence,
   occurrenceEdits,
   buildAllocations,
   parseMoney,
@@ -198,6 +199,8 @@ export function NewPayableDialog({
       allocations = [{ projectId: Number(form.projectId), amount }];
     }
     if (recurrence.repeat && form.isProvision) return setLocalError("Provisão não se repete.");
+    const badOccurrence = recurrence.repeat ? invalidOccurrence(recurrence.rows) : null;
+    if (badOccurrence) return setLocalError(badOccurrence);
     if (recurrence.repeat && !simulationIsCurrent(recurrence, form.dueDate, amount)) {
       return setLocalError("Clique em Simular para conferir as ocorrências antes de salvar.");
     }

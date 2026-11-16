@@ -94,9 +94,24 @@ export function occurrenceEdits(simulated: Occurrence[], edited: Occurrence[]) {
   return edited.flatMap((row, i) => {
     const before = simulated[i];
     const dueDate = row.dueDate !== before.dueDate ? row.dueDate : undefined;
-    const amount = Number(row.amount) !== Number(before.amount) ? row.amount : undefined;
+    // O valor digitado na tela ("1.234,56") vai ao servidor como "1234.56". O que não se lê segue como
+    // está, e `invalidOccurrence` já barra antes de enviar.
+    const typed = parseMoney(row.amount) ?? row.amount;
+    const amount = typed !== (parseMoney(before.amount) ?? before.amount) ? typed : undefined;
     return dueDate || amount ? [{ index: row.index, dueDate, amount }] : [];
   });
+}
+
+/** A primeira ocorrência da tabela simulada cujo valor não é um valor em reais, para avisar antes de lançar. */
+export function invalidOccurrence(rows: Occurrence[] | null): string | null {
+  const bad = (rows ?? []).find((row) => parseMoney(row.amount) === null);
+  return bad ? `Confira o valor da ocorrência ${bad.index}: use só números, como 1.234,56.` : null;
+}
+
+/** Quanto as ocorrências somam, em reais ("1000.00"); valor que não se lê conta como zero. */
+export function occurrencesTotal(rows: Occurrence[]): string {
+  const cents = rows.reduce((sum, row) => sum + toCents(parseMoney(row.amount) ?? "0.00"), 0);
+  return (cents / 100).toFixed(2);
 }
 
 /** Com que vencimento e valor a tabela foi simulada. */

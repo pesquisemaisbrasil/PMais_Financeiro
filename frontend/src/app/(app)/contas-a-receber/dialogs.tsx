@@ -40,6 +40,7 @@ import {
   brl,
   formatDate,
   formatDateTime,
+  invalidOccurrence,
   occurrenceEdits,
   parseMoney,
   percentOf,
@@ -178,6 +179,8 @@ export function NewReceivableDialog({
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
+    const badOccurrence = recurrence.repeat ? invalidOccurrence(recurrence.rows) : null;
+    if (badOccurrence) return setLocalError(badOccurrence);
     if (recurrence.repeat && !simulationIsCurrent(recurrence, form.dueDate, gross)) {
       return setLocalError("Clique em Simular para conferir as parcelas antes de salvar.");
     }

@@ -8,7 +8,9 @@ import {
   isoFromDate,
   monthRange,
   nextRange,
+  invalidOccurrence,
   occurrenceEdits,
+  occurrencesTotal,
   cleanCnpj,
   looksLikeCnpj,
   percentOf,
@@ -427,6 +429,33 @@ describe("recorrência", () => {
 
   it("não manda nada quando a tabela ficou como o servidor simulou", () => {
     expect(occurrenceEdits(simulated, simulated)).toEqual([]);
+  });
+
+  it("o valor que a máscara escreve ('1.234,56') vai ao servidor como '1234.56'", () => {
+    const shown = simulated.map((row) => ({ ...row, amount: "150,00" }));
+    expect(occurrenceEdits(simulated, shown)).toEqual([]); // 150,00 é o mesmo que 150.00
+    const edited = [shown[0], { ...shown[1], amount: "1.163,40" }, shown[2]];
+    expect(occurrenceEdits(simulated, edited)).toEqual([{ index: 2, dueDate: undefined, amount: "1163.40" }]);
+  });
+
+  it("soma as ocorrências em reais, com vírgula ou ponto, e valor ilegível conta zero", () => {
+    const rows = [
+      { index: 1, dueDate: "2027-02-01", amount: "300,00" },
+      { index: 2, dueDate: "2027-03-01", amount: "333.33" },
+      { index: 3, dueDate: "2027-03-31", amount: "1.333,34" },
+    ];
+    expect(occurrencesTotal(rows)).toBe("1966.67");
+    expect(occurrencesTotal([{ ...rows[0], amount: "abc" }])).toBe("0.00");
+  });
+
+  it("aponta a primeira ocorrência com valor que não é um valor em reais", () => {
+    const rows = [
+      { index: 1, dueDate: "2027-02-01", amount: "150,00" },
+      { index: 2, dueDate: "2027-03-01", amount: "" },
+    ];
+    expect(invalidOccurrence(rows)).toBe("Confira o valor da ocorrência 2: use só números, como 1.234,56.");
+    expect(invalidOccurrence([rows[0]])).toBeNull();
+    expect(invalidOccurrence(null)).toBeNull();
   });
 
   it("trata 150 e 150.00 como o mesmo valor", () => {
