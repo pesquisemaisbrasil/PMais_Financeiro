@@ -4,6 +4,9 @@
 *.WAV
 *.wav
 *.xlsx
+*.xls
+# Relatórios reais do sistema antigo, guardados só na máquina de quem importa
+docs/Excel/
 .env
 .env.*
 !.env.example
