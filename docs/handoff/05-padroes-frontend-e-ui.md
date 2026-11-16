@@ -222,7 +222,9 @@ Também reutilizáveis: `components/dashboard/` — `DashboardHeader` (sobretít
 ```
 Props: `role?: AppRole | AppRole[]` (`"admin" | "supervisor" | "financeiro" | "user"`), `allowPendingProfile?: boolean`. Exporta também `homePathFor(user)`.
 
-**`Sidebar`** — menu lateral fixo (`w-64`), logo + `NotificationBell` no topo, links por papel, suporte, avatar com nome/papel e "Sair". Sem props. Ver §6.
+**`Sidebar`** — menu lateral fixo (`w-64`), logo + `NotificationBell` no topo, links por papel, suporte, avatar com nome/papel e "Sair". Sem props. Ver §6. A estrutura do menu (seções, nomes e endereços) fica em `src/lib/nav.ts`, a única fonte: a página atual vai em azul cheio (`aria-current="page"`) e a seção dela, aberta ou recolhida, fica com o fundo azul claro (`data-current="true"`). O endereço é comparado **sem a barra do fim** (`normalizePath`), porque o site exportado da demonstração abre `/contas-a-pagar/`.
+
+**`PageHeader`** — o título da tela. Para as telas do menu, use `<PageHeader {...place("/contas-a-pagar")} />` (de `src/lib/nav.ts`): ele escreve "Seção - Página" ("Financeiro - Contas a pagar", "Cadastros - Fornecedores") com o nome que está no menu, então título e menu não divergem. O Início e o detalhe do relatório de um projeto têm título próprio, sem seção.
 
 **`ConfirmModal`** — toda ação irreversível.
 
