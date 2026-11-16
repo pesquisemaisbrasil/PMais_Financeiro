@@ -34,11 +34,12 @@ test("campos obrigatórios: o * é vermelho e a mensagem diz quais campos faltam
   // também é um alerta no diálogo.
   const alert = form.getByRole("alert").filter({ hasText: "Preencha os campos obrigatórios:" });
   await expect(alert).toBeVisible();
-  for (const name of ["Fornecedor", "Categoria", "Empresa", "Centro de custo", "Forma de pagamento", "Descrição"]) {
+  // Os mesmos campos obrigatórios do sistema antigo: sem Empresa (ela vem da unidade) e com Unidade
+  for (const name of ["Fornecedor", "Categoria", "Unidade", "Centro de custo", "Forma de pagamento", "Descrição"]) {
     await expect(alert).toContainText(name);
   }
-  // Nem toda empresa tem unidade: ela não é obrigatória e não aparece na lista dos que faltam
-  await expect(alert).not.toContainText("Unidade");
+  await expect(alert).not.toContainText("Empresa");
+  await expect(alert).not.toContainText("Projeto"); // o projeto continua opcional
   await expect(alert).not.toContainText("campos com *");
-  await expect(form.getByText("Unidade", { exact: true })).toBeVisible(); // o rótulo, sem asterisco
+  await expect(form.getByRole("combobox", { name: /Empresa/ })).toHaveCount(0);
 });

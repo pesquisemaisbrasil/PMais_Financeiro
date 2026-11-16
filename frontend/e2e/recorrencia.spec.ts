@@ -18,8 +18,7 @@ test("repetir uma conta, ajustar a tabela, alterar e cancelar a série", async (
   await choose(page, "Fornecedor *", /Batel/);
   await choose(page, "Categoria *", /Aluguel/);
   await form.getByLabel("Descrição *").fill("Aluguel da sala de teste");
-  await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade", "Consumo SP");
+  await choose(page, "Unidade *", /Consumo SP · PPlus/); // a empresa vem da unidade
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Boleto");
 
@@ -92,8 +91,7 @@ test("a conta aberta mostra a série na aba Repetir e deixa alterar a série e d
   await choose(page, "Fornecedor *", /Batel/);
   await choose(page, "Categoria *", /Aluguel/);
   await form.getByLabel("Descrição *").fill("Mensalidade do detalhe");
-  await choose(page, "Empresa *", "PPlus");
-  await choose(page, "Unidade", "Consumo SP");
+  await choose(page, "Unidade *", /Consumo SP · PPlus/); // a empresa vem da unidade
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Boleto");
   await form.getByLabel("Repetir esta conta").check();
