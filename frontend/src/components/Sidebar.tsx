@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  BookUser,
-  ChartColumn,
-  ChevronDown,
-  Compass,
-  House,
-  LogOut,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronDown, Compass, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -26,68 +15,17 @@ import { getHome } from "@/lib/api";
 import { DemoResetButton } from "@/components/Demo";
 import { useAuth } from "@/lib/auth-context";
 import { publicAsset } from "@/lib/basePath";
+import { NAV, isActive } from "@/lib/nav";
 import { PAYABLES_CHANGED } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
-type Leaf = {
-  label: string;
-  /** Sem endereço = tela que ainda não existe: aparece como "Em breve", sem link. */
-  href?: string;
-  counted?: boolean;
-};
-type Entry = { id: string; label: string; icon: LucideIcon; href?: string; children?: Leaf[] };
-
-const NAV: Entry[] = [
-  { id: "inicio", label: "Início", icon: House, href: "/" },
-  {
-    id: "financeiro",
-    label: "Financeiro",
-    icon: Wallet,
-    children: [
-      { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
-      { href: "/contas-a-receber", label: "Contas a receber" },
-      { label: "Notas e RPA" },
-      { href: "/conferencia-bancaria", label: "Conferência bancária" },
-      { href: "/divergencias", label: "Divergências" },
-    ],
-  },
-  {
-    id: "relatorios",
-    label: "Relatórios",
-    icon: ChartColumn,
-    children: [
-      { href: "/relatorios/projeto", label: "Relatório do projeto" },
-      { href: "/incentivos", label: "Incentivos" },
-      { label: "Fluxo de caixa" },
-      { label: "DRE" },
-      { label: "Resultado por projeto" },
-      { label: "Extrato × despesas" },
-    ],
-  },
-  {
-    id: "cadastros",
-    label: "Cadastros",
-    icon: BookUser,
-    children: [
-      { href: "/cadastros?aba=companies", label: "Empresas" },
-      { href: "/cadastros?aba=units", label: "Unidades" },
-      { href: "/cadastros?aba=costCenters", label: "Centros de custo" },
-      { href: "/cadastros?aba=customers", label: "Clientes" },
-      { href: "/cadastros?aba=suppliers", label: "Fornecedores" },
-      { href: "/cadastros?aba=categories", label: "Plano de contas" },
-      { href: "/cadastros?aba=projects", label: "Projetos" },
-      { href: "/cadastros?aba=bankAccounts", label: "Contas bancárias" },
-      { href: "/cadastros?aba=paymentMethods", label: "Formas de pagamento" },
-      { href: "/cadastros?aba=holidays", label: "Feriados" },
-    ],
-  },
-];
-
 const ROW =
   "relative flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-[9px] text-sm font-medium transition-colors duration-150";
+// A página em que a pessoa está: azul cheio. A seção dela (o grupo) fica com o fundo azul claro, aberta ou não.
 const ROW_ACTIVE =
   "bg-[linear-gradient(135deg,#4063ee,#5a52f0)] text-white shadow-[0_8px_16px_-8px_rgb(64_99_238/.75)]";
 const ROW_IDLE = "text-brand-cinza-escuro/75 hover:bg-accent hover:text-brand-azul-deep";
+const GROUP_CURRENT = "bg-accent font-semibold text-brand-azul-deep";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
@@ -102,14 +40,6 @@ function readCollapsed(): boolean {
   } catch {
     return false;
   }
-}
-
-/** A aba do Cadastros vem do endereço (?aba=); sem ela, vale a primeira. */
-function isActive(href: string | undefined, pathname: string, aba: string | null): boolean {
-  if (!href) return false;
-  const [path, query] = href.split("?");
-  if (pathname !== path) return false;
-  return !query || (aba ?? "companies") === new URLSearchParams(query).get("aba");
 }
 
 /** Menu recolhido só tem o ícone: o nome aparece ao passar o mouse e ao focar pelo teclado. */
@@ -247,11 +177,12 @@ export function Sidebar() {
                     variant="ghost"
                     aria-label={entry.label}
                     data-tour={`menu-${entry.id}`}
+                    data-current={hasCurrent ? "true" : undefined}
                     className={cn(
                       ROW,
                       "h-auto w-full justify-start hover:bg-accent",
                       collapsed && "md:justify-center md:px-0",
-                      hasCurrent ? "text-brand-azul-deep" : "text-brand-cinza-escuro/75 hover:text-brand-azul-deep"
+                      hasCurrent ? GROUP_CURRENT : "text-brand-cinza-escuro/75 hover:text-brand-azul-deep"
                     )}
                   >
                     <Icon size={16} strokeWidth={2} />
