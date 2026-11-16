@@ -25,10 +25,14 @@ import type {
 
 import { DEMO, demoFetch } from "./demo/client";
 import type { DocumentChange } from "./documents";
+import type { FeedbackItem } from "./feedback";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
 
-/** O único `fetch` do app. Na versão de demonstração, o backend roda dentro do navegador. */
+/**
+ * O `fetch` do app. Na versão de demonstração, o backend roda dentro do navegador; só as
+ * solicitações da equipe (sendFeedback, mais abaixo) vão à rede, para a função do Netlify.
+ */
 const apiFetch = (url: string, init?: RequestInit): Promise<Response> =>
   DEMO ? demoFetch(url, init) : fetch(url, init);
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL;
@@ -504,4 +508,37 @@ export async function syncConnectProjects(): Promise<number> {
 
 export function updateProjectIncentive(id: number, body: unknown): Promise<Project> {
   return send<Project>(`/projects/${id}/incentive`, "PATCH", body);
+}
+
+// ---- Solicitações da equipe (só na demonstração) ----
+// Vão para a função do Netlify do próprio site (netlify/functions/solicitacoes.mts), e não para o
+// backend do navegador: assim chegam ao desenvolvimento. Ler pede a chave do desenvolvimento.
+
+const FEEDBACK_URL = "/api/solicitacoes";
+
+async function feedbackRequest(path: string, init: RequestInit = {}): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(`${FEEDBACK_URL}${path}`, { ...init, cache: "no-store" });
+  } catch {
+    throw new ApiError(0, NETWORK_ERROR_MESSAGE);
+  }
+  if (!response.ok) throw new ApiError(response.status, await extractErrorMessage(response));
+  return response;
+}
+
+const withKey = (key: string): RequestInit => ({ headers: { Authorization: `Bearer ${key}` } });
+
+/** Envia tipo, descrição e imagem (FormData com tipo, descricao, imagem, pagina e quem). */
+export async function sendFeedback(form: FormData): Promise<void> {
+  await feedbackRequest("", { method: "POST", body: form });
+}
+
+export async function listFeedback(key: string): Promise<FeedbackItem[]> {
+  const response = await feedbackRequest("", withKey(key));
+  return ((await response.json()) as { items: FeedbackItem[] }).items;
+}
+
+export async function getFeedbackImage(id: string, key: string): Promise<Blob> {
+  return (await feedbackRequest(`/${encodeURIComponent(id)}/imagem`, withKey(key))).blob();
 }

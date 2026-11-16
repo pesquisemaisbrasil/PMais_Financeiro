@@ -146,9 +146,10 @@ self.onmessage = (event) => {
         }
         self.postMessage({ type: "response", id: message.id, ...response }, [response.body.buffer]);
       } else if (message.type === "totp") {
-        self.postMessage({ type: "totp", id: message.id, value: runtime.totp_code() });
+        // kind: "financeiro" (o acesso das meninas) ou "dev" (o do desenvolvimento)
+        self.postMessage({ type: "totp", id: message.id, value: runtime.totp_code(message.kind) });
       } else if (message.type === "credentials") {
-        const proxy = runtime.credentials();
+        const proxy = runtime.credentials(message.kind);
         const value = proxy.toJs({ dict_converter: Object.fromEntries });
         self.postMessage({ type: "credentials", id: message.id, value });
         proxy.destroy();

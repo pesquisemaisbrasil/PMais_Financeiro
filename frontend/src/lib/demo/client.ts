@@ -162,14 +162,23 @@ export interface DemoCredentials {
   password: string;
 }
 
-/** E-mail e senha fictícios da demonstração. */
-export async function demoCredentials(): Promise<DemoCredentials> {
-  return (await call({ type: "credentials" })).value as DemoCredentials;
+/** Os dois acessos da demonstração: o do financeiro (as meninas) e o do desenvolvimento. */
+export type DemoAccess = "financeiro" | "dev";
+
+/**
+ * A conta do acesso do desenvolvimento (a mesma de backend/scripts/seed_demonstracao.py). Só ela
+ * vê a tela de Solicitações; quem protege as solicitações é a chave guardada no Netlify.
+ */
+export const DEV_EMAIL = "dev@pesquisemais.invalid";
+
+/** E-mail e senha fictícios da demonstração, do acesso pedido. */
+export async function demoCredentials(access: DemoAccess = "financeiro"): Promise<DemoCredentials> {
+  return (await call({ type: "credentials", kind: access })).value as DemoCredentials;
 }
 
-/** O código do autenticador do momento (muda a cada 30 s). */
-export async function demoCode(): Promise<string> {
-  return (await call({ type: "totp" })).value as string;
+/** O código do autenticador do momento (muda a cada 30 s), do acesso pedido. */
+export async function demoCode(access: DemoAccess = "financeiro"): Promise<string> {
+  return (await call({ type: "totp", kind: access })).value as string;
 }
 
 /** Apaga o que foi feito e volta aos dados de exemplo; quem chama recarrega a página. */

@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDown, Compass, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, Compass, LogOut, MessageSquarePlus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { TourAutoStart, startTour } from "@/components/ProductTour";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { getHome } from "@/lib/api";
 import { DemoResetButton } from "@/components/Demo";
 import { useAuth } from "@/lib/auth-context";
+import { DEMO, DEV_EMAIL } from "@/lib/demo/client";
 import { publicAsset } from "@/lib/basePath";
 import { NAV, isActive } from "@/lib/nav";
 import { PAYABLES_CHANGED } from "@/lib/payables";
@@ -56,8 +58,10 @@ function Hint({ show, label, children }: { show: boolean; label: string; childre
 export function Sidebar() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
-  const aba = useSearchParams().get("aba");
+  const params = useSearchParams();
+  const aba = params.get("aba");
   const [badge, setBadge] = useState(0);
+  const [sending, setSending] = useState(false);
   // Só existe depois do login, sempre no navegador: ler aqui não diverge do servidor.
   const [collapsed, setCollapsed] = useState(readCollapsed);
   // Começa com o grupo da tela atual aberto; na primeira visita, o Financeiro.
@@ -108,6 +112,9 @@ export function Sidebar() {
     .join("")
     .toUpperCase();
   const toggleLabel = collapsed ? "Expandir menu" : "Recolher menu";
+  // As solicitações só existem na demonstração (vão para a função do Netlify do site).
+  const isDev = DEMO && user.email === DEV_EMAIL;
+  const query = params.toString();
 
   return (
     <aside
@@ -147,7 +154,7 @@ export function Sidebar() {
         aria-label="Menu principal"
         data-tour="menu"
       >
-        {NAV.map((entry) => {
+        {NAV.filter((entry) => !entry.devOnly || isDev).map((entry) => {
           const Icon = entry.icon;
           if (!entry.children) {
             const active = isActive(entry.href, pathname, aba);
@@ -266,6 +273,22 @@ export function Sidebar() {
             <NotificationsBell />
           </span>
         </div>
+        {DEMO && (
+          <Hint show={collapsed} label="Enviar solicitação">
+            <Button
+              variant="ghost"
+              aria-label="Enviar solicitação"
+              className={cn(
+                "mt-1 w-full justify-start gap-3 rounded-xl px-3 text-brand-cinza-escuro/70 hover:text-brand-azul-deep",
+                collapsed && "md:justify-center md:px-0"
+              )}
+              onClick={() => setSending(true)}
+            >
+              <MessageSquarePlus size={16} />
+              <span className={cn(collapsed && "md:hidden")}>Enviar solicitação</span>
+            </Button>
+          </Hint>
+        )}
         <Hint show={collapsed} label="Conhecer o sistema">
           <Button
             variant="ghost"
@@ -297,6 +320,13 @@ export function Sidebar() {
         </Hint>
       </div>
       <TourAutoStart />
+      {sending && (
+        <FeedbackDialog
+          page={`${pathname}${query ? `?${query}` : ""}`}
+          sender={user.name}
+          onClose={() => setSending(false)}
+        />
+      )}
     </aside>
   );
 }

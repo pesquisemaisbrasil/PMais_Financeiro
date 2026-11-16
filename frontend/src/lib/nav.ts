@@ -1,4 +1,4 @@
-import { BookUser, ChartColumn, House, Wallet, type LucideIcon } from "lucide-react";
+import { BookUser, ChartColumn, House, Inbox, Wallet, type LucideIcon } from "lucide-react";
 
 /** O menu lateral: a única fonte das seções, dos nomes e dos endereços. O título de cada tela sai daqui. */
 
@@ -8,7 +8,15 @@ export type Leaf = {
   href?: string;
   counted?: boolean;
 };
-export type Entry = { id: string; label: string; icon: LucideIcon; href?: string; children?: Leaf[] };
+export type Entry = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+  children?: Leaf[];
+  /** Só no acesso do desenvolvimento da demonstração. */
+  devOnly?: boolean;
+};
 
 export const NAV: Entry[] = [
   { id: "inicio", label: "Início", icon: House, href: "/" },
@@ -54,6 +62,7 @@ export const NAV: Entry[] = [
       { href: "/cadastros?aba=holidays", label: "Feriados" },
     ],
   },
+  { id: "solicitacoes", label: "Solicitações", icon: Inbox, href: "/solicitacoes", devOnly: true },
 ];
 
 /**

@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, ssoLoginUrl, startMfaSetup, verifyMfa } from "@/lib/api";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { listFeedback, login, ssoLoginUrl, startMfaSetup, verifyMfa } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { publicAsset } from "@/lib/basePath";
-import { DEMO, demoCode, demoCredentials } from "@/lib/demo/client";
+import { DEMO, demoCode, demoCredentials, type DemoAccess } from "@/lib/demo/client";
+import { saveFeedbackKey } from "@/lib/feedback";
 import { useFormAction } from "@/lib/use-form-action";
 import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep } from "./MfaSteps";
 
@@ -75,17 +77,18 @@ function CredentialsStep({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  // Na demonstração há dois acessos: o do financeiro (as meninas) e o do desenvolvimento, que vê as
+  // solicitações e entra com a chave guardada no Netlify (docs/specs/solicitacoes.md).
+  const [access, setAccess] = useState<DemoAccess>("financeiro");
+  const [devKey, setDevKey] = useState("");
   const { error, submitting, run } = useFormAction();
-  // Na demonstração os botões do Google e da Microsoft são só visuais: o clique avisa, como o login
-  // sem as chaves do provedor (SSO_ERRORS.sso_indisponivel), em vez de ir a um endereço que não existe.
-  const [demoSsoClicked, setDemoSsoClicked] = useState(false);
-  const shownError = error ?? ssoError ?? (demoSsoClicked ? SSO_ERRORS.sso_indisponivel : null);
+  const shownError = error ?? ssoError;
 
-  // Na demonstração o login é sempre o mesmo (fictício): já vem preenchido, e o Entrar vai direto.
+  // Na demonstração o login do financeiro é sempre o mesmo (fictício): já vem preenchido.
   useEffect(() => {
     if (!DEMO) return;
     let alive = true;
-    demoCredentials()
+    demoCredentials("financeiro")
       .then((credentials) => {
         if (!alive) return;
         setEmail(credentials.email);
@@ -97,16 +100,30 @@ function CredentialsStep({
     };
   }, []);
 
+  /** O código do autenticador da demonstração é fictício e vem do próprio navegador: não se digita. */
+  async function demoSignIn(target: DemoAccess, user: string, secret: string) {
+    const challenge = await login(user, secret);
+    await verifyMfa(challenge.mfa_token, await demoCode(target));
+    await onSignedIn();
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     run(async () => {
-      const challenge = await login(email, password);
-      if (DEMO) {
-        // O código do autenticador da demonstração é fictício e vem do próprio navegador: não se digita.
-        await verifyMfa(challenge.mfa_token, await demoCode());
-        await onSignedIn();
+      if (DEMO && access === "dev") {
+        // A chave é conferida pela função do Netlify; a conta do desenvolvimento é fictícia.
+        const key = devKey.trim();
+        await listFeedback(key);
+        saveFeedbackKey(key);
+        const dev = await demoCredentials("dev");
+        await demoSignIn("dev", dev.email, dev.password);
         return;
       }
+      if (DEMO) {
+        await demoSignIn("financeiro", email, password);
+        return;
+      }
+      const challenge = await login(email, password);
       if (!challenge.setup_required) {
         onStep({ name: "verify", mfaToken: challenge.mfa_token });
         return;
@@ -121,55 +138,87 @@ function CredentialsStep({
     });
   }
 
+  const fields = (
+    <>
+      <div className="grid gap-2">
+        <Label htmlFor="email">E-mail</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          required
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="password">Senha</Label>
+        <div className="relative">
+          <Lock
+            size={15}
+            strokeWidth={2}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40"
+          />
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            className="pl-9 pr-10"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowPassword((visible) => !visible)}
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-pressed={showPassword}
+            aria-controls="password"
+            className="absolute right-0 top-0 text-muted-foreground"
+          >
+            {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <CardContent className="space-y-4">
-        <div className="grid gap-2">
-          <Label htmlFor="email">E-mail</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            required
-          />
-        </div>
-
-        <div className="grid gap-2">
-          <Label htmlFor="password">Senha</Label>
-          <div className="relative">
-            <Lock
-              size={15}
-              strokeWidth={2}
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40"
-            />
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className="pl-9 pr-10"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowPassword((visible) => !visible)}
-              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-              aria-pressed={showPassword}
-              aria-controls="password"
-              className="absolute right-0 top-0 text-muted-foreground"
-            >
-              {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-            </Button>
-          </div>
-        </div>
+        {DEMO ? (
+          <Tabs value={access} onValueChange={(value) => setAccess(value as DemoAccess)}>
+            <TabsList className="w-full">
+              <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+              <TabsTrigger value="dev">Desenvolvimento</TabsTrigger>
+            </TabsList>
+            <TabsContent value="financeiro" className="space-y-4 pt-2">
+              {fields}
+            </TabsContent>
+            <TabsContent value="dev" className="grid gap-2 pt-2">
+              <Label htmlFor="dev-key">Chave de acesso</Label>
+              <Input
+                id="dev-key"
+                type="password"
+                value={devKey}
+                onChange={(e) => setDevKey(e.target.value)}
+                autoComplete="off"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Só para quem cuida do sistema: abre as solicitações que a equipe envia.
+              </p>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          fields
+        )}
 
         {shownError && (
           <Alert variant="destructive">
@@ -183,32 +232,23 @@ function CredentialsStep({
           {submitting ? "Entrando…" : "Entrar"}
         </Button>
 
-        <div className="my-1 flex w-full items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-          ou
-          <span className="h-px flex-1 bg-border" aria-hidden="true" />
-        </div>
-
-        {SSO_PROVIDERS.map(({ id, name, icon }) =>
-          DEMO ? (
-            <Button
-              key={id}
-              type="button"
-              variant="outline"
-              className="w-full bg-card"
-              onClick={() => setDemoSsoClicked(true)}
-            >
-              {icon}
-              Entrar com {name}
-            </Button>
-          ) : (
-            <Button key={id} asChild variant="outline" className="w-full bg-card">
-              <a href={ssoLoginUrl(id)}>
-                {icon}
-                Entrar com {name}
-              </a>
-            </Button>
-          )
+        {/* Na demonstração não há login pelo Google nem pela Microsoft (pedido do Bruno, 16/11/2026). */}
+        {!DEMO && (
+          <>
+            <div className="my-1 flex w-full items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+              ou
+              <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            </div>
+            {SSO_PROVIDERS.map(({ id, name, icon }) => (
+              <Button key={id} asChild variant="outline" className="w-full bg-card">
+                <a href={ssoLoginUrl(id)}>
+                  {icon}
+                  Entrar com {name}
+                </a>
+              </Button>
+            ))}
+          </>
         )}
       </CardFooter>
     </form>
