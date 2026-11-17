@@ -30,12 +30,18 @@ sudo ufw allow OpenSSH && sudo ufw allow 80,443,8443/tcp && sudo ufw enable
 ```bash
 git clone <repositório> financeiro && cd financeiro
 git checkout development
+make verificar HOST=192.168.0.50      # confere se o servidor está pronto (não muda nada)
 make configurar HOST=192.168.0.50     # o IP ou o nome do servidor, sem http:// nem porta
 make subir                            # banco, cofre, API, telas e HTTPS (o primeiro build leva alguns minutos)
 make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"   # pede a senha no terminal
 make certificado                      # gera financeiro-certificado-raiz.crt para os computadores
 ```
 
+- `make verificar` (`deploy/verificar.sh`) confere, sem mudar nada:
+  - **erros** (impedem o deploy): git, make, openssl, Docker rodando e acessível pelo seu usuário sem `sudo`, Compose 2.20 ou mais novo, portas 80, 443 e 8443 livres;
+  - **avisos** (não impedem): o `ufw` liberando as portas, pelo menos 10 GB livres, o `HOST` ser um IP desta máquina (ou um nome que a rede acha), estar na branch `development`.
+
+  Cada linha com problema traz o comando para resolver. O `make configurar` roda a verificação antes e não gera nada se houver erro; o `make subir` também roda, e aceita as portas quando quem as usa é o próprio Financeiro.
 - `make configurar` cria `deploy/.env` (fora do git) com **chaves novas e aleatórias**: senhas do banco e do MinIO, `SECRET_KEY`, `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY`. **Guarde uma cópia desse arquivo num cofre, fora do servidor:** sem `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY` os dados guardados não abrem. Ele se recusa a gerar de novo se o arquivo já existe.
 - Para ligar o **Connect**, preencha `CONNECT_BASE_URL` (só `https`), `CONNECT_CLIENT_ID` e `CONNECT_CLIENT_SECRET` no `deploy/.env` e rode `make subir`.
 - O primeiro acesso de cada pessoa cadastra o autenticador (MFA), como no sistema de sempre. As outras contas são criadas por um administrador, ou com `make admin` (só administrador).
@@ -57,6 +63,7 @@ O certificado raiz fica no volume `financeiro_caddydata`. Se esse volume for apa
 | Comando | O que faz |
 |---|---|
 | `make` | Lista os comandos |
+| `make verificar` | Confere programas, Docker, portas, firewall, disco, endereço e branch, sem mudar nada |
 | `make subir` | Sobe tudo (e refaz o build do que mudou). Partes: `make banco`, `make infra` (banco + cofre), `make backend`, `make frontend`, `make proxy` |
 | `make status` | Cada parte e se está saudável |
 | `make logs` / `make logs SERVICO=api` | Acompanha os logs (nunca têm dado pessoal: ver o inventário) |
@@ -93,7 +100,7 @@ As cópias ficam em `backups/` no próprio servidor: leve-as para fora dele (out
 | O navegador avisa que a conexão não é segura | O certificado raiz não está instalado nesse computador (veja acima), ou o `HOST` é outro endereço |
 | A tela abre, mas o login diz "Sem conexão com o servidor" | A porta 8443 está fechada no firewall do servidor, ou o certificado não foi instalado e o navegador bloqueia a API |
 | "Os anexos não estão disponíveis agora" | O MinIO não subiu ou o certificado dele sumiu: `make status`; apagar `deploy/certs/` e rodar `make infra` gera outro |
-| Porta 80, 443 ou 8443 em uso | Outro programa no servidor usa a porta (Apache, nginx): `sudo ss -ltnp \| grep -E ':(80\|443\|8443) '`, pare-o ou use outra máquina |
+| `make verificar`: porta 80, 443 ou 8443 em uso | Outro programa no servidor usa a porta (Apache, nginx): `sudo ss -ltnp \| grep -E ':(80\|443\|8443) '`. Se ninguém precisa dele, `sudo systemctl disable --now <nome>`; se precisa continuar, as portas do Financeiro ainda são fixas: fale com o desenvolvimento |
 | `permission denied ... docker.sock` | O usuário não está no grupo `docker`: `sudo usermod -aG docker "$USER"` e entre de novo |
 | `curl` no Windows falha com `CERT_TRUST_REVOCATION_STATUS_UNKNOWN` | O `curl` do Windows checa revogação, que a CA local não tem: use `--ssl-no-revoke`. Os navegadores não exigem isso |
 | Troquei o IP do servidor | `deploy/.env`: mude `SERVER_HOST`, rode `make subir` (refaz o build das telas) e reinstale o certificado nos computadores se o nome mudou |
