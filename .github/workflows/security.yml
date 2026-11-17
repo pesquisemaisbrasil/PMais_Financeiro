@@ -2,9 +2,9 @@ name: Security
 
 on:
   push:
-    branches: [main, homolog]
+    branches: [main, homolog, development]
   pull_request:
-    branches: [main, homolog]
+    branches: [main, homolog, development]
 
 permissions:
   contents: read

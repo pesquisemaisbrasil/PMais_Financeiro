@@ -2,9 +2,9 @@ name: E2E
 
 on:
   push:
-    branches: [main, homolog]
+    branches: [main, homolog, development]
   pull_request:
-    branches: [main, homolog]
+    branches: [main, homolog, development]
 
 permissions:
   contents: read
