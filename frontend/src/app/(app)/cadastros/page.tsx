@@ -538,7 +538,8 @@ function RecordDialog({
                       disabled={lookup.busy || form.personType === "PF"}
                       onClick={() => void search(form.document, true)}
                     >
-                      {lookup.busy ? <Spinner aria-label="Consultando" className="size-4" /> : <Search size={16} />}
+                      {/* o texto de status logo abaixo já diz "Consultando a Receita…": o círculo é só visual */}
+                      {lookup.busy ? <Spinner aria-hidden="true" className="size-4" /> : <Search size={16} />}
                       Buscar
                     </Button>
                   </div>
