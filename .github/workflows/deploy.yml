@@ -1,0 +1,79 @@
+name: Deploy (servidor local)
+
+# Roda o deploy do servidor local de ponta a ponta num Ubuntu, como no servidor do escritório:
+# make verificar, configurar e subir (que confere pelo HTTPS), administrador e login, backup,
+# voltar a uma versão com o banco dela e restaurar os arquivos. Só quando algo do deploy muda.
+# docs/operations/servidor-local.md
+on:
+  push:
+    branches: [main, homolog, development]
+    paths:
+      - Makefile
+      - "deploy/**"
+      - "docker/**"
+      - backend/Dockerfile
+      - backend/requirements.txt
+      - "backend/alembic/**"
+      - frontend/Dockerfile
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/deploy.yml
+  pull_request:
+    branches: [main, homolog, development]
+    paths:
+      - Makefile
+      - "deploy/**"
+      - "docker/**"
+      - backend/Dockerfile
+      - backend/requirements.txt
+      - "backend/alembic/**"
+      - frontend/Dockerfile
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar o servidor
+        run: make verificar HOST=localhost
+
+      - name: Primeira instalação (configurar e subir, que confere pelo HTTPS)
+        run: |
+          make configurar HOST=localhost
+          make subir
+
+      - name: Administrador e login pela rede
+        run: |
+          senha="$(openssl rand -hex 8)Aa1!"
+          docker compose --env-file deploy/.env -f deploy/compose.yml exec -T -e CREATE_USER_PASSWORD="$senha" \
+            api python scripts/create_user.py --email ci.deploy@pesquisemais.invalid --name "CI do deploy" --role admin
+          make certificado
+          curl -fsS --cacert financeiro-certificado-raiz.crt -X POST https://localhost:8443/auth/token \
+            -H "Origin: https://localhost" \
+            --data-urlencode "username=ci.deploy@pesquisemais.invalid" --data-urlencode "password=$senha" \
+            | python3 -c "import json, sys; assert json.load(sys.stdin)['mfa_token']; print('login ok')"
+
+      - name: Backup, voltar com o banco do backup e restaurar os arquivos
+        run: |
+          make backup
+          banco=$(ls backups/banco-*.dump | head -n 1)
+          arquivos=$(ls backups/arquivos-*.tgz | head -n 1)
+          make voltar ARQUIVO="$banco" CONFIRMAR=sim
+          make restaurar-arquivos ARQUIVO="$arquivos" CONFIRMAR=sim
+          make conferir
+          make status
+
+      - name: O que deu errado
+        if: failure()
+        run: |
+          docker compose --env-file deploy/.env -f deploy/compose.yml ps --all || true
+          docker compose --env-file deploy/.env -f deploy/compose.yml logs --tail=150 || true
