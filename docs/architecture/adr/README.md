@@ -23,3 +23,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0017](0017-demonstracao-com-o-backend-no-navegador.md) | Versão de demonstração com o backend rodando no navegador (Pyodide) | Aceito (provisório) |
 | [0018](0018-importar-o-relatorio-do-sistema-antigo.md) | Importar o relatório do sistema antigo: uma conta por linha, chave por linha e CPF retirado do texto | Aceito (provisório) |
 | [0019](0019-solicitacoes-da-demonstracao-no-netlify.md) | Solicitações da demonstração numa função do Netlify, com Netlify Blobs e chave do desenvolvimento | Aceito (provisório) |
+| [0020](0020-servidor-local-com-docker-compose-e-caddy.md) | Servidor local com Docker Compose, Makefile e Caddy com certificado da própria máquina | Aceito (provisório) |
