@@ -1,1 +1,4 @@
 *.sh text eol=lf
+# Makefile e arquivos do servidor local sempre com LF: com CRLF o make e o Caddy quebram no Ubuntu
+Makefile text eol=lf
+deploy/** text eol=lf
