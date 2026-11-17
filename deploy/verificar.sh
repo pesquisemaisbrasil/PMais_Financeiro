@@ -122,6 +122,7 @@ fi
 # ---- Branch ----
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 if [ "$branch" = development ]; then ok "Na branch development"
+elif [ "$branch" = HEAD ]; then aviso "Numa versão solta, fora da development (como depois de um make voltar): make atualizar volta para ela"
 else aviso "Na branch ${branch:-desconhecida}: o servidor segue a development (git checkout development)"; fi
 
 echo
