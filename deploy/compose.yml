@@ -1,0 +1,140 @@
+# Servidor local (deploy da branch development, dados reais): banco, cofre de arquivos (MinIO com
+# TLS), API, telas e o HTTPS (Caddy, com certificado da própria máquina). Os comandos ficam no
+# Makefile da raiz; o guia é docs/operations/servidor-local.md.
+# Segredos e endereço vêm de deploy/.env, gerado por `make configurar` e fora do git.
+# Só o Caddy publica portas (80, 443 e 8443); banco, MinIO, API e telas ficam na rede interna.
+# O docker-compose.yml da raiz continua só para o desenvolvimento.
+name: financeiro
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?rode make configurar}
+      POSTGRES_DB: financeiro
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # cria as roles financeiro_migrator e financeiro_app; o Makefile troca as senhas pelas do .env
+      - ../docker/postgres/roles.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:3c60a2a8c4d33409a9bc7a623a7fcbfb4605adc3d89422d2f53b3f673a6e5597
+    restart: unless-stopped
+    # Em produção a API só fala https com o cofre: o certificado é gerado por `make configurar`.
+    command: server /data --certs-dir /certs
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?rode make configurar}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?rode make configurar}
+    volumes:
+      - miniodata:/data
+      - ./certs:/certs:ro
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/9000"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: cgr.dev/chainguard/minio-client@sha256:1dccd2a6fd59914a98ac2d9dad95e552c91243cb0bd7242aaa224802df4b3432
+    environment:
+      MC_HOST_local: https://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000
+    # --insecure: só esta chamada, de container para container, que cria o bucket se faltar
+    command: ["mb", "--insecure", "--ignore-existing", "local/financeiro-arquivos"]
+    depends_on:
+      minio: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      # Produção: sem /docs, Connect só por https, sem dados de exemplo nem Connect simulado.
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql://financeiro_app:${FINANCEIRO_APP_PASSWORD:?rode make configurar}@db:5432/financeiro
+      MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:${FINANCEIRO_MIGRATOR_PASSWORD:?rode make configurar}@db:5432/financeiro
+      SECRET_KEY: ${SECRET_KEY:?rode make configurar}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?rode make configurar}
+      PIX_SECRET_KEY: ${PIX_SECRET_KEY:?rode make configurar}
+      FILES_MASTER_KEY: ${FILES_MASTER_KEY:?rode make configurar}
+      FILES_ENDPOINT_URL: https://minio:9000
+      FILES_BUCKET: financeiro-arquivos
+      # shortcut: a API usa o administrador do MinIO (como no compose de desenvolvimento, ADR 0010);
+      # um usuário restrito ao bucket entra quando houver mais de um sistema no mesmo MinIO.
+      FILES_ACCESS_KEY: ${MINIO_ROOT_USER}
+      FILES_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      # o boto3 confia no certificado do MinIO por esta variável
+      AWS_CA_BUNDLE: /certs/public.crt
+      API_PUBLIC_URL: https://${SERVER_HOST:?rode make configurar}:8443
+      FRONTEND_URL: https://${SERVER_HOST}
+      CORS_ORIGINS: https://${SERVER_HOST}
+      REFRESH_COOKIE_SECURE: "true"
+      # só o Caddy alcança a API (a porta dela não é publicada): confia no IP que ele repassa
+      FORWARDED_ALLOW_IPS: "*"
+      CONNECT_BASE_URL: ${CONNECT_BASE_URL:-}
+      CONNECT_CLIENT_ID: ${CONNECT_CLIENT_ID:-}
+      CONNECT_CLIENT_SECRET: ${CONNECT_CLIENT_SECRET:-}
+      PAYMENT_DISPATCH_SECONDS: ${PAYMENT_DISPATCH_SECONDS:-0}
+      CNPJ_LOOKUP_MODE: ${CNPJ_LOOKUP_MODE:-brasilapi}
+      HOLIDAYS_LOOKUP_MODE: ${HOLIDAYS_LOOKUP_MODE:-brasilapi}
+    volumes:
+      - ./certs/public.crt:/certs/public.crt:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/readyz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    depends_on:
+      db: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        # o endereço que o NAVEGADOR alcança; trocar o SERVER_HOST pede um build novo (make subir faz)
+        NEXT_PUBLIC_API_URL: https://${SERVER_HOST:?rode make configurar}:8443
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    depends_on:
+      api: { condition: service_healthy }
+
+  proxy:
+    image: caddy:2.11.7
+    restart: unless-stopped
+    environment:
+      SERVER_HOST: ${SERVER_HOST:?rode make configurar}
+    ports: ["80:80", "443:443", "8443:8443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # aqui fica a CA local do Caddy: apagar este volume troca o certificado de todos os computadores
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      frontend: { condition: service_healthy }
+      api: { condition: service_healthy }
+
+  # Só para o backup e a restauração dos arquivos (make backup / make restaurar-arquivos).
+  ferramentas:
+    image: postgres:16
+    profiles: ["ferramentas"]
+    volumes:
+      - miniodata:/dados
+      - ../backups:/backup
+
+volumes:
+  pgdata:
+  miniodata:
+  caddydata:
+  caddyconfig:

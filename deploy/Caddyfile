@@ -1,0 +1,18 @@
+# HTTPS do servidor local, com certificado da própria máquina (a CA local do Caddy, sem internet).
+# As telas ficam em https://SERVER_HOST e a API em https://SERVER_HOST:8443: o cookie de sessão é
+# do caminho /auth da API, por isso ela tem um endereço próprio, sem prefixo. Porta 80 só
+# redireciona para o https. Guia: docs/operations/servidor-local.md
+{
+	local_certs
+	# o certificado raiz é instalado nos computadores da equipe (make certificado), não no container
+	skip_install_trust
+}
+
+https://{$SERVER_HOST} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}
+
+https://{$SERVER_HOST}:8443 {
+	reverse_proxy api:8000
+}

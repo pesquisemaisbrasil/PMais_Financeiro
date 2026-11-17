@@ -7,6 +7,10 @@
 *.xls
 # Relatórios reais do sistema antigo, guardados só na máquina de quem importa
 docs/Excel/
+# Servidor local (Makefile): chaves em deploy/.env (já coberto por .env), certificados e backups
+deploy/certs/
+backups/
+financeiro-certificado-raiz.crt
 .env
 .env.*
 !.env.example
