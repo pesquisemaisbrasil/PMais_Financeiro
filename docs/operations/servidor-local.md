@@ -64,16 +64,30 @@ O certificado raiz fica no volume `financeiro_caddydata`. Se esse volume for apa
 |---|---|
 | `make` | Lista os comandos |
 | `make verificar` | Confere programas, Docker, portas, firewall, disco, endereço e branch, sem mudar nada |
-| `make subir` | Sobe tudo (e refaz o build do que mudou). Partes: `make banco`, `make infra` (banco + cofre), `make backend`, `make frontend`, `make proxy` |
-| `make status` | Cada parte e se está saudável |
+| `make subir` | Verifica o servidor, sobe tudo (e refaz o build do que mudou) e termina com o `make conferir`. Partes: `make banco`, `make infra` (banco + cofre), `make backend`, `make frontend`, `make proxy` |
+| `make conferir` | Abre as telas e a API pelo HTTPS, com o certificado raiz, como um computador da equipe faria; a API só responde se o banco estiver no ar |
+| `make status` | A versão no ar (commit, data e branch) e cada parte, se está saudável |
 | `make logs` / `make logs SERVICO=api` | Acompanha os logs (nunca têm dado pessoal: ver o inventário) |
 | `make parar` | Para tudo sem apagar nada; `make subir` volta |
-| `make atualizar` | Faz backup, baixa a `development` (`git merge --ff-only`) e sobe a versão nova; as migrations rodam quando a API sobe. Recusa se houver mudança local nos arquivos do repositório |
-| `make backup` | Copia o banco (`backups/banco-<data>.dump`) e os arquivos (`backups/arquivos-<data>.tgz`). **Leve uma cópia para fora do servidor**, longe do `deploy/.env` |
+| `make atualizar` | Faz backup, baixa a `development` (`git merge --ff-only`) e sobe a versão nova; as migrations rodam quando a API sobe. Recusa se houver mudança local nos arquivos do repositório. Se a versão nova não subir, mostra o `make voltar` pronto para copiar |
+| `make voltar ARQUIVO=backups/banco-....dump CONFIRMAR=sim` | Volta à versão do código desse backup **e ao banco dele** (veja abaixo) |
+| `make backup` | Copia o banco (`backups/banco-<data>.dump`), os arquivos (`backups/arquivos-<data>.tgz`) e anota a versão do código (`backups/versao-<data>.txt`). **Leve uma cópia para fora do servidor**, longe do `deploy/.env` |
 | `make restaurar-banco ARQUIVO=backups/banco-....dump CONFIRMAR=sim` | **Apaga** o banco e põe o do backup; a API sobe e aplica as migrations que faltarem |
 | `make restaurar-arquivos ARQUIVO=backups/arquivos-....tgz CONFIRMAR=sim` | **Apaga** os arquivos do cofre e põe os do backup |
 
-Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopped`), desde que o Docker suba com a máquina.
+Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopped`), desde que o Docker suba com a máquina. Os logs têm tamanho limitado (5 arquivos de 10 MB por parte), então não enchem o disco.
+
+## Se a versão nova der problema
+
+O `make atualizar` faz um backup **antes** de trocar a versão e anota qual versão do código estava no ar. Se a nova não subir, ou subir com defeito:
+
+```bash
+make voltar ARQUIVO=backups/banco-<data do atualizar>.dump CONFIRMAR=sim
+```
+
+Ele volta o código para a versão desse backup, **apaga o banco atual e põe o do backup** (o que foi lançado depois do backup se perde), gera a API e as telas dessa versão e confere pelo HTTPS. Os arquivos anexados ficam como estão. O servidor fica numa versão "solta" (fora da `development`) até a correção sair: aí `make atualizar` volta para a `development`.
+
+Se o problema não for no banco (a versão nova só tem um defeito de tela, por exemplo), prefira esperar a correção e rodar `make atualizar` de novo: assim nada lançado se perde.
 
 ## Como está montado
 
@@ -81,6 +95,7 @@ Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopp
 - A API roda em **modo produção** (`ENVIRONMENT=production`): sem `/docs`, cookie de sessão seguro, Connect só por `https`, sem dados de exemplo nem Connect simulado. O MinIO fala `https` com um certificado gerado por `make configurar` em `deploy/certs/` (fora do git), e a API confia nele por `AWS_CA_BUNDLE`.
 - O banco nasce com as roles do `docker/postgres/roles.sql`; o `make banco` troca as senhas delas pelas do `deploy/.env` a cada subida. As migrations rodam com a role `financeiro_migrator`, e a API usa a `financeiro_app`.
 - O `docker-compose.yml` da raiz continua sendo só o do desenvolvimento.
+- A CI testa este deploy num Ubuntu sempre que algo dele muda (`.github/workflows/deploy.yml`): verificar, configurar, subir com a conferência, administrador e login, backup, voltar e restaurar os arquivos.
 
 ## Backup automático (recomendado)
 
@@ -103,4 +118,5 @@ As cópias ficam em `backups/` no próprio servidor: leve-as para fora dele (out
 | `make verificar`: porta 80, 443 ou 8443 em uso | Outro programa no servidor usa a porta (Apache, nginx): `sudo ss -ltnp \| grep -E ':(80\|443\|8443) '`. Se ninguém precisa dele, `sudo systemctl disable --now <nome>`; se precisa continuar, as portas do Financeiro ainda são fixas: fale com o desenvolvimento |
 | `permission denied ... docker.sock` | O usuário não está no grupo `docker`: `sudo usermod -aG docker "$USER"` e entre de novo |
 | `curl` no Windows falha com `CERT_TRUST_REVOCATION_STATUS_UNKNOWN` | O `curl` do Windows checa revogação, que a CA local não tem: use `--ssl-no-revoke`. Os navegadores não exigem isso |
-| Troquei o IP do servidor | `deploy/.env`: mude `SERVER_HOST`, rode `make subir` (refaz o build das telas) e reinstale o certificado nos computadores se o nome mudou |
+| Troquei o IP do servidor | `deploy/.env`: mude `SERVER_HOST` e rode `make subir` (refaz o build das telas e gera o certificado do endereço novo). O certificado raiz continua o mesmo, então os computadores não precisam reinstalar |
+| `make conferir` falha, mas `make status` mostra tudo saudável | O `SERVER_HOST` não chega até esta máquina (IP errado ou nome que não resolve): `make verificar` mostra o aviso |
