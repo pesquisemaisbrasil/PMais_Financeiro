@@ -2,7 +2,8 @@
 # e HTTPS com certificado da própria máquina. Guia: docs/operations/servidor-local.md
 #
 # Primeira vez, no servidor, dentro da pasta do repositório:
-#   make configurar HOST=<IP ou nome do servidor>   gera deploy/.env com chaves novas
+#   make verificar HOST=<IP ou nome do servidor>    confere programas, Docker, portas, firewall e disco
+#   make configurar HOST=<IP ou nome do servidor>   verifica de novo e gera deploy/.env com chaves novas
 #   make subir                                      sobe tudo (banco, cofre, API, telas e HTTPS)
 #   make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"
 #   make certificado                                para instalar nos computadores da equipe
@@ -15,17 +16,21 @@ ENV_FILE := deploy/.env
 COMPOSE := docker compose --env-file $(ENV_FILE) -f deploy/compose.yml
 AGORA := $(shell date +%Y%m%d-%H%M%S)
 
-.PHONY: ajuda configurar banco infra backend frontend proxy subir parar status logs atualizar \
+.PHONY: ajuda verificar configurar banco infra backend frontend proxy subir parar status logs atualizar \
 	backup restaurar-banco restaurar-arquivos admin certificado
 
 ajuda: ## Lista os comandos
 	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: docs/operations/servidor-local.md"
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN { FS = ":.*## " } { printf "  make %-20s %s\n", $$1, $$2 }'
 
-configurar: ## Primeira vez: gera deploy/.env com chaves novas (HOST=<IP ou nome do servidor>)
+verificar: ## Confere se o servidor está pronto: programas, Docker, portas, firewall, disco, endereço
+	@HOST="$(HOST)" bash deploy/verificar.sh
+
+configurar: ## Primeira vez: verifica o servidor e gera deploy/.env com chaves novas (HOST=<IP ou nome>)
 	@test -n "$(HOST)" || { echo 'Diga o endereço do servidor: make configurar HOST=192.168.0.50'; exit 1; }
 	@case "$(HOST)" in *[/:\ ]*) echo "HOST é só o IP ou o nome, sem http:// nem porta: $(HOST)"; exit 1;; esac
 	@test ! -f $(ENV_FILE) || { echo "$(ENV_FILE) já existe, e as chaves dele são permanentes: não gero outras."; exit 1; }
+	@HOST="$(HOST)" bash deploy/verificar.sh
 	@command -v openssl >/dev/null || { echo "Falta o openssl neste servidor."; exit 1; }
 	@umask 077 && { \
 	  echo "# Gerado por make configurar em $(AGORA). Fora do git. Guarde uma cópia num cofre, longe deste"; \
@@ -79,7 +84,7 @@ frontend: backend ## Sobe as telas
 proxy: $(ENV_FILE) ## Sobe o HTTPS (Caddy) na frente das telas e da API
 	$(COMPOSE) up -d --wait proxy
 
-subir: frontend proxy ## Sobe tudo: banco, cofre de arquivos, API, telas e HTTPS
+subir: verificar frontend proxy ## Verifica o servidor e sobe tudo: banco, cofre de arquivos, API, telas e HTTPS
 	@set -a && . ./$(ENV_FILE) && set +a && \
 	  echo "Pronto: https://$$SERVER_HOST (API em https://$$SERVER_HOST:8443). Primeira vez? make admin e make certificado"
 
