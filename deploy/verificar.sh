@@ -16,7 +16,7 @@ erro() { printf '  [ERRO]  %s\n' "$1"; erros=$((erros + 1)); }
 echo "Verificando o servidor para o Financeiro..."
 
 # ---- Programas ----
-for programa in git make openssl; do
+for programa in git make openssl curl; do
   if command -v "$programa" >/dev/null 2>&1; then ok "$programa instalado"
   else erro "Falta o $programa: sudo apt install -y $programa"; fi
 done

@@ -7,7 +7,8 @@
 #   make subir                                      sobe tudo (banco, cofre, API, telas e HTTPS)
 #   make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"
 #   make certificado                                para instalar nos computadores da equipe
-# Depois: make atualizar (backup, baixa a development e sobe a versão nova). `make` sozinho lista tudo.
+# Depois: make atualizar (backup, baixa a development e sobe a versão nova). Deu problema numa versão
+# nova: make voltar ARQUIVO=backups/banco-<data>.dump CONFIRMAR=sim. `make` sozinho lista tudo.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := ajuda
@@ -16,8 +17,8 @@ ENV_FILE := deploy/.env
 COMPOSE := docker compose --env-file $(ENV_FILE) -f deploy/compose.yml
 AGORA := $(shell date +%Y%m%d-%H%M%S)
 
-.PHONY: ajuda verificar configurar banco infra backend frontend proxy subir parar status logs atualizar \
-	backup restaurar-banco restaurar-arquivos admin certificado
+.PHONY: ajuda verificar configurar banco infra backend frontend proxy subir conferir parar status logs \
+	atualizar voltar backup restaurar-banco restaurar-arquivos admin certificado
 
 ajuda: ## Lista os comandos
 	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: docs/operations/servidor-local.md"
@@ -84,14 +85,28 @@ frontend: backend ## Sobe as telas
 proxy: $(ENV_FILE) ## Sobe o HTTPS (Caddy) na frente das telas e da API
 	$(COMPOSE) up -d --wait proxy
 
-subir: verificar frontend proxy ## Verifica o servidor e sobe tudo: banco, cofre de arquivos, API, telas e HTTPS
+subir: verificar frontend proxy ## Verifica o servidor, sobe tudo (banco, cofre, API, telas e HTTPS) e confere pelo HTTPS
+	@$(MAKE) --no-print-directory conferir
 	@set -a && . ./$(ENV_FILE) && set +a && \
-	  echo "Pronto: https://$$SERVER_HOST (API em https://$$SERVER_HOST:8443). Primeira vez? make admin e make certificado"
+	  echo "Pronto: https://$$SERVER_HOST (API em https://$$SERVER_HOST:8443), versão $$(git rev-parse --short HEAD). Primeira vez? make admin e make certificado"
+
+# O curl do Windows (Schannel) checa revogação, que a CA local não tem; no Ubuntu não precisa.
+CURL_TLS := $(if $(findstring Schannel,$(shell curl -V 2>/dev/null)),--ssl-no-revoke,)
+
+conferir: $(ENV_FILE) ## Testa o sistema no ar pelo HTTPS, como um computador da equipe (telas e API com o banco)
+	@set -a && . ./$(ENV_FILE) && set +a && ca=$$(mktemp) && trap 'rm -f "$$ca"' EXIT && \
+	  $(COMPOSE) cp proxy:/data/caddy/pki/authorities/local/root.crt "$$ca" >/dev/null 2>&1 || \
+	    { echo "  [ERRO]  O HTTPS (proxy) não está no ar: make subir"; exit 1; }; \
+	  for url in "https://$$SERVER_HOST/login" "https://$$SERVER_HOST:8443/readyz"; do \
+	    if curl -fsS -o /dev/null --max-time 30 $(CURL_TLS) --cacert "$$ca" "$$url"; then echo "  [ok]    $$url"; \
+	    else echo "  [ERRO]  $$url não respondeu: make status e make logs SERVICO=proxy"; exit 1; fi; \
+	  done
 
 parar: $(ENV_FILE) ## Para tudo, sem apagar nada (make subir volta)
 	$(COMPOSE) stop
 
-status: $(ENV_FILE) ## Mostra cada parte e se está saudável
+status: $(ENV_FILE) ## Mostra a versão no ar e cada parte, se está saudável
+	@echo "Versão: $$(git log -1 --format='%h %s (%cd)' --date=format:'%d/%m/%Y %H:%M') na $$(git rev-parse --abbrev-ref HEAD)"
 	$(COMPOSE) ps --all
 
 logs: $(ENV_FILE) ## Acompanha os logs (SERVICO=api para um só)
@@ -99,19 +114,37 @@ logs: $(ENV_FILE) ## Acompanha os logs (SERVICO=api para um só)
 
 atualizar: $(ENV_FILE) ## Faz backup, baixa a branch development e sobe a versão nova
 	@test -z "$$(git status --porcelain --untracked-files=no)" || { echo "Há mudança local nos arquivos do repositório: resolva antes (git status)."; exit 1; }
-	$(MAKE) --no-print-directory backup
-	git fetch origin $(BRANCH)
-	git checkout $(BRANCH)
-	git merge --ff-only origin/$(BRANCH)
-	$(MAKE) --no-print-directory subir
+	@antes=$$(git rev-parse --short HEAD) && \
+	  $(MAKE) --no-print-directory backup AGORA=$(AGORA) && \
+	  git fetch origin $(BRANCH) && git checkout -q $(BRANCH) && git merge --ff-only origin/$(BRANCH) && \
+	  echo "Versão: $$antes -> $$(git rev-parse --short HEAD)" && \
+	  { $(MAKE) --no-print-directory subir || { \
+	    echo; echo "A versão nova não subiu. Para voltar à $$antes com o banco de antes:"; \
+	    echo "  make voltar ARQUIVO=backups/banco-$(AGORA).dump CONFIRMAR=sim"; \
+	    exit 1; }; }
 
-backup: $(ENV_FILE) ## Copia o banco e os arquivos para backups/ (fora do git)
+voltar: $(ENV_FILE) ## Volta à versão de um backup, com o banco dela (ARQUIVO=backups/banco-....dump CONFIRMAR=sim)
+	@test "$(CONFIRMAR)" = sim || { echo "Isto troca a versão no ar e APAGA o banco atual, pondo o do backup. Rode com ARQUIVO=... CONFIRMAR=sim"; exit 1; }
+	@test -f "$(ARQUIVO)" || { echo "Não achei o arquivo: $(ARQUIVO)"; exit 1; }
+	@test -f "$(VERSAO_DO_BACKUP)" || { echo "Não achei $(VERSAO_DO_BACKUP), a versão do código desse backup."; exit 1; }
+	@test -z "$$(git status --porcelain --untracked-files=no)" || { echo "Há mudança local nos arquivos do repositório: resolva antes (git status)."; exit 1; }
+	git checkout -q --detach "$$(cat $(VERSAO_DO_BACKUP))"
+	$(MAKE) --no-print-directory restaurar-banco ARQUIVO="$(ARQUIVO)" CONFIRMAR=sim
+	$(MAKE) --no-print-directory subir
+	@echo "No ar a versão $$(git rev-parse --short HEAD), de antes. Quando a correção sair na $(BRANCH): make atualizar"
+
+# backups/banco-<data>.dump -> backups/versao-<data>.txt (o commit que estava no ar)
+VERSAO_DO_BACKUP = $(patsubst backups/banco-%.dump,backups/versao-%.txt,$(ARQUIVO))
+
+backup: $(ENV_FILE) ## Copia o banco e os arquivos para backups/, com a versão do código (fora do git)
+	@$(COMPOSE) ps --status running --services 2>/dev/null | grep -qx db || { echo "O banco não está rodando: make banco (ou make subir) antes do backup."; exit 1; }
 	@mkdir -p backups
 	$(COMPOSE) exec -T db pg_dump -U postgres -d financeiro -Fc > backups/banco-$(AGORA).dump.parcial
 	@mv backups/banco-$(AGORA).dump.parcial backups/banco-$(AGORA).dump
+	@git rev-parse HEAD > backups/versao-$(AGORA).txt
 	$(COMPOSE) run --rm --no-deps -e DONO="$$(id -u):$$(id -g)" ferramentas \
 	  sh -c 'tar czf /backup/arquivos-$(AGORA).tgz -C /dados . && chown "$$DONO" /backup/arquivos-$(AGORA).tgz'
-	@echo "Backup: backups/banco-$(AGORA).dump e backups/arquivos-$(AGORA).tgz. Leve uma cópia para fora deste servidor."
+	@echo "Backup da versão $$(git rev-parse --short HEAD): backups/banco-$(AGORA).dump e backups/arquivos-$(AGORA).tgz. Leve uma cópia para fora deste servidor."
 
 restaurar-banco: $(ENV_FILE) ## APAGA o banco e põe o de um backup (ARQUIVO=backups/banco-....dump CONFIRMAR=sim)
 	@test "$(CONFIRMAR)" = sim || { echo "Isto APAGA o banco atual e põe o do backup. Rode com ARQUIVO=... CONFIRMAR=sim"; exit 1; }
@@ -121,8 +154,9 @@ restaurar-banco: $(ENV_FILE) ## APAGA o banco e põe o de um backup (ARQUIVO=bac
 	  -c "DROP DATABASE IF EXISTS financeiro WITH (FORCE)" -c "CREATE DATABASE financeiro"
 	$(COMPOSE) exec -T db psql -v ON_ERROR_STOP=1 -q -U postgres -d financeiro < docker/postgres/roles.sql
 	$(COMPOSE) exec -T db pg_restore -U postgres -d financeiro --exit-on-error < "$(ARQUIVO)"
-	$(COMPOSE) up -d --wait api
-	@echo "Banco restaurado de $(ARQUIVO). A API já rodou as migrations que faltavam."
+	@# a API da versão que está no repositório agora (não a imagem que estava rodando) aplica as migrations dela
+	$(COMPOSE) up -d --build --wait api
+	@echo "Banco restaurado de $(ARQUIVO). A API da versão $$(git rev-parse --short HEAD) já aplicou as migrations que faltavam."
 
 restaurar-arquivos: $(ENV_FILE) ## APAGA os arquivos e põe os de um backup (ARQUIVO=backups/arquivos-....tgz CONFIRMAR=sim)
 	@test "$(CONFIRMAR)" = sim || { echo "Isto APAGA os arquivos atuais e põe os do backup. Rode com ARQUIVO=... CONFIRMAR=sim"; exit 1; }

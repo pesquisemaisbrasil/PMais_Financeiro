@@ -6,8 +6,17 @@
 # O docker-compose.yml da raiz continua só para o desenvolvimento.
 name: financeiro
 
+# Log com tamanho limitado (5 arquivos de 10 MB por serviço): sem isso, meses de log enchem o disco.
+x-logs: &logs
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
   db:
+    <<: *logs
     image: postgres:16
     restart: unless-stopped
     environment:
@@ -25,6 +34,7 @@ services:
       retries: 10
 
   minio:
+    <<: *logs
     image: cgr.dev/chainguard/minio@sha256:3c60a2a8c4d33409a9bc7a623a7fcbfb4605adc3d89422d2f53b3f673a6e5597
     restart: unless-stopped
     # Em produção a API só fala https com o cofre: o certificado é gerado por `make configurar`.
@@ -42,6 +52,7 @@ services:
       retries: 10
 
   minio-init:
+    <<: *logs
     image: cgr.dev/chainguard/minio-client@sha256:1dccd2a6fd59914a98ac2d9dad95e552c91243cb0bd7242aaa224802df4b3432
     environment:
       MC_HOST_local: https://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000
@@ -52,6 +63,7 @@ services:
     restart: "no"
 
   api:
+    <<: *logs
     build: ../backend
     restart: unless-stopped
     environment:
@@ -96,6 +108,7 @@ services:
       minio-init: { condition: service_completed_successfully }
 
   frontend:
+    <<: *logs
     build:
       context: ../frontend
       args:
@@ -111,11 +124,18 @@ services:
       api: { condition: service_healthy }
 
   proxy:
+    <<: *logs
     image: caddy:2.11.7
     restart: unless-stopped
     environment:
       SERVER_HOST: ${SERVER_HOST:?rode make configurar}
     ports: ["80:80", "443:443", "8443:8443"]
+    healthcheck:
+      # a API de administração do Caddy, que só escuta dentro do container
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # aqui fica a CA local do Caddy: apagar este volume troca o certificado de todos os computadores
@@ -127,6 +147,7 @@ services:
 
   # Só para o backup e a restauração dos arquivos (make backup / make restaurar-arquivos).
   ferramentas:
+    <<: *logs
     image: postgres:16
     profiles: ["ferramentas"]
     volumes:
