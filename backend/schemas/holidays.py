@@ -42,3 +42,6 @@ class HolidaySyncOut(BaseModel):
     # quantos nacionais novos entraram, e quantos o ano tem agora
     added: int
     total: int
+    # o mesmo para os estaduais e municipais das capitais (feriados.dev, ADR 0024)
+    addedLocal: int = 0
+    totalLocal: int = 0

@@ -1,9 +1,13 @@
-"""Cadastro de feriados: os nacionais vêm da BrasilAPI e os locais, do financeiro.
+"""Cadastro de feriados: os nacionais vêm da BrasilAPI, os estaduais e municipais das capitais do
+feriados.dev (ADR 0024) e o financeiro ainda pode cadastrar à mão.
 
 Todos contam como dia não útil, além dos nacionais fixos e da Páscoa que já estão em
-`core/business_days.py`. Vale para o sistema todo: ainda não há feriado por unidade ou cidade.
+`core/business_days.py`. Vale para o sistema todo: ainda não há feriado por unidade ou cidade (Q42).
+A busca roda sozinha (`sync_years`, de `HOLIDAYS_SYNC_HOURS` em `HOLIDAYS_SYNC_HOURS` horas) e pelo
+botão da tela.
 """
 
+import logging
 from datetime import date
 from typing import Any
 
@@ -16,10 +20,11 @@ from models.reference import Holiday, RecordEvent
 from models.user import User
 from schemas.holidays import HolidayIn
 from services import holiday_sync
-from services.payable import PayableConflict, PayableInvalid
+from services.payable import PayableConflict, PayableInvalid, today
 from services.records import UFS, RecordNotFound
 
 KIND = "holidays"
+logger = logging.getLogger(__name__)
 
 
 def _row(holiday: Holiday) -> dict[str, Any]:
@@ -134,21 +139,61 @@ def delete(db: Session, holiday_id: int, user: User) -> None:
     db.commit()
 
 
-def sync(db: Session, year: int, user: User) -> dict[str, int]:
-    """Traz os nacionais do ano. Só acrescenta: o que já existe (mesma data e nome) fica."""
+def _count(db: Session, year: int, nacional: bool) -> int:
+    query = db.query(Holiday.id).filter(
+        Holiday.day >= date(year, 1, 1), Holiday.day <= date(year, 12, 31)
+    )
+    scope = Holiday.scope == "nacional"
+    return query.filter(scope if nacional else ~scope).count()
+
+
+def sync(db: Session, year: int, user: User | None = None) -> dict[str, int]:
+    """Traz os nacionais (BrasilAPI) e os estaduais e municipais das capitais (feriados.dev) do ano.
+    Busca os dois antes de gravar: se um falha, nada entra. Só acrescenta: o que já existe (mesma
+    data e nome) fica, inclusive o cadastrado à mão. Sem `user`, é a busca automática."""
     found = holiday_sync.fetch_national(year)
-    added = 0
+    local = holiday_sync.fetch_local(year)
+    added = added_local = 0
     for item in found:
         if _exists(db, item.day, item.name):
             continue
         db.add(Holiday(day=item.day, name=item.name, scope="nacional", source="brasilapi"))
         added += 1
-    _log(db, year, user, f"Feriados nacionais de {year} buscados na BrasilAPI: {added} novo(s)")
+    for spot in local:
+        if _exists(db, spot.day, spot.name):
+            continue
+        db.add(
+            Holiday(
+                day=spot.day,
+                name=spot.name,
+                scope=spot.scope,
+                uf=spot.uf,
+                city=spot.city,
+                source="feriados.dev",
+            )
+        )
+        db.flush()  # o mesmo feriado em duas capitais (mesma data e nome) entra uma vez só
+        added_local += 1
+    text = f"Feriados de {year} buscados: {added} nacional(is) e {added_local} das capitais novo(s)"
+    if user is not None:
+        _log(db, year, user, text)
     db.commit()
-    total = (
-        db.query(Holiday.id)
-        .filter(Holiday.scope == "nacional", Holiday.day >= date(year, 1, 1))
-        .filter(Holiday.day <= date(year, 12, 31))
-        .count()
-    )
-    return {"year": year, "added": added, "total": total}
+    return {
+        "year": year,
+        "added": added,
+        "total": _count(db, year, nacional=True),
+        "addedLocal": added_local,
+        "totalLocal": _count(db, year, nacional=False),
+    }
+
+
+def sync_years(db: Session) -> None:
+    """A busca automática: o ano de hoje e o próximo. Nunca levanta: a próxima rodada tenta."""
+    year = today().year
+    for target in (year, year + 1):
+        try:
+            result = sync(db, target)
+            logger.info("Feriados de %s buscados: %s", target, result)
+        except Exception:
+            db.rollback()
+            logger.warning("Não foi possível buscar os feriados de %s agora", target, exc_info=True)

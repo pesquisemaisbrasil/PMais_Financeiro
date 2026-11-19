@@ -1,9 +1,12 @@
-"""Despachante em segundo plano das baixas que esperam o Connect.
+"""Tarefas em segundo plano da API: o envio das baixas ao Connect e a busca dos feriados.
 
 Liga com `PAYMENT_DISPATCH_SECONDS` maior que zero (padrão: desligado). A cada intervalo, envia
 os pedidos de baixa que ficaram em `pendente_envio` ou `enviada`. É seguro com mais de uma
 instância no ar: cada pedido leva o mesmo Idempotency-Key, então o Connect nunca paga duas vezes.
 shortcut: um laço dentro da API, sem fila; vira processo próprio se o volume crescer.
+
+A busca dos feriados (ADR 0024) liga com `HOLIDAYS_SYNC_HOURS` maior que zero: espera o feriados.dev
+subir e carregar os dados, e depois busca o ano de hoje e o próximo a cada intervalo.
 """
 
 import asyncio
@@ -16,12 +19,14 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
-from core.config import PAYMENT_DISPATCH_SECONDS
+from core.config import HOLIDAYS_SYNC_HOURS, PAYMENT_DISPATCH_SECONDS
 from db.connection import SessionLocal
-from services import payments
+from services import holidays, payments
 from services.connect_gateway import ConnectGateway, get_connect
 
 logger = logging.getLogger(__name__)
+# o feriados.dev sobe junto com a API e leva um tempo para carregar os dados das cidades
+HOLIDAYS_FIRST_DELAY = 90
 
 
 def run_once(
@@ -47,17 +52,36 @@ async def dispatch_loop(interval: float) -> None:
         await run_in_threadpool(run_once)
 
 
+def sync_holidays_once(session_factory: Callable[[], Session] = SessionLocal) -> None:
+    """Uma rodada da busca dos feriados. Nunca levanta."""
+    db = session_factory()
+    try:
+        holidays.sync_years(db)
+    except Exception:
+        logger.exception("Falha na rodada da busca dos feriados")
+        db.rollback()
+    finally:
+        db.close()
+
+
+async def holidays_loop(hours: float, first_delay: float = HOLIDAYS_FIRST_DELAY) -> None:
+    await asyncio.sleep(first_delay)
+    while True:
+        await run_in_threadpool(sync_holidays_once)
+        await asyncio.sleep(hours * 3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    task = (
-        asyncio.create_task(dispatch_loop(PAYMENT_DISPATCH_SECONDS))
-        if PAYMENT_DISPATCH_SECONDS > 0
-        else None
-    )
+    tasks = []
+    if PAYMENT_DISPATCH_SECONDS > 0:
+        tasks.append(asyncio.create_task(dispatch_loop(PAYMENT_DISPATCH_SECONDS)))
+    if HOLIDAYS_SYNC_HOURS > 0:
+        tasks.append(asyncio.create_task(holidays_loop(HOLIDAYS_SYNC_HOURS)))
     try:
         yield
     finally:
-        if task:
+        for task in tasks:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
