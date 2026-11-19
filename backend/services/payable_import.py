@@ -4,7 +4,8 @@ A planilha é lida em memória e descartada. Só ficam nome e valor de cada pess
 criptográfico do arquivo, para avisar quando ela for importada de novo. O CPF nunca é lido, e a
 chave Pix do respondente (só na planilha de incentivos) fica **mascarada** (3 primeiros e 2 últimos
 caracteres): a chave completa não é guardada, não vai para a prévia nem para o log (pergunta Q22,
-provisório até o DPO decidir). Só as colunas abaixo saem do arquivo.
+provisório até o DPO decidir). Só as colunas abaixo saem do arquivo, e o STATUS da planilha serve
+apenas para deixar de fora quem já foi pago: ele não é guardado.
 """
 
 import csv
@@ -41,7 +42,7 @@ from schemas.payable import ImportFields
 from services import payable as payable_service
 from services import period_lock
 from services.holidays import holiday_names
-from services.payable import PayableConflict, PayableInvalid, _active, today
+from services.payable import PayableConflict, PayableInvalid, _active, inactive_project, today
 
 MAX_BYTES = 5 * 1024 * 1024
 MAX_UNZIPPED_BYTES = 50 * 1024 * 1024
@@ -70,7 +71,7 @@ DIMS = (
     Dim("company", Company, "Empresa", "empresa", "uma só empresa"),
     Dim("unit", BusinessUnit, "Unidade", "unidade", "uma só unidade"),
     Dim("center", CostCenter, "Centro de custo", "centro de custo", "um só centro de custo"),
-    Dim("category", ExpenseCategory, "Categoria", "categoria", "uma só categoria"),
+    Dim("category", ExpenseCategory, "Plano de contas", "plano de contas", "uma só conta do plano"),
     Dim(
         "method",
         PaymentMethod,
@@ -79,6 +80,11 @@ DIMS = (
         "uma só forma de pagamento",
     ),
 )
+COMPANY = DIMS[1]
+# No incentivo, o que a linha e a tela não dizem vem do cadastro do projeto (Carregar incentivos).
+FROM_PROJECT = frozenset({"company", "unit", "center"})
+# E estes três têm de vir preenchidos em cada linha da planilha: marcar na tela não os substitui.
+SHEET_ONLY = frozenset({"project", "category", "method"})
 # As colunas de classificação são opcionais: com elas, uma planilha serve a vários projetos,
 # empresas, unidades, centros de custo, categorias e formas de pagamento.
 DIM_COLUMNS = {
@@ -95,16 +101,39 @@ DIM_COLUMNS = {
     "forma de pagamento": "method",
     "forma": "method",
 }
+# Inclui os títulos da planilha de incentivos que o financeiro já usa.
 INCENTIVE_COLUMNS = {
     "nome": "name",
+    "beneficiario": "name",
+    "nome completo": "fullName",  # reserva: vale quando o beneficiário vem vazio
     "valor": "amount",
+    "valor total": "amount",
     "data da pesquisa": "surveyDate",
     "data da resposta": "surveyDate",
+    "data de realizacao da pesquisa": "surveyDate",
     "data de pagamento": "payDate",
+    "pagar": "payDate",
+    "pagar (preenchido pelo financeiro)": "payDate",
     "chave pix": "pix",
-    "pix": "pix",
+    "pix": "pixOther",  # as duas vêm juntas na planilha atual: ver _pix_cell
+    "status": "status",
     **DIM_COLUMNS,
 }
+# A célula de Pix que diz só o tipo da chave: a chave de verdade está na outra coluna.
+PIX_KEY_TYPES = frozenset(
+    {
+        "aleatoria",
+        "aleatorio",
+        "celular",
+        "chave aleatoria",
+        "cnpj",
+        "cpf",
+        "cpf/cnpj",
+        "e-mail",
+        "email",
+        "telefone",
+    }
+)
 PAYROLL_COLUMNS = {
     "nome": "name",
     "documento": "document",
@@ -142,6 +171,7 @@ class Line:
     typed: dict[str, str] = field(default_factory=dict)  # o que a planilha escreveu, por campo
     refs: dict[str, Any] = field(default_factory=dict)  # o cadastro que cada campo achou
     skipped: bool = False  # fora do que a pessoa marcou: não é erro, só não entra
+    alreadyPaid: bool = False  # a planilha diz que já recebeu: também fica de fora, sem ser erro
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -152,6 +182,11 @@ class Line:
 def _folded(text: str) -> str:
     plain = unicodedata.normalize("NFD", text)
     return "".join(c for c in plain if not unicodedata.combining(c)).strip().casefold()
+
+
+def _title(value: Any) -> str:
+    """Título de coluna ou palavra da célula sem acento, caixa, espaços a mais e ":" no fim."""
+    return " ".join(_folded(_text(value)).rstrip(" :").split())
 
 
 def _unreadable() -> PayableInvalid:
@@ -264,6 +299,20 @@ def _masked_pix(value: Any) -> str | None:
     return mask_pix_key(normalize_pix_key(key))[:255]
 
 
+def _pix_cell(cells: Mapping[str, Any]) -> Any:
+    """A célula com a chave: a planilha atual tem duas colunas de Pix, e uma pode trazer só o tipo
+    da chave (CPF, e-mail, celular...)."""
+    for key in ("pix", "pixOther"):
+        if _text(cells.get(key)) and _title(cells.get(key)) not in PIX_KEY_TYPES:
+            return cells.get(key)
+    return None
+
+
+def _already_paid(value: Any) -> bool:
+    """O STATUS da planilha diz que a pessoa já recebeu ("Pago", "PAGO em 10/11")."""
+    return _title(value).split(" ")[0] in {"pago", "paga"}
+
+
 def _table(
     rows: list[tuple[Any, ...]], columns: dict[str, str]
 ) -> list[tuple[int, dict[str, Any]]]:
@@ -273,7 +322,7 @@ def _table(
         raise PayableInvalid("A planilha está vazia")
     positions = {}
     for index, title in enumerate(rows[0]):
-        key = columns.get(_folded(_text(title)))
+        key = columns.get(_title(title))
         if key and key not in positions:
             positions[key] = index
     table = []
@@ -286,9 +335,10 @@ def _table(
                 {key: row[pos] if pos < len(row) else None for key, pos in positions.items()},
             )
         )
-    if not all(key in positions for key in ("name", "amount")):
-        missing = "nome" if "name" not in positions else "valor"
-        raise PayableInvalid(f'A planilha precisa da coluna "{missing}"')
+    if "name" not in positions and "fullName" not in positions:
+        raise PayableInvalid('A planilha precisa da coluna "nome"')
+    if "amount" not in positions:
+        raise PayableInvalid('A planilha precisa da coluna "valor"')
     return table
 
 
@@ -310,7 +360,8 @@ def _base_line(number: int, cells: dict[str, Any]) -> Line:
         text = _dim_text(dim, cells.get(dim.key))
         if text:
             typed[dim.key] = text
-    line = Line(line=number, name=_text(cells.get("name")), typed=typed)
+    name = _text(cells.get("name")) or _text(cells.get("fullName"))
+    line = Line(line=number, name=name, typed=typed)
     if not line.name:
         line.errors.append("Nome vazio")
     elif len(line.name) > 200:
@@ -322,14 +373,14 @@ def _base_line(number: int, cells: dict[str, Any]) -> Line:
 
 
 def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
-    titles = {_folded(_text(title)) for title in rows[0]} if rows else set()
+    keys = {INCENTIVE_COLUMNS.get(_title(title)) for title in rows[0]} if rows else set()
     table = _table(rows, INCENTIVE_COLUMNS)
-    if not titles & {"data da pesquisa", "data da resposta", "data de pagamento"}:
+    if not keys & {"surveyDate", "payDate"}:
         raise PayableInvalid('A planilha precisa da coluna "data da pesquisa"')
     lines = []
     for number, cells in table:
         line = _base_line(number, cells)
-        line.pixMasked = _masked_pix(cells.get("pix"))
+        line.pixMasked = _masked_pix(_pix_cell(cells))
         line.surveyDate, survey_ok = _date(cells.get("surveyDate"))
         line.givenPayDate, pay_ok = _date(cells.get("payDate"))
         if not pay_ok:
@@ -340,6 +391,10 @@ def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
             line.errors.append("Sem data de pagamento e sem data da pesquisa")
         elif line.givenPayDate and line.surveyDate and line.givenPayDate < line.surveyDate:
             line.errors.append("Pagamento antes da data da pesquisa")
+        if _already_paid(cells.get("status")):
+            # Quem já recebeu não entra, para não pagar duas vezes: o resto da linha não importa.
+            line.alreadyPaid = line.skipped = True
+            line.errors.clear()
         lines.append(line)
     return lines
 
@@ -424,13 +479,15 @@ def _project(db: Session, project_id: int) -> Project:
         raise PayableInvalid("Projeto não encontrado")
     if project.status == "encerrado":
         raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+    if not project.active:
+        raise PayableConflict(inactive_project(project))
     return project
 
 
 def _read(kind: str, filename: str, content: bytes) -> tuple[list[Line], set[str]]:
     """As linhas da planilha e quais campos de classificação ela traz em coluna."""
     rows = _rows(filename, content)
-    titles = {_folded(_text(title)) for title in rows[0]} if rows else set()
+    titles = {_title(title) for title in rows[0]} if rows else set()
     lines = _incentive_lines(rows) if kind == "incentivos" else _payroll_lines(rows)
     return lines, {DIM_COLUMNS[title] for title in titles if title in DIM_COLUMNS}
 
@@ -483,17 +540,50 @@ def _lookup(db: Session, dim: Dim) -> dict[str, list[Any]]:
 
 def _problem(dim: Dim, record: Any) -> str | None:
     if dim.key == "project":
-        return f"Projeto PRJ-{record.code} está fechado" if record.status == "encerrado" else None
+        if record.status == "encerrado":
+            return f"Projeto PRJ-{record.code} está fechado"
+        return None if record.active else f"Projeto PRJ-{record.code} está inativo"
     if not record.active:
         return f"{dim.title} {record.name}: cadastro inativo"
     if dim.key == "category" and record.kind != "despesa":
-        return f"Categoria {record.name}: contas a pagar usam conta de despesa"
+        return f"Plano de contas {record.name}: contas a pagar usam conta de despesa"
     return None
 
 
+def _accept(line: Line, dim: Dim, record: Any, chosen: list[Any]) -> None:
+    if chosen and record.id not in {item.id for item in chosen}:
+        line.skipped = True
+        return
+    problem = _problem(dim, record)
+    if problem:
+        line.errors.append(problem)
+        return
+    line.refs[dim.key] = record
+
+
+def _project_record(db: Session, line: Line, dim: Dim) -> Any | None:
+    """A unidade ou o centro de custo do cadastro do projeto da linha."""
+    project = line.project
+    if project is None:  # o projeto já deixou o erro, ou a linha ficou de fora
+        return None
+    record_id = project.unit_id if dim.key == "unit" else project.cost_center_id
+    record = db.get(dim.model, record_id) if record_id else None
+    if record is None:
+        line.errors.append(f"Projeto PRJ-{project.code} sem {dim.label} no cadastro")
+    return record
+
+
 def _resolve_one(
-    line: Line, dim: Dim, chosen: list[Any], lookup: dict[str, list[Any]] | None
+    line: Line,
+    dim: Dim,
+    chosen: list[Any],
+    lookup: dict[str, list[Any]] | None,
+    project_db: Session | None = None,
+    *,
+    sheet_only: bool = False,
 ) -> None:
+    """`project_db`: o campo que, sem nada na linha nem na tela, sai do cadastro do projeto.
+    `sheet_only`: o campo que só vale preenchido na planilha."""
     text = line.typed.get(dim.key)
     if text and lookup is not None:
         found = lookup.get(_folded(text), [])
@@ -508,47 +598,82 @@ def _resolve_one(
             line.errors.append(f"{dim.title} {text} aparece mais de uma vez no cadastro{hint}")
             return
         record = found[0]
-    elif len(chosen) == 1:
+    elif len(chosen) == 1 and not sheet_only:
         record = chosen[0]
+    elif project_db is not None:
+        record = _project_record(project_db, line, dim)
+        if record is None:
+            return
     else:
         line.errors.append(f"Sem {dim.label} na linha")
         return
-    if chosen and record.id not in {item.id for item in chosen}:
-        line.skipped = True
-        return
-    problem = _problem(dim, record)
-    if problem:
-        line.errors.append(problem)
-        return
-    line.refs[dim.key] = record
+    _accept(line, dim, record, chosen)
+
+
+def _missing_columns(labels: list[str]) -> str:
+    quoted = [f'"{label}"' for label in labels]
+    if len(quoted) == 1:
+        return f"A planilha precisa da coluna {quoted[0]}"
+    return f"A planilha precisa das colunas {', '.join(quoted[:-1])} e {quoted[-1]}"
 
 
 def _resolve(
-    db: Session, lines: list[Line], selected: dict[str, list[Any]], columns: set[str]
+    db: Session,
+    lines: list[Line],
+    selected: dict[str, list[Any]],
+    columns: set[str],
+    *,
+    incentives: bool = False,
 ) -> None:
     """Diz o projeto, a empresa, a unidade, o centro de custo, a categoria e a forma de cada linha.
 
     Campo sem coluna na planilha vale para ela toda e exige um só marcado na tela. Com a coluna,
     cada linha traz o seu, e célula vazia vale o marcado, se houver um só. Com cadastros marcados,
     linha de outro cadastro fica de fora sem ser erro.
+
+    Nos `incentives`, projeto, plano de contas e forma de pagamento têm de vir em cada linha da
+    planilha. A unidade e o centro de custo que a linha e a tela não dizem saem do cadastro do
+    projeto, e a empresa sai da unidade da linha.
     """
+    inherited = FROM_PROJECT if incentives else frozenset()
+    required = SHEET_ONLY if incentives else frozenset()
+    missing = [dim.label for dim in DIMS if dim.key in required and dim.key not in columns]
+    if missing:
+        raise PayableInvalid(_missing_columns(missing))
     for dim in DIMS:
-        if dim.key not in columns and len(selected[dim.key]) != 1:
+        if dim.key not in inherited and dim.key not in columns and len(selected[dim.key]) != 1:
             raise PayableInvalid(
                 f'A planilha não tem a coluna "{dim.label}". '
                 f"Escolha {dim.one} na tela ou inclua a coluna na planilha"
             )
-    if not {"company", "unit"} & columns:
+    if not {"company", "unit"} & columns and len(selected["company"]) == len(selected["unit"]) == 1:
         if selected["unit"][0].company_id != selected["company"][0].id:
             raise PayableInvalid("A unidade não é dessa empresa")
     lookups = {dim.key: _lookup(db, dim) for dim in DIMS if dim.key in columns}
     for line in lines:
+        if line.alreadyPaid:
+            continue
+        # Sem empresa na linha nem uma só marcada na tela, ela sai da unidade, resolvida depois.
+        from_unit = incentives and not line.typed.get("company") and len(selected["company"]) != 1
         for dim in DIMS:
+            if dim.key == "company" and from_unit:
+                continue
             # Empresa que não se resolveu já deixou o erro (ou a linha de fora): a unidade, que
             # depende dela, não ganha um segundo erro.
-            if dim.key == "unit" and "company" in columns and "company" not in line.refs:
+            waiting = "company" in columns and "company" not in line.refs and not from_unit
+            if dim.key == "unit" and waiting:
                 continue
-            _resolve_one(line, dim, selected[dim.key], lookups.get(dim.key))
+            _resolve_one(
+                line,
+                dim,
+                selected[dim.key],
+                lookups.get(dim.key),
+                db if dim.key in inherited else None,
+                sheet_only=dim.key in required,
+            )
+        if from_unit and "unit" in line.refs:
+            owner = db.get(Company, line.refs["unit"].company_id)
+            _accept(line, COMPANY, owner, selected["company"])
         company, unit = line.refs.get("company"), line.refs.get("unit")
         if company is not None and unit is not None and unit.company_id != company.id:
             line.errors.append(f"A unidade {unit.name} não é da empresa {company.name}")
@@ -615,7 +740,7 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
     kind = fields.kind
     selected = _selected(db, fields)
     lines, columns = _read(kind, filename, content)
-    _resolve(db, lines, selected, columns)
+    _resolve(db, lines, selected, columns, incentives=kind == "incentivos")
     good = [line for line in lines if _enters(line)]
     incentives = kind == "incentivos"
     projects = []
@@ -670,7 +795,10 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
         "total": sum((line.amount for line in good if line.amount), Decimal("0")),
         "goodCount": len(good),
         "errorCount": sum(1 for line in lines if line.errors),
-        "skippedCount": sum(1 for line in lines if line.skipped and not line.errors),
+        "skippedCount": sum(
+            1 for line in lines if line.skipped and not line.errors and not line.alreadyPaid
+        ),
+        "alreadyPaidCount": sum(1 for line in lines if line.alreadyPaid),
         "payableCount": len(groups) if incentives else len(_buckets(good)),
         "shiftedCount": sum(1 for line in good if line.shiftedFrom),
         "groups": groups,
@@ -687,7 +815,8 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
                 "payDateGiven": line.givenPayDate is not None,
                 "projectCode": line.project.code if line.project else line.typed.get("project"),
                 "classification": _line_classification(line, columns),
-                "skipped": line.skipped and not line.errors,
+                "skipped": line.skipped and not line.errors and not line.alreadyPaid,
+                "alreadyPaid": line.alreadyPaid,
                 "errors": line.errors,
             }
             for line in lines
@@ -763,7 +892,7 @@ def confirm(
     """Cria os lançamentos, todos ou nenhum. A planilha é lida de novo e não fica guardada."""
     selected = _selected(db, fields)
     lines, columns = _read(fields.kind, filename, content)
-    _resolve(db, lines, selected, columns)
+    _resolve(db, lines, selected, columns, incentives=fields.kind == "incentivos")
     good = [line for line in lines if _enters(line)]
     if not good:
         raise PayableInvalid("Nenhuma linha da planilha pode entrar. Corrija e envie de novo")
@@ -778,13 +907,17 @@ def confirm(
             p for p, project_lines in per_project if _missing_deadline(p, project_lines)
         ]
         if without_deadline:
+            # O prazo não se marca mais na tela do projeto (18/11): a saída é a data na planilha.
             where = (
-                "no projeto"
+                "o projeto não tem"
                 if len(without_deadline) == 1
-                else "nos projetos " + ", ".join(f"PRJ-{p.code}" for p in without_deadline)
+                else "os projetos "
+                + ", ".join(f"PRJ-{p.code}" for p in without_deadline)
+                + " não têm"
             )
             raise PayableConflict(
-                f"Defina o prazo do incentivo {where} antes de importar a planilha"
+                "Use uma planilha com a data de pagamento de cada pessoa: "
+                f"{where} prazo de incentivo marcado"
             )
         extra = holiday_names(db)
         for refs, bucket_lines in buckets:
