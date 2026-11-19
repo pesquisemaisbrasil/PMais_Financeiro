@@ -1,3 +1,4 @@
+import re
 import unicodedata
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -46,6 +47,29 @@ def normalize(value: str | None) -> str:
     stripped = unicodedata.normalize("NFKD", value)
     without_accents = "".join(ch for ch in stripped if not unicodedata.combining(ch))
     return without_accents.casefold().strip()
+
+
+def matches_words(text: str | None, search: str | None) -> bool:
+    """A regra de toda busca do sistema (Bruno, 18/11/2026): cada palavra digitada aparece no
+    texto, em qualquer pedaço e em qualquer ordem, sem acento e sem diferença de maiúscula
+    ("certo PON" acha "Gráfica Ponto Certo"; "itau" acha "Itaú"). Busca vazia acha tudo."""
+    haystack = normalize(text)
+    return all(word in haystack for word in normalize(search).split())
+
+
+_AMOUNT_BR = re.compile(r"^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$|^\d+(?:,\d{1,2})?$")
+_AMOUNT_DOT = re.compile(r"^\d+\.\d{1,2}$")
+
+
+def parse_search_amount(text: str) -> Decimal | None:
+    """O valor que alguém digitou na busca ('588,22', 'R$ 1.200', '1200.5'), ou None se não é um
+    valor. Ponto com três casas é milhar ('1.200' = 1200); com uma ou duas, é centavo ('1.20')."""
+    cleaned = text.strip().removeprefix("R$").replace(" ", "")
+    if _AMOUNT_BR.match(cleaned):
+        return Decimal(cleaned.replace(".", "").replace(",", ".")).quantize(Decimal("0.01"))
+    if _AMOUNT_DOT.match(cleaned):
+        return Decimal(cleaned).quantize(Decimal("0.01"))
+    return None
 
 
 def csv_cell(value: str) -> str:
