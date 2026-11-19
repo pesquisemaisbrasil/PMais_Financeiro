@@ -171,6 +171,14 @@ admin: $(ENV_FILE) ## Cria um administrador e pede a senha no terminal (EMAIL=..
 	@test -n "$(EMAIL)" && test -n "$(NOME)" || { echo 'Use: make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"'; exit 1; }
 	$(COMPOSE) exec api python scripts/create_user.py --email "$(EMAIL)" --name "$(NOME)" --role admin
 
+definir-nivel: $(ENV_FILE) ## Troca o nível de uma conta: financeiro, admin ou superadmin (EMAIL=... NIVEL=...)
+	@test -n "$(EMAIL)" && test -n "$(NIVEL)" || { echo 'Use: make definir-nivel EMAIL=voce@pesquisemais.com.br NIVEL=superadmin'; exit 1; }
+	$(COMPOSE) exec api python scripts/definir_nivel.py --email "$(EMAIL)" --nivel "$(NIVEL)"
+
+liberar-navegador: $(ENV_FILE) ## Libera o computador que a pessoa pediu por último, sem outro admin (EMAIL=...)
+	@test -n "$(EMAIL)" || { echo 'Use: make liberar-navegador EMAIL=pessoa@pesquisemais.com.br'; exit 1; }
+	$(COMPOSE) exec api python scripts/liberar_navegador.py --email "$(EMAIL)"
+
 certificado: $(ENV_FILE) ## Copia o certificado raiz do HTTPS, para instalar nos computadores da equipe
 	$(COMPOSE) cp proxy:/data/caddy/pki/authorities/local/root.crt financeiro-certificado-raiz.crt
 	@echo "Instale financeiro-certificado-raiz.crt em cada computador (guia: docs/operations/servidor-local.md)."
