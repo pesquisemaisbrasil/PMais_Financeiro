@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, MonitorSmartphone } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { confirmMfaSetup, verifyMfa } from "@/lib/api";
+import { BrowserApprovalError, confirmMfaSetup, verifyMfa } from "@/lib/api";
 import { useFormAction } from "@/lib/use-form-action";
 
 function FormError({ error }: { error: string | null }) {
@@ -23,10 +23,13 @@ function FormError({ error }: { error: string | null }) {
 export function MfaVerifyStep({
   mfaToken,
   onVerified,
+  onWaiting,
   onBack,
 }: {
   mfaToken: string;
   onVerified: () => Promise<void>;
+  /** Código certo, mas este navegador ainda não foi liberado pelo administrador. */
+  onWaiting: (error: BrowserApprovalError) => void;
   onBack: () => void;
 }) {
   const [code, setCode] = useState("");
@@ -39,6 +42,7 @@ export function MfaVerifyStep({
       try {
         await verifyMfa(mfaToken, code);
       } catch (err) {
+        if (err instanceof BrowserApprovalError) return onWaiting(err);
         setCode("");
         throw err;
       }
@@ -105,7 +109,8 @@ export function MfaSetupStep({
   mfaToken: string;
   secret: string;
   otpauthUri: string;
-  onConfirmed: (recoveryCodes: string[]) => void;
+  /** Com `waiting`, o autenticador foi cadastrado, mas este navegador espera a liberação do admin. */
+  onConfirmed: (recoveryCodes: string[], waiting?: BrowserApprovalError) => void;
   onBack: () => void;
 }) {
   const [code, setCode] = useState("");
@@ -117,6 +122,7 @@ export function MfaSetupStep({
       try {
         onConfirmed(await confirmMfaSetup(mfaToken, code));
       } catch (err) {
+        if (err instanceof BrowserApprovalError) return onConfirmed(err.recoveryCodes, err);
         setCode("");
         throw err;
       }
@@ -161,6 +167,44 @@ export function MfaSetupStep({
         </Button>
       </CardFooter>
     </form>
+  );
+}
+
+/**
+ * Senha e código certos, mas este computador ainda não foi liberado (ou foi recusado) pelo
+ * administrador. Não há sessão: depois da liberação, a pessoa entra de novo (spec acesso-e-auditoria).
+ */
+export function WaitingStep({
+  message,
+  refused,
+  onBack,
+}: {
+  message: string;
+  refused: boolean;
+  onBack: () => void;
+}) {
+  return (
+    <>
+      <CardContent className="space-y-4">
+        <div className="flex justify-center text-brand-azul-deep" aria-hidden="true">
+          <MonitorSmartphone size={40} strokeWidth={1.5} />
+        </div>
+        <Alert variant={refused ? "destructive" : "default"} role="status">
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+        {!refused && (
+          <p className="text-center text-sm text-muted-foreground">
+            Por segurança, o Financeiro só abre nos computadores que um administrador liberou. Avise o
+            administrador, se precisar de pressa.
+          </p>
+        )}
+      </CardContent>
+      <CardFooter>
+        <Button type="button" variant="outline" className="w-full" onClick={onBack}>
+          Voltar ao login
+        </Button>
+      </CardFooter>
+    </>
   );
 }
 
