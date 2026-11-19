@@ -12,7 +12,7 @@ from db.connection import get_db
 from models.user import User
 from schemas.token import MfaChallenge, MfaCode, MfaSetup, Token, TokenWithRecoveryCodes
 from schemas.user import UserPublic
-from services import mfa, sso
+from services import browsers, mfa, sso
 from services.auth import (
     check_credentials,
     create_mfa_token,
@@ -61,6 +61,43 @@ def _client_info(request: Request) -> dict[str, str | None]:
         "ip": request.client.host if request.client else None,
         "user_agent": request.headers.get("user-agent"),
     }
+
+
+def _set_browser_cookie(response: Response, value: str | None) -> None:
+    """A marca do navegador (services/browsers.py). Lax, não Strict: precisa voltar também no
+    retorno do login pelo provedor, que vem de outro site. Sozinha ela não abre sessão."""
+    if not value:
+        return
+    response.set_cookie(
+        browsers.COOKIE_NAME,
+        value,
+        max_age=browsers.COOKIE_MAX_AGE,
+        httponly=True,
+        secure=REFRESH_COOKIE_SECURE,
+        samesite="lax",
+        path="/auth",
+    )
+
+
+def _browser_denied(
+    db: Session,
+    request: Request,
+    user: User,
+    decision: browsers.Decision,
+    recovery_codes: list[str] | None = None,
+) -> JSONResponse:
+    """Navegador ainda não liberado (ou recusado): sem sessão. O navegador guarda a marca, para o
+    admin liberar justamente ele. No cadastro do autenticador, os códigos de recuperação vão junto:
+    eles só aparecem uma vez."""
+    record_login_event(
+        db, user_id=user.id, success=False, reason=decision.reason, **_client_info(request)
+    )
+    content: dict[str, object] = {"detail": decision.detail, "browser": decision.status}
+    if recovery_codes:
+        content["recovery_codes"] = recovery_codes
+    denied = JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=content)
+    _set_browser_cookie(denied, decision.cookie)
+    return denied
 
 
 def _start_session(
@@ -130,7 +167,8 @@ def verify_mfa(
     body: MfaCode,
     user: Annotated[User, Depends(get_mfa_pending_user)],
     db: Session = Depends(get_db),
-) -> Token:
+    browser_cookie: Annotated[str | None, Cookie(alias=browsers.COOKIE_NAME)] = None,
+) -> Token | JSONResponse:
     method: str | None = None
     try:
         method = mfa.verify_code(db, user, body.code)
@@ -138,7 +176,11 @@ def verify_mfa(
         _deny_mfa(db, request, user, "mfa_locked", status.HTTP_429_TOO_MANY_REQUESTS)
     except mfa.InvalidMfaCode:
         _deny_mfa(db, request, user, "wrong_mfa_code", status.HTTP_401_UNAUTHORIZED)
-    access_token = _start_session(db, request, response, user, method)
+    decision = browsers.check(db, user, browser_cookie, **_client_info(request))
+    if not decision.allowed:
+        return _browser_denied(db, request, user, decision)
+    access_token = _start_session(db, request, response, user, method or decision.reason)
+    _set_browser_cookie(response, decision.cookie)
     return Token(access_token=access_token, token_type="bearer")
 
 
@@ -164,7 +206,8 @@ def confirm_mfa_setup(
     body: MfaCode,
     user: Annotated[User, Depends(get_mfa_pending_user)],
     db: Session = Depends(get_db),
-) -> TokenWithRecoveryCodes:
+    browser_cookie: Annotated[str | None, Cookie(alias=browsers.COOKIE_NAME)] = None,
+) -> TokenWithRecoveryCodes | JSONResponse:
     codes: list[str] = []
     try:
         codes = mfa.confirm_setup(db, user, body.code)
@@ -174,7 +217,13 @@ def confirm_mfa_setup(
         _deny_mfa(db, request, user, "mfa_locked", status.HTTP_429_TOO_MANY_REQUESTS)
     except mfa.InvalidMfaCode:
         _deny_mfa(db, request, user, "wrong_mfa_code", status.HTTP_401_UNAUTHORIZED)
-    access_token = _start_session(db, request, response, user)
+    # O cadastro libera o navegador da conta que ainda não tem nenhum. Quem refez o autenticador
+    # (celular perdido) num navegador novo continua precisando da liberação do admin.
+    decision = browsers.check(db, user, browser_cookie, **_client_info(request))
+    if not decision.allowed:
+        return _browser_denied(db, request, user, decision, recovery_codes=codes)
+    access_token = _start_session(db, request, response, user, decision.reason)
+    _set_browser_cookie(response, decision.cookie)
     return TokenWithRecoveryCodes(
         access_token=access_token, token_type="bearer", recovery_codes=codes
     )
@@ -259,6 +308,7 @@ def finish_sso(
     state: str | None = None,
     sso_state: Annotated[str | None, Cookie()] = None,
     db: Session = Depends(get_db),
+    browser_cookie: Annotated[str | None, Cookie(alias=browsers.COOKIE_NAME)] = None,
 ) -> RedirectResponse:
     provider = _sso_provider(provider_name)
     try:
@@ -281,6 +331,16 @@ def finish_sso(
         )
         return _back_to_login("sso_conta")
 
+    # O mesmo navegador liberado vale para quem entra pelo provedor.
+    decision = browsers.check(db, user, browser_cookie, **_client_info(request))
+    if not decision.allowed:
+        record_login_event(
+            db, user_id=user.id, success=False, reason=decision.reason, **_client_info(request)
+        )
+        denied = _back_to_login(f"navegador_{decision.status}")
+        _set_browser_cookie(denied, decision.cookie)
+        return denied
+
     record_login_event(
         db, user_id=user.id, success=True, reason=f"sso_{provider.name}", **_client_info(request)
     )
@@ -288,6 +348,7 @@ def finish_sso(
     response = RedirectResponse(f"{FRONTEND_URL}/", status_code=303)
     _set_refresh_cookie(response, refresh_token)
     response.delete_cookie(SSO_STATE_COOKIE, path=SSO_COOKIE_PATH)
+    _set_browser_cookie(response, decision.cookie)
     return response
 
 
