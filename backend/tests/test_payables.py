@@ -84,8 +84,10 @@ def auth(make_user: Callable[..., User]) -> dict[str, str]:
 
 
 def body(world: dict[str, Any], **overrides: Any) -> dict[str, Any]:
+    """Conta válida. Toda conta tem projeto (testes de 16/11, A3): sem `allocations` na chamada,
+    vai inteira no projeto 1804, pelo valor que a chamada pedir."""
     on = today()
-    return {
+    payload = {
         "issueDate": on.isoformat(),
         "dueDate": on.isoformat(),
         "amount": "1000.00",
@@ -98,6 +100,9 @@ def body(world: dict[str, Any], **overrides: Any) -> dict[str, Any]:
         "description": "Impressão de questionários",
         **overrides,
     }
+    if "allocations" not in overrides:
+        payload["allocations"] = [{"projectId": world["project"].id, "amount": payload["amount"]}]
+    return payload
 
 
 def payment(world: dict[str, Any], **overrides: Any) -> dict[str, Any]:
@@ -359,7 +364,7 @@ def test_edit_changes_the_classification_document_and_extras_with_one_audit_line
     assert text.startswith("Alterada: ")
     for piece in (
         "fornecedor Gráfica Ponto Certo → Papel Forte Ltda",
-        "categoria Material e gráfica → Transporte",
+        "plano de contas Material e gráfica → Transporte",
         "centro Campo → Tecnologia",
         "forma Pix → Boleto",
         "documento Sem documento → NF",
@@ -958,13 +963,14 @@ def test_filters_are_combined(
 ) -> None:
     allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
     create(client, auth, world, allocations=allocations, description="Com projeto")
-    create(client, auth, world, description="Sem projeto")
+    other = [{"projectId": world["other_project"].id, "amount": "1000.00"}]
+    create(client, auth, world, allocations=other, description="Do outro projeto")
     project = world["project"].id
     assert client.get(f"/payables?project={project}", headers=auth).json()["total"] == 1
     assert client.get("/payables?search=com%20proj", headers=auth).json()["total"] == 1
     assert client.get("/payables?search=ponto", headers=auth).json()["total"] == 2
     assert client.get("/payables?search=%25", headers=auth).json()["total"] == 0
-    both = client.get(f"/payables?project={project}&search=sem", headers=auth).json()
+    both = client.get(f"/payables?project={project}&search=outro", headers=auth).json()
     assert both["total"] == 0
 
 
@@ -1165,9 +1171,10 @@ def test_each_filter_takes_several_options_or_inside_and_between_filters(
     assert total("situation=vencido,hoje") == 3
     assert total("situation=vencido,devolvido") == 1
     assert total("kind=real,provisao") == 3
-    assert total(f"project={world['project'].id}") == 1
+    # A provisão também tem projeto (o 1804, como toda conta deste teste sem rateio próprio).
+    assert total(f"project={world['project'].id}") == 2
     # Um título rateado em dois projetos aparece uma vez só, não duas.
-    assert total(f"project={world['project'].id},{world['other_project'].id}") == 2
+    assert total(f"project={world['project'].id},{world['other_project'].id}") == 3
     # "e" entre filtros: das 3 contas, só uma é da unidade Health e está vencida.
     assert total(f"unit={unit},{other}&situation=vencido") == 1
     assert total(f"unit={other}&situation=vencido") == 0
@@ -1346,7 +1353,8 @@ def test_export_neutralizes_spreadsheet_formulas(
 def test_reclassify_records_one_line_per_payable(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
 ) -> None:
-    ids = [create(client, auth, world)["id"] for _ in range(3)]
+    other = [{"projectId": world["other_project"].id, "amount": "1000.00"}]
+    ids = [create(client, auth, world, allocations=other)["id"] for _ in range(3)]
     new_center = CostCenter(name="Comercial")
     db_session.add(new_center)
     db_session.commit()
@@ -1359,8 +1367,7 @@ def test_reclassify_records_one_line_per_payable(
     detail = client.get(f"/payables/{ids[0]}", headers=auth).json()
     assert detail["costCenterName"] == "Comercial"
     assert [a["amount"] for a in detail["allocations"]] == ["1000.00"]
-    assert "sem projeto" in detail["events"][0]["text"]
-    assert "PRJ-1804" in detail["events"][0]["text"]
+    assert "PRJ-1790 / Material e gráfica / Campo → PRJ-1804" in detail["events"][0]["text"]
     assert (
         db_session.query(PayableEvent).filter(PayableEvent.text.like("Reclassificada%")).count()
         == 3
@@ -1571,7 +1578,8 @@ def test_provision_can_point_to_a_real_already_launched(
     provision = _provision(client, auth, world)
     other = _provision(client, auth, world)
     real = create(client, auth, world, description="Gráfica real", allocations=allocations)
-    create(client, auth, world, description="Sem projeto")
+    elsewhere = [{"projectId": world["other_project"].id, "amount": "1000.00"}]
+    create(client, auth, world, description="De outro projeto", allocations=elsewhere)
     url = f"/payables/{provision['id']}/replacement-candidates"
     assert [c["id"] for c in client.get(url, headers=auth).json()] == [real["id"]]
 
@@ -1648,7 +1656,20 @@ def test_only_a_provision_can_be_replaced(
 
 # ---- Importar planilha ----
 
-INCENTIVE_HEADER = ["Nome", "CPF", "Chave Pix", "Valor", "Data da pesquisa", "Data de pagamento"]
+INCENTIVE_HEADER = [
+    "Nome",
+    "CPF",
+    "Chave Pix",
+    "Valor",
+    "Data da pesquisa",
+    "Data de pagamento",
+    "Projeto",
+    "Plano de contas",
+    "Forma de pagamento",
+]
+# O projeto, a conta e a forma da fixture `world`: toda linha de incentivo precisa dos três.
+INCENTIVE_DEFAULTS = {"Projeto": "1804", "Plano de contas": "2.04", "Forma de pagamento": "Pix"}
+INCENTIVE_DETAILS = list(INCENTIVE_DEFAULTS.values())
 FAKE_CPF = "000.000.000-00"
 FAKE_PIX = "pessoa-ficticia@exemplo.invalid"
 
@@ -1662,13 +1683,37 @@ def _xlsx(rows: list[list[Any]]) -> bytes:
     return output.getvalue()
 
 
+def _incentive_xlsx(rows: list[list[Any]]) -> bytes:
+    """Planilha de incentivos do teste: o projeto, o plano de contas e a forma de pagamento que a
+    linha não escreve vêm da fixture `world`. Célula escrita como None continua vazia."""
+    header, *lines = rows
+    titles = [*header, *[title for title in INCENTIVE_DEFAULTS if title not in header]]
+    filled: list[list[Any]] = [titles]
+    for line in lines:
+        cells = [*line, *[None] * (len(titles) - len(line))]
+        for index in range(len(line), len(titles)):
+            cells[index] = INCENTIVE_DEFAULTS.get(titles[index])
+        filled.append(cells)
+    return _xlsx(filled)
+
+
 def _incentives(*dates: tuple[str, int], value: Any = 120, pay: str = "") -> bytes:
     rows: list[list[Any]] = [INCENTIVE_HEADER]
     number = 0
     for day, count in dates:
         for _ in range(count):
             number += 1
-            rows.append([f"Respondente {number:03}", FAKE_CPF, FAKE_PIX, value, day, pay or None])
+            rows.append(
+                [
+                    f"Respondente {number:03}",
+                    FAKE_CPF,
+                    FAKE_PIX,
+                    value,
+                    day,
+                    pay or None,
+                    *INCENTIVE_DETAILS,
+                ]
+            )
     return _xlsx(rows)
 
 
@@ -1777,7 +1822,7 @@ def test_date_given_by_the_sheet_wins_over_the_deadline(
 def test_excel_dates_and_text_dates_both_work(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             INCENTIVE_HEADER,
             ["Pessoa A", None, None, 10.5, datetime(2026, 10, 30), None],
@@ -1806,7 +1851,7 @@ def test_a_given_pay_date_on_a_weekend_goes_to_the_next_business_day_with_a_warn
     db_session: Session,
 ) -> None:
     # 07/11/2026 é sábado e 08/11 é domingo: as duas vão para a segunda, 09/11, num lançamento só
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             INCENTIVE_HEADER,
             ["Pessoa A", None, None, 100, None, "2026-11-07"],
@@ -1845,7 +1890,7 @@ def test_a_given_pay_date_on_a_national_or_registered_holiday_also_moves(
     # 02/11/2026 é segunda e feriado nacional (Finados); 10/11 é terça e o financeiro cadastrou
     holiday = {"date": "2026-11-10", "name": "Recesso da empresa", "scope": "nacional"}
     assert client.post("/holidays", json=holiday, headers=auth).status_code == 201
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             INCENTIVE_HEADER,
             ["Pessoa A", None, None, 100, None, "2026-11-02"],
@@ -1917,7 +1962,7 @@ def test_the_pix_key_of_an_incentive_is_kept_masked_like_the_connect_shows_it(
 def test_each_kind_of_pix_key_is_masked_the_same_way_as_in_the_receipts(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             ["Nome", "Valor", "Data de pagamento", "Chave Pix"],
             ["CPF com pontos", 10, "2026-11-16", "529.982.247-25"],
@@ -1946,7 +1991,9 @@ def test_each_kind_of_pix_key_is_masked_the_same_way_as_in_the_receipts(
 def test_a_sheet_without_the_pix_column_leaves_the_masked_key_empty(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
-    content = _xlsx([["Nome", "Valor", "Data de pagamento"], ["Sem coluna", 10, "2026-11-16"]])
+    content = _incentive_xlsx(
+        [["Nome", "Valor", "Data de pagamento"], ["Sem coluna", 10, "2026-11-16"]]
+    )
     _send(client, auth, "/payables/import", _import_fields(world), content)
     listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
     items = client.get(f"/payables/{listed['id']}", headers=auth).json()["items"]
@@ -1975,7 +2022,7 @@ def test_bad_lines_stay_out_and_say_why(
     incentive_project: Project,
     db_session: Session,
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             INCENTIVE_HEADER,
             ["Pessoa boa", None, None, 100, "2026-10-30", None],
@@ -2016,7 +2063,8 @@ def test_project_without_deadline_refuses_lines_without_date(
     response = _send(client, auth, "/payables/import", _import_fields(world), content)
     assert response.status_code == 409
     assert response.json()["detail"] == (
-        "Defina o prazo do incentivo no projeto antes de importar a planilha"
+        "Use uma planilha com a data de pagamento de cada pessoa: "
+        "o projeto não tem prazo de incentivo marcado"
     )
     assert db_session.query(Payable).count() == 0
     # Com a data na planilha, o prazo não faz falta
@@ -2034,7 +2082,7 @@ def test_sheet_without_the_required_columns_is_refused(
     assert no_date.json()["detail"] == 'A planilha precisa da coluna "data da pesquisa"'
     no_value = _send(client, auth, url, fields, _xlsx([["Nome", "Data da pesquisa"]]))
     assert no_value.json()["detail"] == 'A planilha precisa da coluna "valor"'
-    only_pay = _xlsx([["Nome", "Valor", "Data de pagamento"], ["Ana", 10, "2026-10-30"]])
+    only_pay = _incentive_xlsx([["Nome", "Valor", "Data de pagamento"], ["Ana", 10, "2026-10-30"]])
     assert _send(client, auth, url, fields, only_pay).json()["goodCount"] == 1
 
 
@@ -2093,7 +2141,7 @@ def test_a_project_column_splits_one_sheet_into_one_payable_per_project_and_date
     two_incentive_projects: tuple[Project, Project],
     db_session: Session,
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             PROJECT_HEADER,
             ["Ana", 100, "2026-10-30", "1804"],
@@ -2139,7 +2187,7 @@ def test_choosing_some_projects_leaves_the_others_out_without_calling_them_error
     two_incentive_projects: tuple[Project, Project],
     db_session: Session,
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             PROJECT_HEADER,
             ["Ana", 100, "2026-10-30", "1804"],
@@ -2164,13 +2212,13 @@ def test_choosing_some_projects_leaves_the_others_out_without_calling_them_error
     assert (preview["goodCount"], preview["skippedCount"]) == (3, 0)
 
 
-def test_blank_project_cell_uses_the_single_chosen_project_and_is_an_error_otherwise(
+def test_blank_project_cell_is_an_error_even_with_a_project_chosen_on_the_screen(
     client: TestClient,
     auth: dict[str, str],
     world: dict[str, Any],
     two_incentive_projects: tuple[Project, Project],
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             PROJECT_HEADER,
             ["Ana", 100, "2026-10-30", None],
@@ -2179,8 +2227,8 @@ def test_blank_project_cell_uses_the_single_chosen_project_and_is_an_error_other
     )
     url = "/payables/import/preview"
     one = _send(client, auth, url, _import_fields(world), content).json()  # só o 1804 marcado
-    assert (one["goodCount"], one["skippedCount"]) == (1, 1)
-    assert [(g["projectCode"], g["count"]) for g in one["groups"]] == [("1804", 1)]
+    assert (one["goodCount"], one["skippedCount"]) == (0, 1)
+    assert one["lines"][0]["errors"] == ["Sem projeto na linha"]
 
     none = _send(client, auth, url, _import_fields(world, projectIds=""), content).json()
     assert none["goodCount"] == 1
@@ -2193,7 +2241,7 @@ def test_unknown_and_closed_projects_in_the_sheet_are_line_errors(
     world: dict[str, Any],
     two_incentive_projects: tuple[Project, Project],
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             PROJECT_HEADER,
             ["Ana", 100, "2026-10-30", "1804"],
@@ -2216,25 +2264,27 @@ def test_unknown_and_closed_projects_in_the_sheet_are_line_errors(
     ]
 
 
-def test_sheet_without_a_project_column_needs_exactly_one_chosen_project(
+def test_sheet_without_a_project_column_is_refused_whatever_is_chosen(
     client: TestClient,
     auth: dict[str, str],
     world: dict[str, Any],
     two_incentive_projects: tuple[Project, Project],
 ) -> None:
-    content = _incentives(("2026-10-30", 1))
-    url = "/payables/import/preview"
-    expected = (
-        'A planilha não tem a coluna "projeto". Escolha um só projeto na tela '
-        "ou inclua a coluna na planilha"
+    content = _xlsx(
+        [
+            ["Nome", "Valor", "Data da pesquisa", "Plano de contas", "Forma de pagamento"],
+            ["Ana", 120, "2026-10-30", "2.04", "Pix"],
+        ]
     )
-    for chosen in ("", f"{world['project'].id},{world['other_project'].id}"):
+    url = "/payables/import/preview"
+    for chosen in (
+        "",
+        str(world["project"].id),
+        f"{world['project'].id},{world['other_project'].id}",
+    ):
         response = _send(client, auth, url, _import_fields(world, projectIds=chosen), content)
         assert response.status_code == 422
-        assert response.json()["detail"] == expected
-    assert (
-        _send(client, auth, url, _import_fields(world), content).json()["hasProjectColumn"] is False
-    )
+        assert response.json()["detail"] == 'A planilha precisa da coluna "projeto"'
 
 
 def test_a_project_without_deadline_blocks_only_when_it_has_lines_that_need_it(
@@ -2245,7 +2295,7 @@ def test_a_project_without_deadline_blocks_only_when_it_has_lines_that_need_it(
     db_session: Session,
 ) -> None:
     # O 1790 não tem prazo; a linha dele sem data de pagamento não tem como ser calculada.
-    content = _xlsx(
+    content = _incentive_xlsx(
         [PROJECT_HEADER, ["Ana", 100, "2026-10-30", "1804"], ["Caio", 50, "2026-10-30", "1790"]]
     )
     fields = _import_fields(world, projectIds="")
@@ -2258,7 +2308,8 @@ def test_a_project_without_deadline_blocks_only_when_it_has_lines_that_need_it(
     response = _send(client, auth, "/payables/import", fields, content)
     assert response.status_code == 409
     assert response.json()["detail"] == (
-        "Defina o prazo do incentivo no projeto antes de importar a planilha"
+        "Use uma planilha com a data de pagamento de cada pessoa: "
+        "o projeto não tem prazo de incentivo marcado"
     )
     assert db_session.query(Payable).count() == 0
     # Marcando só o 1804, a planilha entra: o 1790 ficou fora
@@ -2269,7 +2320,7 @@ def test_a_project_without_deadline_blocks_only_when_it_has_lines_that_need_it(
 def test_two_projects_without_deadline_are_named_together(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
-    content = _xlsx(
+    content = _incentive_xlsx(
         [PROJECT_HEADER, ["Ana", 100, "2026-10-30", "1804"], ["Caio", 50, "2026-10-30", "1790"]]
     )
     response = _send(
@@ -2277,7 +2328,8 @@ def test_two_projects_without_deadline_are_named_together(
     )
     assert response.status_code == 409
     assert response.json()["detail"] == (
-        "Defina o prazo do incentivo nos projetos PRJ-1790, PRJ-1804 antes de importar a planilha"
+        "Use uma planilha com a data de pagamento de cada pessoa: "
+        "os projetos PRJ-1790, PRJ-1804 não têm prazo de incentivo marcado"
     )
 
 
@@ -2353,7 +2405,7 @@ def _classified(
         "categoryIds": "",
         "paymentMethodIds": "",
     }
-    return _import_fields(world, **{**cleared, **over}), _xlsx([COLUMNS_HEADER, *rows])
+    return _import_fields(world, **{**cleared, **over}), _incentive_xlsx([COLUMNS_HEADER, *rows])
 
 
 def test_the_import_finds_a_sub_center_by_code_or_path_and_asks_for_the_code_when_the_name_repeats(
@@ -2423,10 +2475,11 @@ def test_each_classification_column_splits_the_sheet_into_payables(
     )
     preview = _send(client, auth, "/payables/import/preview", fields, content).json()
     assert preview["columns"] == [
+        "projeto",
         "empresa",
         "unidade",
         "centro de custo",
-        "categoria",
+        "plano de contas",
         "forma de pagamento",
     ]
     assert preview["hasClassificationColumns"] is True
@@ -2488,7 +2541,7 @@ def test_choosing_some_registers_leaves_the_other_lines_out(
     assert (kept["goodCount"], kept["skippedCount"]) == (2, 0)
 
 
-def test_blank_cells_use_the_single_chosen_register(
+def test_a_blank_center_uses_the_chosen_one_but_category_and_method_must_be_in_the_line(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], more_registers: dict[str, Any]
 ) -> None:
     fields, content = _classified(
@@ -2499,10 +2552,18 @@ def test_blank_cells_use_the_single_chosen_register(
         paymentMethodIds="",
     )
     preview = _send(client, auth, "/payables/import/preview", fields, content).json()
-    # centro de custo e categoria vêm do que foi marcado; a forma não tem de onde vir
-    assert preview["lines"][0]["errors"] == ["Sem forma de pagamento na linha"]
+    # o centro de custo vem do que foi marcado; a conta e a forma têm de vir na linha
+    assert preview["lines"][0]["errors"] == [
+        "Sem plano de contas na linha",
+        "Sem forma de pagamento na linha",
+    ]
     fields["paymentMethodIds"] = str(world["method"].id)
-    ok = _send(client, auth, "/payables/import/preview", fields, content).json()
+    marked = _send(client, auth, "/payables/import/preview", fields, content).json()
+    assert marked["goodCount"] == 0
+    filled = _incentive_xlsx(
+        [COLUMNS_HEADER, ["Ana", 100, "2026-11-20", "PPlus", "Consumo SP", None, "2.04", "Pix"]]
+    )
+    ok = _send(client, auth, "/payables/import/preview", fields, filled).json()
     assert ok["goodCount"] == 1
     assert ok["groups"][0]["classification"] == (
         "PPlus · Consumo SP · Campo · 2.04 Material e gráfica · Pix"
@@ -2528,7 +2589,7 @@ def test_unknown_inactive_and_wrong_kind_registers_are_line_errors(
         [],
         ["Empresa Fantasma não existe"],
         ["Centro de custo Antigo: cadastro inativo"],
-        ["Categoria Receita de pesquisa: contas a pagar usam conta de despesa"],
+        ["Plano de contas Receita de pesquisa: contas a pagar usam conta de despesa"],
         ["Unidade Inexistente não existe"],
     ]
 
@@ -2550,7 +2611,7 @@ def test_a_unit_is_looked_up_inside_its_company_and_must_belong_to_it(
     assert preview["lines"][0]["errors"] == []
     assert preview["lines"][1]["errors"] == ["Unidade Health não existe"]
     # Sem a coluna da empresa, a empresa marcada na tela decide qual "Consumo SP" vale
-    no_company = _xlsx(
+    no_company = _incentive_xlsx(
         [
             ["Nome", "Valor", "Data de pagamento", "Unidade"],
             ["Ana", 100, "2026-11-20", "Consumo SP"],
@@ -2567,14 +2628,17 @@ def test_fields_without_a_column_need_exactly_one_chosen_register(
 ) -> None:
     content = _incentives(("2026-10-30", 1), pay="2026-11-20")
     url = "/payables/import/preview"
-    for field, label, article in (
-        ("companyIds", "empresa", "uma só empresa"),
-        ("unitIds", "unidade", "uma só unidade"),
-        ("costCenterIds", "centro de custo", "um só centro de custo"),
-        ("categoryIds", "categoria", "uma só categoria"),
-        ("paymentMethodIds", "forma de pagamento", "uma só forma de pagamento"),
+    # Só na folha: no incentivo, a planilha traz uns e o cadastro do projeto traz os outros
+    payroll = _xlsx([["Nome", "Documento", "Valor"], ["Ana", "Sem NF", 10]])
+    for kind, field, label, article in (
+        ("folha", "companyIds", "empresa", "uma só empresa"),
+        ("folha", "unitIds", "unidade", "uma só unidade"),
+        ("folha", "costCenterIds", "centro de custo", "um só centro de custo"),
+        ("folha", "categoryIds", "plano de contas", "uma só conta do plano"),
+        ("folha", "paymentMethodIds", "forma de pagamento", "uma só forma de pagamento"),
     ):
-        response = _send(client, auth, url, _import_fields(world, **{field: ""}), content)
+        fields = _import_fields(world, kind=kind, **{field: ""})
+        response = _send(client, auth, url, fields, payroll)
         assert response.status_code == 422
         assert response.json()["detail"] == (
             f'A planilha não tem a coluna "{label}". '
@@ -2714,7 +2778,10 @@ def test_payroll_needs_description_and_due_date(
 def test_csv_saved_by_excel_is_accepted(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
-    text = "Nome;Valor;Data da pesquisa\r\nJoão;1.200,50;30/10/2026\r\n;;\r\n"
+    text = (
+        "Nome;Valor;Data da pesquisa;Projeto;Plano de contas;Forma de pagamento\r\n"
+        "João;1.200,50;30/10/2026;1804;2.04;Pix\r\n;;;;;\r\n"
+    )
     response = _send(
         client,
         auth,
@@ -2735,8 +2802,9 @@ def test_csv_saved_by_excel_is_accepted(
             "payDate": "2026-11-16",
             "payDateGiven": False,
             "projectCode": "1804",
-            "classification": None,
+            "classification": "2.04 · Pix",
             "skipped": False,
+            "alreadyPaid": False,
             "errors": [],
         }
     ]
@@ -3359,7 +3427,13 @@ def test_pay_on_only_informs_it_does_not_move_the_due_date_the_list_or_the_situa
     before = client.get("/payables", headers=auth).json()
     _patch(client, auth, created, payOn="2030-01-31")
     after = client.get("/payables", headers=auth).json()
-    assert after["items"] == before["items"]
+
+    # A linha traz o "pagar em" (a edição em lote mostra, 18/11); o resto dela não muda
+    def without_pay_on(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{key: value for key, value in item.items() if key != "payOn"} for item in items]
+
+    assert without_pay_on(after["items"]) == without_pay_on(before["items"])
+    assert [item["payOn"] for item in after["items"]] == ["2030-01-31"]
     assert after["indicators"] == before["indicators"]
     detail = client.get(f"/payables/{created['id']}", headers=auth).json()
     assert (detail["dueDate"], detail["situation"]) == (created["dueDate"], created["situation"])

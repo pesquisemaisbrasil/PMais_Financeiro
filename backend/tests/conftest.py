@@ -34,6 +34,9 @@ for _key in (
 ):
     os.environ[_key] = ""
 os.environ["PAYMENT_DISPATCH_SECONDS"] = "0"
+# Navegador liberado desligado nos testes em geral: eles limpam os cookies para simular uma sessão
+# nova, e isso viraria um navegador novo. tests/test_navegador_liberado.py liga e cobre a regra.
+os.environ["DEVICE_APPROVAL_ENABLED"] = "false"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

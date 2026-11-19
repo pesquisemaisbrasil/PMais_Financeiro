@@ -18,6 +18,7 @@ from tests.test_payables import (  # noqa: F401
     FAKE_PIX,
     INCENTIVE_HEADER,
     _import_fields,
+    _incentive_xlsx,
     _incentives,
     _send,
     _xlsx,
@@ -98,7 +99,7 @@ def test_a_name_that_looks_like_a_formula_stays_text(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
     # "+" e "@" chegam como texto pela importação, mas o Excel os leria como fórmula ao abrir
-    content = _xlsx(
+    content = _incentive_xlsx(
         [
             ["Nome", "Valor", "Data de pagamento"],
             ["+SUM(1+1)", 10, "2026-11-16"],

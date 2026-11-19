@@ -259,6 +259,24 @@ def test_a_closed_project_takes_no_new_revenue(
     )
 
 
+def test_an_inactive_project_takes_no_new_revenue_and_a_used_one_is_not_deleted(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    world["project"].active = False  # inativo desde 18/11: some das escolhas de lançamento novo
+    db_session.commit()
+    response = client.post("/receivables", json=body(world), headers=auth)
+    assert (response.status_code, response.json()["detail"]) == (
+        409,
+        "Projeto PRJ-1804 está inativo: reative em Cadastros para lançar nele",
+    )
+    create(client, auth, world, projectId=world["other_project"].id)
+    used = client.delete(f"/projects/{world['other_project'].id}", headers=auth)
+    assert (used.status_code, used.json()["detail"]) == (
+        409,
+        "Esse projeto tem lançamentos — inative em vez de excluir",
+    )
+
+
 def test_receivables_use_a_revenue_account_and_payables_use_an_expense_account(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
@@ -534,6 +552,10 @@ def test_company_period_and_keyword_filters(
     assert [r["description"] for r in by_company["items"]] == ["Consultoria de teste"]
     assert listing(client, auth, search="CT-77")["total"] == 1  # procura também no contrato
     assert listing(client, auth, search="beta")["total"] == 0
+    # A regra de toda busca (18/11): sem acento, sem diferença de maiúscula, por pedaço e em
+    # qualquer ordem; um valor acha o título com ele
+    for typed in ("CONSULTORIA TESTE", "teste consult", "ct-77", "Consultória de TESTE"):
+        assert listing(client, auth, search=typed)["total"] == 1, typed
     assert listing(client, auth, mode="dia")["total"] == 3
     assert listing(client, auth, mode="periodo", start=days(5), end=days(9))["total"] == 0
 

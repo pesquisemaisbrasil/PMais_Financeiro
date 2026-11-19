@@ -69,6 +69,18 @@ def test_day_31_goes_to_the_last_day_of_each_month_then_to_the_next_business_day
     ]
 
 
+def test_the_simulation_says_which_due_date_moved_and_why(
+    client: TestClient, auth: dict[str, str]
+) -> None:
+    # A tabela avisa o que foi para o próximo dia útil (testes de 16/11, A6)
+    first, _, third, *_ = simulate(client, auth)
+    assert (first["movedFrom"], first["movedReason"]) == ("2026-01-31", "sábado")
+    assert (third["movedFrom"], third["movedReason"]) == (None, None)
+    holiday = simulate(client, auth, startDate="2026-11-15", count=2)[0]
+    assert holiday["movedFrom"] == "2026-11-15"
+    assert holiday["movedReason"] in ("domingo", "feriado nacional")
+
+
 def test_the_day_comes_from_the_start_date_not_from_the_previous_occurrence(
     client: TestClient, auth: dict[str, str]
 ) -> None:

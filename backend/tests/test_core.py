@@ -15,6 +15,7 @@ from core.text import (
     format_date_br,
     format_datetime_br,
     launch_date,
+    matches_words,
     normalize,
 )
 from db.connection import Base
@@ -82,3 +83,13 @@ def test_dates_follow_sao_paulo_near_midnight_utc() -> None:
 def test_normalize_ignores_accent_case_and_edges() -> None:
     assert normalize("  São PAULO ") == "sao paulo"
     assert normalize(None) == ""
+
+
+def test_every_search_ignores_case_accent_and_word_order() -> None:
+    """A regra única das buscas (18/11): maiúscula, acento, pedaço e ordem não importam."""
+    text = "Gráfica Ponto Certo · Satisfação"
+    for typed in ("grafica", "GRÁFICA", "certo PON", "satisfacao", "SATISFAÇÃO", "  ponto  "):
+        assert matches_words(text, typed), typed
+    assert not matches_words(text, "grafica itau")
+    assert matches_words(text, "")  # busca vazia acha tudo
+    assert matches_words("Itaú · PPlus", "itau")
