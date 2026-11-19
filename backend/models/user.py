@@ -11,8 +11,12 @@ class User(Base):
     # sempre em minúsculas (services/auth.py: normalize_email)
     email = Column(String, unique=True, index=True, nullable=False)
     passwordHash = Column(String, nullable=False)
-    # financeiro | admin
+    # financeiro (usuário) | admin | superadmin (core/permissions.py)
     role = Column(String(20), nullable=False, default="financeiro")
+    # as telas que o admin bloqueou para a pessoa, separadas por vírgula (core/permissions.SCREENS)
+    blockedScreensText = Column(
+        "blockedScreens", String(300), nullable=False, default="", server_default=""
+    )
     # active | inactive
     status = Column(String(20), nullable=False, default="active", index=True)
     # AES-256-GCM (core/crypto.py), nunca em claro. Já existe durante o cadastro, mas o
@@ -32,3 +36,7 @@ class User(Base):
     @property
     def mfaEnabled(self) -> bool:
         return self.mfaEnabledAt is not None
+
+    @property
+    def blockedScreens(self) -> list[str]:
+        return [screen for screen in (self.blockedScreensText or "").split(",") if screen]

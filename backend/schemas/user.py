@@ -10,6 +10,8 @@ class UserPublic(BaseModel):
     role: str
     # a tela pede o código do autenticador para confirmar baixa só de quem tem MFA
     mfaEnabled: bool = False
+    # o menu esconde e o endereço não abre as telas bloqueadas pelo admin
+    blockedScreens: list[str] = []
 
 
 def validate_password_strength(value: str) -> str:

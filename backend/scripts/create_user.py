@@ -29,7 +29,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--email", required=True)
     parser.add_argument("--name", required=True)
-    parser.add_argument("--role", choices=["financeiro", "admin"], default="financeiro")
+    parser.add_argument(
+        "--role", choices=["financeiro", "admin", "superadmin"], default="financeiro"
+    )
     args = parser.parse_args()
 
     email = normalize_email(args.email)
