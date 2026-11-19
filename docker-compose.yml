@@ -52,6 +52,12 @@ services:
     environment:
       DATABASE_URL: postgresql://financeiro_app:troque-local@db:5432/financeiro
       MIGRATION_DATABASE_URL: postgresql://financeiro_migrator:troque-local@db:5432/financeiro
+      # Dentro do container, o cofre de arquivos é o serviço minio (o localhost:9010 do .env é o da
+      # máquina, que só vale para a API rodando fora do Docker).
+      FILES_ENDPOINT_URL: http://minio:9000
+      # feriados estaduais e municipais das capitais, buscados sozinhos a cada 6 horas (ADR 0024)
+      FERIADOS_DEV_URL: http://feriados:3000
+      HOLIDAYS_SYNC_HOURS: "6"
     ports: ["127.0.0.1:8010:8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/readyz')"]
@@ -61,6 +67,47 @@ services:
       start_period: 20s
     depends_on:
       db: { condition: service_healthy }
+      minio: { condition: service_healthy }
+
+  # Feriados estaduais e municipais das capitais: o feriados.dev (código aberto, MIT), na versão
+  # 2e5e787 de 10/10/2026, com o banco dele. Só na rede interna: nenhuma porta publicada (ADR 0024).
+  feriados-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: feriados
+      POSTGRES_USER: feriados
+      # só dados públicos (feriados e cidades), e o banco não sai da rede interna
+      POSTGRES_PASSWORD: feriados-local
+    volumes:
+      - feriadosdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feriados -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  feriados:
+    build:
+      context: https://github.com/feriados-dev/feriados-dev-oss.git#2e5e7879785a59f304bcc258e056d11819754d83
+      target: production
+    environment:
+      NODE_ENV: production
+      # as datas saem como meia-noite em UTC; a API do Financeiro lê o dia antes do "T"
+      TZ: UTC
+      DATABASE_URL: postgres://feriados:feriados-local@feriados-db:5432/feriados?sslmode=disable
+      SWAGGER_ENABLED: "false"
+    # cria as tabelas na primeira vez, carrega os dados novos da versão e sobe a API
+    command: sh -c "node /app/preparar-banco.cjs && node scripts/run-sql-migrations.mjs && node dist/server.js"
+    volumes:
+      - ./deploy/feriados/preparar-banco.cjs:/app/preparar-banco.cjs:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    depends_on:
+      feriados-db: { condition: service_healthy }
 
   frontend:
     build:
@@ -79,3 +126,4 @@ services:
 volumes:
   pgdata:
   miniodata:
+  feriadosdata:
