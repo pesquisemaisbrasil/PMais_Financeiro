@@ -7,8 +7,10 @@ Contrato de comportamento de cada área do **Financeiro da Pesquise+**, sistema 
 | Módulo | Spec | O que cobre |
 |---|---|---|
 | — | [visao-geral](visao-geral.md) | Ponto de entrada: o que é, fronteira com o Connect, regras de produto, módulos |
+| — | [busca-geral](busca-geral.md) | Busca no alto de todas as telas: contas, notas, projetos e cadastros, separados por grupo |
+| — | [demandas](demandas.md) | Abrir demanda (nova demanda, correção de bugs ou de regra), com descrição e anexo obrigatórios, para o super admin |
 | — | [solicitacoes](solicitacoes.md) | Versão de demonstração: os dois acessos (Financeiro e Desenvolvimento) e as solicitações de correção e melhoria com print |
-| **1. Pagamento de entrevistadores** ([plano do handoff](../handoff/11-plano-de-implementacao.md)) | [acesso-e-auditoria](acesso-e-auditoria.md) | Login, papéis `financeiro` e `admin`, MFA, permissões, trilha de auditoria |
+| **1. Pagamento de entrevistadores** ([plano do handoff](../handoff/11-plano-de-implementacao.md)) | [acesso-e-auditoria](acesso-e-auditoria.md) | Login, níveis `superadmin`, `admin` e `financeiro` (usuário), telas bloqueadas por pessoa, MFA, permissões, trilha de auditoria |
 | | [pagamentos-a-pagar](pagamentos-a-pagar.md) | Espelho dos itens a pagar, resumo, planilha de pagamentos, avisos |
 | | [comprovantes-e-baixa](comprovantes-e-baixa.md) | PDF de comprovantes, leitura, conciliação por soma exata, "Confirmar baixa" |
 | | [integracao-com-o-connect](integracao-com-o-connect.md) | Cliente da API, webhooks, sincronização, baixa, divergências |

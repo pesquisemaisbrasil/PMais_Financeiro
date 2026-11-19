@@ -130,7 +130,7 @@ Não bloqueiam o que está na sprint, mas travam ou mudam as próximas tarefas.
 
 Decisões tomadas no trabalho, dentro do que o projeto permite, e registradas nos specs. Se o João discordar de alguma, é só dizer:
 
-- **Incentivos em Relatórios:** a tela fica no menu Relatórios, abaixo de Relatório do projeto. Cada lançamento mostra a data na frente do nome e abre as pessoas a pagar, com chave Pix **mascarada**, nota e de onde veio (planilha ou Connect).
+- **Incentivos em Relatórios:** a tela ficava no menu Relatórios, abaixo de Relatório do projeto; **saiu do menu em 18/11** (Bruno) e fica engavetada, só pelo endereço, até haver pagamento automático pelo banco. Cada lançamento mostra a data na frente do nome e abre as pessoas a pagar, com chave Pix **mascarada**, nota e de onde veio (planilha ou Connect).
 - **Dia útil e feriados:** data de pagamento em sábado, domingo ou feriado vai para o próximo dia útil, com aviso na prévia; feriados nacionais vêm da BrasilAPI e os locais se cadastram à mão ([ADR 0015](../architecture/adr/0015-feriados-por-cadastro-e-brasilapi.md)). Dúvidas na Q42.
 - **Chave Pix do respondente:** só a máscara é guardada (provisório, Q22). A completa não é guardada, e a exceção está no [ADR 0004](../architecture/adr/0004-cpf-de-usuario-fora-do-financeiro.md).
 - **Baixar planilha (incentivos):** é uma planilha **de controle**, com a chave mascarada. **Não serve para subir no banco.**

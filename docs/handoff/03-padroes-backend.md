@@ -326,6 +326,7 @@ Todo `def` com tipos. `# type: ignore[código]` só com comentário do motivo (e
 - [ ] Tabelas snake_case plural, colunas camelCase, FKs `*_id` snake.
 - [ ] Toda checagem de teto/estado é feita depois de `with_for_update()` e releitura (`populate_existing`).
 - [ ] Dinheiro só `Numeric` + `Decimal`; nenhum `float` fora da escrita do `.xlsx`.
+- [ ] Busca de texto livre usa `core/text.matches_words` (sem acento, sem diferença de maiúscula, cada palavra em qualquer ordem), nunca `lower()`/`ilike` no banco: a regra é a mesma em toda caixa de busca ([busca-geral](../specs/busca-geral.md), regra 1).
 - [ ] Instantes em UTC; regra de dia usa `launch_date`/`SAO_PAULO_TZ`.
 - [ ] Listas com `pagination_params` e `X-Total-Count`; sincronização por cursor.
 - [ ] `grep` por `logger.` não mostra nome, e-mail, CPF, chave Pix nem corpo de requisição; engine com `hide_parameters=True`.

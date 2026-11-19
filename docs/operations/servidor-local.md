@@ -45,6 +45,7 @@ make certificado                      # gera financeiro-certificado-raiz.crt par
 - `make configurar` cria `deploy/.env` (fora do git) com **chaves novas e aleatórias**: senhas do banco e do MinIO, `SECRET_KEY`, `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY`. **Guarde uma cópia desse arquivo num cofre, fora do servidor:** sem `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY` os dados guardados não abrem. Ele se recusa a gerar de novo se o arquivo já existe.
 - Para ligar o **Connect**, preencha `CONNECT_BASE_URL` (só `https`), `CONNECT_CLIENT_ID` e `CONNECT_CLIENT_SECRET` no `deploy/.env` e rode `make subir`.
 - O primeiro acesso de cada pessoa cadastra o autenticador (MFA), como no sistema de sempre. As outras contas são criadas por um administrador, ou com `make admin` (só administrador).
+- Para trocar o nível de uma conta que já existe (usuário, admin ou super admin): `make definir-nivel EMAIL=pessoa@pesquisemais.com.br NIVEL=superadmin` (os níveis são `financeiro`, `admin` e `superadmin`, [ADR 0023](../architecture/adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)). Vale no próximo clique da pessoa.
 
 Abra `https://<HOST>` num computador da rede. A API fica em `https://<HOST>:8443`.
 
@@ -94,6 +95,7 @@ Se o problema não for no banco (a versão nova só tem um defeito de tela, por 
 - `deploy/compose.yml`, projeto `financeiro`. Só o Caddy publica portas; banco, MinIO, API e telas ficam na rede interna do Docker. Volumes: `financeiro_pgdata`, `financeiro_miniodata`, `financeiro_caddydata`, `financeiro_caddyconfig`.
 - A API roda em **modo produção** (`ENVIRONMENT=production`): sem `/docs`, cookie de sessão seguro, Connect só por `https`, sem dados de exemplo nem Connect simulado. O MinIO fala `https` com um certificado gerado por `make configurar` em `deploy/certs/` (fora do git), e a API confia nele por `AWS_CA_BUNDLE`.
 - O banco nasce com as roles do `docker/postgres/roles.sql`; o `make banco` troca as senhas delas pelas do `deploy/.env` a cada subida. As migrations rodam com a role `financeiro_migrator`, e a API usa a `financeiro_app`.
+- **Feriados das capitais** ([ADR 0024](../architecture/adr/0024-feriados-das-capitais-pelo-feriados-dev.md)): os containers `feriados` (o feriados.dev, construído do GitHub numa versão fixa) e `feriados-db` (o banco dele, volume `financeiro_feriadosdata`) ficam na rede interna. O primeiro build precisa de internet e leva alguns minutos. A API busca os feriados sozinha a cada 6 horas (`HOLIDAYS_SYNC_HOURS`); para usar outras cidades, ponha os códigos do feriados.dev em `HOLIDAYS_LOCATIONS` no `deploy/.env` (ex.: `SP-sao-paulo,SP-campinas`) e rode `make subir`. O volume do feriados.dev não entra no backup: tudo nele é recarregado na subida. Os dados dele vão até 2027; para os anos seguintes, troque o commit do `feriados` no `deploy/compose.yml` por uma versão nova.
 - O `docker-compose.yml` da raiz continua sendo só o do desenvolvimento.
 - A CI testa este deploy num Ubuntu sempre que algo dele muda (`.github/workflows/deploy.yml`): verificar, configurar, subir com a conferência, administrador e login, backup, voltar e restaurar os arquivos.
 
@@ -119,4 +121,5 @@ As cópias ficam em `backups/` no próprio servidor: leve-as para fora dele (out
 | `permission denied ... docker.sock` | O usuário não está no grupo `docker`: `sudo usermod -aG docker "$USER"` e entre de novo |
 | `curl` no Windows falha com `CERT_TRUST_REVOCATION_STATUS_UNKNOWN` | O `curl` do Windows checa revogação, que a CA local não tem: use `--ssl-no-revoke`. Os navegadores não exigem isso |
 | Troquei o IP do servidor | `deploy/.env`: mude `SERVER_HOST` e rode `make subir` (refaz o build das telas e gera o certificado do endereço novo). O certificado raiz continua o mesmo, então os computadores não precisam reinstalar |
+| Alguém vê "Computador ainda não liberado" depois de digitar a senha e o código | É um computador (ou navegador) novo, ou a pessoa limpou os dados do navegador. Outro admin libera em **Acessos**. Sem outro admin: `make liberar-navegador EMAIL=pessoa@pesquisemais.com.br` libera o pedido mais recente dela ([ADR 0022](../architecture/adr/0022-navegador-liberado-por-cookie.md)) |
 | `make conferir` falha, mas `make status` mostra tudo saudável | O `SERVER_HOST` não chega até esta máquina (IP errado ou nome que não resolve): `make verificar` mostra o aviso |

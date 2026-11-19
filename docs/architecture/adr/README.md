@@ -24,3 +24,7 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0018](0018-importar-o-relatorio-do-sistema-antigo.md) | Importar o relatório do sistema antigo: uma conta por linha, chave por linha e CPF retirado do texto | Aceito (provisório) |
 | [0019](0019-solicitacoes-da-demonstracao-no-netlify.md) | Solicitações da demonstração numa função do Netlify, com Netlify Blobs e chave do desenvolvimento | Aceito (provisório) |
 | [0020](0020-servidor-local-com-docker-compose-e-caddy.md) | Servidor local com Docker Compose, Makefile e Caddy com certificado da própria máquina | Aceito (provisório) |
+| [0021](0021-projeto-cadastrado-no-financeiro-provisorio.md) | Projeto cadastrado no Financeiro, provisório, com a unidade e o centro de custo do lançamento | Aceito (provisório) |
+| [0022](0022-navegador-liberado-por-cookie.md) | Navegador liberado por cookie, e não por IP: a conta só entra pelos computadores que um admin liberou | Aceito |
+| [0024](0024-feriados-das-capitais-pelo-feriados-dev.md) | Feriados estaduais e municipais das 27 capitais pelo feriados.dev, rodando no nosso servidor e buscados sozinhos | Aceito (provisório) |
+| [0023](0023-tres-niveis-de-acesso-e-telas-por-pessoa.md) | Três níveis de acesso (super admin, admin e usuário) e telas bloqueadas por pessoa, barradas também no servidor | Aceito (super admin provisório) |

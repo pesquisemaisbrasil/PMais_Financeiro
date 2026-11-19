@@ -13,6 +13,7 @@
 | [adiantamentos-e-prestacao-de-contas](adiantamentos-e-prestacao-de-contas.md) | Ajuda de custo de viagem com saldo a comprovar e prestação de contas |
 | [evidencias-e-catalogo](evidencias-e-catalogo.md) | Cofre de evidências com OCR/renomeação e catálogo Big Base |
 | [respondentes-e-incentivos-no-connect](respondentes-e-incentivos-no-connect.md) | Base de respondentes no Connect, incentivo gerado por lá com data de pagamento por resposta e tipo de projeto configurado no Connect |
+| (sem spec ainda) | **Projeto do Financeiro ligado ao projeto do Connect**: o projeto cadastrado aqui (ADR 0021) apontar para o mesmo projeto no Connect, para o envio de comprovantes já abrir nele (pedido A18 dos [testes de 16/11](../../transcricoes/2026-11-16-testes-em-conjunto-com-o-financeiro.md)) e para os projetos do Connect entrarem sem duplicar. Desde 18/11/2026 o envio de comprovantes já acha o projeto pelo número; a ligação guardada no banco segue como plano futuro (Bruno, 17/11/2026) |
 
 O Connect hoje não tem entrevistados: o incentivo chega por planilha de e-mail, **importada no Financeiro** (o que está no escopo). A evolução é o ecossistema completo (coordenador → supervisor → entrevistador → entrevistado), com o incentivo saindo do Connect ([kickoff de 03/11](../../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K5; perguntas [F26](../../planning/perguntas-abertas.md#escopo-futuro) e [F23](../../planning/perguntas-abertas.md#kickoff-de-0311-novas)).
 

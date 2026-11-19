@@ -62,9 +62,145 @@ Decidido em 22 e 23/10 ([registro](../transcricoes/2026-10-23-respostas-do-finan
 - o protótipo é **revisto** com isso; as próximas demonstrações usam **dados reais** do SGE4B (K9);
 - perguntas novas F22 a F25 em [perguntas-abertas](perguntas-abertas.md).
 
+## Testes em conjunto com o financeiro (16/11/2026)
+
+[Registro](../transcricoes/2026-11-16-testes-em-conjunto-com-o-financeiro.md). A Bruna e a Camila usaram a demonstração e pediram ajustes antes do MVP de uso real. O que é novo (17/11):
+
+- **Projeto cadastrado no Financeiro**, por enquanto ([ADR 0021](../architecture/adr/0021-projeto-cadastrado-no-financeiro-provisorio.md), Q52): número, nome, cliente e **unidade e centro de custo padrão**. Na Nova conta a pagar, escolher o projeto preenche a unidade e o centro de custo;
+- **toda conta tem projeto**, e os campos seguem a ordem da equipe (fornecedor, projeto, unidade, centro de custo, forma de pagamento e categoria);
+- **editar a conta edita tudo**: projeto, divisão entre projetos e unidade;
+- **Reclassificar** muda também o vencimento e o valor; **Anexar** leva o mesmo arquivo a várias contas; o **clipe** da linha mostra se a conta tem documento;
+- **busca** sem acento, por pedaço, no projeto e na categoria, e **pelo valor**; **setas** para o dia anterior e o próximo; o calendário não passa do fim da tela;
+- a tabela da **recorrência** avisa cada vencimento que foi para o próximo dia útil; **canceladas** explicadas na lista e no detalhe;
+- o botão **Salvar comprovantes** no envio de comprovantes; **busca** no relatório do projeto.
+
+Ficaram de fora: A18 (o projeto do Connect vindo do lançamento: plano futuro, junto com a ligação do projeto daqui ao do Connect), A5 e A17 (a confirmar com o Bruno), A21 (o Contas a pagar pelo fornecedor já responde) e A23 (caixa de sugestões no sistema de verdade, Q56). Perguntas novas Q52 a Q56.
+
+## Navegador liberado (17/11/2026)
+
+Pedido do Bruno: além da senha e do autenticador, a conta só entra pelos computadores (navegadores) que um admin liberou ([ADR 0022](../architecture/adr/0022-navegador-liberado-por-cookie.md), [spec](../specs/acesso-e-auditoria.md)). O primeiro computador de cada conta é liberado sozinho; os outros viram pedido na tela **Acessos**, que só o admin vê. Vale para todos, e admin não libera o próprio computador. Pergunta nova: Q57 (prazo de guarda).
+
+## Cadastro de projeto como na tela antiga (18/11/2026)
+
+Pedido do Bruno com os prints da tela antiga ([spec](../specs/cadastros-e-dimensoes.md), Ajustes de 18/11): o cadastro de projeto pede **código, nome, unidade, cliente e centro de custo**, todos obrigatórios. A edição ganha **Inativo** (some das escolhas de lançamento novo, e o que já foi lançado fica) e **Excluir** (só projeto sem lançamento). Código com espaço, como no sistema antigo, ainda é recusado (Q58). No mesmo dia, a **Nova conta a pagar** passou para a disposição e a ordem da tela antiga (um campo por linha, o nome à esquerda: fornecedor, vencimento, programação, valor, forma de pagamento, projeto com o rateio, unidade, centro de custo, plano de contas e descrição), e **Categoria** passou a se chamar **Plano de contas** ([spec](../specs/contas-a-pagar.md), Ajustes de 18/11).
+
+## Busca em todo o sistema (18/11/2026)
+
+Pedido do Bruno ([spec](../specs/busca-geral.md)): no alto de todas as telas, **Buscar em todo o sistema** (Ctrl+K). Uma palavra mostra, separado por grupo, as contas a pagar e a receber, as notas fiscais, os projetos, os clientes, os fornecedores e os outros cadastros, com a palavra marcada; o clique abre o item.
+
+## Carregar incentivos (18/11/2026)
+
+Pedido do Bruno ([spec](../specs/contas-a-pagar.md), Ajustes de 18/11): o botão **Carregar incentivos**, no Contas a pagar, lê a planilha de incentivos em lote e cria um lançamento por projeto e data de pagamento, com as pessoas dentro. A janela tem **Baixar planilha modelo**, que mostra como preencher. Projeto, plano de contas e forma de pagamento são obrigatórios em cada linha da planilha; empresa, unidade e centro de custo vêm do cadastro de cada projeto.
+
+## Impostos retidos (19/11/2026)
+
+Pedido do Bruno ([spec](../specs/contas-a-pagar.md), Ajustes de 19/11): toda **Nova conta a pagar** já traz PIS (0,65%), COFINS (3%), CSLL (1%) e IR (1,5%) calculados sobre o valor principal. Cada valor pode ser mudado ou zerado na janela de impostos. Os percentuais ficam na nova aba **Cadastros › Impostos retidos**, valem para todos e só nas contas novas. No mesmo dia, o link **Feriados** saiu do menu; a tela fica só pelo endereço até os feriados virem sozinhos (Q60).
+
+## Feriados das capitais pelo feriados.dev (19/11/2026)
+
+Pedido do Bruno ([ADR 0024](../architecture/adr/0024-feriados-das-capitais-pelo-feriados-dev.md), Q60): os feriados estaduais e municipais das 27 capitais entram sozinhos, a cada 6 horas, do feriados.dev que roda no nosso servidor. Os nacionais continuam da BrasilAPI.
+
+## Níveis de acesso e demandas (19/11/2026)
+
+Pedido do Bruno ([acesso-e-auditoria](../specs/acesso-e-auditoria.md), [demandas](../specs/demandas.md), [ADR 0023](../architecture/adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)): três níveis, **super admin**, **admin** e **usuário**. Em **Acessos > Pessoas e telas**, o admin bloqueia telas de cada usuário; a tela some do menu e a API recusa. Todos têm **Abrir demanda** no menu, com tipo, descrição e anexo obrigatórios; só o super admin vê a tela **Demandas**.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
+
+### Navegador liberado
+
+Com dois administradores (por exemplo os dois do banco local) e o sistema rodando. **As contas que já existiam não têm navegador: o primeiro login de cada uma depois da entrega libera o navegador em que ela entrar.**
+
+1. Entre com a conta A no Chrome: entra direto (primeiro computador).
+2. Abra uma janela anônima (ou outro navegador) e entre de novo com a conta A: depois do código aparece **"Computador ainda não liberado"**, sem entrar.
+3. Entre com a conta B no navegador dela: o sino mostra "... pediu para entrar de um computador novo". Em **Acessos > Pedidos**, **Liberar** e confirme.
+4. Volte à janela anônima, **Voltar ao login**, e entre de novo com a conta A: agora abre o Início.
+5. Em **Acessos > Liberados**, **Revogar** o computador da janela anônima: a sessão dela cai, e o próximo login ali vira pedido de novo.
+6. Caso negado: a conta B não libera o próprio computador (no pedido dela aparece "É o seu computador: outro administrador libera." no lugar do Liberar; pela API, 409).
+7. Sem outro admin, no servidor: `make liberar-navegador EMAIL=...` (ou `python scripts/liberar_navegador.py --email ...` em `backend/`).
+8. Os testes: `pytest tests/test_navegador_liberado.py` em `backend/` e `npx playwright test e2e/navegador-liberado.spec.ts` em `frontend/`.
+
+### Feriados das capitais (19/11)
+
+1. `docker compose up -d --build` (o primeiro build do `feriados` leva alguns minutos). Espere `docker compose ps` mostrar o `feriados` como *healthy*.
+2. Em `/cadastros?aba=holidays`, **Buscar feriados do ano**: a mensagem conta os nacionais e "Das capitais, N feriados estaduais e municipais novos". Na lista, a origem deles é **feriados.dev (capitais)**, com a cidade ou a UF em "Onde vale".
+3. Sem clicar em nada, a API busca sozinha 90 segundos depois de subir e a cada 6 horas (o log da API diz "Feriados de 2026 buscados").
+4. Lance uma conta com vencimento no aniversário de São Paulo (25/01): aparece o aviso de dia não útil.
+5. Os testes: `pytest tests/test_feriados_dev.py tests/test_holidays.py` em `backend/`.
+
+### Níveis de acesso e demandas (19/11)
+
+1. Torne a sua conta super admin: `make definir-nivel EMAIL=voce@pesquisemais.com.br NIVEL=superadmin` (ou `python scripts/definir_nivel.py --email ... --nivel superadmin` em `backend/`). Recarregue a página: o menu mostra **Demandas** e o seu nível aparece como "Super admin".
+2. Entre com um admin: **Acessos > Pessoas e telas** lista todos, com o nível. Em um usuário, **Telas**, desmarque **Contas a receber** e **Cadastros** e salve.
+3. Entre com esse usuário: o menu não tem Contas a receber nem Cadastros, nem Acessos e Demandas. Abra `/contas-a-receber` pelo endereço: aparece **Tela não liberada**.
+4. Ainda como usuário, **Abrir demanda**: Enviar sem nada pede Tipo, Descrição e Anexo. Escolha **Correção de bugs**, escreva, cole um print com Ctrl + V e envie.
+5. Como super admin: o sino avisa a demanda nova; em **Demandas** aparecem o tipo, a descrição, a tela, quem abriu e **Baixar**.
+6. Caso negado: o admin não muda as próprias telas nem as de outro admin (na lista aparece "Só o super admin muda").
+7. Os testes: `pytest tests/test_niveis_de_acesso.py` em `backend/`, `npx vitest run src/lib/access.test.ts` e `npx playwright test e2e/niveis-de-acesso.spec.ts` em `frontend/`.
+
+### Impostos retidos (19/11)
+
+1. Em **Cadastros › Impostos retidos**, confira PIS 0,65, COFINS 3, CSLL 1 e IR 1,5. Escreva 150 no IR e salve: aparece "Informe o percentual de IR entre 0 e 100, como 1,5.". Volte para 1,5 e salve.
+2. Em **Contas a pagar**, **Nova conta a pagar**: embaixo dos valores aparece "Impostos retidos já calculados sobre o valor principal: PIS 0,65%, COFINS 3%, CSLL 1% e IR 1,5%".
+3. Valor principal 1.000,00: **(−) Total de impostos** mostra 61,50 e o líquido 938,50. Troque para 2.000,00: os impostos vão para 123,00.
+4. Abra **Impostos**: PIS 13,00, COFINS 60,00, CSLL 20,00 e IR 30,00. Apague o IR e salve: o total vai para 93,00. Troque o valor principal: os impostos não mudam mais.
+5. Lance a conta e confira o líquido na lista.
+6. O menu de Cadastros não tem mais **Feriados**; `/cadastros?aba=holidays` ainda abre a tela.
+7. Os testes: `pytest tests/test_impostos_retidos.py` em `backend/`, `npx vitest run src/lib/adjustments-impostos.test.ts` e `npx playwright test e2e/impostos-retidos.spec.ts` em `frontend/`.
+
+### Carregar incentivos (18/11)
+
+1. Em **Contas a pagar**, clique em **Carregar incentivos**. A janela só pede a planilha: projeto, plano de contas e forma de pagamento vêm dela.
+2. **Baixar planilha modelo**: o arquivo `modelo-carregar-incentivos.xlsx` tem as abas **Incentivos** (só os títulos), **Como preencher**, **Projetos**, **Plano de contas** e **Formas de pagamento**.
+3. Preencha com dados fictícios de 2 projetos e 2 datas, e clique em **Ler planilha**: a conferência mostra o cronograma por projeto e data.
+4. Coloque uma data de sábado: ela vai para o próximo dia útil, com o aviso. Coloque um projeto que não existe, ou deixe o plano de contas vazio: a linha fica de fora, com o motivo. Apague a coluna **Forma de pagamento**: a planilha é recusada e diz qual coluna falta.
+5. **Criar**: a tela **Carregando incentivos** conta "N de M incentivos", e demora mais numa planilha maior. No fim, os lançamentos aparecem na lista, com as pessoas dentro e a chave Pix mascarada.
+6. Repita com as colunas da planilha atual (`Nome Completo:`, `Beneficiário:`, `PIX:`, `VALOR TOTAL`, `STATUS`, `DATA DE REALIZAÇÃO DA PESQUISA`, `PAGAR (PREENCHIDO PELO FINANCEIRO)`), acrescentando as colunas Projeto, Plano de contas e Forma de pagamento. A linha com STATUS "Pago" aparece como **Já paga** e não entra.
+7. Os testes: `pytest tests/test_carregar_incentivos.py` em `backend/`, `npx vitest run src/lib/carregar-incentivos.test.ts` e `npx playwright test e2e/carregar-incentivos.spec.ts` em `frontend/`.
+
+### Reclassificar com edição em lote e anexo (18/11)
+
+1. Em **Contas a pagar**, marque duas ou mais contas e clique em **Reclassificar**: a janela tem as abas **Todas de uma vez**, **Conta por conta** e **Anexar comprovante**.
+2. **Conta por conta**: mude a descrição de uma linha. A caixa da esquerda dela fica marcada sozinha, e o rodapé mostra "Marcadas: 1 conta" e o valor. **Salvar 1 conta**: só ela muda; a outra fica como estava.
+3. Uma conta paga mostra o valor bloqueado; uma com pessoas (incentivo) mostra o fornecedor e o valor bloqueados.
+4. **Anexar comprovante**: escolha um PDF e **Anexar em 2 contas**: as duas ganham o documento (o clipe fica verde).
+5. A competência aparece e se digita como mm/aaaa.
+6. Os testes: `pytest tests/test_edicao_em_lote.py` em `backend/`, `npx vitest run src/lib/batch-edit.test.ts` e `npx playwright test e2e/testes-16-11.spec.ts` em `frontend/`.
+
+### Busca em todo o sistema (18/11)
+
+1. Em qualquer tela, clique em **Buscar em todo o sistema** (ou Ctrl+K) e digite **itau**: aparece **Contas bancárias** com "Itaú · PPlus", com "Itaú" marcado.
+2. Digite o nome de um cliente: ele aparece em **Contas a receber** e em **Clientes**, cada um no seu grupo. Clique no cliente: abre Cadastros > Clientes com a busca preenchida.
+3. Digite o nome de um fornecedor e clique numa conta a pagar: abre Contas a pagar com a conta aberta.
+4. Digite um número de NF ou um valor ("1.250,00"): a conta aparece, e a NF também em **Notas fiscais**.
+5. Com 1 letra aparece "Digite ao menos 2 letras."; sem achado, "Nada encontrado para ...".
+6. Os testes: `pytest tests/test_busca_geral.py` em `backend/`, e `npx vitest run src/lib/search.test.ts` e `npx playwright test e2e/busca-geral.spec.ts` em `frontend/`.
+
+### Cadastro de projeto como na tela antiga (18/11)
+
+1. Em **Cadastros > Projetos**, **Novo projeto** e **Salvar** sem preencher: aparece "Falta preencher: código, nome, unidade, cliente, centro de custo.".
+2. Preencha **Código**, **Nome**, **Unidade**, **Cliente** e **Centro de custo** e salve: o projeto aparece na lista.
+3. **Editar** o projeto: a janela tem os mesmos campos, mais **Inativo** e **Excluir** (tipo de projeto e incentivo não aparecem mais). Marque **Inativo = Sim** e salve: a Situação mostra **Inativo**, e o projeto some da **Nova conta a pagar**. As contas que já estavam nele continuam.
+4. **Excluir** um projeto com conta lançada: aparece "Esse projeto tem lançamentos — inative em vez de excluir". Um projeto sem conta sai da lista.
+5. Em **Contas a pagar**, **Nova conta a pagar**: os campos vêm um por linha, na ordem fornecedor, vencimento, programação, valor principal, forma de pagamento, projeto (com "Dividir entre projetos" logo abaixo), unidade, centro de custo, **plano de contas** e descrição. **Lançar conta** sem preencher lista os que faltam na mesma ordem.
+6. Os testes: `pytest tests/test_projeto_cadastro.py` em `backend/` e `npx playwright test e2e/testes-16-11.spec.ts e2e/contas-a-pagar.spec.ts e2e/campos-obrigatorios.spec.ts` em `frontend/`.
+
+### Pedidos dos testes de 16/11
+
+Com o sistema rodando e os dados fictícios (`seed_demo`) carregados. **A demonstração recomeça do zero nesta versão** (a tabela de projetos mudou): avise a equipe antes de publicar.
+
+1. **Cadastros > Projetos > Novo projeto**: salvar vazio diz "Falta preencher: número, nome."; o número 1804 é recusado ("Já existe o projeto PRJ-1804"). Cadastre 1950 com unidade **CATI Curitiba** e centro **Tecnologia**: a lista mostra "CATI Curitiba · Tecnologia".
+2. **Nova conta a pagar**: o Projeto fica ao lado do Fornecedor, e Forma de pagamento e Categoria na última linha. Escolha o PRJ-1950: a Unidade vira CATI Curitiba e o Centro de custo, Tecnologia. Lançar sem projeto: a mensagem pede o Projeto.
+3. Abra a conta, **Editar conta**: troque o projeto (ou divida entre dois) e a unidade. O histórico mostra "projeto PRJ-1950 → ...". Numa conta com baixa, uma unidade de outra empresa é recusada.
+4. Na lista, as setas **Dia anterior** e **Próximo dia** andam um dia; em **Tudo** elas somem. Numa janela baixa, o calendário continua inteiro na tela.
+5. Busque **grafica** (sem acento), **prj-1804** e um valor como **1.300,00**: as contas aparecem.
+6. Selecione duas contas: **Anexar** um PDF leva o arquivo às duas ("Documento anexado em 2 contas."), e o clipe delas fica verde. **Reclassificar** com um vencimento e um valor muda as duas.
+7. Clique no card **Canceladas**: a lista explica o que é uma conta cancelada; abra uma, e o aviso mostra o motivo.
+8. **Repetir esta conta** com vencimento 31/01/2027 e **Simular**: a linha 1 diz "31/01 caiu em domingo: foi para seg 01/02".
+9. No lançamento do Connect, **Enviar comprovantes**: o botão do primeiro passo é **Salvar comprovantes** (o projeto continua sendo escolhido).
+10. **Relatórios > Relatório do projeto**: busque 1790; só ele fica na lista.
+11. Os testes: `pytest tests/test_testes_16_11.py tests/test_recurrence.py` em `backend/`, `npx vitest run src/lib/testes-16-11.test.ts` e `npx playwright test e2e/testes-16-11.spec.ts` em `frontend/`.
 
 ### Início e Contas a pagar
 
@@ -124,7 +260,7 @@ Em **Cadastros**, no menu:
 1. **Novo fornecedor**: apelido e nome são obrigatórios. Um CNPJ com dígito errado é recusado, e um CPF também, porque CPF não fica guardado. Teste com `11.222.333/0001-81`.
 2. O mesmo CNPJ em outro fornecedor ativo é recusado.
 3. Um cadastro com lançamento não mostra **Excluir**, só **Inativar**. Inativado, ele some da **Nova conta a pagar** e continua na lista de contas.
-4. Em **Projetos (Connect)**, marque o tipo, o incentivo e o prazo. Volte ao **Importar planilha**: o projeto passa a calcular o cronograma.
+4. Em **Projetos**, marque o tipo, o incentivo e o prazo. Volte ao **Importar planilha**: o projeto passa a calcular o cronograma.
 
 ### Incentivos: agenda, dia útil e feriados
 
@@ -133,7 +269,7 @@ Com o sistema rodando, em **Cadastros → Feriados**:
 1. **Buscar nacionais do ano** traz os feriados nacionais do ano escolhido (a BrasilAPI, ou os inventados no modo de teste). Buscar de novo avisa que já estavam cadastrados.
 2. **Novo feriado** cadastra um local, por exemplo o aniversário da cidade (âmbito municipal, com UF e cidade). Campo vazio diz quais faltam, e o mesmo feriado de novo é recusado.
 3. Em **Incentivos → Importar planilha**, use uma planilha fictícia com `Nome`, `Valor` e `Data de pagamento` numa **sexta-feira, sábado ou domingo** e outra num feriado cadastrado. **Ler planilha** avisa cada data que mudou e o motivo ("07/11 caiu em sábado; vai para 09/11"), e **Criar** abre os lançamentos já no próximo dia útil.
-4. **Incentivos** (menu Relatórios, abaixo de Relatório do projeto; a lista aparece sozinha depois da importação): uma linha por lançamento, em ordem de vencimento, com **a data na frente do nome** (vermelha se já venceu e falta pagar), as pessoas e o que falta pagar. Os cartões **Vencidos**, **Vencem hoje**, **A vencer** e **Pagos** filtram a lista, e **Abrir** leva à conta no Contas a pagar, com as pessoas.
+4. **Incentivos** (fora do menu desde 18/11, engavetada: só pelo endereço `/incentivos`; antes ficava no menu Relatórios, abaixo de Relatório do projeto; a lista aparece sozinha depois da importação): uma linha por lançamento, em ordem de vencimento, com **a data na frente do nome** (vermelha se já venceu e falta pagar), as pessoas e o que falta pagar. Os cartões **Vencidos**, **Vencem hoje**, **A vencer** e **Pagos** filtram a lista, e **Abrir** leva à conta no Contas a pagar, com as pessoas.
    Na seta de cada lançamento, o dropdown abre as **pessoas a pagar**: o resumo ("0 de 2 pagos · R$ 200,00 em aberto"), a busca por nome, as abas **Todos**, **Em aberto** e **Pagos** e a tabela com pessoa, **chave Pix mascarada** (a planilha precisa da coluna "Chave Pix"), data da pesquisa, **nota** ("Sem nota") e valor e situação. Embaixo do resumo, a tela diz **de onde o lançamento veio** ("Veio da planilha de incentivos." ou "Veio do Connect."). A chave completa nunca aparece.
    No topo do dropdown: **Baixar planilha** baixa um Excel de controle das pessoas (com a chave mascarada, total no fim e a situação de cada uma); **Enviar PDF de comprovantes** anexa um ou vários PDFs ao lançamento (outro tipo de arquivo é recusado, com o nome dele). O PDF aparece em "comprovante anexado", com **Baixar**, e ninguém passa a "pago": a baixa continua no Contas a pagar. Use só PDF e planilha fictícios.
 5. Em **Contas a pagar → Nova conta → Repetir esta conta → Simular**, um vencimento que cai num feriado cadastrado vai para o próximo dia útil.
@@ -251,5 +387,5 @@ Com o sistema rodando ([README](../../README.md#como-rodar)):
 7. Entre de novo: agora pede só o código do app. Repetir o mesmo código não entra.
 8. Saia e entre com **Usar um código de recuperação**: entra, e o mesmo código não vale uma segunda vez.
 9. Erre a senha 6 vezes em um minuto: "Muitas tentativas — aguarde alguns minutos".
-10. Sem as chaves do provedor, **Entrar com Google** e **Entrar com Microsoft** voltam para o login avisando que ainda não está disponível.
+10. A tela de entrada tem só e-mail e senha (os botões do Google e da Microsoft saíram em 17/11/2026). Sem as chaves do provedor, o endereço do backend `/auth/sso/google/start` (ou `microsoft`) volta para o login avisando que ainda não está disponível.
 11. Com as chaves no `backend/.env` e a conta criada com o mesmo e-mail: o botão leva ao provedor e volta para a tela inicial, sem código no Financeiro. E-mail sem conta volta para o login com o aviso de falta de acesso.

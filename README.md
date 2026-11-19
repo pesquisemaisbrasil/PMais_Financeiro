@@ -64,7 +64,7 @@ Quem perdeu o celular e os códigos de recuperação: `.venv/Scripts/python scri
 
 ## Login com Google e Microsoft
 
-Os botões já aparecem na tela. Para funcionarem de verdade, registre o app em cada provedor e coloque as chaves no `backend/.env`:
+Os botões **saíram da tela de entrada** em 17/11/2026 (pedido do Bruno): hoje só se entra com e-mail e senha. O login pelo provedor continua no backend; para voltar, os botões voltam à tela e o app é registrado em cada provedor, com as chaves no `backend/.env`:
 
 | Provedor | Onde registrar | Variáveis |
 |---|---|---|

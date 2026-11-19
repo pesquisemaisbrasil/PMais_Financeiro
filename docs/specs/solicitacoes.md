@@ -59,3 +59,4 @@ Na tela, antes de enviar: "Preencha os campos obrigatórios: Tipo, Descrição e
 ## Ajustes
 
 - 2026-11-16: primeira versão. O destino (função do Netlify com Netlify Blobs, e não o formulário do Netlify nem o Jira) e "só dados fictícios" foram escolhas do Bruno. Fica para depois: situação de cada pedido (em análise, resolvido), apagar pela tela e um nome por pessoa (hoje as meninas usam a mesma conta "Bruna Demonstração").
+- 2026-11-19: no sistema de verdade, o canal é o **Abrir demanda**, que guarda no servidor e só o super admin lê ([demandas](demandas.md)). A demonstração continua com o Enviar solicitação daqui.

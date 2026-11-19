@@ -12,6 +12,7 @@ O que o Financeiro guarda para a pessoa entrar e manter a sessão. Os dados de C
 | Controle do TOTP | `users.totpLastUsedStep`, `mfaFailedAttempts`, `mfaLockedUntil`, `mfaEnabledAt` | Números e datas | Impedir código repetido e adivinhação | Enquanto a conta existir |
 | Códigos de recuperação | `mfa_recovery_codes.codeHash`, `usedAt` | Só o hash; o código aparece uma vez | Entrar se o autenticador for perdido | Até o uso, ou até o MFA ser refeito |
 | Tentativas de login | `login_events` | HMAC do e-mail digitado (não o e-mail), IP **mascarado**, user-agent, motivo, data. Nunca a senha | Limitar tentativas e auditar acessos | **6 meses** (mínimo do Marco Civil, art. 15) |
+| Navegadores liberados (ADR 0022) | `trusted_browsers` | Hash do cookie do navegador (nunca o valor), nome do navegador ("Chrome no Windows"), IP **mascarado**, situação, datas do pedido, da decisão e do último uso, e quem decidiu. Nada é apagado (sem `DELETE` para a role da app) | Só abrir o sistema nos computadores que um admin liberou, e mostrar ao admin o que ele está liberando | A definir com o DPO (Q57) |
 | Identificador da pessoa no Google ou na Microsoft | `sso_identities.provider`, `subject` | Em claro (Google: `sub`; Microsoft: `tid:oid`). Não é e-mail nem documento | Achar a conta mesmo se o e-mail mudar ou for reaproveitado | Some junto com a conta |
 | Sessões | `refresh_tokens` | Hash do token, família, validade, se veio do SSO | Manter a pessoa logada e derrubar sessão roubada | **30 dias depois de expirar ou ser revogada** |
 | Último acesso | `users.lastSignedInAt` | Data | Mostrar na administração | Enquanto a conta existir |
@@ -49,6 +50,7 @@ Hoje nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza **já e
 | Ficha do cliente: IE (inscrição estadual), segundo e terceiro telefone, e-mail alternativo e observações | `customers.stateRegistration`, `phone2`, `phone3`, `emailAlt`, `notes` | Em claro. RG e CPF nunca: a IE e as observações que parecem CPF são recusadas | Falar com a empresa e emitir nota com a IE certa | A definir com o DPO (Q5) |
 | Endereço do cliente (opcional): país, CEP, rua, número, complemento, bairro, cidade e UF | `customers.addressCountry`, `addressZip`, `addressStreet`, `addressNumber`, `addressComplement`, `addressDistrict`, `addressCity`, `addressState` | Em claro. De cliente pessoa física ou MEI é dado pessoal | Enviar cobrança e nota; saber onde a empresa fica | A definir com o DPO (Q5) |
 | Quem recebeu e quanto (título a receber) | `receivables`, `receivable_payments` | Cliente por id, valores, datas e conta bancária; sem dado pessoal além do contato acima | Controlar o que a empresa tem a receber | A definir com o DPO (Q5) |
+| Projeto e o padrão do lançamento (testes de 16/11) | `projects.code`, `title`, `customer_id`, `unit_id`, `cost_center_id` | Em claro. Só ids de cadastros: nenhum dado pessoal novo (o cliente pessoa física já está no cadastro de clientes) | Preencher a unidade e o centro de custo do lançamento ([ADR 0021](../adr/0021-projeto-cadastrado-no-financeiro-provisorio.md)) | Enquanto o projeto existir |
 
 ## Documentos anexados às contas a pagar, aos títulos a receber e aos clientes
 
@@ -72,6 +74,8 @@ Hoje nada apaga `login_events` nem `refresh_tokens`. A rotina de limpeza **já e
 
 O arquivo da planilha **não é guardado**: é lido na hora e descartado.
 
+No **Carregar incentivos** (18/11/2026), os títulos da planilha atual do financeiro também são reconhecidos, sem guardar nada novo: o nome vem de `Beneficiário` ou `Nome Completo`, e o `STATUS` só é lido para deixar de fora quem já recebeu. `PEDIDO EM`, `COMPROVANTES SALVOS NA REDE` e `OBS` não são lidas. A **planilha modelo** não traz dado pessoal: só os títulos das colunas, um exemplo fictício, o código e o nome dos projetos abertos, as contas do plano de contas e as formas de pagamento.
+
 ## Relatório do sistema antigo (migração das contas a pagar)
 
 | Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |
@@ -93,6 +97,16 @@ O botão **Enviar solicitação** da demonstração é a única coisa dela que s
 | Tipo (bug, regra ou melhoria), **descrição**, tela de origem, **nome de quem estava logado** (hoje a conta fictícia "Bruna Demonstração"), data e hora | Netlify Blobs do site da demonstração, store `solicitacoes`, chave `solicitacao/<id>` | Em claro. A descrição é texto livre: pode citar pessoas, por isso a regra é usar só dados de exemplo | Corrigir e melhorar o sistema a partir do teste da equipe | A definir com o DPO (Q50). Nada apaga hoje; apagar é pelo painel do Netlify |
 | **Imagem** (print da tela) | Mesmo store, chave `imagem/<id>` | Em claro; só PNG, JPG, WEBP ou GIF (conferido pelos bytes), até 4 MB | Mostrar o problema | A definir com o DPO (Q50) |
 | Chave do desenvolvimento | Variável `SOLICITACOES_CHAVE` do site no Netlify; no navegador de quem entra no acesso Desenvolvimento (`localStorage`) | Em claro nas duas pontas | Ler a lista e as imagens | Enquanto valer; trocar a chave no Netlify invalida a do navegador |
+
+## Demandas e telas bloqueadas (19/11/2026)
+
+O **Abrir demanda** do sistema de verdade guarda no servidor da empresa ([spec](../../specs/demandas.md), [ADR 0023](../adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)). Só o super admin lê.
+
+| Dado | Tabela e coluna | Como fica guardado | Por quê | Prazo |
+|---|---|---|---|---|
+| Tipo, **descrição** (texto livre), tela de origem, quem abriu (`user_id`), data e hora | `demands` | Em claro no banco. A descrição pode citar pessoas | Corrigir e mudar o sistema a partir do pedido da equipe | A definir com o DPO (Q56). Nada apaga hoje |
+| **Anexo** (print da tela ou PDF): pode mostrar dado real da tela, como nomes, valores e chaves Pix mascaradas | Cofre (`demand/<id>/...`); nome, tipo, tamanho e SHA-256 em `demands` | **Cifrado** (AES-256-GCM, chave amarrada à demanda), só PNG, JPG, WEBP ou PDF conferidos pelos bytes, até 10 MB | Mostrar o problema | A definir com o DPO (Q56) |
+| Telas bloqueadas de cada pessoa | `users.blockedScreens` | Em claro; a troca vai para `record_events` (quem trocou, quando, quais telas) | Restringir o que cada pessoa vê | Enquanto a conta existir |
 
 ## Conferência bancária (PF-69 a PF-72)
 

@@ -766,6 +766,8 @@ Copie para o PR do Financeiro e marque cada item.
 - [ ] Toda lista tem os quatro estados: `Skeleton`, vazio com próximo passo, erro (toast ou `InlineError`), sucesso com toast numérico.
 - [ ] Toda ação irreversível passa por `ConfirmModal` com resumo (quantos, quanto, quem).
 - [ ] Dinheiro com `Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })`; datas com `formatIsoDay` / `formatDateTimeBr` / `todayInSaoPaulo` (fuso de São Paulo).
+- [ ] Busca na tela usa `matchesSearch` ou `filterOptions` (`src/lib/search.ts`, `src/lib/payables.ts`): sem acento, sem diferença de maiúscula, cada palavra em qualquer ordem, como o servidor. Nunca `toLowerCase().includes()` ([busca-geral](../specs/busca-geral.md), regra 1).
+- [ ] Campo de data é sempre `DateInput` (`src/components/DateInput.tsx`): mostra e aceita **dd/mm/aaaa**, com o calendário em português, qualquer que seja o idioma do navegador, e devolve `aaaa-mm-dd` como o campo antigo. `<Input type="date">` é barrado pelo `check:ui` (18/11/2026: no Edge em inglês o campo do navegador mostrava mês/dia/ano).
 - [ ] Chave Pix só mascarada na tela; chave completa só na planilha do Financeiro, com download registrado; CPF nunca listado.
 - [ ] Textos em pt-BR simples, sem jargão, plural correto.
 - [ ] Botões só de ícone com `aria-label`; todo campo com `Label`; status com texto além da cor; `Spinner` com rótulo em pt-BR.
