@@ -23,7 +23,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, getPayable, getReference } from "@/lib/api";
-import { place } from "@/lib/nav";
 import { getIncentiveAgenda, groupByDay, overdueNotice, peopleText, type Agenda, type Bucket } from "@/lib/incentives";
 import {
   brl,
@@ -159,14 +158,16 @@ export default function IncentiveAgendaPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
+      {/* Fora do menu desde 18/11 (engavetada): o título não vem do menu. */}
       <PageHeader
-        {...place("/incentivos")}
+        section="Relatórios"
+        title="Incentivos"
         icon={CalendarClock}
         subtitle="Cada data de pagamento dos incentivos, com as pessoas e a situação. Quem paga e dá a baixa continua no Contas a pagar."
         actions={
           <Button onClick={() => setImporting(true)} disabled={!reference}>
             <FileUp size={16} />
-            Importar planilha
+            Carregar incentivos
           </Button>
         }
       />
@@ -233,18 +234,6 @@ export default function IncentiveAgendaPage() {
               ))}
             </SelectContent>
           </Select>
-          {mode !== "tudo" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (mode === "periodo") setMode("dia");
-                setRef(null);
-              }}
-            >
-              Hoje
-            </Button>
-          )}
           {filter && (
             <Button variant="ghost" size="sm" onClick={() => setFilter(null)}>
               Limpar filtro
@@ -342,7 +331,7 @@ export default function IncentiveAgendaPage() {
             {filter
               ? "Nenhum incentivo nessa situação no período."
               : mode === "tudo"
-                ? "Nenhum incentivo lançado ainda. Use Importar planilha para trazer os de um projeto."
+                ? "Nenhum incentivo lançado ainda. Use Carregar incentivos para trazer os de um projeto."
                 : `Nenhum incentivo com vencimento em ${periodLabel(mode, data.rangeStart ?? data.today)}. Veja outro período no seletor acima.`}
           </p>
         )}

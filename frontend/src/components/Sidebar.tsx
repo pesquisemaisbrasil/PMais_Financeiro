@@ -1,10 +1,11 @@
 "use client";
 
-import { ChevronDown, Compass, LogOut, MessageSquarePlus, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronDown, Compass, LogOut, MessageSquarePlus, PanelLeftClose, PanelLeftOpen, SquarePen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { DemandDialog } from "@/components/DemandDialog";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { TourAutoStart, startTour } from "@/components/ProductTour";
@@ -12,6 +13,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ROLE_LABELS, isAdmin, isSuperAdmin, screenAllowed } from "@/lib/access";
 import { getHome } from "@/lib/api";
 import { DemoResetButton } from "@/components/Demo";
 import { useAuth } from "@/lib/auth-context";
@@ -21,18 +23,14 @@ import { NAV, isActive } from "@/lib/nav";
 import { PAYABLES_CHANGED } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
+// Como o menu do P+ Connect: branco, com o item da página atual em azul chapado.
 const ROW =
-  "relative flex items-center gap-2.5 whitespace-nowrap rounded-2xl px-3 py-[9px] text-sm font-medium transition-colors duration-150";
-// A página em que a pessoa está: azul cheio. A seção dela (o grupo) fica com o fundo azul claro, aberta ou não.
-const ROW_ACTIVE =
-  "bg-[linear-gradient(135deg,#4063ee,#5a52f0)] text-white shadow-[0_8px_16px_-8px_rgb(64_99_238/.75)]";
-const ROW_IDLE = "text-brand-cinza-escuro/75 hover:bg-accent hover:text-brand-azul-deep";
-const GROUP_CURRENT = "bg-accent font-semibold text-brand-azul-deep";
+  "relative flex items-center gap-2.5 whitespace-nowrap rounded-xl px-3 py-[9px] text-sm font-medium transition-colors";
+// A página em que a pessoa está: azul cheio. A seção dela (o grupo) fica com o texto azul, aberta ou não.
+const ROW_ACTIVE = "bg-brand-azul-deep text-white shadow-sm";
+const ROW_IDLE = "text-brand-cinza-escuro/70 hover:bg-muted hover:text-brand-cinza-escuro";
+const GROUP_CURRENT = "font-semibold text-brand-azul-deep";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Administrador",
-  financeiro: "Financeiro",
-};
 
 const COLLAPSED_KEY = "financeiro:menu-recolhido";
 
@@ -62,6 +60,7 @@ export function Sidebar() {
   const aba = params.get("aba");
   const [badge, setBadge] = useState(0);
   const [sending, setSending] = useState(false);
+  const [demanding, setDemanding] = useState(false);
   // Só existe depois do login, sempre no navegador: ler aqui não diverge do servidor.
   const [collapsed, setCollapsed] = useState(readCollapsed);
   // Começa com o grupo da tela atual aberto; na primeira visita, o Financeiro.
@@ -119,19 +118,19 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex w-full flex-shrink-0 flex-col self-start border-b border-border bg-card transition-[width] duration-150 md:sticky md:top-[var(--faixa,0px)] md:h-[calc(100vh-var(--faixa,0px))] md:border-b-0 md:border-r",
+        "flex w-full flex-shrink-0 flex-col self-start border-b border-border bg-card md:sticky md:top-[var(--faixa,0px)] md:h-[calc(100vh-var(--faixa,0px))] md:border-b-0 md:border-r",
         collapsed ? "md:w-16" : "md:w-64"
       )}
     >
       <div
         className={cn(
-          "flex min-h-16 items-center gap-2.5 bg-[linear-gradient(135deg,#4063ee_0%,#5a52f0_100%)] px-5 py-[18px]",
+          "flex min-h-16 items-center gap-2.5 border-b border-border px-5 py-[18px]",
           collapsed && "md:justify-center md:px-0"
         )}
       >
         <div className={cn("flex items-center gap-2.5", collapsed && "md:hidden")}>
-          <Image src={publicAsset("/logo-branco.png")} alt="P+ Financeiro" width={77} height={28} priority />
-          <span className="border-l border-white/40 pl-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-white">
+          <Image src={publicAsset("/logo.png")} alt="P+ Financeiro" width={83} height={30} className="h-[30px] w-[83px] shrink-0 object-contain" priority />
+          <span className="border-l border-border pl-2.5 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">
             Financeiro
           </span>
         </div>
@@ -141,7 +140,7 @@ export function Sidebar() {
             size="icon-sm"
             aria-label={toggleLabel}
             aria-expanded={!collapsed}
-            className={cn("hidden text-white hover:bg-white/15 hover:text-white md:inline-flex", !collapsed && "ml-auto")}
+            className={cn("hidden text-brand-cinza-escuro/60 md:inline-flex", !collapsed && "ml-auto")}
             onClick={() => setCollapsedTo(!collapsed)}
           >
             {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
@@ -154,7 +153,23 @@ export function Sidebar() {
         aria-label="Menu principal"
         data-tour="menu"
       >
-        {NAV.filter((entry) => !entry.devOnly || isDev).map((entry) => {
+        <p
+          className={cn(
+            "px-3 pb-2 pt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground",
+            collapsed && "md:hidden"
+          )}
+        >
+          Menu
+        </p>
+        {NAV.filter(
+          (entry) =>
+            (!entry.devOnly || isDev) &&
+            (!entry.adminOnly || (!DEMO && isAdmin(user.role))) &&
+            (!entry.superOnly || (!DEMO && isSuperAdmin(user.role))) &&
+            (!entry.href || screenAllowed(user, entry.href)) &&
+            // grupo com todas as telas bloqueadas some inteiro
+            (!entry.children || entry.children.some((leaf) => !leaf.href || screenAllowed(user, leaf.href)))
+        ).map((entry) => {
           const Icon = entry.icon;
           if (!entry.children) {
             const active = isActive(entry.href, pathname, aba);
@@ -187,9 +202,9 @@ export function Sidebar() {
                     data-current={hasCurrent ? "true" : undefined}
                     className={cn(
                       ROW,
-                      "h-auto w-full justify-start hover:bg-accent",
+                      "h-auto w-full justify-start hover:bg-muted",
                       collapsed && "md:justify-center md:px-0",
-                      hasCurrent ? GROUP_CURRENT : "text-brand-cinza-escuro/75 hover:text-brand-azul-deep"
+                      hasCurrent ? GROUP_CURRENT : "text-brand-cinza-escuro/70 hover:text-brand-cinza-escuro"
                     )}
                   >
                     <Icon size={16} strokeWidth={2} />
@@ -204,7 +219,6 @@ export function Sidebar() {
                       size={14}
                       className={cn(
                         pending ? "ml-1" : "ml-auto",
-                        "transition-transform",
                         expanded && "rotate-180",
                         collapsed && "md:hidden"
                       )}
@@ -213,13 +227,13 @@ export function Sidebar() {
                 </CollapsibleTrigger>
               </Hint>
               <CollapsibleContent className="flex flex-col gap-0.5 pb-1 pt-0.5">
-                {entry.children.map((leaf) => {
+                {entry.children.filter((leaf) => !leaf.href || screenAllowed(user, leaf.href)).map((leaf) => {
                   if (!leaf.href) {
                     return (
                       <span
                         key={leaf.label}
                         aria-disabled="true"
-                        className="flex items-center gap-2.5 whitespace-nowrap rounded-2xl py-[7px] pl-9 pr-2 text-[13px] text-muted-foreground/70"
+                        className="flex items-center gap-2.5 whitespace-nowrap rounded-xl py-[7px] pl-9 pr-2 text-[13px] text-muted-foreground/70"
                       >
                         {leaf.label}
                         <span className="ml-auto rounded-full bg-muted px-1.5 text-[10px] leading-4">Em breve</span>
@@ -253,6 +267,21 @@ export function Sidebar() {
             </Collapsible>
           );
         })}
+        {/* Abrir demanda: logo abaixo do Acessos, para todos (Bruno, 19/11/2026). Na demonstração é o
+            Enviar solicitação, lá embaixo. */}
+        {!DEMO && (
+          <Hint show={collapsed} label="Abrir demanda">
+            <Button
+              variant="ghost"
+              aria-label="Abrir demanda"
+              className={cn(ROW, "h-auto w-full justify-start", collapsed && "md:justify-center md:px-0", ROW_IDLE)}
+              onClick={() => setDemanding(true)}
+            >
+              <SquarePen size={16} strokeWidth={2} />
+              <span className={cn(collapsed && "md:hidden")}>Abrir demanda</span>
+            </Button>
+          </Hint>
+        )}
       </nav>
 
       <div className={cn("border-t border-border p-3", collapsed && "md:px-2")}>
@@ -320,6 +349,7 @@ export function Sidebar() {
         </Hint>
       </div>
       <TourAutoStart />
+      {demanding && <DemandDialog page={`${pathname}${query ? `?${query}` : ""}`} onClose={() => setDemanding(false)} />}
       {sending && (
         <FeedbackDialog
           page={`${pathname}${query ? `?${query}` : ""}`}

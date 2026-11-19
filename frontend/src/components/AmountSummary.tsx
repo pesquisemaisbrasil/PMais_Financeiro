@@ -32,7 +32,7 @@ export function AmountSummary({
         {items.map(({ label, value, hint, icon: Icon, tone }) => (
           <div
             key={label}
-            className={cn("flex flex-col gap-0.5 rounded-xl px-3 py-2.5 shadow-[0_1px_2px_rgb(15_23_42/.06)]", TONES[tone].idle)}
+            className={cn("flex flex-col gap-0.5 rounded-xl px-3 py-2.5", TONES[tone].idle)}
           >
             <span className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-muted-foreground">{label}</span>

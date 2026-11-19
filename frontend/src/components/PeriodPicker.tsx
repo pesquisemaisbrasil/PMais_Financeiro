@@ -52,7 +52,11 @@ export function PeriodPicker({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto bg-card p-0">
+      <PopoverContent
+        align="start"
+        collisionPadding={16}
+        className="max-h-(--radix-popover-content-available-height) w-auto overflow-y-auto bg-card p-0"
+      >
         <Calendar
           mode="range"
           locale={ptBR}

@@ -12,23 +12,25 @@ import {
   Info,
   ListChecks,
   PiggyBank,
+  Search,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, SituationTag, TD, TH, Tag } from "@/components/finance";
 import { TONES, type IndicatorTone } from "@/components/IndicatorCard";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, downloadDocument } from "@/lib/api";
 import { fileSize, kindLabel, saveBlob } from "@/lib/documents";
 import { place } from "@/lib/nav";
-import { brl, formatDate, plural } from "@/lib/payables";
+import { brl, filterOptions, formatDate, plural } from "@/lib/payables";
 import {
   getProjectReport,
   listProjectReports,
@@ -73,6 +75,17 @@ const loadError = (error: unknown) =>
 function ProjectList() {
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A busca pelo número ou pelo nome, em todos os projetos e em todo o período (Bruna, 16/11: "aqui só
+  // tem 2, mas daqui a pouco vai ter 2000"). A lista não tem filtro de data: cada projeto vem inteiro.
+  const [term, setTerm] = useState("");
+  const shown = useMemo(
+    () =>
+      filterOptions(
+        (projects ?? []).map((project) => ({ project, label: `PRJ-${project.code} ${project.code} ${project.title}` })),
+        term
+      ).map(({ project }) => project),
+    [projects, term]
+  );
 
   const load = useCallback(async () => {
     setError(null);
@@ -103,7 +116,24 @@ function ProjectList() {
       )}
       {projects && (
         <div data-tour="lista" className={cn(CARD, "overflow-hidden")}>
-          {projects.length ? (
+          {projects.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+              <div className="relative w-full max-w-[320px]">
+                <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
+                <Input
+                  className="bg-card pl-8"
+                  aria-label="Buscar projeto pelo número ou nome"
+                  placeholder="Buscar projeto pelo número ou nome…"
+                  value={term}
+                  onChange={(event) => setTerm(event.target.value)}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">Cada projeto mostra tudo o que já foi lançado nele, de qualquer data.</span>
+            </div>
+          )}
+          {projects.length && !shown.length ? (
+            <p className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhum projeto com essa busca.</p>
+          ) : projects.length ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -116,7 +146,7 @@ function ProjectList() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projects.map((project) => (
+                {shown.map((project) => (
                   <TableRow key={project.id}>
                     <TableCell className={cn(TD, "whitespace-normal")}>
                       <span className="font-semibold text-brand-azul-deep">PRJ-{project.code}</span>
@@ -148,7 +178,7 @@ function ProjectList() {
             </Table>
           ) : (
             <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-              Nenhum projeto ainda. Eles chegam do P+ Connect: em Cadastros, Projetos, use Atualizar do Connect.
+              Nenhum projeto ainda. Cadastre em Cadastros, Projetos, com Novo projeto.
             </p>
           )}
         </div>
@@ -174,7 +204,7 @@ function StatCard({
 }) {
   const look = TONES[tone];
   return (
-    <div className={cn("flex flex-col gap-1 rounded-xl px-3.5 py-3 shadow-[0_1px_2px_rgb(15_23_42/.06)]", look.idle)}>
+    <div className={cn("flex flex-col gap-1 rounded-xl px-3.5 py-3", look.idle)}>
       <span className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg", look.chip)}>
@@ -223,10 +253,13 @@ function Report({ code }: { code: string }) {
 
   const { project } = report;
   const share = paidShare(report.launched, report.paid);
-  const kind = [
-    project.projectType ? `Tipo: ${project.projectType}` : "Sem tipo marcado",
-    project.hasIncentive ? `incentivo em ${project.incentiveDays ?? "?"} dias úteis` : "sem incentivo",
-  ].join(" · ");
+  const kind =
+    [
+      project.projectType && `Tipo: ${project.projectType}`,
+      project.hasIncentive && `incentivo em ${project.incentiveDays ?? "?"} dias úteis`,
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined;
 
   return (
     <>
@@ -375,7 +408,7 @@ function Lines({
             <TableRow>
               <TableHead className={LTH}>Vencimento</TableHead>
               <TableHead className={LTH}>Fornecedor e descrição</TableHead>
-              <TableHead className={cn(LTH, WIDE)}>Categoria</TableHead>
+              <TableHead className={cn(LTH, WIDE)}>Plano de contas</TableHead>
               <TableHead className={LTH}>Situação</TableHead>
               <TableHead className={cn(LTH, NUM)}>Valor do projeto</TableHead>
               <TableHead className={cn(LTH, NUM, WIDER)}>Pago</TableHead>

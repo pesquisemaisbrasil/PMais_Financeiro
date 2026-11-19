@@ -112,7 +112,7 @@ export function PageHeader({
           <div className="mb-1 text-xs font-semibold uppercase tracking-[.05em] text-brand-azul-deep">{overline}</div>
         )}
         <h1 className="mb-1 flex items-center gap-2.5 text-xl font-semibold text-brand-cinza-escuro">
-          <span className="grid size-9 place-items-center rounded-xl bg-[linear-gradient(135deg,#4063ee,#009cef)] text-white shadow-[0_6px_14px_-6px_rgb(64_99_238/.7)]">
+          <span className="grid size-8 place-items-center rounded-lg bg-brand-azul-deep/10 text-brand-azul-deep">
             <Icon size={18} />
           </span>
           {section ? `${section} - ${title}` : title}
@@ -138,8 +138,7 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
 }
 
 // Classes que se repetem nas tabelas: mesmo visual do protótipo validado com o financeiro.
-export const CARD =
-  "rounded-2xl border border-border bg-card shadow-[0_1px_2px_rgb(15_23_42/.04),0_12px_28px_-20px_rgb(64_99_238/.28)]";
+export const CARD = "rounded-xl border border-border bg-card shadow-sm";
 export const TH = "px-4 py-3 text-xs font-medium text-muted-foreground";
 export const TD = "px-4 py-3.5 text-[13px]";
 export const NUM = "text-right tabular-nums";
@@ -158,17 +157,34 @@ export function RedStars({ text }: { text: string }) {
   );
 }
 
+/** Recuo do que fica embaixo de um campo `inline`: a largura do nome (150px) mais o espaço (12px). */
+export const INLINE_OFFSET = "sm:pl-[162px]";
+
 export function Field({
   label,
   id,
   hint,
+  inline = false,
   children,
 }: {
   label: string;
   id: string;
   hint?: string;
+  /** O nome à esquerda do campo, como nas telas do sistema antigo (a partir da tela pequena). */
+  inline?: boolean;
   children: React.ReactNode;
 }) {
+  if (inline) {
+    return (
+      <div className="grid gap-1.5 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-start sm:gap-x-3">
+        <Label htmlFor={id} className="text-[13px] font-semibold sm:min-h-9 sm:justify-end sm:text-right">
+          <RedStars text={label} />
+        </Label>
+        {children}
+        {hint && <span className="text-xs text-muted-foreground sm:col-start-2">{hint}</span>}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id} className="text-[13px] font-semibold">
@@ -189,9 +205,9 @@ export function FormError({ message }: { message: string | null }) {
   );
 }
 
-// As abas da conta e do título têm cara de botão: separadas, com contorno, sobem um pouco ao passar o
-// mouse, e a escolhida fica na cor da marca. As classes ficam inteiras: o Tailwind não enxerga nome montado.
+// As abas da conta e do título têm cara de botão: separadas, com contorno, e a escolhida fica na cor da
+// marca. As classes ficam inteiras: o Tailwind não enxerga nome montado.
 export const TAB_BUTTON =
-  "h-9 flex-none gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground/70 shadow-[0_1px_2px_rgb(15_23_42/.06)] transition-all duration-150 hover:-translate-y-px hover:border-brand-azul-deep/40 hover:bg-accent hover:text-brand-azul-deep hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0 data-[state=active]:border-transparent data-[state=active]:bg-brand-azul-deep data-[state=active]:text-white";
+  "h-9 flex-none gap-1.5 rounded-lg border border-border bg-card px-3.5 text-[13px] font-medium text-foreground/70 shadow-none hover:border-brand-azul-deep/40 hover:bg-accent hover:text-brand-azul-deep data-[state=active]:border-transparent data-[state=active]:bg-brand-azul-deep data-[state=active]:text-white";
 export const TAB_BUTTON_DANGER =
   "border-red-200 text-[#b91c1c] hover:border-red-300 hover:bg-red-50 hover:text-[#b91c1c] data-[state=active]:bg-[#b91c1c] data-[state=active]:text-white";

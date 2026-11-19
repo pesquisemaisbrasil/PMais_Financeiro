@@ -1,7 +1,9 @@
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import {
+  connectNumber,
   countByTab,
+  linkedConnectProject,
   planParts,
   splitPdf,
   tabOf,
@@ -126,5 +128,26 @@ describe("avisos", () => {
   it("conta só os que ainda não foram lidos", () => {
     expect(unreadCount([notice(1, null), notice(2, "2026-11-05T11:00:00Z"), notice(3, null)])).toBe(2);
     expect(unreadCount([])).toBe(0);
+  });
+});
+
+// A18: no envio de comprovantes, o projeto vem do lançamento, pelo número do projeto no Connect.
+describe("o projeto do Connect da conta", () => {
+  const projects = [
+    { id: 5, connectProjectId: 12, title: "Outra pesquisa" },
+    { id: 9, connectProjectId: 1804, title: "Pesquisa de mobilidade urbana" },
+  ];
+  const account = (...codes: string[]) => ({ allocations: codes.map((code) => ({ code })) });
+
+  it("acha pelo código do projeto da conta", () => {
+    expect(connectNumber(account("1804"))).toBe(1804);
+    expect(linkedConnectProject(projects, account("1804"))?.id).toBe(9);
+  });
+
+  it("não escolhe sozinho quando a conta tem rateio, código que não é número ou projeto que não veio", () => {
+    expect(linkedConnectProject(projects, account("1804", "12"))).toBeUndefined();
+    expect(linkedConnectProject(projects, account("CARPE-DIEM"))).toBeUndefined();
+    expect(linkedConnectProject(projects, account("1790"))).toBeUndefined();
+    expect(connectNumber(account())).toBeNull();
   });
 });

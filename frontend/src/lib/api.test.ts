@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiError,
+  BrowserApprovalError,
   NETWORK_ERROR_MESSAGE,
   clearAccessToken,
   confirmMfaSetup,
@@ -153,5 +154,46 @@ describe("sessão", () => {
   it("falha de rede vira mensagem em pt-BR, sem texto técnico", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await expect(login("ana@pesquisemais.com.br", "x")).rejects.toThrow(NETWORK_ERROR_MESSAGE);
+  });
+});
+
+describe("navegador liberado", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    clearAccessToken();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("código certo num computador ainda não liberado vira o aviso próprio, sem sessão", async () => {
+    const message = "Este computador ainda não está liberado.";
+    fetchMock.mockResolvedValueOnce(json(403, { detail: message, browser: "pendente" }));
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "sem token" }));
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "sem cookie" }));
+
+    const error = await verifyMfa("parcial", "123456").catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(BrowserApprovalError);
+    expect(error).toMatchObject({ status: 403, message, browser: "pendente", recoveryCodes: [] });
+    await expect(getMe()).rejects.toBeInstanceOf(ApiError); // nenhum token ficou guardado
+  });
+
+  it("no cadastro do autenticador, os códigos de recuperação vêm junto com o aviso", async () => {
+    fetchMock.mockResolvedValueOnce(
+      json(403, { detail: "Recusado.", browser: "recusado", recovery_codes: ["AAAA-BBBB"] })
+    );
+    const error = await confirmMfaSetup("parcial", "123456").catch((err: unknown) => err);
+    expect(error).toMatchObject({ browser: "recusado", recoveryCodes: ["AAAA-BBBB"] });
+  });
+
+  it("outro 403 continua sendo um erro comum", async () => {
+    fetchMock.mockResolvedValueOnce(json(403, { detail: "Proibido" }));
+    const error = await verifyMfa("parcial", "123456").catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).not.toBeInstanceOf(BrowserApprovalError);
   });
 });

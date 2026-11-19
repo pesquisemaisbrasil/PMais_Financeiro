@@ -19,6 +19,7 @@ import {
   type PayableDetail,
 } from "@/lib/payables";
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/search";
 
 type Filter = "todos" | "abertos" | "pagos";
 
@@ -36,11 +37,11 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
     [payable.items, paid]
   );
   const items = useMemo(() => {
-    const clean = term.trim().toLowerCase();
     return payable.items.filter(
       (item) =>
         (filter === "todos" || (filter === "pagos") === paid.has(item.id)) &&
-        (!clean || item.name.toLowerCase().includes(clean))
+        // a regra de toda busca do sistema: sem acento, sem diferença de maiúscula, palavras em qualquer ordem
+        matchesSearch(item.name, term)
     );
   }, [payable.items, paid, term, filter]);
   // Só incentivo tem data da pesquisa e chave Pix: nas outras folhas a coluna ficaria vazia.

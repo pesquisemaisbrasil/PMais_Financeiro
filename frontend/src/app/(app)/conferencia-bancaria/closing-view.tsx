@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
  */
 export function ClosingView({ month }: { month: string }) {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const [data, setData] = useState<ClosingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState<ClosingCompany | null>(null);

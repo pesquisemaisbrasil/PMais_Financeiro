@@ -18,12 +18,23 @@ import {
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { DateInput } from "@/components/DateInput";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { CARD, ErrorBox, Field, FormError, PageHeader, RedStars, TD, TH, Tag } from "@/components/finance";
 import { ReasonDialog } from "@/components/ReasonDialog";
 import { CountCard, RowButton, SortHead, sortedBy, type SortState } from "@/components/RecordParts";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -40,8 +51,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ApiError,
   attachCustomerDocument,
+  createProject,
   createRecord,
+  deleteProject,
   deleteRecord,
+  editProject,
   downloadCustomerDocument,
   getReference,
   listCustomerDocuments,
@@ -51,18 +65,19 @@ import {
   renameCustomerDocument,
   setRecordActive,
   syncConnectProjects,
-  updateProjectIncentive,
   updateRecord,
 } from "@/lib/api";
 import { ACCOUNT_TYPES, balanceText, bankLine, parseBalance } from "@/lib/bank";
 import { place } from "@/lib/nav";
 import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
 import {
+  openForLaunch,
   cleanCnpj,
   filterOptions,
   formatCnpj,
   looksLikeCnpj,
   plural,
+  projectSituation,
   type Attachment,
   type Project,
   type RecordKind,
@@ -72,6 +87,7 @@ import {
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
 import { HolidaysTab } from "./holidays";
+import { TaxRatesTab } from "./tax-rates";
 
 type TabId = RecordKind | "projects";
 
@@ -82,14 +98,12 @@ const TABS: { id: TabId; label: string; one: string; many: string; create?: stri
   { id: "customers", label: "Clientes", one: "cliente", many: "clientes", create: "Novo cliente" },
   { id: "suppliers", label: "Fornecedores", one: "fornecedor", many: "fornecedores", create: "Novo fornecedor" },
   { id: "categories", label: "Plano de contas", one: "conta", many: "contas do plano", create: "Nova conta" },
-  { id: "projects", label: "Projetos (Connect)", one: "projeto", many: "projetos" },
+  { id: "projects", label: "Projetos", one: "projeto", many: "projetos", create: "Novo projeto" },
   { id: "bankAccounts", label: "Contas bancárias", one: "conta bancária", many: "contas bancárias", create: "Nova conta bancária" },
   { id: "paymentMethods", label: "Formas de pagamento", one: "forma de pagamento", many: "formas de pagamento", create: "Nova forma" },
 ];
 
 const PAGE_SIZE = 25;
-const PROJECT_TYPES = ["Health", "CATI", "Consumo", "Outro"];
-const NO_TYPE = "sem-tipo";
 
 /** Como o centro de custo aparece na escolha do superior: "001 · Administrativo". */
 function centerLabel(center: RecordRow | undefined): string {
@@ -115,7 +129,7 @@ type SortColumn =
   | "terms"
   | "status"
   | "project"
-  | "type";
+  | "customer";
 type Sort = SortState<SortColumn>;
 
 function recordText(row: RecordRow, column: SortColumn, company: string): string {
@@ -741,7 +755,7 @@ function RecordDialog({
                         <MoneyInput id="c-saldo" allowNegative placeholder="0,00" {...input("openingBalance")} />
                       </Field>
                       <Field label="Data do saldo" id="c-saldo-data" hint="Obrigatória se há saldo inicial.">
-                        <Input id="c-saldo-data" type="date" {...input("openingDate")} />
+                        <DateInput id="c-saldo-data" {...input("openingDate")} />
                       </Field>
                     </div>
                   </>
@@ -898,85 +912,145 @@ function DeleteDialog({
   );
 }
 
+/**
+ * O projeto cadastrado no Financeiro, por enquanto (testes de 16/11, A22; ADR 0021). Como na tela
+ * antiga (18/11): código, nome, unidade, cliente e centro de custo, todos obrigatórios; na edição,
+ * Inativo e Excluir. Escolher o projeto na Nova conta a pagar já preenche a unidade e o centro de
+ * custo daqui. A ligação com o projeto do Connect é plano futuro.
+ */
 function ProjectDialog({
   project,
+  reference,
   onClose,
   onDone,
+  onDeleted,
 }: {
-  project: Project;
+  project: Project | null;
+  reference: Reference;
   onClose: () => void;
   onDone: (project: Project) => void;
+  onDeleted: (project: Project) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
-  const [projectType, setProjectType] = useState(project.projectType ?? NO_TYPE);
-  const [hasIncentive, setHasIncentive] = useState(project.hasIncentive ? "sim" : "nao");
-  const [days, setDays] = useState(project.incentiveDays ? String(project.incentiveDays) : "");
+  const [form, setForm] = useState({
+    code: project?.code ?? "",
+    title: project?.title ?? "",
+    unitId: project?.unitId ? String(project.unitId) : "",
+    customerId: project?.customerId ? String(project.customerId) : "",
+    costCenterId: project?.costCenterId ? String(project.costCenterId) : "",
+    inactive: project?.active === false ? "sim" : "nao",
+  });
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
+  const companyName = (id: number) => reference.companies.find((c) => c.id === id)?.name ?? "";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const withIncentive = hasIncentive === "sim";
-    const parsed = Number(days);
-    if (withIncentive && !(Number.isInteger(parsed) && parsed >= 1 && parsed <= 30)) {
-      return setLocalError("Informe o prazo do incentivo em dias úteis (de 1 a 30).");
+    const missing = [
+      !form.code.trim() && "código",
+      !form.title.trim() && "nome",
+      !form.unitId && "unidade",
+      !form.customerId && "cliente",
+      !form.costCenterId && "centro de custo",
+    ].filter(Boolean);
+    if (missing.length) return setLocalError(`Falta preencher: ${missing.join(", ")}.`);
+    if (!/^[\w.-]+$/.test(form.code.trim())) {
+      return setLocalError("O código do projeto leva só letras, números, ponto e traço (ex.: 1804).");
     }
     setLocalError(null);
-    await run(async () =>
-      onDone(
-        await updateProjectIncentive(project.id, {
-          projectType: projectType === NO_TYPE ? null : projectType,
-          hasIncentive: withIncentive,
-          incentiveDays: withIncentive ? parsed : null,
-        })
-      )
-    );
+    const body = {
+      code: form.code.trim(),
+      title: form.title.trim(),
+      unitId: Number(form.unitId),
+      customerId: Number(form.customerId),
+      costCenterId: Number(form.costCenterId),
+      active: form.inactive !== "sim",
+      // Tipo e incentivo saíram da tela (18/11): a edição devolve o que já estava gravado.
+      projectType: project?.projectType ?? null,
+      hasIncentive: project?.hasIncentive ?? false,
+      incentiveDays: project?.incentiveDays ?? null,
+    };
+    await run(async () => onDone(project ? await editProject(project.id, body) : await createProject(body)));
   }
 
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[620px]">
         <form onSubmit={submit} noValidate>
           <DialogHeader>
-            <DialogTitle>Tipo e incentivo · PRJ-{project.code}</DialogTitle>
-            <DialogDescription>{project.title}</DialogDescription>
+            <DialogTitle>{project ? `Editar projeto · PRJ-${project.code}` : "Novo projeto"}</DialogTitle>
+            <DialogDescription>
+              <RedStars text="Os campos com * são obrigatórios. A unidade e o centro de custo entram sozinhos na Nova conta a pagar." />
+            </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3.5 py-4">
+            <div className="grid gap-3 sm:grid-cols-[160px_1fr]">
+              <Field label="Código *" id="pj-num" hint="Ex.: 1804">
+                <Input id="pj-num" maxLength={20} value={form.code} onChange={(event) => set("code")(event.target.value)} />
+              </Field>
+              <Field label="Nome *" id="pj-nome">
+                <Input id="pj-nome" maxLength={200} value={form.title} onChange={(event) => set("title")(event.target.value)} />
+              </Field>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Tipo de projeto" id="pi-tipo">
+              <Field label="Unidade *" id="pj-uni" hint="Vem preenchida no lançamento.">
                 <SearchSelect
-                  id="pi-tipo"
-                  value={projectType}
-                  onChange={setProjectType}
-                  options={[{ id: NO_TYPE, label: "Sem tipo" }, ...PROJECT_TYPES.map((type) => ({ id: type, label: type }))]}
+                  id="pj-uni"
+                  searchable
+                  value={form.unitId}
+                  onChange={set("unitId")}
+                  options={reference.units.map((u) => ({ id: u.id, label: `${u.name} · ${companyName(u.companyId)}` }))}
                 />
               </Field>
-              <Field label="Tem incentivo?" id="pi-tem">
+              <Field label="Cliente *" id="pj-cli">
                 <SearchSelect
-                  id="pi-tem"
-                  value={hasIncentive}
-                  onChange={setHasIncentive}
-                  options={[
-                    { id: "sim", label: "Sim" },
-                    { id: "nao", label: "Não" },
-                  ]}
+                  id="pj-cli"
+                  searchable
+                  value={form.customerId}
+                  onChange={set("customerId")}
+                  options={reference.customers.map((c) => ({ id: c.id, label: `${c.nickname} · ${c.name}` }))}
                 />
               </Field>
             </div>
-            {hasIncentive === "sim" && (
-              <Field label="Prazo do incentivo (dias úteis)" id="pi-prazo" hint="Conta a partir da data da pesquisa.">
-                <Input
-                  id="pi-prazo"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={days}
-                  onChange={(event) => setDays(event.target.value)}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Centro de custo *" id="pj-cc" hint="Vem preenchido no lançamento.">
+                <SearchSelect
+                  id="pj-cc"
+                  searchable
+                  value={form.costCenterId}
+                  onChange={set("costCenterId")}
+                  options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
                 />
               </Field>
-            )}
+              {project && (
+                <Field label="Inativo" id="pj-inativo" hint="Inativo some da Nova conta a pagar; o que já foi lançado fica.">
+                  <SearchSelect
+                    id="pj-inativo"
+                    value={form.inactive}
+                    onChange={set("inactive")}
+                    options={[
+                      { id: "nao", label: "Não" },
+                      { id: "sim", label: "Sim" },
+                    ]}
+                  />
+                </Field>
+              )}
+            </div>
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
+            {project && (
+              <Button
+                type="button"
+                variant="destructive"
+                className="sm:mr-auto"
+                disabled={submitting}
+                onClick={() => setConfirmDelete(true)}
+              >
+                Excluir
+              </Button>
+            )}
             <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
               Cancelar
             </Button>
@@ -986,14 +1060,49 @@ function ProjectDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      {project && (
+        <AlertDialog open={confirmDelete} onOpenChange={(open) => !submitting && setConfirmDelete(open)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir PRJ-{project.code}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Só sai o projeto que ainda não tem conta lançada. Com conta, marque Inativo: ele some da Nova conta a
+                pagar e o histórico fica. Isso não pode ser desfeito.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={submitting}>Voltar</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={submitting}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void run(async () => {
+                    setConfirmDelete(false);
+                    await deleteProject(project.id);
+                    onDeleted(project);
+                  });
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </Dialog>
   );
 }
 
-function incentiveLabel(project: Project): string {
-  return project.hasIncentive && project.incentiveDays
-    ? `Incentivo em ${plural(project.incentiveDays, "dia útil", "dias úteis")}`
-    : "Sem incentivo";
+/** "Consumo SP · Campo": o padrão do lançamento do projeto, ou um traço. */
+function defaultsLabel(project: Project, reference: Reference | null): string {
+  const unit = reference?.units.find((u) => u.id === project.unitId)?.name;
+  const center = reference?.costCenters.find((c) => c.id === project.costCenterId)?.name;
+  return [unit, center].filter(Boolean).join(" · ") || "—";
+}
+
+function customerName(project: Project, reference: Reference | null): string {
+  return reference?.customers.find((c) => c.id === project.customerId)?.nickname ?? "";
 }
 
 /** O tipo de cadastro vem do endereço (?aba=), escolhido no menu lateral. Trocar de tipo recria a tela. */
@@ -1006,14 +1115,19 @@ export default function RecordsPage() {
 }
 
 function RecordsByUrl() {
-  const aba = useSearchParams().get("aba");
+  const params = useSearchParams();
+  const aba = params.get("aba");
+  // a busca geral do topo manda `?busca=`: a aba recomeça com ela
+  const linkedSearch = params.get("busca") ?? "";
   // Feriados não seguem o molde dos outros cadastros (data, âmbito e busca na BrasilAPI): tela própria
   if (aba === "holidays") return <HolidaysTab />;
+  // Percentuais, sem lista de cadastros: tela própria (19/11)
+  if (aba === "taxRates") return <TaxRatesTab />;
   const tab = TABS.find((option) => option.id === aba)?.id ?? TABS[0].id;
-  return <Records key={tab} tab={tab} />;
+  return <Records key={`${tab}|${linkedSearch}`} tab={tab} linkedSearch={linkedSearch} />;
 }
 
-function Records({ tab }: { tab: TabId }) {
+function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
   const isParty = tab === "suppliers" || tab === "customers";
   const withCnpj = isParty || tab === "companies";
   // o que impede excluir: lançamento e, no centro de custo, também ter sub-centros embaixo
@@ -1025,7 +1139,7 @@ function Records({ tab }: { tab: TabId }) {
         : tab === "bankAccounts"
           ? "lançamentos ou extratos"
           : "lançamentos";
-  const [term, setTerm] = useState("");
+  const [term, setTerm] = useState(linkedSearch);
   const [requestedPage, setPage] = useState(1);
   const [sort, setSort] = useState<Sort>(null);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
@@ -1033,7 +1147,8 @@ function Records({ tab }: { tab: TabId }) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ record: RecordRow | null } | null>(null);
   const [deleting, setDeleting] = useState<RecordRow | null>(null);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  // `project: null` é o projeto novo
+  const [editingProject, setEditingProject] = useState<{ project: Project | null } | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const current = TABS.find((option) => option.id === tab) ?? TABS[0];
@@ -1091,11 +1206,9 @@ function Records({ tab }: { tab: TabId }) {
     ).map(({ project }) => project);
     const text = (project: Project) =>
       sort?.column === "status"
-        ? project.status === "encerrado"
-          ? "Encerrado"
-          : "Em andamento"
-        : sort?.column === "type"
-          ? (project.projectType ?? "")
+        ? projectSituation(project)
+        : sort?.column === "customer"
+          ? customerName(project, reference)
           : `${project.code} ${project.title}`;
     return sort ? sortedBy(found, text, sort.descending) : found;
   }, [reference, term, sort]);
@@ -1108,7 +1221,7 @@ function Records({ tab }: { tab: TabId }) {
   const totals = useMemo(() => {
     if (tab === "projects") {
       const all = reference?.projects ?? [];
-      return reference ? { all: all.length, active: all.filter((p) => p.status !== "encerrado").length } : null;
+      return reference ? { all: all.length, active: all.filter(openForLaunch).length } : null;
     }
     return rows ? { all: rows.length, active: rows.filter((row) => row.active).length } : null;
   }, [tab, reference, rows]);
@@ -1154,10 +1267,16 @@ function Records({ tab }: { tab: TabId }) {
         icon={BookUser}
         actions={
           tab === "projects" ? (
-            <Button variant="outline" onClick={() => void syncProjects()} disabled={syncing}>
-              {syncing ? <Spinner aria-label="Atualizando" className="size-4" /> : <RefreshCw size={16} />}
-              Atualizar do Connect
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => void syncProjects()} disabled={syncing}>
+                {syncing ? <Spinner aria-label="Atualizando" className="size-4" /> : <RefreshCw size={16} />}
+                Atualizar do Connect
+              </Button>
+              <Button onClick={() => setEditingProject({ project: null })} disabled={!reference}>
+                <Plus size={16} />
+                Novo projeto
+              </Button>
+            </div>
           ) : (
             current.create && (
               <Button onClick={() => setEditing({ record: null })} disabled={!rows}>
@@ -1186,19 +1305,19 @@ function Records({ tab }: { tab: TabId }) {
         <CountCard
           label={`Total de ${current.many}`}
           value={totals ? totals.all : null}
-          hint={tab === "projects" ? "vêm do P+ Connect" : "ativos e inativos"}
+          hint={tab === "projects" ? "cadastrados aqui, por enquanto" : "ativos e inativos"}
           icon={Layers}
           tone="roxo"
         />
         <CountCard
-          label={tab === "projects" ? "Em andamento" : "Ativos"}
+          label={tab === "projects" ? "Recebem lançamento" : "Ativos"}
           value={totals ? totals.active : null}
           hint={tab === "projects" ? "recebem lançamento" : "aparecem nas listas de escolha"}
           icon={CircleCheck}
           tone="verde"
         />
         <CountCard
-          label={tab === "projects" ? "Encerrados" : "Inativos"}
+          label={tab === "projects" ? "Encerrados ou inativos" : "Inativos"}
           value={totals ? totals.all - totals.active : null}
           hint={tab === "projects" ? "não recebem lançamento" : "somem das listas, ficam nos relatórios"}
           icon={Archive}
@@ -1222,7 +1341,9 @@ function Records({ tab }: { tab: TabId }) {
             />
           </div>
           {tab === "projects" && (
-            <span className="text-xs text-muted-foreground">Os projetos vêm do P+ Connect. Aqui só se marca o tipo e o incentivo.</span>
+            <span className="text-xs text-muted-foreground">
+              Por enquanto o projeto é cadastrado aqui. Quando o P+ Connect mandar os projetos, eles chegam sozinhos.
+            </span>
           )}
         </div>
 
@@ -1238,8 +1359,9 @@ function Records({ tab }: { tab: TabId }) {
               <TableHeader>
                 <TableRow>
                   <SortHead label="Projeto" column="project" sort={sort} onSort={changeSort} />
+                  <TableHead className={TH}>Unidade e centro de custo</TableHead>
                   <SortHead label="Situação" column="status" sort={sort} onSort={changeSort} />
-                  <SortHead label="Tipo e incentivo" column="type" sort={sort} onSort={changeSort} />
+                  <SortHead label="Cliente" column="customer" sort={sort} onSort={changeSort} />
                   <TableHead className={TH} />
                 </TableRow>
               </TableHeader>
@@ -1249,17 +1371,19 @@ function Records({ tab }: { tab: TabId }) {
                     <TableCell className={cn(TD, "whitespace-normal font-semibold text-brand-cinza-escuro")}>
                       PRJ-{project.code} · {project.title}
                     </TableCell>
+                    <TableCell className={cn(TD, "whitespace-normal")}>{defaultsLabel(project, reference)}</TableCell>
                     <TableCell className={TD}>
-                      <Tag color={project.status === "encerrado" ? "cinza" : "verde"}>
-                        {project.status === "encerrado" ? "Encerrado" : "Em andamento"}
+                      <Tag color={projectSituation(project) === "Em andamento" ? "verde" : "cinza"}>
+                        {projectSituation(project)}
                       </Tag>
                     </TableCell>
-                    <TableCell className={TD}>
-                      {project.projectType ?? "Sem tipo"}
-                      <span className="block text-xs text-muted-foreground">{incentiveLabel(project)}</span>
-                    </TableCell>
+                    <TableCell className={cn(TD, "whitespace-normal")}>{customerName(project, reference) || "—"}</TableCell>
                     <TableCell className={cn(TD, "text-right")}>
-                      <RowButton icon={Pencil} label="Editar tipo e incentivo" onClick={() => setEditingProject(project)} />
+                      <RowButton
+                        icon={Pencil}
+                        label={`Editar PRJ-${project.code}`}
+                        onClick={() => setEditingProject({ project })}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1267,7 +1391,7 @@ function Records({ tab }: { tab: TabId }) {
             </Table>
           ) : (
             <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-              {term ? "Nenhum projeto com essa busca." : "Nenhum projeto ainda. Eles chegam do P+ Connect."}
+              {term ? "Nenhum projeto com essa busca." : "Nenhum projeto ainda. Use Novo projeto para cadastrar."}
             </p>
           )
         ) : visible.length ? (
@@ -1415,12 +1539,20 @@ function Records({ tab }: { tab: TabId }) {
           }}
         />
       )}
-      {editingProject && (
+      {editingProject && reference && (
         <ProjectDialog
-          project={editingProject}
+          project={editingProject.project}
+          reference={reference}
           onClose={() => setEditingProject(null)}
           onDone={(project) => {
-            toast.success(`PRJ-${project.code} atualizado: ${project.projectType ?? "sem tipo"}, ${incentiveLabel(project).toLowerCase()}.`);
+            toast.success(
+              editingProject.project ? `PRJ-${project.code} atualizado.` : `PRJ-${project.code} cadastrado.`
+            );
+            setEditingProject(null);
+            void load();
+          }}
+          onDeleted={(project) => {
+            toast.success(`PRJ-${project.code} excluído.`);
             setEditingProject(null);
             void load();
           }}

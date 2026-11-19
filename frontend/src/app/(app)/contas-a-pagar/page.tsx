@@ -19,7 +19,10 @@ import {
   Download,
   Eye,
   FileUp,
+  HandCoins,
   Hourglass,
+  Info,
+  Paperclip,
   PiggyBank,
   Plus,
   Receipt,
@@ -81,6 +84,8 @@ import {
   reportDoneText,
   expenseCategories,
   seriesLabel,
+  shiftRef,
+  SHIFT_LABELS,
   type DateField,
   type Indicator,
   type PayableDetail,
@@ -93,6 +98,8 @@ import {
 } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 import {
+  attachedMessage,
+  BatchAttachDialog,
   BatchPaymentDialog,
   ColumnsDialog,
   ConfirmDeleteDialog,
@@ -114,7 +121,7 @@ const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean
   { id: "fornecedor", label: "Fornecedor", sort: "fornecedor", fixed: true },
   { id: "documento", label: "Documento", sort: "documento" },
   { id: "projeto", label: "Projeto" },
-  { id: "categoria", label: "Categoria", sort: "categoria" },
+  { id: "categoria", label: "Plano de contas", sort: "categoria" },
   { id: "centro", label: "Centro de custo" },
   { id: "forma", label: "Forma" },
   { id: "empresa", label: "Empresa" },
@@ -207,16 +214,27 @@ function IconButton({
   label,
   onClick,
   expanded,
+  variant = "ghost",
+  className,
 }: {
   icon: LucideIcon;
   label: string;
   onClick: () => void;
   expanded?: boolean;
+  variant?: "ghost" | "outline";
+  className?: string;
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={label} aria-expanded={expanded} onClick={onClick}>
+        <Button
+          variant={variant}
+          size="icon-sm"
+          aria-label={label}
+          aria-expanded={expanded}
+          onClick={onClick}
+          className={className}
+        >
           <Icon size={16} />
         </Button>
       </TooltipTrigger>
@@ -376,7 +394,7 @@ function Cell({ row, column, open, onToggle }: { row: PayableRow; column: string
   }
 }
 
-function PayablesContent() {
+function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
   const params = useSearchParams();
   const linkedId = Number(params.get("conta")) || null;
 
@@ -396,8 +414,8 @@ function PayablesContent() {
     if (/^\d+$/.test(project)) start.project = project;
     return start;
   });
-  const [searchText, setSearchText] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchText, setSearchText] = useState(linkedSearch);
+  const [search, setSearch] = useState(linkedSearch);
   const [sort, setSort] = useState<{ column: SortColumn; descending: boolean }>({ column: "vencimento", descending: false });
   const [page, setPage] = useState(1);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
@@ -421,8 +439,11 @@ function PayablesContent() {
   const [duplicating, setDuplicating] = useState(false);
   const [replacing, setReplacing] = useState<PayableRow | null>(null);
   const [exporting, setExporting] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState<"planilha" | "incentivos" | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
+  // A aba em que a conta abre: o clipe da lista abre direto em Documentos.
+  const [viewingTab, setViewingTab] = useState("detalhes");
+  const [attaching, setAttaching] = useState(false);
   const [choosingColumns, setChoosingColumns] = useState(false);
 
   useEffect(() => {
@@ -504,13 +525,28 @@ function PayablesContent() {
         setMode("dia");
         setRef(payable.dueDate);
         if (payable.items.length) setOpened((current) => ({ ...current, [payable.id]: payable }));
-        else setViewing(payable.id);
+        else {
+          setViewingTab("detalhes");
+          setViewing(payable.id);
+        }
       },
       () => toast.error("Conta não encontrada")
     );
   }, [linkedId]);
 
   const effectiveRef = ref ?? data?.today ?? "";
+
+  function openDetail(id: number, tab = "detalhes") {
+    setViewingTab(tab);
+    setViewing(id);
+  }
+
+  /** As setas ao lado da data: um dia, uma semana, um mês ou um ano para trás ou para a frente. */
+  function shift(step: -1 | 1) {
+    const next = effectiveRef ? shiftRef(mode, effectiveRef, step) : null;
+    if (next) resetPageAnd(() => setRef(next));
+  }
+  const shiftLabels = SHIFT_LABELS[mode];
 
   function changed() {
     setSelected(new Set());
@@ -637,7 +673,11 @@ function PayablesContent() {
         icon={ArrowUpRight}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setImporting(true)} disabled={!reference}>
+            <Button variant="outline" onClick={() => setImporting("incentivos")} disabled={!reference}>
+              <HandCoins size={16} />
+              Carregar incentivos
+            </Button>
+            <Button variant="outline" onClick={() => setImporting("planilha")} disabled={!reference}>
               <FileUp size={16} />
               Importar planilha
             </Button>
@@ -686,6 +726,9 @@ function PayablesContent() {
       <div className={CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
           <div data-tour="barra" className="flex flex-wrap items-center gap-2">
+            {data && shiftLabels && (
+              <IconButton variant="outline" icon={ChevronLeft} label={shiftLabels[0]} onClick={() => shift(-1)} />
+            )}
             {data && (
               <PeriodPicker
                 label={
@@ -700,6 +743,9 @@ function PayablesContent() {
                 onOpenChange={setCalendarOpen}
                 onApply={applyDates}
               />
+            )}
+            {data && shiftLabels && (
+              <IconButton variant="outline" icon={ChevronRight} label={shiftLabels[1]} onClick={() => shift(1)} />
             )}
             <Select
               value={mode}
@@ -716,20 +762,6 @@ function PayablesContent() {
                 ))}
               </SelectContent>
             </Select>
-            {mode !== "tudo" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  resetPageAnd(() => {
-                    if (mode === "periodo") setMode("dia");
-                    setRef(null);
-                  })
-                }
-              >
-                Hoje
-              </Button>
-            )}
             <Button
               variant="outline"
               className="h-9 gap-2 bg-card font-normal"
@@ -766,8 +798,8 @@ function PayablesContent() {
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />
             <Input
               className="bg-card pl-8"
-              aria-label="Buscar conta, fornecedor ou NF"
-              placeholder="Buscar conta, fornecedor ou NF…"
+              aria-label="Buscar conta, fornecedor, NF, projeto ou valor"
+              placeholder="Buscar conta, fornecedor, projeto ou valor…"
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
             />
@@ -792,6 +824,10 @@ function PayablesContent() {
                 <Button variant="ghost" size="sm" className="h-[30px]" disabled={!reference} onClick={() => setReclassifying(true)}>
                   <Tags size={16} />
                   Reclassificar
+                </Button>
+                <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setAttaching(true)}>
+                  <Paperclip size={16} />
+                  Anexar
                 </Button>
                 <Button variant="ghost" size="sm" className="h-[30px]" onClick={() => setDuplicating(true)}>
                   <Copy size={16} />
@@ -827,6 +863,14 @@ function PayablesContent() {
             )}
           </div>
         </div>
+        )}
+
+        {(indicator === "cancelados" || (filters.situation ?? "").split(",").includes("cancelado")) && (
+          <p className="flex items-start gap-2 border-t border-border/60 bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
+            <Info size={14} className="mt-0.5 shrink-0" aria-hidden />
+            Conta cancelada não vale: não entra nos totais e não é paga, mas fica guardada com o motivo e o histórico. Para
+            ver o motivo, abra a conta.
+          </p>
         )}
 
         {!data ? (
@@ -891,7 +935,7 @@ function PayablesContent() {
                         // link, caixa de seleção ou campo dentro da linha continua só fazendo o que clicou.
                         onClick={(event) => {
                           if ((event.target as HTMLElement).closest("button, a, input, label, [role='checkbox']")) return;
-                          setViewing(row.id);
+                          openDetail(row.id);
                         }}
                         // Linhas alternadas em cinza: o índice vale só para as contas, e o painel de itens aberto não entra na conta.
                         className={cn(
@@ -917,7 +961,18 @@ function PayablesContent() {
                           />
                         ))}
                         <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
-                          <IconButton icon={Eye} label="Ver detalhes" onClick={() => setViewing(row.id)} />
+                          <IconButton icon={Eye} label="Ver detalhes" onClick={() => openDetail(row.id)} />
+                          {/* O clipe fica sempre: verde com documento, cinza sem (aí abre para anexar). */}
+                          <IconButton
+                            icon={Paperclip}
+                            label={
+                              row.attachmentCount
+                                ? `Ver documentos (${row.attachmentCount})`
+                                : "Anexar documento"
+                            }
+                            onClick={() => openDetail(row.id, "documentos")}
+                            className={row.attachmentCount ? "text-brand-azul-deep hover:text-brand-azul-deep" : "text-brand-cinza-escuro/35"}
+                          />
                           {row.canPayDirectly && (
                             <IconButton icon={Check} label="Dar baixa" onClick={() => setPaying(row)} />
                           )}
@@ -1097,9 +1152,20 @@ function PayablesContent() {
           rows={selectedRows}
           reference={reference}
           onClose={() => setReclassifying(false)}
-          onDone={(count) => {
+          onDone={(message) => {
             setReclassifying(false);
-            toast.success(`${plural(count, "conta reclassificada", "contas reclassificadas")}.`);
+            toast.success(message);
+            changed();
+          }}
+        />
+      )}
+      {attaching && (
+        <BatchAttachDialog
+          rows={selectedRows}
+          onClose={() => setAttaching(false)}
+          onDone={(count, skipped) => {
+            setAttaching(false);
+            toast.success(attachedMessage(count, skipped));
             changed();
           }}
         />
@@ -1231,11 +1297,13 @@ function PayablesContent() {
       </Sheet>
       {importing && reference && data && (
         <ImportDialog
+          key={importing}
+          kind={importing === "incentivos" ? "incentivos" : undefined}
           reference={reference}
           today={data.today}
-          onClose={() => setImporting(false)}
+          onClose={() => setImporting(null)}
           onReportDone={(result) => {
-            setImporting(false);
+            setImporting(null);
             toast.success(reportDoneText(result));
             // A lista passa a mostrar as contas importadas, em qualquer data.
             resetPageAnd(() => {
@@ -1249,7 +1317,7 @@ function PayablesContent() {
             changed();
           }}
           onDone={(result) => {
-            setImporting(false);
+            setImporting(null);
             toast.success(
               `${plural(result.count, "lançamento criado", "lançamentos criados")}, ${plural(result.items, "item", "itens")}, ${brl(result.total)}.`
             );
@@ -1269,6 +1337,7 @@ function PayablesContent() {
       {viewing && data && reference && (
         <DetailDialog
           id={viewing}
+          initialTab={viewingTab}
           today={data.today}
           reference={reference}
           onClose={() => setViewing(null)}
@@ -1300,7 +1369,13 @@ function PayablesContent() {
 export default function PayablesPage() {
   return (
     <Suspense>
-      <PayablesContent />
+      <PayablesByUrl />
     </Suspense>
   );
+}
+
+/** A busca geral do topo manda `?busca=`: a lista recomeça com ela. */
+function PayablesByUrl() {
+  const linkedSearch = useSearchParams().get("busca") ?? "";
+  return <PayablesContent key={linkedSearch} linkedSearch={linkedSearch} />;
 }

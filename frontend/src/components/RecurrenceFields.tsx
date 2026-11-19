@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DateInput } from "@/components/DateInput";
 import { Field } from "@/components/finance";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError, simulateRecurrence } from "@/lib/api";
+import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { maskMoney } from "@/lib/money";
 import {
   RECURRENCE_KINDS,
@@ -92,8 +94,17 @@ export function RecurrenceFields({
   }
 
   function edit(index: number, patch: Partial<Occurrence>) {
-    onChange({ ...value, rows: (value.rows ?? []).map((row) => (row.index === index ? { ...row, ...patch } : row)) });
+    // Trocou a data na mão: o aviso de "foi para o próximo dia útil" não vale mais para essa linha.
+    const moved = patch.dueDate !== undefined ? { movedFrom: null, movedReason: null } : {};
+    onChange({
+      ...value,
+      rows: (value.rows ?? []).map((row) => (row.index === index ? { ...row, ...patch, ...moved } : row)),
+    });
   }
+
+  // a data da linha não é mais a que o servidor simulou (a pessoa trocou, ou antecipou ou manteve)
+  const changedByHand = (row: Occurrence) =>
+    value.simulated?.find((simulated) => simulated.index === row.index)?.dueDate !== row.dueDate;
 
   // mudou o vencimento ou o valor depois de simular: a tabela velha some e pede para simular de novo
   const stale = value.rows !== null && !simulationIsCurrent(value, dueDate, amount);
@@ -168,12 +179,22 @@ export function RecurrenceFields({
                   <TableRow key={row.index}>
                     <TableCell className="px-2 py-1.5 text-[13px]">{row.index}</TableCell>
                     <TableCell className="px-2 py-1.5">
-                      <Input
-                        type="date"
+                      <DateInput
                         aria-label={`Vencimento da ocorrência ${row.index}`}
                         value={row.dueDate}
                         onChange={(event) => edit(row.index, { dueDate: event.target.value })}
                       />
+                      {/* Como no campo Vencimento: a linha que caiu em fim de semana ou feriado avisa. A que o
+                          sistema já levou para o próximo dia útil diz isso e deixa antecipar ou manter; a que
+                          a pessoa trocou à mão é conferida de novo. */}
+                      {(row.movedFrom || changedByHand(row)) && (
+                        <BusinessDayNotice
+                          className="mt-1.5"
+                          date={row.movedFrom ?? row.dueDate}
+                          movedTo={row.movedFrom ? row.dueDate : undefined}
+                          onPick={(day) => edit(row.index, { dueDate: day })}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="px-2 py-1.5">
                       <MoneyInput
@@ -192,7 +213,7 @@ export function RecurrenceFields({
               {rows.length} {noun === "conta" ? "contas" : "títulos"}, de {formatDate(rows[0].dueDate)} a{" "}
               {formatDate(rows[rows.length - 1].dueDate)}, no total de{" "}
               {brl(occurrencesTotal(rows))}. Vencimento em fim de semana
-              ou feriado vai para o próximo dia útil.
+              ou feriado vai para o próximo dia útil; em cada linha dá para antecipar ou manter.
             </p>
           )}
         </div>

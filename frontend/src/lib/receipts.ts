@@ -224,6 +224,25 @@ export function listDivergences(): Promise<Divergence[]> {
   return request<Divergence[]>("/finance/divergences");
 }
 
+/**
+ * O número do projeto do Connect da conta: o código do projeto dela (PRJ-1804 → 1804), quando a conta
+ * está inteira num projeto só e o código é um número. O projeto do Connect tem esse mesmo número.
+ */
+export function connectNumber(payable: { allocations: { code: string }[] }): number | null {
+  if (payable.allocations.length !== 1) return null;
+  const code = payable.allocations[0].code.trim();
+  return /^\d+$/.test(code) ? Number(code) : null;
+}
+
+/** O projeto do Connect que é o da conta (A18: o projeto vem do lançamento), se ele já veio do Connect. */
+export function linkedConnectProject(
+  projects: FinanceProject[],
+  payable: { allocations: { code: string }[] }
+): FinanceProject | undefined {
+  const number = connectNumber(payable);
+  return number === null ? undefined : projects.find((project) => project.connectProjectId === number);
+}
+
 export function listFinanceProjects(): Promise<FinanceProject[]> {
   return request<FinanceProject[]>("/finance/projects");
 }

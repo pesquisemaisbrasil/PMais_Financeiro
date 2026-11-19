@@ -1,4 +1,4 @@
-import { BookUser, ChartColumn, House, Inbox, Wallet, type LucideIcon } from "lucide-react";
+import { BookUser, ChartColumn, ClipboardList, House, Inbox, ShieldCheck, Wallet, type LucideIcon } from "lucide-react";
 
 /** O menu lateral: a única fonte das seções, dos nomes e dos endereços. O título de cada tela sai daqui. */
 
@@ -16,6 +16,10 @@ export type Entry = {
   children?: Leaf[];
   /** Só no acesso do desenvolvimento da demonstração. */
   devOnly?: boolean;
+  /** Só administrador (admin e super admin), e fora da demonstração (lá não há navegador a liberar). */
+  adminOnly?: boolean;
+  /** Só o super admin, fora da demonstração (19/11/2026). */
+  superOnly?: boolean;
 };
 
 export const NAV: Entry[] = [
@@ -38,7 +42,6 @@ export const NAV: Entry[] = [
     icon: ChartColumn,
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
-      { href: "/incentivos", label: "Incentivos" },
       { label: "Fluxo de caixa" },
       { label: "DRE" },
       { label: "Resultado por projeto" },
@@ -59,9 +62,11 @@ export const NAV: Entry[] = [
       { href: "/cadastros?aba=projects", label: "Projetos" },
       { href: "/cadastros?aba=bankAccounts", label: "Contas bancárias" },
       { href: "/cadastros?aba=paymentMethods", label: "Formas de pagamento" },
-      { href: "/cadastros?aba=holidays", label: "Feriados" },
+      { href: "/cadastros?aba=taxRates", label: "Impostos retidos" },
     ],
   },
+  { id: "acessos", label: "Acessos", icon: ShieldCheck, href: "/acessos", adminOnly: true },
+  { id: "demandas", label: "Demandas", icon: ClipboardList, href: "/demandas", superOnly: true },
   { id: "solicitacoes", label: "Solicitações", icon: Inbox, href: "/solicitacoes", devOnly: true },
 ];
 

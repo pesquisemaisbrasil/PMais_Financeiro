@@ -21,7 +21,8 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
@@ -227,7 +228,39 @@ function Cell({ row, column }: { row: ReceivableRow; column: string }) {
 }
 
 export default function ReceivablesPage() {
-  const [mode, setMode] = useState<PeriodMode>("dia");
+  return (
+    <Suspense>
+      <ReceivablesByUrl />
+    </Suspense>
+  );
+}
+
+/** A busca geral do topo manda `?busca=` e `?conta=`: a tela recomeça com a busca ou com a conta aberta. */
+function ReceivablesByUrl() {
+  const params = useSearchParams();
+  const linkedId = Number(params.get("conta")) || null;
+  const linkedSearch = params.get("busca") ?? "";
+  const linkedMode = (params.get("modo") as PeriodMode | null) ?? "dia";
+  return (
+    <ReceivablesContent
+      key={`${linkedId}|${linkedSearch}|${linkedMode}`}
+      linkedId={linkedId}
+      linkedSearch={linkedSearch}
+      linkedMode={linkedMode}
+    />
+  );
+}
+
+function ReceivablesContent({
+  linkedId,
+  linkedSearch,
+  linkedMode,
+}: {
+  linkedId: number | null;
+  linkedSearch: string;
+  linkedMode: PeriodMode;
+}) {
+  const [mode, setMode] = useState<PeriodMode>(linkedMode);
   const [ref, setRef] = useState<string | null>(null);
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
@@ -236,8 +269,8 @@ export default function ReceivablesPage() {
   const [dateField, setDateField] = useState<ReceivableDateField>("vencimento");
   const [indicator, setIndicator] = useState<ReceivableIndicator>("total");
   const [filters, setFilters] = useState<Record<string, string>>({});
-  const [searchText, setSearchText] = useState("");
-  const [search, setSearch] = useState("");
+  const [searchText, setSearchText] = useState(linkedSearch);
+  const [search, setSearch] = useState(linkedSearch);
   const [sort, setSort] = useState<{ column: ReceivableSort; descending: boolean }>({
     column: "vencimento",
     descending: false,
@@ -252,7 +285,7 @@ export default function ReceivablesPage() {
 
   const [creating, setCreating] = useState(false);
   const [receiving, setReceiving] = useState<ReceivableRow | null>(null);
-  const [viewing, setViewing] = useState<number | null>(null);
+  const [viewing, setViewing] = useState<number | null>(linkedId);
   const [delinquency, setDelinquency] = useState(false);
   const [seriesAction, setSeriesAction] = useState<{ row: ReceivableRow; mode: "edit" | "cancel" } | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -465,20 +498,6 @@ export default function ReceivablesPage() {
                 ))}
               </SelectContent>
             </Select>
-            {mode !== "tudo" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  resetPageAnd(() => {
-                    if (mode === "periodo") setMode("dia");
-                    setRef(null);
-                  })
-                }
-              >
-                Hoje
-              </Button>
-            )}
             <Button
               variant="outline"
               className="h-9 gap-2 bg-card font-normal"

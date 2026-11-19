@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DateInput } from "@/components/DateInput";
 import { Field, FormError, Tag } from "@/components/finance";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -201,9 +202,8 @@ export function ReconcileDialog({
                           <Input id="cl-nf" value={nfNumber} onChange={(event) => setNfNumber(event.target.value)} />
                         </Field>
                         <Field label="Emissão da nota *" id="cl-nf-data">
-                          <Input
+                          <DateInput
                             id="cl-nf-data"
-                            type="date"
                             value={nfIssuedOn}
                             onChange={(event) => setNfIssuedOn(event.target.value)}
                           />

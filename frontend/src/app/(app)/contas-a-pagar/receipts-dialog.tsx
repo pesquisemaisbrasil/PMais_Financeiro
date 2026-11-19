@@ -40,6 +40,8 @@ import {
   countByTab,
   discardReceipt,
   getBatch,
+  connectNumber,
+  linkedConnectProject,
   listFinanceProjects,
   openBatch,
   splitPdf,
@@ -55,6 +57,7 @@ import {
   type ReceiptTab,
 } from "@/lib/receipts";
 import { useFormAction } from "@/lib/use-form-action";
+import { ApiError } from "@/lib/api";
 
 type Step = "choose" | "sending" | "review" | "done";
 
@@ -103,7 +106,9 @@ export function ReceiptsDialog({
   const [localError, setLocalError] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("choose");
   const [projects, setProjects] = useState<FinanceProject[] | null>(null);
+  // escolhido à mão (Trocar); sem isso, vale o projeto do lançamento (A18)
   const [projectId, setProjectId] = useState("");
+  const [changing, setChanging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [batch, setBatch] = useState<BatchDetail | null>(null);
@@ -121,17 +126,30 @@ export function ReceiptsDialog({
   // O envio em andamento: a parte que falhou é a única reenviada.
   const sending = useRef<{ batchId: number; parts: PdfPart[]; next: number } | null>(null);
 
-  const project = projects?.find((p) => String(p.id) === projectId);
+  const number = connectNumber(payable);
+  const linked = projects ? linkedConnectProject(projects, payable) : undefined;
+  const chosenId = projectId || (linked ? String(linked.id) : "");
+  const project = projects?.find((p) => String(p.id) === chosenId);
 
   useEffect(() => {
     let live = true;
     listFinanceProjects()
-      .then((list) => live && setProjects(list))
+      .then(async (list) => {
+        // A18: o projeto vem do lançamento. Se ele ainda não veio do Connect, traz uma vez.
+        if (connectNumber(payable) !== null && !linkedConnectProject(list, payable)) {
+          try {
+            list = await syncFinanceProjects();
+          } catch (err) {
+            if (live) setLocalError(err instanceof ApiError ? err.message : "O P+ Connect não respondeu.");
+          }
+        }
+        if (live) setProjects(list);
+      })
       .catch(() => live && setProjects([]));
     return () => {
       live = false;
     };
-  }, []);
+  }, [payable]);
 
   async function bringProjects() {
     await run(async () => {
@@ -146,7 +164,7 @@ export function ReceiptsDialog({
   }
 
   async function send() {
-    const pid = Number(projectId);
+    const pid = Number(chosenId);
     await run(async () => {
       setStep("sending");
       try {
@@ -173,7 +191,7 @@ export function ReceiptsDialog({
   }
 
   function start() {
-    if (!projectId) return setLocalError("Escolha o projeto.");
+    if (!chosenId) return setLocalError("Escolha o projeto.");
     if (!file) return setLocalError("Escolha o PDF de comprovantes.");
     setLocalError(null);
     void send();
@@ -182,14 +200,14 @@ export function ReceiptsDialog({
   async function toggleDiscard(row: ReceiptRow) {
     await run(async () => {
       if (!batch) return;
-      await discardReceipt(Number(projectId), batch.id, row.id, row.status !== "descartado");
-      await reload(Number(projectId), batch.id);
+      await discardReceipt(Number(chosenId), batch.id, row.id, row.status !== "descartado");
+      await reload(Number(chosenId), batch.id);
     });
   }
 
   async function cancel() {
     await run(async () => {
-      if (batch && batch.status !== "confirmado") await cancelBatch(Number(projectId), batch.id);
+      if (batch && batch.status !== "confirmado") await cancelBatch(Number(chosenId), batch.id);
       onClose();
     });
   }
@@ -198,13 +216,13 @@ export function ReceiptsDialog({
     setConfirming(false);
     await run(async () => {
       if (!batch) return;
-      const done = await confirmBatch(Number(projectId), batch.id, {
+      const done = await confirmBatch(Number(chosenId), batch.id, {
         code: code.trim() || undefined,
         bankAccountId: bankAccountId ? Number(bankAccountId) : undefined,
         paymentMethodId: methodId ? Number(methodId) : undefined,
       });
       setResult(done);
-      await reload(Number(projectId), batch.id);
+      await reload(Number(chosenId), batch.id);
       setStep("done");
       onDone();
       if (done.paidReceipts > 0) toast.success(`Baixa feita em ${plural(done.paidReceipts, "Pix", "Pix")}.`);
@@ -232,22 +250,44 @@ export function ReceiptsDialog({
 
         {step === "choose" && (
           <div className="flex flex-col gap-3.5 py-2">
-            <Field label="Projeto *" id="r-proj" hint="Os projetos vêm do Connect.">
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Choice
-                    id="r-proj"
-                    value={projectId}
-                    onChange={setProjectId}
-                    placeholder={projects === null ? "Carregando…" : "Escolha o projeto"}
-                    options={(projects ?? []).map((p) => ({ id: p.id, label: p.title }))}
-                  />
+            {linked && !changing ? (
+              // A18: o projeto vem do lançamento, sem campo para escolher
+              <Field label="Projeto" id="r-proj" hint="Vem do lançamento: o mesmo projeto no Connect.">
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                  <span id="r-proj" className="text-sm font-medium text-brand-cinza-escuro">
+                    PRJ-{linked.connectProjectId} · {linked.title}
+                  </span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setChanging(true)}>
+                    Trocar
+                  </Button>
                 </div>
-                <Button type="button" variant="outline" disabled={submitting} onClick={bringProjects}>
-                  <Download size={14} /> Trazer do Connect
-                </Button>
-              </div>
-            </Field>
+              </Field>
+            ) : (
+              <Field
+                label="Projeto *"
+                id="r-proj"
+                hint={
+                  projects !== null && number !== null && !linked
+                    ? `O PRJ-${number} ainda não veio do Connect. Clique em Trazer do Connect.`
+                    : "Os projetos vêm do Connect."
+                }
+              >
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Choice
+                      id="r-proj"
+                      value={chosenId}
+                      onChange={setProjectId}
+                      placeholder={projects === null ? "Carregando…" : "Escolha o projeto"}
+                      options={(projects ?? []).map((p) => ({ id: p.id, label: p.title }))}
+                    />
+                  </div>
+                  <Button type="button" variant="outline" disabled={submitting} onClick={bringProjects}>
+                    <Download size={14} /> Trazer do Connect
+                  </Button>
+                </div>
+              </Field>
+            )}
             <Field label="PDF de comprovantes *" id="r-file" hint="O do banco (Comprovante de Transferência). Pode ter centenas de páginas.">
               <FilePicker
                 id="r-file"
@@ -406,8 +446,9 @@ export function ReceiptsDialog({
               <Button variant="outline" disabled={submitting} onClick={cancel}>
                 Cancelar
               </Button>
+              {/* Salvar só lê e confere: a baixa é no passo seguinte, em Confirmar baixa. */}
               <Button disabled={submitting} onClick={start}>
-                Ler comprovantes
+                Salvar comprovantes
               </Button>
             </>
           )}

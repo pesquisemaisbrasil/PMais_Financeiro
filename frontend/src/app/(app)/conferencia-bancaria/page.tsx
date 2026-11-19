@@ -4,10 +4,10 @@ import { FileUp, Landmark } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { DateInput } from "@/components/DateInput";
 import { ReasonDialog } from "@/components/ReasonDialog";
 import { CARD, ErrorBox, Field, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -215,9 +215,8 @@ export default function BankReconciliationPage() {
           <div data-tour="extrato" className={CARD}>
             <div className="flex flex-wrap items-end gap-3 px-4 py-4">
               <Field label="De" id="extrato-de">
-                <Input
+                <DateInput
                   id="extrato-de"
-                  type="date"
                   value={start}
                   onChange={(event) => {
                     setStart(event.target.value);
@@ -226,9 +225,8 @@ export default function BankReconciliationPage() {
                 />
               </Field>
               <Field label="Até" id="extrato-ate">
-                <Input
+                <DateInput
                   id="extrato-ate"
-                  type="date"
                   value={end}
                   onChange={(event) => {
                     setEnd(event.target.value);

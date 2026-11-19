@@ -29,7 +29,7 @@ export function CountCard({
       role="group"
       aria-label={label}
       className={cn(
-        "flex items-center justify-between gap-3 rounded-xl px-4 py-3 shadow-[0_1px_2px_rgb(15_23_42/.06)]",
+        "flex items-center justify-between gap-3 rounded-xl px-4 py-3",
         TONES[tone].idle
       )}
     >

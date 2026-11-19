@@ -32,7 +32,11 @@ describe("o título da tela vem do menu", () => {
     expect(place("/contas-a-pagar")).toEqual({ section: "Financeiro", title: "Contas a pagar" });
     expect(place("/cadastros?aba=suppliers")).toEqual({ section: "Cadastros", title: "Fornecedores" });
     expect(place("/cadastros?aba=categories")).toEqual({ section: "Cadastros", title: "Plano de contas" });
-    expect(place("/incentivos")).toEqual({ section: "Relatórios", title: "Incentivos" });
+    // Incentivos saiu do menu em 18/11 (a tela fica engavetada, só pelo endereço)
+    expect(() => place("/incentivos")).toThrow();
+    // Feriados saiu do menu em 19/11; Impostos retidos entrou
+    expect(() => place("/cadastros?aba=holidays")).toThrow();
+    expect(place("/cadastros?aba=taxRates")).toEqual({ section: "Cadastros", title: "Impostos retidos" });
   });
 
   it("toda página do menu tem endereço próprio e um título", () => {

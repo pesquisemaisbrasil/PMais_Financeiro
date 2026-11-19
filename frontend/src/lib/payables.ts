@@ -55,6 +55,9 @@ export interface Occurrence {
   index: number;
   dueDate: string;
   amount: string;
+  /** A data que caiu em fim de semana ou feriado e foi para o próximo dia útil, e o motivo. */
+  movedFrom?: string | null;
+  movedReason?: string | null;
 }
 
 /** O que a impressão mostra: o título com os filtros, as colunas, as linhas e os totais. */
@@ -160,10 +163,17 @@ export interface PayableRow {
   docsLate: boolean;
   barcode: string | null;
   itemCount: number;
+  /** Documentos anexados: o clipe da lista fica verde quando há algum. */
+  attachmentCount: number;
   canPayDirectly: boolean;
   canReplace: boolean;
   replaces: string | null;
   series: SeriesInfo | null;
+  /** O que a edição em lote, conta por conta, mostra para mudar (18/11). */
+  supplierId?: number | null;
+  payOn?: string | null;
+  competence?: string | null;
+  notes?: string | null;
 }
 
 export interface ReplacementCandidate {
@@ -226,6 +236,7 @@ export interface PayableEvent {
 }
 
 import type { Adjustment } from "./adjustments";
+import { matchesSearch } from "./search";
 
 export interface Attachment {
   id: number;
@@ -243,6 +254,7 @@ export interface PayableDetail extends PayableRow {
   categoryId: number;
   costCenterId: number;
   paymentMethodId: number;
+  unitId: number;
   unitName: string;
   issueDate: string;
   competence: string | null;
@@ -276,6 +288,23 @@ export interface Project {
   projectType: string | null;
   hasIncentive: boolean;
   incentiveDays: number | null;
+  /** O padrão do lançamento: escolher o projeto já preenche a unidade e o centro de custo. */
+  customerId?: number | null;
+  unitId?: number | null;
+  costCenterId?: number | null;
+  /** Inativo (18/11): some das escolhas de lançamento novo; as contas já lançadas continuam. */
+  active?: boolean;
+}
+
+/** Projeto que aceita lançamento novo: nem encerrado nem inativo. */
+export function openForLaunch(project: Project): boolean {
+  return project.status !== "encerrado" && project.active !== false;
+}
+
+/** Como o projeto aparece na lista de Cadastros. */
+export function projectSituation(project: Project): "Inativo" | "Encerrado" | "Em andamento" {
+  if (project.active === false) return "Inativo";
+  return project.status === "encerrado" ? "Encerrado" : "Em andamento";
 }
 
 /** Centro de custo nas escolhas: `label` traz o código e o caminho (001.001 · Administrativo › Adm_Geral). */
@@ -295,6 +324,14 @@ export interface Reference {
   suppliers: (Named & { nickname: string })[];
   customers: (Named & { nickname: string })[];
   projects: Project[];
+  taxRates: TaxRate[];
+}
+
+/** Percentual de um imposto retido que a conta a pagar nova já traz (19/11): "0.65" = 0,65%. */
+export interface TaxRate {
+  code: string;
+  name: string;
+  rate: string;
 }
 
 export interface AttentionItem {
@@ -411,6 +448,26 @@ export function dateFromIso(iso: string): Date {
   return new Date(year, month - 1, day);
 }
 
+/**
+ * A data de referência um passo para trás (-1) ou para a frente (1) na visão da lista: um dia, uma
+ * semana, um mês ou um ano. Sem passo em "tudo" e "período" (devolve null): ali não há setas.
+ */
+export function shiftRef(mode: PeriodMode, ref: string, step: -1 | 1): string | null {
+  if (mode === "dia") return addDays(ref, step);
+  if (mode === "semana") return addDays(ref, 7 * step);
+  if (mode === "mes") return addMonths(ref, step);
+  if (mode === "ano") return `${Number(ref.slice(0, 4)) + step}-01-01`;
+  return null;
+}
+
+/** Como as setas da data se chamam em cada visão. */
+export const SHIFT_LABELS: Partial<Record<PeriodMode, [string, string]>> = {
+  dia: ["Dia anterior", "Próximo dia"],
+  semana: ["Semana anterior", "Próxima semana"],
+  mes: ["Mês anterior", "Próximo mês"],
+  ano: ["Ano anterior", "Próximo ano"],
+};
+
 /** O mês inteiro de uma data: de onde parte a escolha de um período livre. */
 export function monthRange(ref: string): { start: string; end: string } {
   return { start: `${ref.slice(0, 7)}-01`, end: addDays(addMonths(ref, 1), -1) };
@@ -485,6 +542,31 @@ export interface ParsedAllocations {
 export interface AllocationRow {
   projectId: string;
   amount: string;
+}
+
+/**
+ * A unidade e o centro de custo que o projeto traz para o lançamento (testes de 16/11, A2): só os
+ * que o projeto tem e que ainda estão ativos. O que o projeto não tem fica como a pessoa deixou.
+ */
+export function projectDefaults(
+  reference: Pick<Reference, "projects" | "units" | "costCenters">,
+  projectId: string
+): { unitId?: string; costCenterId?: string } {
+  const project = reference.projects.find((p) => String(p.id) === projectId);
+  const defaults: { unitId?: string; costCenterId?: string } = {};
+  if (project?.unitId && reference.units.some((u) => u.id === project.unitId)) {
+    defaults.unitId = String(project.unitId);
+  }
+  if (project?.costCenterId && reference.costCenters.some((c) => c.id === project.costCenterId)) {
+    defaults.costCenterId = String(project.costCenterId);
+  }
+  return defaults;
+}
+
+/** O rateio da conta como campos de edição: com um projeto só, não há divisão (vale o campo Projeto). */
+export function splitRowsFrom(allocations: Allocation[]): AllocationRow[] {
+  if (allocations.length < 2) return [];
+  return allocations.map((a) => ({ projectId: String(a.projectId), amount: toField(a.amount) }));
 }
 
 /**
@@ -584,17 +666,9 @@ export function notifyPayablesChanged(): void {
   window.dispatchEvent(new Event(PAYABLES_CHANGED));
 }
 
-function folded(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-}
-
-/** Busca da lista de opções: sem diferença entre maiúscula e acento, como a pessoa digita. */
+/** Busca das listas (cadastros, caixas de seleção, projetos): a regra de toda busca do sistema. */
 export function filterOptions<T extends { label: string }>(options: T[], term: string): T[] {
-  const clean = folded(term.trim());
-  return clean ? options.filter((option) => folded(option.label).includes(clean)) : options;
+  return term.trim() ? options.filter((option) => matchesSearch(option.label, term)) : options;
 }
 
 /** Quanto o real ficou acima ou abaixo da provisão, em centavos para não errar a conta. */
@@ -656,6 +730,8 @@ export interface ImportLine {
   classification: string | null;
   /** De um cadastro que a pessoa não marcou: fica de fora, sem ser erro. */
   skipped: boolean;
+  /** A planilha diz que a pessoa já recebeu: fica de fora, para não pagar duas vezes. */
+  alreadyPaid?: boolean;
   errors: string[];
 }
 
@@ -683,6 +759,7 @@ export interface ImportPreview {
   goodCount: number;
   errorCount: number;
   skippedCount: number;
+  alreadyPaidCount?: number;
   /** Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou por classificação (folha). */
   payableCount: number;
   /** Quantas linhas tinham data de pagamento em dia não útil e foram para o próximo dia útil. */

@@ -20,12 +20,15 @@ import type {
   PrintTable,
   SeriesOccurrence,
   CnpjInfo,
-  Attachment
+  Attachment,
+  TaxRate,
 } from "./payables";
 
 import { DEMO, demoFetch } from "./demo/client";
 import type { DocumentChange } from "./documents";
 import type { FeedbackItem } from "./feedback";
+import type { SearchResult } from "./search";
+import type { BatchEditRowBody } from "./batch-edit";
 
 export const DEFAULT_API_URL = "http://localhost:8010";
 
@@ -42,6 +45,21 @@ export class ApiError extends Error {
   constructor(status: number, message: string) {
     super(message);
     this.status = status;
+  }
+}
+
+/**
+ * Senha e código certos, mas este navegador ainda não foi liberado pelo administrador (ou foi
+ * recusado): não há sessão. No cadastro do autenticador, os códigos de recuperação vêm junto, porque
+ * só aparecem uma vez.
+ */
+export class BrowserApprovalError extends ApiError {
+  browser: "pendente" | "recusado";
+  recoveryCodes: string[];
+  constructor(message: string, browser: "pendente" | "recusado", recoveryCodes: string[] = []) {
+    super(403, message);
+    this.browser = browser;
+    this.recoveryCodes = recoveryCodes;
   }
 }
 
@@ -140,6 +158,12 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   return (await response.json()) as T;
 }
 
+// ---- Busca em todo o sistema (spec busca-geral) ----
+
+export function searchAll(term: string, signal?: AbortSignal): Promise<SearchResult> {
+  return request<SearchResult>(`/search?${new URLSearchParams({ q: term })}`, { signal });
+}
+
 // ---- Autenticação ----
 
 interface Token {
@@ -153,6 +177,8 @@ export interface UserPublic {
   email: string;
   role: string;
   mfaEnabled: boolean;
+  /** As telas que o admin bloqueou: somem do menu e não abrem (lib/access.ts). */
+  blockedScreens?: string[];
 }
 
 export interface MfaChallenge {
@@ -174,6 +200,15 @@ async function postAuth<T>(path: string, init: RequestInit): Promise<T> {
     credentials: "include",
   });
   if (!response.ok) {
+    if (response.status === 403) {
+      const body = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      if (body && (body.browser === "pendente" || body.browser === "recusado")) {
+        throw new BrowserApprovalError(String(body.detail ?? ""), body.browser, body.recovery_codes ?? []);
+      }
+    }
     throw new ApiError(response.status, await extractErrorMessage(response));
   }
   return (await response.json()) as T;
@@ -212,11 +247,6 @@ export async function confirmMfaSetup(mfaToken: string, code: string): Promise<s
   );
   accessToken = token.access_token;
   return token.recovery_codes;
-}
-
-/** Endereço que começa o login por Google ou Microsoft: o navegador vai até lá, não é fetch. */
-export function ssoLoginUrl(provider: string): string {
-  return `${API_URL}/auth/sso/${provider}/start`;
 }
 
 export async function logout(): Promise<void> {
@@ -411,8 +441,22 @@ export function deleteBatch(ids: number[]): Promise<{ count: number }> {
   return send<{ count: number }>("/payables/batch/delete", "POST", { ids });
 }
 
+/** Edição em lote, conta por conta: só as linhas marcadas; uma recusada não grava nenhuma. */
+export function editBatch(rows: BatchEditRowBody[]): Promise<{ count: number }> {
+  return send<{ count: number }>("/payables/batch/edit", "POST", { rows });
+}
+
 export function reclassifyBatch(body: unknown): Promise<{ count: number }> {
   return send<{ count: number }>("/payables/batch/reclassify", "POST", body);
+}
+
+/** O mesmo documento em várias contas. Devolve quantas receberam e quantas já tinham o arquivo. */
+export function attachBatch(ids: number[], file: File, kind: string): Promise<{ count: number; skipped: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  for (const id of ids) form.append("ids", String(id));
+  return upload<{ count: number; skipped: number }>("/payables/batch/attachments", "POST", form);
 }
 
 export function duplicateBatch(ids: number[]): Promise<{ count: number }> {
@@ -433,6 +477,11 @@ export function previewImport(form: FormData): Promise<ImportPreview> {
 
 export function importPayables(form: FormData): Promise<ImportResult> {
   return request<ImportResult>("/payables/import", { method: "POST", body: form });
+}
+
+/** A planilha modelo do Carregar incentivos. */
+export function downloadIncentiveTemplate(): Promise<Blob> {
+  return fetchBlob("/payables/import/incentives-template");
 }
 
 /** O relatório "Lançamentos a Pagar" do sistema antigo: conferir antes e depois criar as contas. */
@@ -471,6 +520,65 @@ export async function deleteRecord(kind: RecordKind, id: number): Promise<void> 
   await fetchWithAuth(`/records/${kind}/${id}`, { method: "DELETE" });
 }
 
+// ---- Níveis de acesso e demandas (19/11/2026)
+
+export interface PersonRow {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  roleLabel: string;
+  blockedScreens: string[];
+  canEdit: boolean;
+}
+
+export interface PeopleList {
+  screens: { id: string; label: string }[];
+  people: PersonRow[];
+}
+
+export interface DemandRow {
+  id: number;
+  kind: string;
+  kindLabel: string;
+  description: string;
+  page: string;
+  sender: string;
+  createdAt: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}
+
+export function listPeople(): Promise<PeopleList> {
+  return request<PeopleList>("/admin/pessoas");
+}
+
+export function setPersonScreens(id: number, blocked: string[]): Promise<PersonRow> {
+  return send<PersonRow>(`/admin/pessoas/${id}/telas`, "PUT", { blocked });
+}
+
+export function sendDemand(form: FormData): Promise<DemandRow> {
+  return upload<DemandRow>("/demands", "POST", form);
+}
+
+export function listDemands(): Promise<DemandRow[]> {
+  return request<DemandRow[]>("/demands");
+}
+
+export function downloadDemandAttachment(id: number): Promise<Blob> {
+  return fetchBlob(`/demands/${id}/anexo`);
+}
+
+/** Os percentuais dos impostos retidos (Cadastros › Impostos retidos). */
+export function getTaxRates(): Promise<TaxRate[]> {
+  return request<TaxRate[]>("/tax-rates");
+}
+
+export function saveTaxRates(rates: { code: string; rate: string }[]): Promise<TaxRate[]> {
+  return send<TaxRate[]>("/tax-rates", "PUT", { rates });
+}
+
 /** Exclui um feriado cadastrado (a resposta é 204, sem corpo). */
 export async function deleteHoliday(id: number): Promise<void> {
   await fetchWithAuth(`/holidays/${id}`, { method: "DELETE" });
@@ -504,6 +612,49 @@ export function removeCustomerDocument(id: number, attachmentId: number, reason:
 export async function syncConnectProjects(): Promise<number> {
   const projects = await request<unknown[]>("/finance/connect/sync", { method: "POST" });
   return projects.length;
+}
+
+// ---- Acessos: os navegadores liberados (só admin) ----
+
+export type BrowserStatus = "pendente" | "liberado" | "recusado" | "revogado";
+
+export interface TrustedBrowserRow {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  /** "Chrome no Windows" */
+  label: string;
+  /** o IP já mascarado (192.168.0.0); nunca o completo */
+  ipMasked: string | null;
+  status: BrowserStatus;
+  requestedAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  lastSeenAt: string | null;
+}
+
+export function listBrowsers(): Promise<TrustedBrowserRow[]> {
+  return request<TrustedBrowserRow[]>("/admin/navegadores");
+}
+
+/** Liberar, recusar ou revogar. Devolve o navegador como ficou. */
+export function decideBrowser(id: number, action: "liberar" | "recusar" | "revogar"): Promise<TrustedBrowserRow> {
+  return send<TrustedBrowserRow>(`/admin/navegadores/${id}/${action}`, "POST", {});
+}
+
+/** Projeto cadastrado no Financeiro, por enquanto (ADR 0021): número, nome e o padrão do lançamento. */
+export function createProject(body: unknown): Promise<Project> {
+  return send<Project>("/projects", "POST", body);
+}
+
+export function editProject(id: number, body: unknown): Promise<Project> {
+  return send<Project>(`/projects/${id}`, "PATCH", body);
+}
+
+/** Só o projeto sem lançamento; com lançamento, a API recusa e pede para inativar. */
+export async function deleteProject(id: number): Promise<void> {
+  await fetchWithAuth(`/projects/${id}`, { method: "DELETE" });
 }
 
 export function updateProjectIncentive(id: number, body: unknown): Promise<Project> {

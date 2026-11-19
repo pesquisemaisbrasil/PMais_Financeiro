@@ -59,7 +59,6 @@ describe("passeio de cada tela", () => {
       "/contas-a-pagar",
       "/contas-a-receber",
       "/divergencias",
-      "/incentivos",
       "/relatorios/projeto",
     ]);
   });

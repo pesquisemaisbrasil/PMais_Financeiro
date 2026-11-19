@@ -1,8 +1,23 @@
 "use client";
 
-import { Check, CheckCheck, CircleCheck, Copy, FileClock, Hourglass, Pencil, Replace, Tags, Undo2, Wallet } from "lucide-react";
+import {
+  Ban,
+  Check,
+  CheckCheck,
+  CircleCheck,
+  Copy,
+  FileClock,
+  Hourglass,
+  Paperclip,
+  Pencil,
+  Replace,
+  Tags,
+  Undo2,
+  Wallet,
+} from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { DateInput, MonthInput } from "@/components/DateInput";
 import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { ItemsPanel } from "@/components/ItemsPanel";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
@@ -10,6 +25,7 @@ import {
   ErrorBox,
   Field,
   FormError,
+  INLINE_OFFSET,
   OriginTag,
   ProvisionTag,
   RedStars,
@@ -37,6 +53,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { AmountSummary } from "@/components/AmountSummary";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
+import { FilePicker } from "@/components/FilePicker";
 import { ProjectSplit } from "@/components/ProjectSplit";
 import { SeriesDialog, type SeriesApi, type SeriesTexts } from "@/components/SeriesDialog";
 import { SeriesPanel } from "@/components/SeriesPanel";
@@ -49,6 +66,7 @@ import {
 } from "@/components/RecurrenceFields";
 import {
   ApiError,
+  attachBatch,
   attachDocument,
   cancelPayable,
   cancelSeries,
@@ -71,6 +89,7 @@ import {
   updatePayable,
 } from "@/lib/api";
 import {
+  openForLaunch,
   addDays,
   brl,
   expenseCategories,
@@ -81,6 +100,8 @@ import {
   parseMoney,
   percentOf,
   plural,
+  projectDefaults,
+  splitRowsFrom,
   toCents,
   toField,
   type AllocationRow,
@@ -97,11 +118,22 @@ import {
   draftsFrom,
   netText,
   parseDrafts,
+  ratesText,
+  taxesUntouched,
+  withTaxes,
   type AdjustmentDraft,
 } from "@/lib/adjustments";
+import {
+  DEFAULT_DOCUMENT_KIND,
+  DOCUMENT_ACCEPT,
+  DOCUMENT_HINT,
+  DOCUMENT_KINDS,
+  MAX_DOCUMENT_BYTES,
+} from "@/lib/documents";
 import { missingFieldsMessage } from "@/lib/forms";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
+import { BatchEditForm } from "./batch-edit";
 import { DetailFields } from "./detail-fields";
 
 const DOCUMENT_TYPES = ["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"];
@@ -157,7 +189,7 @@ export function NewPayableDialog({
 
   const missingRecords = [
     !reference.suppliers.length && "fornecedores",
-    !expenseCategories(reference).length && "categorias",
+    !expenseCategories(reference).length && "plano de contas",
     !reference.units.length && "unidades",
     !reference.costCenters.length && "centros de custo",
     !reference.paymentMethods.length && "formas de pagamento",
@@ -165,27 +197,47 @@ export function NewPayableDialog({
 
   // Como no sistema antigo, a Nova conta a pagar não tem campo Empresa: ela vem da unidade escolhida.
   const unit = reference.units.find((u) => String(u.id) === form.unitId);
+
+  /** Escolher o projeto traz a unidade e o centro de custo dele, quando o projeto tem (A2). */
+  function pickProject(value: string) {
+    setForm((current) => ({ ...current, projectId: value, ...projectDefaults(reference, value) }));
+  }
   const companyName = (companyId: number) => reference.companies.find((c) => c.id === companyId)?.name ?? "";
+
+  // Impostos retidos (Bruno, 19/11/2026): toda conta nova já traz calculados sobre o valor principal. Se a
+  // pessoa mudou algum na janela de impostos, trocar o valor principal não mexe mais neles.
+  const rates = reference.taxRates;
+  const taxNote = ratesText(rates);
+  function changeAmount(value: string) {
+    if (taxesUntouched(adjustments, form.amount, rates)) setAdjustments(withTaxes(adjustments, value, rates));
+    set("amount")(value);
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLocalError(null);
     const amount = parseMoney(form.amount);
     if (!amount || Number(amount) === 0) return setLocalError("Informe um valor maior que zero.");
-    const adjusted = parseDrafts(adjustments);
+    const parceled = recurrence.repeat && recurrence.kind === "parcelado";
+    // Na parcelada os impostos vão em cada parcela depois: os calculados sozinhos saem, os mudados à mão barram.
+    const lines = parceled && taxesUntouched(adjustments, form.amount, rates) ? withTaxes(adjustments, "", rates) : adjustments;
+    const adjusted = parseDrafts(lines);
     if (adjusted.error) return setLocalError(adjusted.error);
-    if (Number(netText(form.amount, adjustments)) <= 0) return setLocalError(NET_ZERO_MESSAGE);
-    if (recurrence.repeat && recurrence.kind === "parcelado" && adjusted.lines.length) {
+    if (Number(netText(form.amount, lines)) <= 0) return setLocalError(NET_ZERO_MESSAGE);
+    if (parceled && adjusted.lines.length) {
       return setLocalError("Em conta parcelada, lance acréscimos, descontos e impostos em cada parcela depois.");
     }
+    // A ordem é a dos campos na tela, a da tela antiga (18/11).
     const missing = missingFieldsMessage([
-      ["Programação", form.issueDate],
-      ["Vencimento", form.dueDate],
       ["Fornecedor", form.isProvision || form.supplierId],
-      ["Categoria", form.categoryId],
+      ["Vencimento", form.dueDate],
+      ["Programação", form.issueDate],
+      ["Forma de pagamento", form.paymentMethodId],
+      // Toda conta tem projeto, até a administrativa (testes de 16/11, A3); a divisão também vale.
+      ["Projeto", form.projectId || split.some((row) => row.projectId)],
       ["Unidade", unit],
       ["Centro de custo", form.costCenterId],
-      ["Forma de pagamento", form.paymentMethodId],
+      ["Plano de contas", form.categoryId],
       ["Descrição", form.description.trim()],
     ]);
     if (missing || !unit) return setLocalError(missing ?? "Escolha a unidade.");
@@ -249,7 +301,7 @@ export function NewPayableDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[820px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[720px]">
         <form onSubmit={submit} noValidate>
           <DialogHeader>
             <DialogTitle>Nova conta a pagar</DialogTitle>
@@ -263,16 +315,24 @@ export function NewPayableDialog({
                 <AlertDescription>Ainda faltam cadastros: {missingRecords.join(", ")}.</AlertDescription>
               </Alert>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Programação *" id="p-data">
-                <Input id="p-data" type="date" {...input("issueDate")} />
-              </Field>
-              <Field label="Vencimento *" id="p-venc">
-                <Input id="p-venc" type="date" {...input("dueDate")} />
-              </Field>
-            </div>
-            <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />
-            <div className="flex items-center gap-2 text-xs">
+            {/* Na disposição e na ordem da tela antiga (Bruno, 18/11): um campo por linha, o nome à
+                esquerda. O projeto traz a unidade e o centro de custo; o rateio fica logo abaixo dele. */}
+            <Field inline label={form.isProvision ? "Fornecedor" : "Fornecedor *"} id="p-forn">
+              <Choice
+                id="p-forn"
+                value={form.supplierId}
+                onChange={set("supplierId")}
+                options={reference.suppliers.map((s) => ({ id: s.id, label: `${s.nickname} · ${s.name}` }))}
+              />
+            </Field>
+            <Field inline label="Vencimento *" id="p-venc">
+              <DateInput id="p-venc" className="sm:max-w-48" {...input("dueDate")} />
+            </Field>
+            <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} className={INLINE_OFFSET} />
+            <Field inline label="Programação *" id="p-data">
+              <DateInput id="p-data" className="sm:max-w-48" {...input("issueDate")} />
+            </Field>
+            <div className={cn("flex items-center gap-2 text-xs", INLINE_OFFSET)}>
               <Checkbox
                 id="p-prov"
                 checked={form.isProvision}
@@ -282,82 +342,87 @@ export function NewPayableDialog({
                 É uma provisão: valor previsto, que depois é substituído pelo real
               </Label>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label={form.isProvision ? "Fornecedor" : "Fornecedor *"} id="p-forn">
-                <Choice
-                  id="p-forn"
-                  value={form.supplierId}
-                  onChange={set("supplierId")}
-                  options={reference.suppliers.map((s) => ({ id: s.id, label: `${s.nickname} · ${s.name}` }))}
-                />
-              </Field>
-              <Field label="Categoria *" id="p-cat">
-                <Choice
-                  id="p-cat"
-                  value={form.categoryId}
-                  onChange={set("categoryId")}
-                  options={expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
-                />
-              </Field>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Unidade *" id="p-uni">
-                <Choice
-                  id="p-uni"
-                  searchable
-                  value={form.unitId}
-                  onChange={set("unitId")}
-                  // o nome da empresa distingue unidades de mesmo nome (a empresa vem da unidade)
-                  options={reference.units.map((u) => ({ id: u.id, label: `${u.name} · ${companyName(u.companyId)}` }))}
-                />
-              </Field>
-              <Field label="Centro de custo *" id="p-cc">
-                <Choice
-                  id="p-cc"
-                  value={form.costCenterId}
-                  onChange={set("costCenterId")}
-                  options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
-                />
-              </Field>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Forma de pagamento *" id="p-forma">
-                <Choice
-                  id="p-forma"
-                  searchable
-                  value={form.paymentMethodId}
-                  onChange={set("paymentMethodId")}
-                  options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
-                />
-              </Field>
-              <Field
-                label="Projeto"
-                id="p-proj"
-                hint={split.length ? "Vale a divisão abaixo." : "Ou divida entre projetos mais abaixo."}
-              >
-                <Choice
-                  id="p-proj"
-                  searchable
-                  value={form.projectId || NO_PROJECT}
-                  onChange={(value) => set("projectId")(value === NO_PROJECT ? "" : value)}
-                  options={[
-                    { id: NO_PROJECT, label: "Sem projeto" },
-                    ...reference.projects
-                      .filter((p) => p.status !== "encerrado")
-                      .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
-                  ]}
-                />
-              </Field>
-            </div>
             <ValuesCard
+              inline
               grossId="p-valor"
               grossLabel="Valor principal (R$) *"
               gross={form.amount}
-              onGrossChange={set("amount")}
+              onGrossChange={changeAmount}
               drafts={adjustments}
               onChange={setAdjustments}
+              taxRates={rates}
             />
-            <Field label="Descrição *" id="p-desc">
+            {taxNote && (
+              <p className={cn("text-xs text-muted-foreground", INLINE_OFFSET)}>
+                Impostos retidos já calculados sobre o valor principal: {taxNote}. Conta sem retenção: zere em Impostos.
+              </p>
+            )}
+            <Field inline label="Forma de pagamento *" id="p-forma">
+              <Choice
+                id="p-forma"
+                searchable
+                value={form.paymentMethodId}
+                onChange={set("paymentMethodId")}
+                options={reference.paymentMethods.map((m) => ({ id: m.id, label: m.name }))}
+              />
+            </Field>
+            <Field
+              inline
+              label={split.length ? "Projeto" : "Projeto *"}
+              id="p-proj"
+              hint={
+                split.length
+                  ? "Vale o rateio abaixo."
+                  : "Traz a unidade e o centro de custo do projeto. Ou divida entre projetos logo abaixo."
+              }
+            >
+              <Choice
+                id="p-proj"
+                searchable
+                value={form.projectId}
+                onChange={pickProject}
+                placeholder="Escolha o projeto"
+                options={reference.projects
+                  .filter(openForLaunch)
+                  .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
+              />
+            </Field>
+            <div className={INLINE_OFFSET}>
+              <ProjectSplit
+                rows={split}
+                onChange={setSplit}
+                projects={reference.projects.filter(openForLaunch)}
+                amount={parseMoney(form.amount) ?? ""}
+                disabled={submitting}
+              />
+            </div>
+            <Field inline label="Unidade *" id="p-uni">
+              <Choice
+                id="p-uni"
+                searchable
+                value={form.unitId}
+                onChange={set("unitId")}
+                // o nome da empresa distingue unidades de mesmo nome (a empresa vem da unidade)
+                options={reference.units.map((u) => ({ id: u.id, label: `${u.name} · ${companyName(u.companyId)}` }))}
+              />
+            </Field>
+            <Field inline label="Centro de custo *" id="p-cc">
+              <Choice
+                id="p-cc"
+                value={form.costCenterId}
+                onChange={set("costCenterId")}
+                options={reference.costCenters.map((c) => ({ id: c.id, label: c.label }))}
+              />
+            </Field>
+            <Field inline label="Plano de contas *" id="p-cat">
+              <Choice
+                id="p-cat"
+                value={form.categoryId}
+                onChange={set("categoryId")}
+                options={expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
+              />
+            </Field>
+            <Field inline label="Descrição *" id="p-desc">
               <Textarea
                 id="p-desc"
                 className="min-h-28"
@@ -366,13 +431,6 @@ export function NewPayableDialog({
                 {...input("description")}
               />
             </Field>
-            <ProjectSplit
-              rows={split}
-              onChange={setSplit}
-              projects={reference.projects.filter((project) => project.status !== "encerrado")}
-              amount={parseMoney(form.amount) ?? ""}
-              disabled={submitting}
-            />
             <RecurrenceFields
               value={recurrence}
               onChange={setRecurrence}
@@ -399,7 +457,7 @@ export function NewPayableDialog({
                     <Input id="p-docn" {...input("documentNumber")} />
                   </Field>
                   <Field label="Emissão" id="p-doce">
-                    <Input id="p-doce" type="date" {...input("documentDate")} />
+                    <DateInput id="p-doce" {...input("documentDate")} />
                   </Field>
                 </div>
                 <Field label="Código de barras / linha digitável" id="p-barras">
@@ -407,14 +465,14 @@ export function NewPayableDialog({
                 </Field>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Competência" id="p-comp">
-                    <Input id="p-comp" type="month" {...input("competence")} />
+                    <MonthInput id="p-comp" {...input("competence")} />
                   </Field>
                   <Field
                     label="Documentação recebida em"
                     id="p-docrec"
                     hint="Menos de 3 dias antes do vencimento fica como documentação atrasada."
                   >
-                    <Input id="p-docrec" type="date" {...input("docsReceivedOn")} />
+                    <DateInput id="p-docrec" {...input("docsReceivedOn")} />
                   </Field>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
@@ -549,7 +607,7 @@ export function PaymentDialog({
                 />
               </Field>
               <Field label="Data em que o dinheiro saiu" id="b-data">
-                <Input id="b-data" type="date" max={today} {...input("paidOn")} />
+                <DateInput id="b-data" max={today} {...input("paidOn")} />
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -674,9 +732,8 @@ export function BatchPaymentDialog({
               <>
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Field label="Data em que saiu" id="lb-data">
-                    <Input
+                    <DateInput
                       id="lb-data"
-                      type="date"
                       max={today}
                       value={form.paidOn}
                       onChange={(event) => setForm((current) => ({ ...current, paidOn: event.target.value }))}
@@ -769,6 +826,20 @@ export function ConfirmDeleteDialog({
   );
 }
 
+type BatchTab = "todas" | "conta" | "anexo";
+
+/** O aviso depois de anexar o mesmo arquivo em várias contas. */
+export function attachedMessage(count: number, skipped: number): string {
+  return skipped
+    ? `Documento anexado em ${plural(count, "conta", "contas")}. ${plural(skipped, "já tinha", "já tinham")} o arquivo.`
+    : `Documento anexado em ${plural(count, "conta", "contas")}.`;
+}
+
+/**
+ * Reclassificar as contas selecionadas e, desde 18/11 (Bruno, com o print "Edição em Lote" do sistema
+ * antigo), editar em lote: todas de uma vez (projeto, plano de contas, centro de custo, vencimento e
+ * valor), conta por conta (cada uma com os seus valores) ou anexar o mesmo comprovante em todas.
+ */
 export function ReclassifyDialog({
   rows,
   reference,
@@ -778,23 +849,96 @@ export function ReclassifyDialog({
   rows: PayableRow[];
   reference: Reference;
   onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [tab, setTab] = useState<BatchTab>("todas");
+  const total = rows.reduce((sum, row) => sum + toCents(row.amount), 0) / 100;
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={cn(
+          "max-h-[90vh] overflow-y-auto",
+          tab === "conta" ? "sm:max-w-[95vw] xl:max-w-[1240px]" : "sm:max-w-[560px]"
+        )}
+      >
+        <DialogHeader>
+          <DialogTitle>Reclassificar</DialogTitle>
+          <DialogDescription>
+            {plural(rows.length, "conta", "contas")} · total {brl(total)}. Mude todas de uma vez, cada uma com os seus
+            valores, ou anexe o mesmo comprovante em todas.
+          </DialogDescription>
+        </DialogHeader>
+        {/* min-w-0: a tabela larga do conta por conta rola dentro da janela, sem empurrar o resto */}
+        <Tabs className="min-w-0" value={tab} onValueChange={(value) => setTab(value as BatchTab)}>
+          <TabsList className="h-auto flex-wrap justify-start">
+            <TabsTrigger value="todas">Todas de uma vez</TabsTrigger>
+            <TabsTrigger value="conta">Conta por conta</TabsTrigger>
+            <TabsTrigger value="anexo">Anexar comprovante</TabsTrigger>
+          </TabsList>
+          <TabsContent value="todas">
+            <ReclassifyAllForm
+              rows={rows}
+              reference={reference}
+              onCancel={onClose}
+              onDone={(count) => onDone(`${plural(count, "conta reclassificada", "contas reclassificadas")}.`)}
+            />
+          </TabsContent>
+          <TabsContent value="conta">
+            <BatchEditForm
+              rows={rows}
+              reference={reference}
+              onCancel={onClose}
+              onDone={(count) => onDone(`${plural(count, "conta alterada", "contas alteradas")}.`)}
+            />
+          </TabsContent>
+          <TabsContent value="anexo">
+            <BatchAttachForm
+              rows={rows}
+              intro
+              defaultKind="comprovante"
+              onCancel={onClose}
+              onDone={(count, skipped) => onDone(attachedMessage(count, skipped))}
+            />
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** "Todas de uma vez": o mesmo projeto, plano de contas, centro de custo, vencimento ou valor em todas. */
+function ReclassifyAllForm({
+  rows,
+  reference,
+  onCancel,
+  onDone,
+}: {
+  rows: PayableRow[];
+  reference: Reference;
+  onCancel: () => void;
   onDone: (count: number) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
-  const [form, setForm] = useState({ projectId: KEEP, categoryId: KEEP, costCenterId: KEEP });
-  const total = rows.reduce((sum, row) => sum + toCents(row.amount), 0) / 100;
+  const [form, setForm] = useState({ projectId: KEEP, categoryId: KEEP, costCenterId: KEEP, dueDate: "", amount: "" });
   const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
   const changed = (value: string) => (value === KEEP ? null : Number(value));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    // Vazio = não mudar. O valor é o mesmo em todas, como no sistema antigo (Camila, 16/11).
+    const amount = form.amount.trim() ? parseMoney(form.amount) : null;
+    if (form.amount.trim() && (!amount || Number(amount) === 0)) {
+      return setLocalError("Confira o valor: use só números, como 1.234,56.");
+    }
     const fields = {
       projectId: changed(form.projectId),
       categoryId: changed(form.categoryId),
       costCenterId: changed(form.costCenterId),
+      dueDate: form.dueDate || null,
+      amount,
     };
-    if (!fields.projectId && !fields.categoryId && !fields.costCenterId) {
+    if (!fields.projectId && !fields.categoryId && !fields.costCenterId && !fields.dueDate && !fields.amount) {
       return setLocalError("Escolha o que vai mudar.");
     }
     setLocalError(null);
@@ -802,63 +946,166 @@ export function ReclassifyDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
+    <form onSubmit={submit} noValidate>
+      <p className="pt-3 text-xs text-muted-foreground">
+        O que ficar em &quot;Não mudar&quot; ou vazio continua como está; o que você escolher vale para todas.
+      </p>
+      <div className="flex flex-col gap-3.5 py-4">
+        <Field label="Projeto" id="rc-proj" hint="Mudar o projeto deixa a conta 100% nele.">
+          <Choice
+            id="rc-proj"
+            value={form.projectId}
+            onChange={set("projectId")}
+            options={[
+              { id: KEEP, label: "Não mudar" },
+              ...reference.projects
+                .filter(openForLaunch)
+                .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
+            ]}
+          />
+        </Field>
+        <Field label="Plano de contas" id="rc-cat">
+          <Choice
+            id="rc-cat"
+            value={form.categoryId}
+            onChange={set("categoryId")}
+            options={[
+              { id: KEEP, label: "Não mudar" },
+              ...expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` })),
+            ]}
+          />
+        </Field>
+        <Field label="Centro de custo" id="rc-cc">
+          <Choice
+            id="rc-cc"
+            value={form.costCenterId}
+            onChange={set("costCenterId")}
+            options={[
+              { id: KEEP, label: "Não mudar" },
+              ...reference.costCenters.map((c) => ({ id: c.id, label: c.label })),
+            ]}
+          />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Vencimento" id="rc-venc" hint="Vazio: cada uma fica com o seu.">
+            <DateInput id="rc-venc" value={form.dueDate} onChange={(event) => set("dueDate")(event.target.value)} />
+          </Field>
+          <Field label="Valor principal (R$)" id="rc-valor" hint="Vazio: cada uma fica com o seu.">
+            <MoneyInput
+              id="rc-valor"
+              placeholder="Não mudar"
+              value={form.amount}
+              onChange={(event) => set("amount")(event.target.value)}
+            />
+          </Field>
+        </div>
+        {form.dueDate && <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />}
+        <FormError message={localError ?? error} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" disabled={submitting} onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          <Tags size={16} />
+          Reclassificar {plural(rows.length, "conta", "contas")}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+/** O mesmo arquivo em várias contas (Camila, 16/11: "selecionava todos os lançamentos e anexava"). */
+/** O formulário de anexar o mesmo arquivo em várias contas: na janela própria e no Reclassificar. */
+export function BatchAttachForm({
+  rows,
+  intro = false,
+  defaultKind = DEFAULT_DOCUMENT_KIND,
+  onCancel,
+  onDone,
+}: {
+  rows: PayableRow[];
+  /** Mostra a explicação no próprio formulário (no Reclassificar, que não tem o título da janela). */
+  intro?: boolean;
+  defaultKind?: string;
+  onCancel: () => void;
+  onDone: (count: number, skipped: number) => void;
+}) {
+  const { error, submitting, run } = useFormAction();
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [kind, setKind] = useState<string>(defaultKind);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!file) return setLocalError("Escolha o arquivo.");
+    if (file.size > MAX_DOCUMENT_BYTES) return setLocalError("O arquivo passa de 20 MB.");
+    setLocalError(null);
+    await run(async () => {
+      const result = await attachBatch(
+        rows.map((row) => row.id),
+        file,
+        kind
+      );
+      onDone(result.count, result.skipped);
+    });
+  }
+
+  return (
+    <form onSubmit={submit} noValidate>
+      {intro && (
+        <p className="pt-3 text-xs text-muted-foreground">
+          O mesmo arquivo vai para {plural(rows.length, "conta", "contas")}, como anexo (não dá baixa). Quem já tem esse
+          arquivo fica como está.
+        </p>
+      )}
+      <div className="flex flex-col gap-3.5 py-4">
+        <Field label="Tipo do documento" id="ba-tipo">
+          <Choice id="ba-tipo" value={kind} onChange={setKind} options={DOCUMENT_KINDS} />
+        </Field>
+        <Field label="Arquivo *" id="ba-arquivo" hint={DOCUMENT_HINT}>
+          <FilePicker
+            id="ba-arquivo"
+            accept={DOCUMENT_ACCEPT}
+            disabled={submitting}
+            status={file?.name}
+            onPick={(files) => setFile(files[0] ?? null)}
+          />
+        </Field>
+        <FormError message={localError ?? error} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" disabled={submitting} onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={submitting}>
+          <Paperclip size={16} />
+          {submitting ? "Anexando…" : `Anexar em ${plural(rows.length, "conta", "contas")}`}
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+export function BatchAttachDialog({
+  rows,
+  onClose,
+  onDone,
+}: {
+  rows: PayableRow[];
+  onClose: () => void;
+  onDone: (count: number, skipped: number) => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[520px]">
-        <form onSubmit={submit} noValidate>
-          <DialogHeader>
-            <DialogTitle>Reclassificar</DialogTitle>
-            <DialogDescription>
-              {plural(rows.length, "conta", "contas")} · total {brl(total)}. O que ficar em &quot;Não mudar&quot; continua como está.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3.5 py-4">
-            <Field label="Projeto" id="rc-proj" hint="Mudar o projeto deixa a conta 100% nele.">
-              <Choice
-                id="rc-proj"
-                value={form.projectId}
-                onChange={set("projectId")}
-                options={[
-                  { id: KEEP, label: "Não mudar" },
-                  ...reference.projects
-                    .filter((p) => p.status !== "encerrado")
-                    .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
-                ]}
-              />
-            </Field>
-            <Field label="Categoria" id="rc-cat">
-              <Choice
-                id="rc-cat"
-                value={form.categoryId}
-                onChange={set("categoryId")}
-                options={[
-                  { id: KEEP, label: "Não mudar" },
-                  ...expenseCategories(reference).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` })),
-                ]}
-              />
-            </Field>
-            <Field label="Centro de custo" id="rc-cc">
-              <Choice
-                id="rc-cc"
-                value={form.costCenterId}
-                onChange={set("costCenterId")}
-                options={[
-                  { id: KEEP, label: "Não mudar" },
-                  ...reference.costCenters.map((c) => ({ id: c.id, label: c.label })),
-                ]}
-              />
-            </Field>
-            <FormError message={localError ?? error} />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              <Tags size={16} />
-              Reclassificar {plural(rows.length, "conta", "contas")}
-            </Button>
-          </DialogFooter>
-        </form>
+        <DialogHeader>
+          <DialogTitle>Anexar em várias contas</DialogTitle>
+          <DialogDescription>
+            O mesmo arquivo vai para {plural(rows.length, "conta", "contas")}. Quem já tem esse arquivo fica como está.
+          </DialogDescription>
+        </DialogHeader>
+        <BatchAttachForm rows={rows} onCancel={onClose} onDone={onDone} />
       </DialogContent>
     </Dialog>
   );
@@ -1076,6 +1323,12 @@ export function ColumnsDialog({
   );
 }
 
+/** O motivo do cancelamento, que fica no histórico ("Cancelada: contrato encerrado"). */
+function cancelReason(payable: PayableDetail): string | null {
+  const event = payable.events.find((e) => e.text.startsWith("Cancelada: "));
+  return event ? event.text.slice("Cancelada: ".length) : null;
+}
+
 const PAYMENT_KINDS: Record<Payment["kind"], string> = {
   pagamento: "Baixa",
   estorno: "Estorno",
@@ -1124,6 +1377,7 @@ function PayableSummary({ payable }: { payable: PayableDetail }) {
 
 export function DetailDialog({
   id,
+  initialTab = "detalhes",
   today,
   reference,
   onClose,
@@ -1131,6 +1385,8 @@ export function DetailDialog({
   onReplace,
 }: {
   id: number;
+  /** A aba em que abre: o clipe da lista abre em Documentos. */
+  initialTab?: string;
   today: string;
   reference: Reference;
   onClose: () => void;
@@ -1143,7 +1399,7 @@ export function DetailDialog({
   const [loadError, setLoadError] = useState<{ id: number; message: string } | null>(null);
   // Sobe quando a série muda (valor, cancelamento): recarrega a conta e a lista da aba Repetir.
   const [version, setVersion] = useState(0);
-  const [tab, setTab] = useState("detalhes");
+  const [tab, setTab] = useState(initialTab);
   const [action, setAction] = useState<
     | { kind: "pay" }
     | { kind: "series"; mode: "edit" | "cancel" }
@@ -1230,6 +1486,16 @@ export function DetailDialog({
                 <AlertDescription className="text-amber-900/90">
                   A documentação chegou em {formatDate(payable.docsReceivedOn)}, menos de 3 dias antes do vencimento (
                   {formatDate(payable.dueDate)}).
+                </AlertDescription>
+              </Alert>
+            )}
+            {payable.situation === "cancelado" && (
+              <Alert className="border-border bg-muted/50">
+                <Ban />
+                <AlertTitle>Conta cancelada</AlertTitle>
+                <AlertDescription>
+                  Ela não vale: não entra nos totais e não é paga, mas fica guardada com o histórico.
+                  {cancelReason(payable) && ` Motivo: ${cancelReason(payable)}`}
                 </AlertDescription>
               </Alert>
             )}
@@ -1340,7 +1606,12 @@ export function DetailDialog({
                   }}
                   onChanged={(next, message) => {
                     setLoaded(next);
-                    if (message) toast.success(message);
+                    // Anexou ou renomeou: a lista de trás recarrega, e o clipe da linha acende junto (18/11).
+                    // Baixar não muda nada na lista (vem sem mensagem).
+                    if (message) {
+                      toast.success(message);
+                      onChanged();
+                    }
                   }}
                   onRemove={(attachment) => setAction({ kind: "remove-document", attachment })}
                 />
@@ -1506,10 +1777,14 @@ function EditForm({
   const { error, submitting, run } = useFormAction();
   const [localError, setLocalError] = useState<string | null>(null);
   const [adjustments, setAdjustments] = useState<AdjustmentDraft[]>(draftsFrom(payable.adjustments));
+  // O projeto ou a divisão entre projetos também se edita aqui (testes de 16/11, A4).
+  const [split, setSplit] = useState<AllocationRow[]>(splitRowsFrom(payable.allocations));
   const [form, setForm] = useState({
     description: payable.description,
     amount: toField(payable.grossAmount),
     dueDate: payable.dueDate,
+    projectId: payable.allocations.length === 1 ? String(payable.allocations[0].projectId) : "",
+    unitId: String(payable.unitId),
     supplierId: payable.supplierId ? String(payable.supplierId) : "",
     categoryId: String(payable.categoryId),
     costCenterId: String(payable.costCenterId),
@@ -1530,6 +1805,10 @@ function EditForm({
   });
   // Lançamento com itens (folha, incentivo) tem o fornecedor nas pessoas, não aqui.
   const editSupplier = payable.items.length === 0;
+  const companyName = (companyId: number) => reference.companies.find((c) => c.id === companyId)?.name ?? "";
+  // Projeto fechado ou inativo não recebe conta nova; o da própria conta continua na lista para aparecer.
+  const current = new Set(payable.allocations.map((a) => a.projectId));
+  const projects = reference.projects.filter((p) => openForLaunch(p) || current.has(p.id));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -1544,12 +1823,22 @@ function EditForm({
     if (form.documentType === "NF" && (!form.documentNumber.trim() || !form.documentDate)) {
       return setLocalError("Informe o número e a data de emissão da nota.");
     }
+    const divided = buildAllocations(split, parsed);
+    if (divided.error) return setLocalError(divided.error);
+    // Sem projeto escolhido (conta antiga, importada sem projeto), o rateio não vai e nada muda.
+    const allocations = divided.allocations.length
+      ? divided.allocations
+      : form.projectId
+        ? [{ projectId: Number(form.projectId), amount: parsed }]
+        : null;
     await run(async () =>
       onDone(
         await updatePayable(payable.id, {
           description: form.description,
           amount: parsed,
           dueDate: form.dueDate,
+          ...(allocations ? { allocations } : {}),
+          ...(form.unitId !== String(payable.unitId) ? { unitId: Number(form.unitId) } : {}),
           ...(editSupplier && form.supplierId ? { supplierId: Number(form.supplierId) } : {}),
           categoryId: Number(form.categoryId),
           costCenterId: Number(form.costCenterId),
@@ -1577,17 +1866,43 @@ function EditForm({
       </Field>
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Vencimento" id="e-venc">
-          <Input id="e-venc" type="date" {...input("dueDate")} />
+          <DateInput id="e-venc" {...input("dueDate")} />
         </Field>
         <Field label="Pagar em" id="e-pagar-em">
-          <Input id="e-pagar-em" type="date" {...input("payOn")} />
+          <DateInput id="e-pagar-em" {...input("payOn")} />
         </Field>
         <Field label="Competência" id="e-comp">
-          <Input id="e-comp" type="month" {...input("competence")} />
+          <MonthInput id="e-comp" {...input("competence")} />
         </Field>
       </div>
       <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} unlessDate={payable.dueDate} />
       <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label="Projeto"
+          id="e-proj"
+          hint={split.length ? "Vale a divisão abaixo." : "Ou divida entre projetos mais abaixo."}
+        >
+          <Choice
+            id="e-proj"
+            searchable
+            value={form.projectId || NO_PROJECT}
+            onChange={(value) => set("projectId")(value === NO_PROJECT ? "" : value)}
+            options={[
+              // só a conta que já está sem projeto (importada do sistema antigo) mostra essa opção
+              ...(payable.allocations.length ? [] : [{ id: NO_PROJECT, label: "Sem projeto" }]),
+              ...projects.map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
+            ]}
+          />
+        </Field>
+        <Field label="Unidade" id="e-uni" hint="A empresa vem da unidade. Conta com baixa não muda de empresa.">
+          <Choice
+            id="e-uni"
+            searchable
+            value={form.unitId}
+            onChange={set("unitId")}
+            options={reference.units.map((u) => ({ id: u.id, label: `${u.name} · ${companyName(u.companyId)}` }))}
+          />
+        </Field>
         {editSupplier && (
           <Field label="Fornecedor" id="e-forn">
             <Choice
@@ -1598,7 +1913,7 @@ function EditForm({
             />
           </Field>
         )}
-        <Field label="Categoria" id="e-cat">
+        <Field label="Plano de contas" id="e-cat">
           <Choice
             id="e-cat"
             value={form.categoryId}
@@ -1654,7 +1969,7 @@ function EditForm({
           <Input id="e-docn" maxLength={50} {...input("documentNumber")} />
         </Field>
         <Field label="Emissão do documento" id="e-doce">
-          <Input id="e-doce" type="date" {...input("documentDate")} />
+          <DateInput id="e-doce" {...input("documentDate")} />
         </Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -1662,16 +1977,19 @@ function EditForm({
           <Input id="e-barras" className="font-mono text-xs" maxLength={60} {...input("barcode")} />
         </Field>
         <Field label="Documentação recebida em" id="e-docrec">
-          <Input id="e-docrec" type="date" {...input("docsReceivedOn")} />
+          <DateInput id="e-docrec" {...input("docsReceivedOn")} />
         </Field>
       </div>
       <Field label="Observações" id="e-obs">
         <Textarea id="e-obs" maxLength={2000} {...input("notes")} />
       </Field>
-      <p className="text-xs text-muted-foreground">
-        Empresa, unidade e projetos não mudam aqui: use <strong>Reclassificar</strong> na lista (projeto, categoria e centro
-        de custo) ou refaça a conta.
-      </p>
+      <ProjectSplit
+        rows={split}
+        onChange={setSplit}
+        projects={projects.filter((project) => project.status !== "encerrado")}
+        amount={parseMoney(form.amount) ?? ""}
+        disabled={submitting}
+      />
       <FormError message={localError ?? error} />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={onClose}>
@@ -1718,7 +2036,7 @@ function ReasonForm({
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {date && (
         <Field label={date.label} id="r-data">
-          <Input id="r-data" type="date" min={date.min} max={date.max} value={on} onChange={(event) => setOn(event.target.value)} />
+          <DateInput id="r-data" min={date.min} max={date.max} value={on} onChange={(event) => setOn(event.target.value)} />
         </Field>
       )}
       <Field label="Motivo" id="r-motivo">

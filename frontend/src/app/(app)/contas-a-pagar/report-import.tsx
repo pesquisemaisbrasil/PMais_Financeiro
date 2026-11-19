@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { importReport, previewReport } from "@/lib/api";
 import {
+  openForLaunch,
   brl,
   expenseCategories,
   formatDate,
@@ -188,7 +189,7 @@ export function ReportImport({
                     options={[
                       ...optional("Só o que o relatório diz"),
                       ...reference.projects
-                        .filter((p) => p.status !== "encerrado")
+                        .filter(openForLaunch)
                         .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
                     ]}
                   />

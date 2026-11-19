@@ -3,6 +3,7 @@
 import { Check, CircleCheck, Hourglass, Pencil, Undo2, Wallet } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { DateInput, MonthInput } from "@/components/DateInput";
 import { AmountSummary } from "@/components/AmountSummary";
 import { BusinessDayNotice } from "@/components/BusinessDayNotice";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
@@ -36,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api";
 import {
+  openForLaunch,
   addDays,
   brl,
   formatDate,
@@ -255,7 +257,7 @@ export function NewReceivableDialog({
                   options={[
                     { id: NO_PROJECT, label: "Sem projeto" },
                     ...reference.projects
-                      .filter((p) => p.status !== "encerrado")
+                      .filter(openForLaunch)
                       .map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` })),
                   ]}
                 />
@@ -263,13 +265,13 @@ export function NewReceivableDialog({
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Emissão *" id="r-emi">
-                <Input id="r-emi" type="date" {...input("issueDate")} />
+                <DateInput id="r-emi" {...input("issueDate")} />
               </Field>
               <Field label="Vencimento *" id="r-venc">
-                <Input id="r-venc" type="date" {...input("dueDate")} />
+                <DateInput id="r-venc" {...input("dueDate")} />
               </Field>
               <Field label="Competência" id="r-comp">
-                <Input id="r-comp" type="month" {...input("competence")} />
+                <MonthInput id="r-comp" {...input("competence")} />
               </Field>
             </div>
             <BusinessDayNotice date={form.dueDate} onPick={set("dueDate")} />
@@ -347,7 +349,7 @@ export function NewReceivableDialog({
                 <Input id="r-docn" {...input("documentNumber")} />
               </Field>
               <Field label="Emissão da nota" id="r-doce">
-                <Input id="r-doce" type="date" {...input("documentDate")} />
+                <DateInput id="r-doce" {...input("documentDate")} />
               </Field>
             </div>
             <RecurrenceFields
@@ -454,7 +456,7 @@ export function ReceiveDialog({
                 <MoneyInput id="rc-valor" autoFocus {...input("amount")} />
               </Field>
               <Field label="Data do recebimento *" id="rc-data">
-                <Input id="rc-data" type="date" {...input("receivedOn")} />
+                <DateInput id="rc-data" {...input("receivedOn")} />
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -640,7 +642,7 @@ function EditForm({
         <Input id="ed-desc" {...input("description")} />
       </Field>
       <Field label="Vencimento *" id="ed-venc">
-        <Input id="ed-venc" type="date" {...input("dueDate")} />
+        <DateInput id="ed-venc" {...input("dueDate")} />
       </Field>
       <BusinessDayNotice
         date={form.dueDate}

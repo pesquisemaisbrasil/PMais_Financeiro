@@ -151,7 +151,7 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
     {
       target: "tela",
       title: "Cadastros",
-      text: "Aqui ficam as listas que o sistema usa nos lançamentos: empresas, unidades, centros de custo, clientes, fornecedores, plano de contas, projetos, contas bancárias e formas de pagamento. Escolha a lista no menu Cadastros. O botão do alto cria um registro novo; em Projetos, ele traz os projetos do Connect.",
+      text: "Aqui ficam as listas que o sistema usa nos lançamentos: empresas, unidades, centros de custo, clientes, fornecedores, plano de contas, projetos, contas bancárias e formas de pagamento. Escolha a lista no menu Cadastros. O botão do alto cria um registro novo; em Projetos, Novo projeto cadastra o projeto com a unidade e o centro de custo que o lançamento preenche sozinho.",
     },
     {
       target: "totais",
@@ -189,28 +189,6 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
       target: "documentos",
       title: "Documentos",
       text: "Planilhas, comprovantes e notas anexados às contas do projeto. Dá para baixar daqui, e cada download fica no histórico da conta.",
-    },
-  ],
-  "/incentivos": [
-    {
-      target: "tela",
-      title: "Incentivos",
-      text: "Aqui estão as datas de pagamento dos incentivos, com as pessoas e a situação de cada uma. Importar planilha traz os entrevistados de uma planilha. Quem paga e dá a baixa continua sendo o Contas a pagar.",
-    },
-    {
-      target: "indicadores",
-      title: "Cartões de resumo",
-      text: "Vencidos, vencem hoje, a vencer e pagos. Clique num cartão para ver só aquelas datas; clique de novo para voltar.",
-    },
-    {
-      target: "barra",
-      title: "Período",
-      text: "Escolha o período por dia, semana, mês, ano ou tudo, ou marque uma data inicial e uma final. Hoje volta para o dia de hoje.",
-    },
-    {
-      target: "lista",
-      title: "A lista de datas",
-      text: "Uma linha por lançamento, em ordem de vencimento, com a data na frente (vermelha se já venceu e falta pagar). A seta mostra as pessoas, e Abrir leva à conta em Contas a pagar, onde se dá a baixa.",
     },
   ],
 };
