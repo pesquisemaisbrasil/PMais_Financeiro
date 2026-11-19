@@ -23,5 +23,12 @@ describe("feriados", () => {
     expect(syncMessage({ year: 2027, added: 0, total: 11 })).toBe("Os 11 feriados nacionais de 2027 já estavam cadastrados.");
     expect(syncMessage({ year: 2027, added: 1, total: 11 })).toBe("1 feriado novo em 2027. O ano tem 11 feriados nacionais.");
     expect(syncMessage({ year: 2027, added: 14, total: 14 })).toBe("14 feriados novos em 2027. O ano tem 14 feriados nacionais.");
+    // os estaduais e municipais das capitais (feriados.dev, 19/11/2026)
+    expect(syncMessage({ year: 2027, added: 0, total: 11, addedLocal: 1, totalLocal: 1 })).toBe(
+      "Os 11 feriados nacionais de 2027 já estavam cadastrados. Das capitais, 1 feriado estadual ou municipal novo."
+    );
+    expect(syncMessage({ year: 2027, added: 2, total: 11, addedLocal: 58, totalLocal: 58 })).toBe(
+      "2 feriados novos em 2027. O ano tem 11 feriados nacionais. Das capitais, 58 feriados estaduais e municipais novos."
+    );
   });
 });

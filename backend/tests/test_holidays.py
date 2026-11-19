@@ -192,7 +192,10 @@ def test_the_simulated_search_adds_the_national_holidays_and_only_once(
     client: TestClient, auth: dict[str, str], simulated: None
 ) -> None:
     first = client.post("/holidays/sync?year=2027", headers=auth)
-    assert (first.status_code, first.json()) == (200, {"year": 2027, "added": 4, "total": 4})
+    assert (first.status_code, first.json()) == (
+        200,
+        {"year": 2027, "added": 4, "total": 4, "addedLocal": 0, "totalLocal": 0},
+    )
     listed = client.get("/holidays", headers=auth).json()
     assert {(h["date"], h["name"], h["source"]) for h in listed} >= {
         ("2027-02-08", "Carnaval", "brasilapi"),
@@ -200,7 +203,7 @@ def test_the_simulated_search_adds_the_national_holidays_and_only_once(
     }
 
     again = client.post("/holidays/sync?year=2027", headers=auth)
-    assert again.json() == {"year": 2027, "added": 0, "total": 4}
+    assert again.json() == {"year": 2027, "added": 0, "total": 4, "addedLocal": 0, "totalLocal": 0}
 
 
 def test_a_search_does_not_duplicate_what_was_registered_by_hand(
@@ -234,7 +237,10 @@ def test_the_search_asks_the_fixed_address_for_the_year_and_keeps_only_national_
         ),
     )
     response = client.post("/holidays/sync?year=2026", headers=auth)
-    assert (response.status_code, response.json()) == (200, {"year": 2026, "added": 2, "total": 2})
+    assert (response.status_code, response.json()) == (
+        200,
+        {"year": 2026, "added": 2, "total": 2, "addedLocal": 0, "totalLocal": 0},
+    )
     url, kwargs = calls[0]
     assert url == "https://brasilapi.com.br/api/feriados/v1/2026"
     assert kwargs["allow_redirects"] is False and kwargs["timeout"] == holiday_sync.TIMEOUT
