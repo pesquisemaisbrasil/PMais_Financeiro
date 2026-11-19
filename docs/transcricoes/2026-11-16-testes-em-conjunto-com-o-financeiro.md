@@ -131,9 +131,32 @@ Nada foi mudado ainda. Quando os pedidos virarem demanda:
 - **Busca universal (T8):** entra como [futuro](../specs/futuro/README.md).
 - **Tag de origem nos specs:** `[Testes 16/11 mm:ss]`.
 
+## O que foi feito (17/11/2026)
+
+Decisões do Bruno em 17/11: projeto cadastrado no Financeiro **agora, como provisório** ([ADR 0021](../architecture/adr/0021-projeto-cadastrado-no-financeiro-provisorio.md)); o botão de comprovantes vira **Salvar comprovantes**; A5 e A17 ficam de fora (não lembrava o que eram). O roteiro de teste está no [roadmap](../planning/roadmap.md).
+
+| # | Situação |
+|---|---|
+| A1, A2, A3, A22 | Feito. Ordem dos campos, projeto obrigatório e o projeto que traz a unidade e o centro de custo, cadastrado em Cadastros > Projetos |
+| A4 | Feito. Editar conta muda projeto, divisão e unidade |
+| A5 | De fora: a confirmar o que faltava em Registrar baixa |
+| A6 | Feito. A tabela da recorrência avisa cada vencimento que foi para o próximo dia útil |
+| A7 | Já existia o cadastro de feriados locais (Cadastros > Feriados). Se o feriado bloqueia ou só avisa: Q53 |
+| A8, A9 | Feito. Setas da data e calendário que não passa do fim da tela |
+| A10, A11 | Feito. Busca por valor, sem acento, por pedaço e no projeto e na categoria. Letra trocada não é corrigida (numa lista de dinheiro, achar a conta errada é pior) |
+| A12, A13, A14 | Feito. Reclassificar com vencimento e valor; Anexar em várias contas |
+| A15 | Feito. Clipe verde ou cinza na linha |
+| A16 | Feito com o que já estava: canceladas continuam, agora explicadas na lista e no detalhe. Se devem sumir: Q54 |
+| A17 | De fora: a confirmar o que sumia da lista |
+| A18 | Feito em 18/11 (Bruno pediu de novo): o projeto vem do lançamento, achado pelo número do projeto no Connect, sem ligação nova no banco |
+| A19 | Feito. Botão Salvar comprovantes |
+| A20 | Feito. Busca no relatório do projeto |
+| A21 | De fora: o Contas a pagar pelo fornecedor já responde quanto uma pessoa recebeu num período |
+| A23 | De fora: guardar print com dado real no servidor depende do DPO (Q56) |
+
 ## Perguntas que ficaram
 
-Ainda não estão em [perguntas-abertas](../planning/perguntas-abertas.md).
+Entraram em [perguntas-abertas](../planning/perguntas-abertas.md) como Q52 (projeto no Financeiro), Q53 (feriado), Q54 (canceladas), Q55 (incentivo) e Q56 (caixa de sugestões).
 
 | Pergunta | Dono | Proposta |
 |---|---|---|
