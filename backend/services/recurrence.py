@@ -14,7 +14,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, selectinload
 
-from core.business_days import NO_EXTRA, next_business_day
+from core.business_days import NO_EXTRA, next_business_day, why_not_business
 from core.text import format_brl
 from models.payable import Payable, PayableSeries
 from models.user import User
@@ -39,6 +39,10 @@ class Occurrence:
     index: int
     dueDate: date
     amount: Decimal
+    # A data que caiu em dia não útil e o motivo ("sábado", "feriado: ..."): a tabela avisa qual
+    # vencimento foi para o próximo dia útil (testes de 16/11, A6). Nulos quando nada mudou.
+    movedFrom: date | None = None
+    movedReason: str | None = None
 
 
 def _add_months(start: date, months: int) -> date:
@@ -70,7 +74,17 @@ def simulate(
     occurrences = []
     for index in range(count):
         base = start + timedelta(weeks=index) if kind == "semanal" else _add_months(start, index)
-        occurrences.append(Occurrence(index + 1, next_business_day(base, extra), amounts[index]))
+        due = next_business_day(base, extra)
+        moved = due != base
+        occurrences.append(
+            Occurrence(
+                index + 1,
+                due,
+                amounts[index],
+                movedFrom=base if moved else None,
+                movedReason=why_not_business(base, extra) if moved else None,
+            )
+        )
     return occurrences
 
 

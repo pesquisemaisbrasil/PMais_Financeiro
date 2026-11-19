@@ -244,11 +244,61 @@ def add(
     _check_kind(kind)
     name, content_type = validate_upload(filename, data)
     current = [a for a in owner.attachments if a.deletedAt is None]
+    if any(a.fileSha256 == hashlib.sha256(data).hexdigest() for a in current):
+        raise PayableConflict(f"Este arquivo já está anexado {target.to_this}")
+    _store(db, target, owner, name, content_type, data, kind, user)
+    db.commit()
+
+
+def add_many(
+    db: Session,
+    target: Target,
+    owner_ids: list[int],
+    filename: str,
+    data: bytes,
+    kind: str,
+    user: User,
+) -> tuple[int, int]:
+    """O mesmo arquivo em várias contas de uma vez (Camila, testes de 16/11: "selecionava todos os
+    lançamentos e anexava um comprovante"). Cada conta guarda a sua cópia cifrada, porque a chave do
+    cofre amarra o arquivo ao dono. Quem já tem o arquivo fica como está. Tudo numa transação:
+    se uma conta recusa (não existe, chegou ao limite), nenhuma recebe. (anexadas, já tinham)."""
+    _check_kind(kind)
+    name, content_type = validate_upload(filename, data)
+    digest = hashlib.sha256(data).hexdigest()
+    added = skipped = 0
+    # Trava todas antes de guardar qualquer arquivo: conta que não existe para o lote sem deixar
+    # cópia no cofre.
+    owners = [target.get(db, owner_id, lock=True) for owner_id in sorted(set(owner_ids))]
+    for owner in owners:
+        if any(a.fileSha256 == digest for a in owner.attachments if a.deletedAt is None):
+            skipped += 1
+            continue
+        try:
+            _store(db, target, owner, name, content_type, data, kind, user)
+        except PayableConflict as exc:
+            # diz qual conta parou o lote, para a pessoa tirá-la da seleção
+            label = getattr(owner, "description", None)
+            raise PayableConflict(f"{label}: {exc}" if label else str(exc)) from exc
+        added += 1
+    db.commit()
+    return added, skipped
+
+
+def _store(
+    db: Session,
+    target: Target,
+    owner: Any,
+    name: str,
+    content_type: str,
+    data: bytes,
+    kind: str,
+    user: User,
+) -> None:
+    """Guarda no cofre e registra, sem commit: quem chama fecha a transação."""
+    current = [a for a in owner.attachments if a.deletedAt is None]
     if len(current) >= MAX_PER_OWNER:
         raise PayableConflict(f"{target.this} já tem {MAX_PER_OWNER} documentos")
-    digest = hashlib.sha256(data).hexdigest()
-    if any(a.fileSha256 == digest for a in current):
-        raise PayableConflict(f"Este arquivo já está anexado {target.to_this}")
     # shortcut: a conta fica travada durante o envio ao cofre (até ~30 s com o MinIO lento) e um
     # commit que falhe depois deixa um objeto cifrado órfão; enviar antes da trava se incomodar.
     stored = file_vault.store_file(target.vault_kind, owner.id, data)
@@ -265,7 +315,6 @@ def add(
         )
     )
     target.audit(db, owner, user, f"Documento incluído: {name} ({_size_text(stored.size)})")
-    db.commit()
 
 
 def download(

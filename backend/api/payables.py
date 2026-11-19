@@ -18,14 +18,16 @@ from sqlalchemy.orm import Session
 from api import attachment_http
 from core import file_vault, xlsx
 from core.limiter import limiter
-from core.permissions import require_finance
+from core.permissions import require_finance, require_screen
 from core.query_lists import parse_choices, parse_ids
 from db.connection import get_db
 from models.user import User
 from schemas.payable import (
     AttachmentUpdate,
+    BatchAttachResult,
     BatchCount,
     BatchDeleteResult,
+    BatchEdit,
     BatchIds,
     BatchPaymentCreate,
     BatchPaymentResult,
@@ -65,12 +67,14 @@ from schemas.payable import (
     SortColumn,
     Tab,
 )
-from services import attachments, payable_import, recurrence, report_import
+from services import attachments, incentive_template, payable_import, recurrence, report_import
 from services import payable as payable_service
 from services.auth import get_current_user
 from services.holidays import holiday_names
 
-router = APIRouter(tags=["contas a pagar"])
+router = APIRouter(tags=["contas a pagar"], dependencies=[require_screen("contas-a-pagar")])
+# Início e cadastros ativos: várias telas usam, então ficam fora da trava da tela
+shared = APIRouter(tags=["contas a pagar"])
 
 T = TypeVar("T")
 
@@ -118,13 +122,13 @@ def _in_transaction(db: Session, action: Callable[[], T]) -> T:
         raise
 
 
-@router.get("/home", response_model=HomeSummary, description="Resumo da tela Início")
+@shared.get("/home", response_model=HomeSummary, description="Resumo da tela Início")
 @limiter.limit(READ_LIMIT)
 def home(request: Request, db: DbSession, _: FinanceUser) -> dict[str, Any]:
     return payable_service.home_summary(db)
 
 
-@router.get("/reference", response_model=Reference, description="Cadastros ativos")
+@shared.get("/reference", response_model=Reference, description="Cadastros ativos")
 @limiter.limit(READ_LIMIT)
 def reference(request: Request, db: DbSession, _: FinanceUser) -> dict[str, Any]:
     return payable_service.reference(db)
@@ -235,6 +239,23 @@ def export_payables(
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": 'attachment; filename="contas-a-pagar.csv"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get(
+    "/payables/import/incentives-template",
+    response_class=Response,
+    description="A planilha modelo para carregar incentivos (.xlsx), com os projetos abertos",
+)
+@limiter.limit(READ_LIMIT)
+def incentives_template(request: Request, db: DbSession, _: FinanceUser) -> Response:
+    return Response(
+        incentive_template.build(db),
+        media_type=xlsx.MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{incentive_template.FILENAME}"',
             "Cache-Control": "no-store",
         },
     )
@@ -403,6 +424,31 @@ def import_report(
     return _in_transaction(db, lambda: report_import.confirm(db, fields, filename, content, user))
 
 
+# Antes de /payables/{payable_id}/...: senão "batch" seria lido como o número da conta.
+@router.post(
+    "/payables/batch/attachments",
+    response_model=BatchAttachResult,
+    status_code=status.HTTP_201_CREATED,
+    description="Anexa o mesmo documento a várias contas (PDF, imagem, planilha, documento ou XML, "
+    "até 20 MB); quem já tem o arquivo fica como está",
+)
+@limiter.limit(WRITE_LIMIT)
+def attach_batch(
+    request: Request,
+    file: UploadFile,
+    ids: Annotated[list[int], Form(min_length=1, max_length=500)],
+    db: DbSession,
+    user: FinanceUser,
+    kind: Annotated[str, Form(max_length=20)] = attachments.DEFAULT_KIND,
+) -> dict[str, int]:
+    filename, content = attachment_http.read_upload(file)
+    added, skipped = _in_transaction(
+        db,
+        lambda: attachments.add_many(db, attachments.PAYABLE, ids, filename, content, kind, user),
+    )
+    return {"count": added, "skipped": skipped}
+
+
 @router.post(
     "/payables/{payable_id}/attachments",
     response_model=PayableDetail,
@@ -522,6 +568,22 @@ def reclassify_batch(
 
 
 @router.post(
+    "/payables/batch/edit",
+    response_model=BatchCount,
+    description=(
+        "Edita várias contas, cada uma com os seus valores (edição em lote, conta por conta); "
+        "uma recusada não grava nenhuma"
+    ),
+)
+@limiter.limit(WRITE_LIMIT)
+def edit_batch(
+    request: Request, data: BatchEdit, db: DbSession, user: FinanceUser
+) -> dict[str, int]:
+    count = _in_transaction(db, lambda: payable_service.edit_batch(db, data, user))
+    return {"count": count}
+
+
+@router.post(
     "/payables/batch/duplicate",
     response_model=BatchCount,
     description="Copia as contas para o mês seguinte",
@@ -626,7 +688,13 @@ def simulate_recurrence(
 ) -> list[dict[str, Any]]:
     extra = holiday_names(db)
     return [
-        {"index": o.index, "dueDate": o.dueDate, "amount": o.amount}
+        {
+            "index": o.index,
+            "dueDate": o.dueDate,
+            "amount": o.amount,
+            "movedFrom": o.movedFrom,
+            "movedReason": o.movedReason,
+        }
         for o in recurrence.simulate(data.kind, data.startDate, data.count, data.amount, extra)
     ]
 

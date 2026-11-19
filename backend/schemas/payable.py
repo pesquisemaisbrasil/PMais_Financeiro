@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field, StringConstraints
 
 from schemas.adjustment import AdjustmentIn, AdjustmentOut
+from schemas.tax_rates import TaxRateOut
 
 Money = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
 OptionalMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
@@ -76,6 +77,28 @@ class BatchReclassify(BaseModel):
     projectId: int | None = None
     categoryId: int | None = None
     costCenterId: int | None = None
+    # Como no sistema antigo (Camila, 16/11): o mesmo vencimento e o mesmo valor em todas.
+    dueDate: date | None = None
+    amount: Money | None = None
+
+
+class BatchEditRow(BaseModel):
+    """Uma linha da edição em lote, conta por conta (18/11), como na tela "Edição em Lote"."""
+
+    id: int
+    description: ShortText
+    amount: Money
+    dueDate: date
+    # Como na edição da conta: o que não vier não muda; null limpa.
+    supplierId: int | None = None
+    payOn: date | None = None
+    competence: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$")
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class BatchEdit(BaseModel):
+    # Só as linhas marcadas na tela: as outras nem vêm
+    rows: list[BatchEditRow] = Field(min_length=1, max_length=500)
 
 
 class PayableUpdate(BaseModel):
@@ -83,8 +106,9 @@ class PayableUpdate(BaseModel):
     amount: Money
     dueDate: date
     # Os campos abaixo são opcionais: o que não vier não muda. Para limpar um texto ou uma data,
-    # mande o campo com null. Empresa, unidade e projeto não mudam aqui (veja Reclassificar).
+    # mande o campo com null. A empresa vem da unidade.
     supplierId: int | None = None
+    unitId: int | None = None
     categoryId: int | None = None
     costCenterId: int | None = None
     paymentMethodId: int | None = None
@@ -99,6 +123,9 @@ class PayableUpdate(BaseModel):
     isTransfer: bool | None = None
     # Não vindo, não muda; vindo, troca a lista inteira (vazia tira todos).
     adjustments: list[AdjustmentIn] | None = Field(default=None, max_length=60)
+    # O projeto ou o rateio (testes de 16/11: "se eu precisar editar, preciso que edite tudo").
+    # Não vindo, não muda; vindo, troca a divisão inteira, que precisa somar o valor.
+    allocations: list[AllocationIn] | None = Field(default=None, min_length=1, max_length=200)
 
 
 class PaymentCreate(BaseModel):
@@ -137,6 +164,12 @@ class BatchCount(BaseModel):
 
 class BatchDeleteResult(BaseModel):
     count: int
+
+
+class BatchAttachResult(BaseModel):
+    # contas que receberam o documento, e as que já tinham o mesmo arquivo
+    count: int
+    skipped: int
 
 
 class ReasonIn(BaseModel):
@@ -192,6 +225,13 @@ class PayableRow(BaseModel):
     replaces: Decimal | None
     # nulo em conta avulsa
     series: SeriesInfo | None = None
+    # documentos anexados (o clipe da lista fica verde quando há algum)
+    attachmentCount: int = 0
+    # o que a edição em lote, conta por conta, mostra para mudar (18/11)
+    supplierId: int | None = None
+    payOn: date | None = None
+    competence: str | None = None
+    notes: str | None = None
 
 
 class ValueCount(BaseModel):
@@ -274,6 +314,7 @@ class PayableDetail(PayableRow):
     categoryId: int
     costCenterId: int
     paymentMethodId: int
+    unitId: int
     unitName: str
     issueDate: date
     competence: str | None
@@ -331,6 +372,12 @@ class ProjectOut(BaseModel):
     projectType: str | None
     hasIncentive: bool
     incentiveDays: int | None
+    # inativo não aparece nas escolhas de lançamento novo (18/11)
+    active: bool = True
+    # padrão do lançamento (testes de 16/11): nulos nos projetos ainda sem cadastro completo
+    customerId: int | None = None
+    unitId: int | None = None
+    costCenterId: int | None = None
 
 
 class Reference(BaseModel):
@@ -343,6 +390,8 @@ class Reference(BaseModel):
     suppliers: list[SupplierOut]
     customers: list[SupplierOut]
     projects: list[ProjectOut]
+    # os percentuais que a conta a pagar nova já traz calculados (19/11)
+    taxRates: list[TaxRateOut]
 
 
 class AttentionItem(BaseModel):
@@ -412,6 +461,8 @@ class ImportLine(BaseModel):
     # que vieram em coluna.
     classification: str | None
     skipped: bool
+    # A planilha diz que a pessoa já recebeu: fica de fora, para não pagar duas vezes.
+    alreadyPaid: bool = False
     errors: list[str]
 
 
@@ -458,6 +509,7 @@ class ImportPreview(BaseModel):
     goodCount: int
     errorCount: int
     skippedCount: int
+    alreadyPaidCount: int = 0
     # Quantos lançamentos vão ser criados: um por classificação e data (incentivo) ou um por
     # classificação (folha).
     payableCount: int
@@ -573,6 +625,9 @@ class OccurrenceOut(BaseModel):
     index: int
     dueDate: date
     amount: Decimal
+    # o vencimento que caiu em dia não útil e foi para o próximo dia útil, e por quê
+    movedFrom: date | None = None
+    movedReason: str | None = None
 
 
 class SeriesEdit(BaseModel):

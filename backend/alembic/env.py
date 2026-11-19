@@ -21,6 +21,7 @@ from models.bank_statement import (  # noqa: E402,F401 (registers model on Base.
 from models.connect_payable_item import (  # noqa: E402,F401 (registers model on Base.metadata)
     ConnectPayableItem,
 )
+from models.demand import Demand  # noqa: E402,F401 (registers model on Base.metadata)
 from models.login_event import LoginEvent  # noqa: E402,F401 (registers model on Base.metadata)
 from models.mfa_recovery_code import (  # noqa: E402,F401 (registers model on Base.metadata)
     MfaRecoveryCode,
@@ -51,6 +52,9 @@ from models.receivable import (  # noqa: E402,F401 (registers model on Base.meta
 )
 from models.refresh_token import RefreshToken  # noqa: E402,F401 (registers model on Base.metadata)
 from models.sso_identity import SsoIdentity  # noqa: E402,F401 (registers model on Base.metadata)
+from models.trusted_browser import (  # noqa: E402,F401 (registers model on Base.metadata)
+    TrustedBrowser,
+)
 from models.user import User  # noqa: E402,F401 (registers model on Base.metadata)
 
 config = context.config

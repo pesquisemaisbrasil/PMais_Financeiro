@@ -22,6 +22,8 @@ SETTINGS = {
     "REFRESH_COOKIE_SECURE": "false",
     # sem limite de requisições (é uma pessoa só, no próprio navegador)
     "RATE_LIMIT_ENABLED": "false",
+    # A demonstração roda dentro do navegador: não há outro navegador nem admin para liberar.
+    "DEVICE_APPROVAL_ENABLED": "false",
     "PAYMENT_DISPATCH_SECONDS": "0",
     # tudo de mentira: o Connect, o cofre de arquivos e as consultas externas nunca são chamados
     "CONNECT_MODE": "simulated",

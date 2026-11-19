@@ -8,11 +8,22 @@ from api import attachment_http
 from api.payables import DbSession, FinanceUser
 from core import file_vault
 from core.limiter import limiter
+from core.permissions import require_screen
 from schemas.payable import AttachmentOut, AttachmentUpdate, ProjectOut, ReasonIn
-from schemas.records import ActiveIn, CnpjOut, ProjectIncentive, RecordIn, RecordKind, RecordOut
+from schemas.records import (
+    ActiveIn,
+    CnpjOut,
+    ProjectIn,
+    ProjectIncentive,
+    RecordIn,
+    RecordKind,
+    RecordOut,
+)
 from services import attachments, cnpj_lookup
 from services import records as records_service
 from services.payable import PayableConflict, PayableInvalid
+
+CADASTROS = require_screen("cadastros")
 
 router = APIRouter(tags=["cadastros"])
 
@@ -107,6 +118,7 @@ def list_customer_documents(
 
 @router.post(
     "/records/customers/{record_id}/attachments",
+    dependencies=[CADASTROS],
     response_model=list[AttachmentOut],
     status_code=status.HTTP_201_CREATED,
     description="Anexa um documento ao cliente (PDF, imagem, planilha, documento ou XML, até 20MB)",
@@ -145,6 +157,7 @@ def download_customer_document(
 
 @router.patch(
     "/records/customers/{record_id}/attachments/{attachment_id}",
+    dependencies=[CADASTROS],
     response_model=list[AttachmentOut],
     description="Renomeia o documento e/ou muda o tipo dele; o arquivo guardado não é tocado",
 )
@@ -168,6 +181,7 @@ def update_customer_document(
 
 @router.post(
     "/records/customers/{record_id}/attachments/{attachment_id}/remove",
+    dependencies=[CADASTROS],
     response_model=list[AttachmentOut],
     description="Tira o documento do cliente, com o motivo; o arquivo continua guardado",
 )
@@ -203,6 +217,7 @@ def list_records(
 
 @router.post(
     "/records/{kind}",
+    dependencies=[CADASTROS],
     response_model=RecordOut,
     status_code=status.HTTP_201_CREATED,
     description="Cria um cadastro",
@@ -216,6 +231,7 @@ def create_record(
 
 @router.patch(
     "/records/{kind}/{record_id}",
+    dependencies=[CADASTROS],
     response_model=RecordOut,
     description="Altera um cadastro",
 )
@@ -233,6 +249,7 @@ def update_record(
 
 @router.post(
     "/records/{kind}/{record_id}/active",
+    dependencies=[CADASTROS],
     response_model=RecordOut,
     description="Inativa ou reativa um cadastro",
 )
@@ -250,6 +267,7 @@ def set_record_active(
 
 @router.delete(
     "/records/{kind}/{record_id}",
+    dependencies=[CADASTROS],
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
     description="Exclui um cadastro sem lançamentos",
@@ -262,8 +280,47 @@ def delete_record(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.post(
+    "/projects",
+    dependencies=[CADASTROS],
+    response_model=ProjectOut,
+    status_code=status.HTTP_201_CREATED,
+    description="Cadastra um projeto no Financeiro (provisório até o Connect mandar os projetos)",
+)
+@limiter.limit(WRITE_LIMIT)
+def create_project(request: Request, data: ProjectIn, db: DbSession, user: FinanceUser) -> Any:
+    return _write(db, lambda: records_service.create_project(db, data, user))
+
+
+@router.patch(
+    "/projects/{project_id}",
+    dependencies=[CADASTROS],
+    response_model=ProjectOut,
+    description="Altera o projeto: código, nome, unidade, cliente, centro, incentivo e inativo",
+)
+@limiter.limit(WRITE_LIMIT)
+def edit_project(
+    request: Request, project_id: int, data: ProjectIn, db: DbSession, user: FinanceUser
+) -> Any:
+    return _write(db, lambda: records_service.edit_project(db, project_id, data, user))
+
+
+@router.delete(
+    "/projects/{project_id}",
+    dependencies=[CADASTROS],
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    description="Exclui um projeto que ainda não tem lançamento (com lançamento, inative)",
+)
+@limiter.limit(WRITE_LIMIT)
+def delete_project(request: Request, project_id: int, db: DbSession, user: FinanceUser) -> Response:
+    _write(db, lambda: records_service.delete_project(db, project_id, user))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.patch(
     "/projects/{project_id}/incentive",
+    dependencies=[CADASTROS],
     response_model=ProjectOut,
     description="Marca o tipo do projeto, se tem incentivo e o prazo em dias úteis",
 )

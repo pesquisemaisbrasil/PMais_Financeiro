@@ -4,12 +4,15 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
+from core.permissions import require_screen
 from schemas.bank_reports import Balances, Difference
 from services import bank_reports
 from services.payable import PayableInvalid
 from services.records import RecordNotFound
 
-router = APIRouter(tags=["conferência bancária"])
+router = APIRouter(
+    tags=["conferência bancária"], dependencies=[require_screen("conferencia-bancaria")]
+)
 
 READ_LIMIT = "120/minute"
 Month = Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="O mês, AAAA-MM")]

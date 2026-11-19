@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from core.document import clean_cnpj, is_cpf_shaped, valid_cnpj
 from core.pix import is_valid_cpf
 from models.bank_statement import BankStatement, BankTransaction
-from models.payable import Payable, PayablePayment
+from models.payable import Payable, PayableAllocation, PayablePayment
 from models.receivable import Receivable, ReceivablePayment
 from models.reference import (
     BankAccount,
@@ -28,7 +28,7 @@ from models.reference import (
     Supplier,
 )
 from models.user import User
-from schemas.records import ProjectIncentive, RecordIn
+from schemas.records import ProjectIn, ProjectIncentive, RecordIn
 from services.cnpj_lookup import CPF_IN_TEXT
 from services.payable import PayableConflict, PayableInvalid
 
@@ -48,7 +48,9 @@ KINDS: dict[str, Kind] = {
     "suppliers": Kind(Supplier, "fornecedor", (Payable.supplier_id,)),
     # lançamento ou documento anexado (o documento só sai de forma lógica, então o cliente fica)
     "customers": Kind(
-        Customer, "cliente", (Receivable.customer_id, CustomerAttachment.customer_id)
+        Customer,
+        "cliente",
+        (Receivable.customer_id, CustomerAttachment.customer_id, Project.customer_id),
     ),
     "categories": Kind(ExpenseCategory, "conta", (Payable.category_id, Receivable.category_id)),
     "companies": Kind(
@@ -61,12 +63,18 @@ KINDS: dict[str, Kind] = {
             BankAccount.company_id,
         ),
     ),
-    "units": Kind(BusinessUnit, "unidade", (Payable.unit_id, Receivable.unit_id)),
+    # também a unidade e o centro de custo padrão de um projeto contam como uso
+    "units": Kind(BusinessUnit, "unidade", (Payable.unit_id, Receivable.unit_id, Project.unit_id)),
     # tem lançamento, ou tem sub-centro embaixo (parent_id): nos dois casos não se exclui
     "costCenters": Kind(
         CostCenter,
         "centro de custo",
-        (Payable.cost_center_id, Receivable.cost_center_id, CostCenter.parent_id),
+        (
+            Payable.cost_center_id,
+            Receivable.cost_center_id,
+            CostCenter.parent_id,
+            Project.cost_center_id,
+        ),
     ),
     "bankAccounts": Kind(
         BankAccount,
@@ -511,8 +519,117 @@ def _incentive_text(project: Project) -> str:
     return f"{kind}, incentivo em {project.incentiveDays} dias úteis"
 
 
+def _project_defaults(db: Session, data: ProjectIn) -> dict[str, Any]:
+    """Unidade, cliente e centro de custo são obrigatórios (18/11, como na tela antiga), e cada um
+    tem de existir e estar ativo. Recusa em pt-BR, como nos outros cadastros."""
+    checks = (
+        ("unitId", "unidade", BusinessUnit, "Unidade não encontrada ou inativa"),
+        ("customerId", "cliente", Customer, "Cliente não encontrado ou inativo"),
+        (
+            "costCenterId",
+            "centro de custo",
+            CostCenter,
+            "Centro de custo não encontrado ou inativo",
+        ),
+    )
+    missing = [label for field, label, _, _ in checks if getattr(data, field) is None]
+    if missing:
+        raise PayableInvalid(f"Falta preencher: {', '.join(missing)}")
+    for field, _, model, refusal in checks:
+        record = db.get(model, getattr(data, field))
+        if record is None or not record.active:
+            raise PayableInvalid(refusal)
+    if data.hasIncentive and not data.incentiveDays:
+        raise PayableInvalid("Informe o prazo do incentivo em dias úteis (de 1 a 30)")
+    return {
+        "customer_id": data.customerId,
+        "unit_id": data.unitId,
+        "cost_center_id": data.costCenterId,
+        "projectType": data.projectType,
+        "hasIncentive": data.hasIncentive,
+        "incentiveDays": data.incentiveDays if data.hasIncentive else None,
+    }
+
+
+def _project_unique(db: Session, data: ProjectIn, project_id: int | None) -> None:
+    """O número do projeto não repete (sem diferença de maiúscula)."""
+    same_code = db.query(Project).filter(func.lower(Project.code) == data.code.lower())
+    if project_id is not None:
+        same_code = same_code.filter(Project.id != project_id)
+    if same_code.first():
+        raise PayableConflict(f"Já existe o projeto PRJ-{data.code}")
+
+
+def create_project(db: Session, data: ProjectIn, user: User) -> Project:
+    """Provisório (ADR 0021): o financeiro cadastra o projeto até o Connect mandar."""
+    _project_unique(db, data, None)
+    project = Project(code=data.code, title=data.title, **_project_defaults(db, data))
+    db.add(project)
+    db.flush()
+    _log(db, "projects", project.id, user, f"Criou PRJ-{project.code} · {project.title}")
+    db.commit()
+    return project
+
+
+def _project_text(db: Session, project: Project) -> str:
+    """Como o projeto fica no histórico: o que importa para o lançamento."""
+
+    def name(model: Any, record_id: int | None) -> str:
+        record = db.get(model, record_id) if record_id else None
+        return getattr(record, "nickname", None) or getattr(record, "name", None) or "—"
+
+    return (
+        f"PRJ-{project.code} · {project.title}; cliente {name(Customer, project.customer_id)}; "
+        f"unidade {name(BusinessUnit, project.unit_id)}; "
+        f"centro {name(CostCenter, project.cost_center_id)}; {_incentive_text(project)}"
+        f"{'' if project.active else '; inativo'}"
+    )
+
+
+def edit_project(db: Session, project_id: int, data: ProjectIn, user: User) -> Project:
+    """Número, nome, padrões do lançamento e incentivo. As contas já lançadas não mudam: o padrão
+    só vale para as próximas."""
+    project = db.query(Project).filter_by(id=project_id).with_for_update().first()
+    if project is None:
+        raise RecordNotFound
+    _project_unique(db, data, project_id)
+    values = _project_defaults(db, data)
+    before = _project_text(db, project)
+    project.code = data.code
+    project.title = data.title
+    project.active = data.active
+    for column, value in values.items():
+        setattr(project, column, value)
+    db.flush()
+    after = _project_text(db, project)
+    if after != before:
+        _log(db, "projects", project_id, user, f"{before} → {after}")
+    db.commit()
+    return project
+
+
+PROJECT_IN_USE = "Esse projeto tem lançamentos — inative em vez de excluir"
+
+
+def delete_project(db: Session, project_id: int, user: User) -> None:
+    """Só o projeto que nunca recebeu conta a pagar nem título a receber (18/11). Com lançamento, a
+    saída é inativar: o histórico fica."""
+    project = db.query(Project).filter_by(id=project_id).with_for_update().first()
+    if project is None:
+        raise RecordNotFound
+    in_use = (
+        db.query(PayableAllocation.id).filter(PayableAllocation.project_id == project_id).first()
+        or db.query(Receivable.id).filter(Receivable.project_id == project_id).first()
+    )
+    if in_use:
+        raise PayableConflict(PROJECT_IN_USE)
+    _log(db, "projects", project_id, user, f"Excluiu PRJ-{project.code} · {project.title}")
+    db.delete(project)
+    db.commit()
+
+
 def update_project(db: Session, project_id: int, data: ProjectIncentive, user: User) -> Project:
-    """Só o tipo e o incentivo: o resto do projeto vem do Connect."""
+    """Só o tipo e o incentivo, sem tocar no resto do projeto."""
     project = db.query(Project).filter_by(id=project_id).with_for_update().first()
     if project is None:
         raise RecordNotFound

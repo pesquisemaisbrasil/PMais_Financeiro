@@ -40,7 +40,7 @@ from schemas.payable import ReportFields
 from services import payable as payable_service
 from services import period_lock
 from services.cnpj_lookup import CPF_IN_TEXT
-from services.payable import PayableConflict, PayableInvalid, _active, today
+from services.payable import PayableConflict, PayableInvalid, _active, inactive_project, today
 from services.payable_import import (
     MAX_ROWS,
     _date,
@@ -449,7 +449,7 @@ class Lookups:
 def _lookups(db: Session, fields: ReportFields, positions: dict[str, int]) -> Lookups:
     category = None
     if fields.categoryId is not None:
-        category = _active(db, ExpenseCategory, fields.categoryId, "Categoria")
+        category = _active(db, ExpenseCategory, fields.categoryId, "Plano de contas")
         if category.kind != "despesa":
             raise PayableInvalid("Contas a pagar usam conta de despesa")
     method = (
@@ -466,6 +466,8 @@ def _lookups(db: Session, fields: ReportFields, positions: dict[str, int]) -> Lo
             raise PayableInvalid("Projeto não encontrado")
         if project.status == "encerrado":
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+        if not project.active:
+            raise PayableConflict(inactive_project(project))
 
     def active(model: Any) -> list[Any]:
         return db.query(model).filter(model.active.is_(True)).all()
@@ -620,10 +622,11 @@ def _project(line: Row, look: Lookups) -> None:
     found = _match(look.projects, text)
     if len(found) > 1:
         line.errors.append(f"Projeto {text} aparece mais de uma vez no cadastro")
-    elif len(found) == 1 and found[0].status != "encerrado":
+    elif len(found) == 1 and found[0].status != "encerrado" and found[0].active:
         line.project = found[0]
     elif len(found) == 1:
-        line.notes.append(f"Projeto {text} está fechado: a conta entra sem projeto")
+        why = "fechado" if found[0].status == "encerrado" else "inativo"
+        line.notes.append(f"Projeto {text} está {why}: a conta entra sem projeto")
     elif look.project is not None:
         line.project = look.project
         if text:

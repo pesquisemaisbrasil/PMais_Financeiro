@@ -125,6 +125,10 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
         incentiveDays=10,
     )
     p1790 = one(db, Project, code="1790", title="Tracking de marca · CATI", projectType="CATI")
+    # A unidade e o centro de custo de cada projeto, que a Nova conta a pagar preenche sozinha.
+    for project, unit in ((p1804, consumo), (p1790, cati)):
+        if project.unit_id is None:
+            project.unit_id, project.cost_center_id = unit.id, campo.id
 
     def payable(
         days: int,

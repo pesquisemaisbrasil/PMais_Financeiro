@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from api import attachment_http
 from core import file_vault, xlsx
 from core.limiter import limiter
-from core.permissions import require_finance
+from core.permissions import require_finance, require_screen
 from core.query_lists import parse_choices, parse_ids
 from db.connection import get_db
 from models.user import User
@@ -52,7 +52,7 @@ from services import payable as payable_service
 from services import receivable as receivable_service
 from services.auth import get_current_user
 
-router = APIRouter(tags=["contas a receber"])
+router = APIRouter(tags=["contas a receber"], dependencies=[require_screen("contas-a-receber")])
 
 T = TypeVar("T")
 

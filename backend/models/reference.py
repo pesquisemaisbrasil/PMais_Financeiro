@@ -252,7 +252,8 @@ class Supplier(Base):
 
 
 class Project(Base):
-    """Espelho mínimo do projeto do Connect, que continua sendo o dono do cadastro."""
+    """Projeto em que cada conta é lançada. Por enquanto o financeiro também cadastra (ADR 0021,
+    testes de 16/11): quando o Connect mandar os projetos, eles chegam sozinhos."""
 
     __tablename__ = "projects"
 
@@ -265,6 +266,32 @@ class Project(Base):
     projectType = Column(String(40), nullable=True)
     hasIncentive = Column(Boolean, nullable=False, default=False, server_default=false())
     incentiveDays = Column(Integer, nullable=True)
+    # Inativo (18/11): some das escolhas de lançamento novo; as contas já lançadas continuam.
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+    # Cadastrados com o projeto e preenchidos sozinhos no lançamento: "a unidade e o centro de custo
+    # daquele projeto nunca vão mudar" (Bruna, 16/11). O lançamento ainda pode trocar.
+    customer_id = Column(
+        Integer, ForeignKey("customers.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    unit_id = Column(
+        Integer, ForeignKey("business_units.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    cost_center_id = Column(
+        Integer, ForeignKey("cost_centers.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+
+    # Os nomes que a tela usa (ProjectOut lê direto do registro).
+    @property
+    def customerId(self) -> int | None:
+        return self.customer_id  # type: ignore[return-value]
+
+    @property
+    def unitId(self) -> int | None:
+        return self.unit_id  # type: ignore[return-value]
+
+    @property
+    def costCenterId(self) -> int | None:
+        return self.cost_center_id  # type: ignore[return-value]
 
 
 class RecordCounter(Base):
@@ -310,3 +337,17 @@ class Holiday(Base):
     # brasilapi | manual
     source = Column(String(12), nullable=False)
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class TaxRate(Base):
+    """Percentual de um imposto retido que toda conta a pagar nova já traz (Bruno, 19/11/2026).
+    Sem linha aqui, vale o padrão do sistema (services/tax_rates.py)."""
+
+    __tablename__ = "tax_rates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), nullable=False, unique=True)
+    rate = Column(Numeric(5, 2), nullable=False)
+    updatedAt = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )

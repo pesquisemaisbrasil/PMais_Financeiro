@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from core.permissions import ADMIN_ROLES
 from core.xlsx import build_xlsx
 from models.bank_reconciliation import BankReconciliation
 from models.bank_statement import BankTransaction
@@ -151,7 +152,7 @@ def close(db: Session, company_id: int, month: str, user: User) -> None:
 
 def reopen(db: Session, company_id: int, month: str, reason: str, user: User) -> None:
     """Reabre o mês. Só administrador, com motivo, e o histórico guarda quem e por quê."""
-    if user.role != "admin":
+    if user.role not in ADMIN_ROLES:
         raise NotAdmin
     company = _company(db, company_id)
     month_bounds(month)

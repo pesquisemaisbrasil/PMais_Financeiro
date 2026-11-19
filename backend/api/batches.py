@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from sqlalchemy.orm import Session
 
 from core.limiter import limiter
-from core.permissions import require_finance
+from core.permissions import require_finance, require_screen
 from db.connection import get_db
 from models.notification import Notification
 from models.project_ref import ProjectRef
@@ -30,7 +30,14 @@ from services import payable as payable_service
 from services.auth import get_current_user
 from services.connect_gateway import ConnectGateway, ConnectUnavailable, get_connect
 
-router = APIRouter(prefix="/projects/{project_id}/finance", tags=["comprovantes"])
+DIVERGENCIAS = require_screen("divergencias")
+
+# comprovantes e baixa são do Contas a pagar
+router = APIRouter(
+    prefix="/projects/{project_id}/finance",
+    tags=["comprovantes"],
+    dependencies=[require_screen("contas-a-pagar")],
+)
 # Fora de um projeto: escolher o projeto, trazer os do Connect e os avisos de quem está logado.
 shared = APIRouter(tags=["comprovantes"])
 
@@ -277,6 +284,7 @@ def list_divergences(
 
 @shared.get(
     "/finance/divergences",
+    dependencies=[DIVERGENCIAS],
     response_model=list[DivergenceItem],
     description="Baixas que o Connect recusou, de todos os projetos, as mais novas primeiro",
 )

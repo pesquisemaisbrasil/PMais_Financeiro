@@ -9,20 +9,25 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from api.access import router as access_router
 from api.auth import RATE_LIMITED_DETAIL
 from api.auth import router as auth_router
 from api.bank_reports import router as bank_reports_router
 from api.bank_statements import router as bank_statements_router
 from api.batches import router as batches_router
 from api.batches import shared as batches_shared_router
+from api.browsers import router as browsers_router
 from api.health import router as health_router
 from api.holidays import router as holidays_router
 from api.incentives import router as incentives_router
 from api.payables import router as payables_router
+from api.payables import shared as payables_shared_router
 from api.period_closings import router as period_closings_router
 from api.project_reports import router as project_reports_router
 from api.receivables import router as receivables_router
 from api.records import router as records_router
+from api.search import router as search_router
+from api.tax_rates import router as tax_rates_router
 from core.body_limit import AuthBodyLimit
 from core.config import CORS_ORIGINS, ENVIRONMENT
 from core.dispatcher import lifespan
@@ -124,6 +129,7 @@ async def security_headers(
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(payables_router)
+app.include_router(payables_shared_router)
 app.include_router(receivables_router)
 app.include_router(batches_router)
 app.include_router(batches_shared_router)
@@ -132,5 +138,9 @@ app.include_router(bank_statements_router)
 app.include_router(bank_reports_router)
 app.include_router(period_closings_router)
 app.include_router(holidays_router)
+app.include_router(tax_rates_router)
+app.include_router(browsers_router)
+app.include_router(access_router)
 app.include_router(incentives_router)
 app.include_router(project_reports_router)
+app.include_router(search_router)

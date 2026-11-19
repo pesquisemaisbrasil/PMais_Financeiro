@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
+from core.permissions import require_screen
 from core.statement import UNREADABLE, StatementError
 from schemas.bank_reconciliation import (
     ExceptionIn,
@@ -24,7 +25,7 @@ from services import bank_reconciliation, bank_statement
 from services.payable import PayableConflict, PayableInvalid
 from services.records import RecordNotFound
 
-router = APIRouter(tags=["extratos"])
+router = APIRouter(tags=["extratos"], dependencies=[require_screen("conferencia-bancaria")])
 
 READ_LIMIT = "120/minute"
 WRITE_LIMIT = "30/minute"

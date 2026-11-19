@@ -4,10 +4,11 @@ from fastapi import APIRouter, HTTPException, Path, Request, status
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
+from core.permissions import require_screen
 from schemas.project_report import ProjectReport, ProjectSummary
 from services import project_report
 
-router = APIRouter(tags=["relatórios"])
+router = APIRouter(tags=["relatórios"], dependencies=[require_screen("relatorio-projeto")])
 
 READ_LIMIT = "120/minute"
 

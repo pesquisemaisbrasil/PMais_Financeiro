@@ -1,8 +1,8 @@
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 RecordKind = Literal[
     "suppliers",
@@ -105,7 +105,27 @@ class ActiveIn(BaseModel):
     active: bool
 
 
+ProjectType = Literal["Health", "CATI", "Consumo", "Outro"]
+
+
 class ProjectIncentive(BaseModel):
-    projectType: Literal["Health", "CATI", "Consumo", "Outro"] | None = None
+    projectType: ProjectType | None = None
     hasIncentive: bool
     incentiveDays: int | None = Field(default=None, ge=1, le=30)
+
+
+class ProjectIn(ProjectIncentive):
+    """O projeto cadastrado no Financeiro (provisório até o Connect mandar; ADR 0021)."""
+
+    # o número do projeto, como o financeiro usa ("1804"); só letras, números, ponto e traço
+    code: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=20, pattern=r"^[\w.-]+$"),
+    ]
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    # Obrigatórios no cadastro (18/11). Opcionais aqui para a recusa sair em pt-BR, no serviço.
+    customerId: int | None = None
+    unitId: int | None = None
+    costCenterId: int | None = None
+    # Só a edição muda: o projeto novo nasce ativo.
+    active: bool = True

@@ -5,17 +5,27 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, func, or_, text
+from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session, selectinload
 
 from core.print_table import build_print
 from core.query_lists import as_list
-from core.text import csv_cell, format_brl, format_brl_plain, format_date_br, launch_date
+from core.text import (
+    csv_cell,
+    format_brl,
+    format_brl_plain,
+    format_date_br,
+    launch_date,
+    matches_words,
+    normalize,
+    parse_search_amount,
+)
 from core.xlsx import build_xlsx
 from models.payable import (
     Payable,
     PayableAdjustment,
     PayableAllocation,
+    PayableAttachment,
     PayableEvent,
     PayableItem,
     PayablePayment,
@@ -34,6 +44,7 @@ from models.reference import (
 from models.user import User
 from schemas.payable import (
     AllocationIn,
+    BatchEdit,
     BatchPaymentCreate,
     BatchReclassify,
     PayableCreate,
@@ -150,6 +161,13 @@ def can_pay_directly(payable: Payable) -> bool:
 
 
 REPLACED_DETAIL = "Essa provisão já foi substituída — ela fica só no histórico"
+PROJECT_REQUIRED = "Escolha o projeto. Toda conta tem projeto, até a administrativa"
+CLOSED_PROJECT = "Projeto fechado — peça a reabertura a um administrador"
+
+
+def inactive_project(project: Project) -> str:
+    """Projeto inativo (18/11) não recebe lançamento novo; o que já está nele continua."""
+    return f"Projeto PRJ-{project.code} está inativo: reative em Cadastros para lançar nele"
 
 
 def can_replace(payable: Payable) -> bool:
@@ -244,6 +262,20 @@ def _item_counts(db: Session, ids: Iterable[int]) -> dict[int, int]:
     return {payable_id: count for payable_id, count in rows}
 
 
+def _attachment_counts(db: Session, ids: Iterable[int]) -> dict[int, int]:
+    """Documentos que ainda estão na conta (o tirado sai da conta e não conta)."""
+    rows = (
+        db.query(PayableAttachment.payable_id, func.count(PayableAttachment.id))
+        .filter(
+            PayableAttachment.payable_id.in_(list(ids)),
+            PayableAttachment.deletedAt.is_(None),
+        )
+        .group_by(PayableAttachment.payable_id)
+        .all()
+    )
+    return {payable_id: count for payable_id, count in rows}
+
+
 def _sort_key(column: str, on: date) -> Callable[[Payable], Any]:
     keys: dict[str, Callable[[Payable], Any]] = {
         "vencimento": lambda p: p.dueDate,
@@ -258,7 +290,7 @@ def _sort_key(column: str, on: date) -> Callable[[Payable], Any]:
     return keys[column]
 
 
-def row(payable: Payable, on: date, item_count: int) -> dict[str, Any]:
+def row(payable: Payable, on: date, item_count: int, attachment_count: int = 0) -> dict[str, Any]:
     return {
         "id": payable.id,
         "type": payable.type,
@@ -284,6 +316,11 @@ def row(payable: Payable, on: date, item_count: int) -> dict[str, Any]:
         "docsLate": docs_late(payable),
         "barcode": payable.barcode,
         "itemCount": item_count,
+        "attachmentCount": attachment_count,
+        "supplierId": payable.supplier_id,
+        "payOn": payable.payOn,
+        "competence": payable.competence,
+        "notes": payable.notes,
         "canPayDirectly": can_pay_directly(payable),
         "canReplace": can_replace(payable),
         "replaces": (
@@ -301,6 +338,30 @@ def row(payable: Payable, on: date, item_count: int) -> dict[str, Any]:
             else None
         ),
     }
+
+
+def _search_text(payable: Payable) -> str:
+    """Tudo em que a busca procura, já sem acento e sem diferença de maiúscula."""
+    parts = [
+        payable.description,
+        payable.payeeName,
+        payable.documentNumber,
+        payable.supplier.name if payable.supplier else None,
+        payable.supplier.nickname if payable.supplier else None,
+        payable.category.name,
+        *(f"PRJ-{a.project.code} {a.project.title}" for a in payable.allocations),
+    ]
+    return normalize(" ".join(part for part in parts if part))
+
+
+def matches_search(payable: Payable, search: str) -> bool:
+    """Cada palavra precisa aparecer, em qualquer ordem e em qualquer pedaço ("pro" acha
+    "provisão" e "professor"; "grafica" acha "Gráfica"). Um valor ("588,22", "R$ 1.200") acha a
+    conta com esse valor, líquido ou principal (testes de 16/11, A10 e A11)."""
+    amount = parse_search_amount(search)
+    if amount is not None and amount in (payable.amount, net_amount(payable)):
+        return True
+    return matches_words(_search_text(payable), search)
 
 
 def _filtered(
@@ -355,21 +416,11 @@ def _filtered(
     projects = as_list(filters.get("project"))
     if projects:
         query = query.filter(Payable.allocations.any(PayableAllocation.project_id.in_(projects)))
-    term = (search or "").strip().lower()
-    if term:
-        like = lambda column: func.lower(column).contains(term, autoescape=True)  # noqa: E731
-        query = query.outerjoin(Supplier, Payable.supplier_id == Supplier.id).filter(
-            or_(
-                like(Payable.description),
-                like(Payable.payeeName),
-                like(Payable.documentNumber),
-                like(Supplier.name),
-                like(Supplier.nickname),
-            )
-        )
-    # shortcut: situação calculada em Python, com tudo do período em memória; mover para SQL
-    # quando um período passar de dezenas de milhares de títulos.
+    # shortcut: situação e busca calculadas em Python, com tudo do período em memória; mover para
+    # SQL quando um período passar de dezenas de milhares de títulos.
     payables: list[Payable] = query.all()
+    if (search or "").strip():
+        payables = [p for p in payables if matches_search(p, search or "")]
     wanted = as_list(filters.get("situation"))
     if wanted:
         payables = [p for p in payables if situation(p, on) in wanted]
@@ -414,11 +465,13 @@ def list_payables(
         indicators[key] = {"value": _indicator_value(key, matching), "count": len(matching)}
 
     first = (page - 1) * PAGE_SIZE
+    shown = selected[first : first + PAGE_SIZE]
+    documents = _attachment_counts(db, [p.id for p in shown])
     return {
         "today": on,
         "rangeStart": start,
         "rangeEnd": end,
-        "items": [row(p, on, counts.get(p.id, 0)) for p in selected[first : first + PAGE_SIZE]],
+        "items": [row(p, on, counts.get(p.id, 0), documents.get(p.id, 0)) for p in shown],
         "total": len(selected),
         "page": page,
         "pageSize": PAGE_SIZE,
@@ -530,7 +583,7 @@ def _export_table(
         "Descrição",
         "Documento",
         "Projeto",
-        "Categoria",
+        "Plano de contas",
         "Centro de custo",
         "Forma",
         "Empresa",
@@ -715,7 +768,13 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
     changes = [e for e in payable.events if not e.text.startswith("Documento baixado")]
     last = changes[-1] if changes else None
     return {
-        **row(payable, today(), len(payable.items)),
+        **row(
+            payable,
+            today(),
+            len(payable.items),
+            sum(1 for a in payable.attachments if a.deletedAt is None),
+        ),
+        "unitId": payable.unit_id,
         "company_id": payable.company_id,
         "supplierId": payable.supplier_id,
         "categoryId": payable.category_id,
@@ -804,7 +863,13 @@ def _active(db: Session, model: type[Any], record_id: int, label: str) -> Any:
     return record
 
 
-def _check_allocations(db: Session, allocations: list[AllocationIn], amount: Decimal) -> None:
+def _check_allocations(
+    db: Session,
+    allocations: list[AllocationIn],
+    amount: Decimal,
+    kept: frozenset[int] = frozenset(),
+) -> None:
+    """`kept`: projetos que a conta já tinha. Continuam valendo mesmo se o projeto foi inativado."""
     if not allocations:
         return
     total = sum((a.amount for a in allocations), ZERO)
@@ -822,6 +887,8 @@ def _check_allocations(db: Session, allocations: list[AllocationIn], amount: Dec
             raise PayableInvalid(f"Projeto {allocation.projectId} não encontrado")
         if project.status == "encerrado":
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+        if not project.active and project.id not in kept:
+            raise PayableConflict(inactive_project(project))
 
 
 def check_classification(
@@ -833,7 +900,7 @@ def check_classification(
     costCenterId: int,
     paymentMethodId: int,
 ) -> None:
-    category = _active(db, ExpenseCategory, categoryId, "Categoria")
+    category = _active(db, ExpenseCategory, categoryId, "Plano de contas")
     if category.kind != "despesa":
         raise PayableInvalid("Contas a pagar usam conta de despesa")
     _active(db, Company, companyId, "Empresa")
@@ -867,6 +934,9 @@ def new_payable(db: Session, data: PayableCreate, user: User) -> Payable:
     _period_open(db, data.companyId, data.issueDate)
     if data.documentType == "NF" and (not data.documentNumber or not data.documentDate):
         raise PayableInvalid("Informe o número e a data de emissão da nota")
+    # Toda conta tem projeto, até a administrativa (Bruna, testes de 16/11, A3).
+    if not data.allocations:
+        raise PayableInvalid(PROJECT_REQUIRED)
     _check_allocations(db, data.allocations, data.amount)
     _check_net(data.amount, data.adjustments)
 
@@ -955,13 +1025,31 @@ def apply_update(db: Session, payable: Payable, data: PayableUpdate, user: User)
         discount = sum((p.discount for p in active), ZERO)
         if adj.net(data.amount, rows) + surcharge - discount < paid_amount(payable):
             raise PayableConflict("O novo valor é menor do que já foi pago")
+    allocations_changed = data.allocations is not None and _allocation_lines(
+        payable.allocations
+    ) != sorted((a.projectId, a.amount) for a in data.allocations)
+    if allocations_changed and data.allocations is not None:
+        # Tirar dinheiro de um projeto fechado também mexe nele: a mesma trava do lançamento.
+        if any(a.project.status == "encerrado" for a in payable.allocations):
+            raise PayableConflict(CLOSED_PROJECT)
+        kept = frozenset(a.project_id for a in payable.allocations)
+        _check_allocations(db, data.allocations, data.amount, kept)
+    elif amount_changed and len(payable.allocations) > 1:
+        raise PayableConflict("Conta com rateio: refaça o rateio para mudar o valor")
     if amount_changed:
-        if len(payable.allocations) > 1:
-            raise PayableConflict("Conta com rateio: refaça o rateio para mudar o valor")
-        if payable.allocations:
+        if payable.allocations and not allocations_changed:
             payable.allocations[0].amount = data.amount
         changes.append(f"valor {format_brl(payable.amount)} → {format_brl(data.amount)}")
         payable.amount = data.amount
+    if allocations_changed and data.allocations is not None:
+        before = _classification_projects(payable.allocations)
+        payable.allocations = [
+            PayableAllocation(project_id=a.projectId, amount=a.amount) for a in data.allocations
+        ]
+        db.flush()
+        after = _classification_projects(payable.allocations)
+        if after != before:  # o mesmo projeto, só com o valor novo, não é mudança de projeto
+            changes.append(f"projeto {before} → {after}")
     if adjustments_changed and data.adjustments is not None:
         changes += adj.describe_changes(payable.adjustments, data.adjustments)
         payable.adjustments = _adjustment_rows(data.adjustments)
@@ -972,11 +1060,51 @@ def apply_update(db: Session, payable: Payable, data: PayableUpdate, user: User)
     if data.description != payable.description:
         changes.append(f"descrição {payable.description} → {data.description}")
         payable.description = data.description
+    changes += _update_unit(db, payable, data)
     changes += _update_classification(db, payable, data)
     changes += _update_document(payable, data)
     changes += _update_extras(payable, data)
     if changes:
         audit(db, payable, user, "Alterada: " + "; ".join(changes))
+
+
+def _allocation_lines(allocations: Iterable[PayableAllocation]) -> list[tuple[int, Decimal]]:
+    return sorted((a.project_id, a.amount) for a in allocations)
+
+
+def _classification_projects(allocations: Iterable[PayableAllocation]) -> str:
+    """'PRJ-1804' ou, no rateio, 'PRJ-1804 R$ 600,00 + PRJ-1790 R$ 400,00'."""
+    listed = list(allocations)
+    if len(listed) == 1:
+        return f"PRJ-{listed[0].project.code}"
+    return (
+        " + ".join(f"PRJ-{a.project.code} {format_brl(a.amount)}" for a in listed) or "sem projeto"
+    )
+
+
+def _update_unit(db: Session, payable: Payable, data: PayableUpdate) -> list[str]:
+    """A unidade, e com ela a empresa (a Nova conta a pagar também não tem campo Empresa)."""
+    if "unitId" not in data.model_fields_set or data.unitId in (None, payable.unit_id):
+        return []
+    unit = _active(db, BusinessUnit, data.unitId, "Unidade")
+    if any(a.project.status == "encerrado" for a in payable.allocations):
+        raise PayableConflict(CLOSED_PROJECT)
+    changes = [f"unidade {payable.unit.name} → {unit.name}"]
+    if unit.company_id != payable.company_id:
+        # A baixa saiu da conta bancária de uma empresa: a conta não troca de empresa depois dela.
+        if payable.payments:
+            raise PayableConflict(
+                "Conta com baixa não muda de empresa: estorne a baixa antes ou escolha uma "
+                "unidade da mesma empresa"
+            )
+        company = _active(db, Company, unit.company_id, "Empresa")
+        _period_open(db, company.id, payable.issueDate)
+        changes.append(f"empresa {payable.company.name} → {company.name}")
+        payable.company_id = company.id
+        payable.company = company
+    payable.unit_id = unit.id
+    payable.unit = unit
+    return changes
 
 
 def _update_classification(db: Session, payable: Payable, data: PayableUpdate) -> list[str]:
@@ -999,7 +1127,14 @@ def _update_classification(db: Session, payable: Payable, data: PayableUpdate) -
             if payable.type == "provisao":
                 payable.payeeName = None  # "Provisão" era só o nome enquanto não havia fornecedor
     wanted = [
-        ("categoryId", "category_id", "category", ExpenseCategory, "Categoria", "categoria"),
+        (
+            "categoryId",
+            "category_id",
+            "category",
+            ExpenseCategory,
+            "Plano de contas",
+            "plano de contas",
+        ),
         ("costCenterId", "cost_center_id", "cost_center", CostCenter, "Centro de custo", "centro"),
         (
             "paymentMethodId",
@@ -1374,16 +1509,43 @@ def _classification(payable: Payable) -> str:
     return f"{projects} / {payable.category.name} / {payable.cost_center.path}"
 
 
+def _reclassify_amount_and_due(
+    db: Session, payable: Payable, data: BatchReclassify, user: User
+) -> None:
+    """Vencimento e valor passam pela edição da conta: as mesmas travas (valor menor que o pago,
+    conta com itens ou com rateio, projeto fechado) e o mesmo histórico."""
+    if data.dueDate is None and data.amount is None:
+        return
+    try:
+        apply_update(
+            db,
+            payable,
+            PayableUpdate(
+                description=payable.description,
+                amount=data.amount if data.amount is not None else payable.amount,
+                dueDate=data.dueDate if data.dueDate is not None else payable.dueDate,
+            ),
+            user,
+        )
+    except (PayableConflict, PayableInvalid) as exc:
+        # Diz qual conta parou o lote: nada é gravado, e a pessoa tira ela da seleção.
+        raise type(exc)(f"{payable.description}: {exc}") from exc
+
+
 def reclassify_batch(db: Session, data: BatchReclassify, user: User) -> int:
-    if not data.projectId and not data.categoryId and not data.costCenterId:
+    if not (data.projectId or data.categoryId or data.costCenterId or data.dueDate or data.amount):
         raise PayableInvalid("Escolha o que vai mudar")
     project = db.get(Project, data.projectId) if data.projectId else None
     if data.projectId and project is None:
         raise PayableInvalid("Projeto não encontrado")
     if project is not None and project.status == "encerrado":
         raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
+    if project is not None and not project.active:
+        raise PayableConflict(inactive_project(project))
     category = (
-        _active(db, ExpenseCategory, data.categoryId, "Categoria") if data.categoryId else None
+        _active(db, ExpenseCategory, data.categoryId, "Plano de contas")
+        if data.categoryId
+        else None
     )
     if category is not None and category.kind != "despesa":
         raise PayableInvalid("Contas a pagar usam conta de despesa")
@@ -1400,14 +1562,37 @@ def reclassify_batch(db: Session, data: BatchReclassify, user: User) -> int:
             raise PayableConflict(f"A conta {payable.description} já foi encerrada")
         if any(a.project.status == "encerrado" for a in payable.allocations):
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
-        before = _classification(payable)
-        if project is not None:
-            payable.allocations = [PayableAllocation(project=project, amount=payable.amount)]
-        if category is not None:
-            payable.category = category
-        if center is not None:
-            payable.cost_center = center
-        audit(db, payable, user, f"Reclassificada: {before} → {_classification(payable)}")
+        if project is not None or category is not None or center is not None:
+            before = _classification(payable)
+            if project is not None:
+                payable.allocations = [PayableAllocation(project=project, amount=payable.amount)]
+            if category is not None:
+                payable.category = category
+            if center is not None:
+                payable.cost_center = center
+            audit(db, payable, user, f"Reclassificada: {before} → {_classification(payable)}")
+        # Depois do projeto: com um projeto só, o valor novo vai inteiro para ele.
+        _reclassify_amount_and_due(db, payable, data, user)
+    db.commit()
+    return len(ids)
+
+
+def edit_batch(db: Session, data: BatchEdit, user: User) -> int:
+    """Edição em lote, conta por conta (Bruno, 18/11, como na tela antiga "Edição em Lote"): cada
+    linha marcada muda descrição, fornecedor, valor, vencimento, pagar em, competência e observação,
+    pela mesma edição da conta (as mesmas travas e o mesmo histórico). Uma linha recusada para o
+    lote inteiro: nada é gravado, e a mensagem diz qual conta foi."""
+    ids = [row.id for row in data.rows]
+    if len(set(ids)) != len(ids):
+        raise PayableInvalid("A mesma conta aparece duas vezes")
+    # Na ordem do id: duas edições em lote ao mesmo tempo travam as contas na mesma ordem.
+    for row in sorted(data.rows, key=lambda r: r.id):
+        payable = _get(db, row.id, lock=True)
+        fields = row.model_dump(exclude={"id"}, exclude_unset=True)
+        try:
+            apply_update(db, payable, PayableUpdate(**fields), user)
+        except (PayableConflict, PayableInvalid) as exc:
+            raise type(exc)(f"{payable.description}: {exc}") from exc
     db.commit()
     return len(ids)
 
@@ -1518,7 +1703,15 @@ def reference(db: Session) -> dict[str, Any]:
         ],
         "suppliers": active(Supplier).all(),
         "projects": db.query(Project).order_by(Project.code).all(),
+        "taxRates": _tax_rates(db),
     }
+
+
+def _tax_rates(db: Session) -> list[dict[str, Any]]:
+    # tax_rates usa as exceções deste módulo: importar no topo faria um ciclo
+    from services import tax_rates
+
+    return tax_rates.list_rates(db)
 
 
 # ---- Início ----

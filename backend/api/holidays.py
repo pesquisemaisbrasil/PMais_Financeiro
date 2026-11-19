@@ -7,11 +7,14 @@ from sqlalchemy.exc import IntegrityError
 
 from api.payables import DbSession, FinanceUser
 from core.limiter import limiter
+from core.permissions import require_screen
 from schemas.holidays import BusinessDayOut, HolidayIn, HolidayOut, HolidaySyncOut
 from services import holiday_sync
 from services import holidays as holidays_service
 from services.payable import PayableConflict, PayableInvalid
 from services.records import RecordNotFound
+
+CADASTROS = require_screen("cadastros")
 
 router = APIRouter(tags=["feriados"])
 
@@ -73,6 +76,7 @@ def check_business_day(
 
 @router.post(
     "/holidays",
+    dependencies=[CADASTROS],
     response_model=HolidayOut,
     status_code=status.HTTP_201_CREATED,
     description="Cadastra um feriado (nacional, estadual ou municipal). Passa a contar como dia "
@@ -87,6 +91,7 @@ def create_holiday(
 
 @router.delete(
     "/holidays/{holiday_id}",
+    dependencies=[CADASTROS],
     status_code=status.HTTP_204_NO_CONTENT,
     description="Exclui um feriado cadastrado. Um nacional da BrasilAPI volta se for buscado "
     "de novo",
@@ -98,6 +103,7 @@ def delete_holiday(request: Request, holiday_id: int, db: DbSession, user: Finan
 
 @router.post(
     "/holidays/sync",
+    dependencies=[CADASTROS],
     response_model=HolidaySyncOut,
     description="Busca os feriados nacionais do ano na BrasilAPI e acrescenta os que faltam",
 )

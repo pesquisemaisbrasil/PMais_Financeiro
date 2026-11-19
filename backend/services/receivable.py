@@ -13,12 +13,19 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, selectinload
 
 from core.print_table import build_print
 from core.query_lists import as_list
-from core.text import csv_cell, format_brl, format_brl_plain, format_date_br
+from core.text import (
+    csv_cell,
+    format_brl,
+    format_brl_plain,
+    format_date_br,
+    matches_words,
+    parse_search_amount,
+)
 from core.xlsx import build_xlsx
 from models.receivable import (
     Receivable,
@@ -45,6 +52,7 @@ from services.payable import (
     PayableInvalid,
     PayableNotFound,
     _active,
+    inactive_project,
     lock_transaction_id,
     period_range,
     today,
@@ -78,6 +86,31 @@ def received_amount(receivable: Receivable) -> Decimal:
 def net_amount(receivable: Receivable) -> Decimal:
     """O que de fato se recebe: o valor principal + acréscimos − descontos − impostos."""
     return adj.net(receivable.amount, receivable.adjustments)
+
+
+def _search_text(receivable: Receivable) -> str:
+    """Tudo em que a busca da lista procura."""
+    customer = receivable.customer
+    project = receivable.project
+    parts = [
+        receivable.description,
+        receivable.contract,
+        receivable.documentNumber,
+        customer.name if customer else None,
+        customer.nickname if customer else None,
+        f"PRJ-{project.code} {project.title}" if project else None,
+    ]
+    return " ".join(part for part in parts if part)
+
+
+def matches_search(receivable: Receivable, search: str) -> bool:
+    """A mesma busca do contas a pagar (18/11): sem acento, sem diferença de maiúscula, cada palavra
+    em qualquer pedaço e em qualquer ordem. Um valor ("1.000,00") acha o título com ele, principal
+    ou líquido."""
+    amount = parse_search_amount(search)
+    if amount is not None and amount in (receivable.amount, net_amount(receivable)):
+        return True
+    return matches_words(_search_text(receivable), search)
 
 
 def pending_amount(receivable: Receivable) -> Decimal:
@@ -240,21 +273,12 @@ def _filtered(
         chosen = as_list(filters.get(key))
         if chosen:
             query = query.filter(column.in_(chosen))
-    term = (search or "").strip().lower()
-    if term:
-        like = lambda column: func.lower(column).contains(term, autoescape=True)  # noqa: E731
-        query = query.join(Customer, Receivable.customer_id == Customer.id).filter(
-            or_(
-                like(Receivable.description),
-                like(Receivable.contract),
-                like(Receivable.documentNumber),
-                like(Customer.name),
-                like(Customer.nickname),
-            )
-        )
-    # shortcut: situação calculada em Python, com tudo do período em memória; mover para SQL
-    # quando um período passar de dezenas de milhares de títulos.
+    # shortcut: situação e busca em Python, com tudo do período em memória (a busca precisa ignorar
+    # acento, o que o SQLite dos testes não faz); mover para SQL quando um período passar de dezenas
+    # de milhares de títulos.
     receivables: list[Receivable] = query.all()
+    if (search or "").strip():
+        receivables = [r for r in receivables if matches_search(r, search or "")]
     wanted = as_list(filters.get("situation"))
     if wanted:
         receivables = [r for r in receivables if situation(r, on) in wanted]
@@ -652,6 +676,8 @@ def _check_project(db: Session, project_id: int | None) -> Project | None:
         raise PayableInvalid("Projeto não encontrado")
     if project.status == "encerrado":
         raise PayableConflict(PROJECT_CLOSED)
+    if not project.active:
+        raise PayableConflict(inactive_project(project))
     return project
 
 

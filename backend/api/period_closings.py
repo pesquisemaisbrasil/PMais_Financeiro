@@ -7,12 +7,15 @@ from sqlalchemy.exc import IntegrityError
 from api.payables import DbSession, FinanceUser
 from core import xlsx
 from core.limiter import limiter
+from core.permissions import require_screen
 from schemas.period_closing import ClosingStatus, ReopenIn
 from services import period_closing
 from services.payable import PayableConflict, PayableInvalid
 from services.records import RecordNotFound
 
-router = APIRouter(tags=["fechamento do mês"])
+router = APIRouter(
+    tags=["fechamento do mês"], dependencies=[require_screen("conferencia-bancaria")]
+)
 
 READ_LIMIT = "120/minute"
 WRITE_LIMIT = "30/minute"

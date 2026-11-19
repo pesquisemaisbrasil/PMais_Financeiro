@@ -38,6 +38,7 @@ from models.bank_reconciliation import (  # noqa: E402,F401
 )
 from models.bank_statement import BankStatement, BankTransaction  # noqa: E402,F401
 from models.connect_payable_item import ConnectPayableItem  # noqa: E402
+from models.demand import Demand  # noqa: E402,F401
 from models.login_event import LoginEvent  # noqa: E402,F401
 from models.mfa_recovery_code import MfaRecoveryCode  # noqa: E402
 from models.notification import Notification  # noqa: E402,F401
@@ -56,8 +57,10 @@ from models.reference import (  # noqa: E402
     PaymentMethod,
     Project,
     Supplier,
+    TaxRate,
 )
 from models.refresh_token import RefreshToken  # noqa: E402,F401
+from models.trusted_browser import TrustedBrowser  # noqa: E402,F401
 from models.user import User  # noqa: E402
 from scripts.seed_demo import seed as seed_payables  # noqa: E402
 from services.payable import today  # noqa: E402
@@ -99,15 +102,35 @@ WITH_MFA = [
     "fechamento@e2e.invalid",
     "paginacao@e2e.invalid",
     "contas-erro@e2e.invalid",
+    # testes com o financeiro de 16/11 (frontend/e2e/testes-16-11.spec.ts)
+    "pedidos-projeto@e2e.invalid",
+    "pedidos-lista@e2e.invalid",
+    # navegador liberado (frontend/e2e/navegador-liberado.spec.ts): a pessoa e o admin que libera
+    "acessos@e2e.invalid",
+    "acessos-admin@e2e.invalid",
+    # campos obrigatórios, com conta própria: com o navegador liberado, cada conta usa um navegador
+    "campos@e2e.invalid",
+    # busca em todo o sistema (frontend/e2e/busca-geral.spec.ts)
+    "busca@e2e.invalid",
+    # carregar incentivos em lote (frontend/e2e/carregar-incentivos.spec.ts)
+    "carregar-incentivos@e2e.invalid",
+    # impostos retidos calculados na conta nova (frontend/e2e/impostos-retidos.spec.ts)
+    "impostos@e2e.invalid",
+    # os três níveis de acesso e as demandas (frontend/e2e/niveis-de-acesso.spec.ts)
+    "niveis-super@e2e.invalid",
+    "niveis-admin@e2e.invalid",
+    "niveis-usuario@e2e.invalid",
 ]
-# Só quem é administrador reabre um mês fechado.
-ADMINS = ["fechamento@e2e.invalid"]
+# Só quem é administrador reabre um mês fechado e libera os navegadores.
+ADMINS = ["fechamento@e2e.invalid", "acessos-admin@e2e.invalid", "niveis-admin@e2e.invalid"]
+SUPERADMINS = ["niveis-super@e2e.invalid"]
 
 
 def seed_receipts(db) -> None:  # type: ignore[no-untyped-def]
     """Projeto do Connect e duas entrevistas de R$ 20 da pessoa 87, que o Connect simulado
     (services/connect_gateway.py: SimulatedConnect) conhece pela chave do PDF do teste."""
-    project = ProjectRef(connect_project_id=12, title="Pesquisa de mobilidade urbana")
+    # O mesmo número do PRJ-1804 da conta do Connect: o envio de comprovantes abre nele (A18)
+    project = ProjectRef(connect_project_id=1804, title="Pesquisa de mobilidade urbana")
     db.add(project)
     db.flush()
     for number in (1, 2):
@@ -232,12 +255,18 @@ def main() -> None:
             user.mfaEnabledAt = datetime.now(UTC)
             if email in ADMINS:
                 user.role = "admin"
+            if email in SUPERADMINS:
+                user.role = "superadmin"
             db.add(MfaRecoveryCode(user_id=user.id, codeHash=hash_token(RECOVERY_CODE)))
         seed_payables(db)
         seed_receipts(db)
         link_connect_people(db)
         seed_receivables(db)
         seed_reconciliation(db)
+        # Impostos retidos zerados: os testes que lançam conta conferem valores exatos. O teste
+        # e2e/impostos-retidos.spec.ts liga os percentuais e volta a zerar no fim.
+        for code in ("pis", "cofins", "csll", "ir"):
+            db.add(TaxRate(code=code, rate=Decimal("0")))
         db.commit()
     finally:
         db.close()

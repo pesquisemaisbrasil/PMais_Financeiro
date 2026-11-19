@@ -49,8 +49,25 @@ CNPJ_LOOKUP_MODE = os.getenv("CNPJ_LOOKUP_MODE", "brasilapi")
 
 # Busca dos feriados nacionais do ano no cadastro de feriados (services/holiday_sync.py):
 # "brasilapi" (padrão, dados públicos, sem chave), "simulated" (feriados inventados, só fora de
-# produção) ou outro valor para desligar. Os locais (municipal, estadual) são cadastrados à mão.
+# produção) ou outro valor para desligar. Os estaduais e municipais vêm do feriados.dev (abaixo).
 HOLIDAYS_LOOKUP_MODE = os.getenv("HOLIDAYS_LOOKUP_MODE", "brasilapi")
+# feriados.dev rodando no nosso servidor (ADR 0024): os feriados estaduais e municipais. Vazio
+# (testes, demonstração) = não busca.
+FERIADOS_DEV_URL = os.getenv("FERIADOS_DEV_URL", "").rstrip("/")
+# As cidades cujos feriados estaduais e municipais contam como dia não útil, no código do
+# feriados.dev. Padrão: as 27 capitais (Bruno, 19/11/2026).
+CAPITALS = (
+    "AC-rio-branco,AL-maceio,AP-macapa,AM-manaus,BA-salvador,CE-fortaleza,DF-brasilia,"
+    "ES-vitoria,GO-goiania,MA-sao-luis,MT-cuiaba,MS-campo-grande,MG-belo-horizonte,PA-belem,"
+    "PB-joao-pessoa,PR-curitiba,PE-recife,PI-teresina,RJ-rio-de-janeiro,RN-natal,"
+    "RS-porto-alegre,RO-porto-velho,RR-boa-vista,SC-florianopolis,SP-sao-paulo,SE-aracaju,"
+    "TO-palmas"
+)
+_LOCATIONS = os.getenv("HOLIDAYS_LOCATIONS") or CAPITALS  # vazio também cai nas capitais
+HOLIDAYS_LOCATIONS = [code.strip() for code in _LOCATIONS.split(",") if code.strip()]
+# De quantas em quantas horas a API busca sozinha os feriados do ano e do próximo. 0 = não busca
+# (testes); o servidor usa 6.
+HOLIDAYS_SYNC_HOURS = float(os.getenv("HOLIDAYS_SYNC_HOURS", "0"))
 
 # Cofre de arquivos dos anexos (core/file_vault.py): um bucket S3, no MinIO. Sem a configuração,
 # anexar fica indisponível. "memory" é um cofre de mentira, só fora de produção (testes de tela).
@@ -78,6 +95,10 @@ RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").lower() == "true"
 # Ligado por padrão para um ambiente mal configurado não mandar o cookie sem HTTPS;
 # só o .env local, em http://localhost, desliga.
 REFRESH_COOKIE_SECURE = os.getenv("REFRESH_COOKIE_SECURE", "true").lower() == "true"
+
+# Navegador liberado (spec acesso-e-auditoria, ADR 0022): a conta só entra pelos navegadores que um
+# admin liberou. Ligado por padrão; só a demonstração, que roda dentro do navegador, desliga.
+DEVICE_APPROVAL_ENABLED = os.getenv("DEVICE_APPROVAL_ENABLED", "true").lower() == "true"
 
 # Login por Google e Microsoft. Vazio = botão avisa que ainda não está disponível.
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
