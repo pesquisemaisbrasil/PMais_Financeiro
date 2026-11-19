@@ -24,6 +24,9 @@ const banned = [
   [/<textarea(\s|>|$)/, "<textarea> → Textarea (R2)"],
   [/<table(\s|>|$)/, "<table> → Table (R8)"],
   [/<SelectItem[^>]*value=""/, 'SelectItem value="" quebra o Radix (R3)'],
+  // o campo de data do navegador segue o idioma dele (mês/dia/ano no Edge em inglês): DateInput é sempre dd/mm/aaaa
+  [/type="date"/, '<Input type="date"> → DateInput, sempre dia/mês/ano (R2)'],
+  [/type="month"/, '<Input type="month"> → MonthInput, sempre mm/aaaa (R2)'],
 ];
 
 // checagem por linha (regexes simples, cobrem a tag toda numa linha só)
