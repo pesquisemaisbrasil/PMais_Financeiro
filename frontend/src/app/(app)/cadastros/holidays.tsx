@@ -3,6 +3,7 @@
 import { Archive, BookUser, CalendarDays, CloudDownload, Eye, Plus, Search, Trash2, Layers } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { DateInput } from "@/components/DateInput";
 import { CARD, ErrorBox, Field, FormError, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { CountCard, RowButton, SortHead, sortedBy, type SortState } from "@/components/RecordParts";
 import { SearchSelect as Choice } from "@/components/SearchSelect";
@@ -22,7 +23,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ApiError, deleteHoliday } from "@/lib/api";
 import { UFS } from "@/lib/customers";
 import { missingFieldsMessage } from "@/lib/forms";
-import { place } from "@/lib/nav";
 import {
   SCOPES,
   SOURCE_LABELS,
@@ -39,6 +39,7 @@ import {
 import { formatDate, plural } from "@/lib/payables";
 import { useFormAction } from "@/lib/use-form-action";
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/search";
 
 type Column = "date" | "name" | "place" | "source";
 
@@ -91,7 +92,7 @@ function NewHolidayDialog({ onClose, onDone }: { onClose: () => void; onDone: ()
           <div className="flex flex-col gap-3.5 py-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Data *" id="h-data">
-                <Input id="h-data" type="date" value={form.date} onChange={(event) => set("date")(event.target.value)} />
+                <DateInput id="h-data" value={form.date} onChange={(event) => set("date")(event.target.value)} />
               </Field>
               <Field label="Âmbito *" id="h-ambito">
                 <Choice
@@ -177,7 +178,10 @@ function DeleteHolidayDialog({
   );
 }
 
-/** A aba "Feriados" do Cadastros: os nacionais da BrasilAPI e os locais do financeiro. */
+/**
+ * A aba "Feriados" do Cadastros: os nacionais da BrasilAPI, os estaduais e municipais das capitais do
+ * feriados.dev (buscados sozinhos, ADR 0024) e os cadastrados à mão. Fora do menu desde 19/11.
+ */
 export function HolidaysTab() {
   const thisYear = new Date().getFullYear();
   const [rows, setRows] = useState<Holiday[] | null>(null);
@@ -205,11 +209,9 @@ export function HolidaysTab() {
   }, [load]);
 
   const shown = useMemo(() => {
-    const needle = term.trim().toLowerCase();
-    const found = (rows ?? []).filter(
-      (row) =>
-        !needle ||
-        [row.name, holidayPlace(row), formatDate(row.date), weekday(row.date)].join(" ").toLowerCase().includes(needle)
+    // a regra de toda busca do sistema: sem acento, sem diferença de maiúscula, palavras em qualquer ordem
+    const found = (rows ?? []).filter((row) =>
+      matchesSearch([row.name, holidayPlace(row), formatDate(row.date), weekday(row.date)].join(" "), term)
     );
     return sort ? sortedBy(found, (row) => holidayText(row, sort.column), sort.descending) : found;
   }, [rows, term, sort]);
@@ -235,7 +237,9 @@ export function HolidaysTab() {
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">
       <PageHeader
-        {...place("/cadastros?aba=holidays")}
+        // Saiu do menu em 19/11 (Bruno): a tela fica só pelo endereço até os feriados virem sozinhos
+        section="Cadastros"
+        title="Feriados"
         icon={BookUser}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -253,7 +257,7 @@ export function HolidaysTab() {
             </Select>
             <Button variant="outline" onClick={() => void sync()} disabled={syncing}>
               {syncing ? <Spinner aria-label="Buscando" className="size-4" /> : <CloudDownload size={16} />}
-              Buscar nacionais do ano
+              Buscar feriados do ano
             </Button>
             <Button onClick={() => setCreating(true)} disabled={!rows}>
               <Plus size={16} />
@@ -282,7 +286,7 @@ export function HolidaysTab() {
         <CountCard
           label="Locais"
           value={rows ? rows.length - national : null}
-          hint="estaduais e municipais"
+          hint="das capitais e cadastrados"
           icon={Archive}
           tone="cinza"
         />

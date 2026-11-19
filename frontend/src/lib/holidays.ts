@@ -11,7 +11,7 @@ export interface Holiday {
   scope: HolidayScope;
   uf: string | null;
   city: string | null;
-  source: "brasilapi" | "manual";
+  source: "brasilapi" | "manual" | "feriados.dev";
 }
 
 export interface HolidayInput {
@@ -26,6 +26,9 @@ export interface HolidaySync {
   year: number;
   added: number;
   total: number;
+  /** Os estaduais e municipais das capitais (feriados.dev, 19/11/2026). */
+  addedLocal?: number;
+  totalLocal?: number;
 }
 
 export const SCOPES: { id: HolidayScope; label: string }[] = [
@@ -37,6 +40,7 @@ export const SCOPES: { id: HolidayScope; label: string }[] = [
 export const SOURCE_LABELS: Record<Holiday["source"], string> = {
   brasilapi: "BrasilAPI",
   manual: "Cadastrado à mão",
+  "feriados.dev": "feriados.dev (capitais)",
 };
 
 export function listHolidays(): Promise<Holiday[]> {
@@ -71,7 +75,12 @@ export function syncYears(currentYear: number): number[] {
 
 /** A mensagem depois de buscar os nacionais: quantos entraram e quantos o ano tem. */
 export function syncMessage(result: HolidaySync): string {
-  if (result.added === 0) return `Os ${result.total} feriados nacionais de ${result.year} já estavam cadastrados.`;
+  const local = result.addedLocal
+    ? result.addedLocal === 1
+      ? " Das capitais, 1 feriado estadual ou municipal novo."
+      : ` Das capitais, ${result.addedLocal} feriados estaduais e municipais novos.`
+    : "";
+  if (result.added === 0) return `Os ${result.total} feriados nacionais de ${result.year} já estavam cadastrados.${local}`;
   const added = result.added === 1 ? "1 feriado novo" : `${result.added} feriados novos`;
-  return `${added} em ${result.year}. O ano tem ${result.total} feriados nacionais.`;
+  return `${added} em ${result.year}. O ano tem ${result.total} feriados nacionais.${local}`;
 }
