@@ -1,13 +1,6 @@
 import { readFileSync } from "node:fs";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { signIn } from "./fixtures";
-
-/** Campo de várias opções: marca (ou desmarca) uma e fecha a lista com Esc. */
-async function mark(page: Page, label: string, option: string | RegExp) {
-  await page.getByRole("dialog").getByRole("combobox", { name: label }).click();
-  await page.getByRole("option", { name: option }).click();
-  await page.keyboard.press("Escape");
-}
 
 // Datas de 2030, longe de tudo o que os outros testes usam: sábado 09/03, domingo 10/03 e quarta 13/03,
 // que o teste cadastra como feriado da empresa. Os dois dias de fim de semana vão para a segunda, e a
@@ -29,12 +22,12 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   const lastYear = new Date().getFullYear() - 1;
   await page.getByRole("combobox", { name: "Ano dos feriados nacionais" }).click();
   await page.getByRole("option", { name: String(lastYear) }).click();
-  await page.getByRole("button", { name: "Buscar nacionais do ano" }).click();
+  await page.getByRole("button", { name: "Buscar feriados do ano" }).click();
   await expect(page.getByText(new RegExp(`4 feriados novos em ${lastYear}`))).toBeVisible();
   await expect(page.getByRole("row", { name: /Carnaval/ })).toHaveCount(2);
   await expect(page.getByRole("row", { name: /Carnaval/ }).first()).toContainText("BrasilAPI");
   // Buscar de novo não repete
-  await page.getByRole("button", { name: "Buscar nacionais do ano" }).click();
+  await page.getByRole("button", { name: "Buscar feriados do ano" }).click();
   await expect(page.getByText(/já estavam cadastrados/)).toBeVisible();
 
   // Cadastrar um feriado local: campo vazio diz quais faltam
@@ -65,32 +58,24 @@ test("feriados cadastrados e a agenda de incentivos: data da planilha em dia nã
   await form.getByRole("button", { name: "Voltar" }).click();
 
   // ---- Incentivos: importar a planilha, com data de pagamento em dia não útil ----
+  // A tela de Incentivos saiu do menu em 18/11 e fica engavetada, só pelo endereço
   const menu = page.getByRole("navigation", { name: "Menu principal" });
   await menu.getByRole("button", { name: "Relatórios" }).click();
-  await menu.getByRole("link", { name: "Incentivos", exact: true }).click();
+  await expect(menu.getByRole("link", { name: "Relatório do projeto", exact: true })).toBeVisible();
+  await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(0);
+  await page.goto("/incentivos");
   await expect(page.getByRole("heading", { name: "Relatórios - Incentivos", exact: true })).toBeVisible();
-  // Os incentivos ficam só no menu Relatórios, abaixo do Relatório do projeto: com o Financeiro aberto, não há outro link
-  await menu.getByRole("button", { name: "Financeiro" }).click();
-  await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(1);
-  const reports = await menu.getByRole("link", { name: /^(Relatório do projeto|Incentivos)$/ }).allTextContents();
-  expect(reports).toEqual(["Relatório do projeto", "Incentivos"]);
   const sheet = [
-    "Nome;Valor;Data de pagamento;Chave Pix",
-    `Respondente A;100,00;${SATURDAY};pessoa-a@exemplo.invalid`,
-    `Respondente B;100,00;${SUNDAY};pessoa-b@exemplo.invalid`,
-    `Respondente C;100,00;13/03/2030;pessoa-c@exemplo.invalid`,
+    "Projeto;Plano de contas;Forma de pagamento;Nome;Valor;Data de pagamento;Chave Pix",
+    `1790;2.02 Incentivos;Pix;Respondente A;100,00;${SATURDAY};pessoa-a@exemplo.invalid`,
+    `1790;2.02 Incentivos;Pix;Respondente B;100,00;${SUNDAY};pessoa-b@exemplo.invalid`,
+    `1790;2.02 Incentivos;Pix;Respondente C;100,00;13/03/2030;pessoa-c@exemplo.invalid`,
   ].join("\r\n");
-  await page.getByRole("button", { name: "Importar planilha" }).click();
+  await page.getByRole("button", { name: "Carregar incentivos" }).click();
   const importer = page.getByRole("dialog");
-  // Aqui só se importa incentivo: o diálogo já abre nesse tipo, sem perguntar
-  await expect(importer.getByRole("heading", { name: "Importar incentivos" })).toBeVisible();
+  // Aqui só se carrega incentivo: a janela já abre nesse tipo, sem perguntar
+  await expect(importer.getByRole("heading", { name: "Carregar incentivos" })).toBeVisible();
   await expect(importer.getByRole("combobox", { name: "Tipo *" })).toHaveCount(0);
-  await mark(page, "Projeto", "PRJ-1790");
-  await mark(page, "Categoria", /Serviços de terceiros/);
-  await mark(page, "Forma de pagamento", "Pix");
-  await mark(page, "Empresa", "PPlus");
-  await mark(page, "Unidade", "Consumo SP");
-  await mark(page, "Centro de custo", "Administrativo");
   await importer.getByLabel("Planilha *").setInputFiles({
     name: "incentivos-fim-de-semana.csv",
     mimeType: "text/csv",

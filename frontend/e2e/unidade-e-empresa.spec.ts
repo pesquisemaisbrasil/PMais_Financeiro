@@ -18,6 +18,7 @@ test("unidade e empresa: a conta a pagar pede a unidade e leva a empresa dela; o
 
   // Sem Empresa; Unidade obrigatória, com busca e o nome da empresa ao lado de cada unidade
   await expect(form.getByRole("combobox", { name: /Empresa/ })).toHaveCount(0);
+  await choose(page, "Projeto *", /PRJ-1804/); // toda conta tem projeto; ele traz a unidade dele
   const unit = form.getByRole("combobox", { name: "Unidade *" });
   await unit.click();
   await expect(page.getByRole("option", { name: "Consumo SP · PPlus" })).toBeVisible();
@@ -28,7 +29,7 @@ test("unidade e empresa: a conta a pagar pede a unidade e leva a empresa dela; o
 
   await form.getByLabel("Valor principal (R$) *").pressSequentially("45000");
   await choose(page, "Fornecedor *", /Exata/);
-  await choose(page, "Categoria *", /Serviços de terceiros/);
+  await choose(page, "Plano de contas *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Conta da unidade Matriz");
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Pix");
@@ -38,7 +39,7 @@ test("unidade e empresa: a conta a pagar pede a unidade e leva a empresa dela; o
   await page.getByRole("combobox", { name: "Visão por período" }).click();
   await page.getByRole("option", { name: "Tudo" }).click();
   // Pela busca: com as contas dos outros testes, a nova pode cair na segunda página da lista
-  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("Conta da unidade Matriz");
+  await page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").fill("Conta da unidade Matriz");
   await expect(page.getByRole("row", { name: /Conta da unidade Matriz/ })).toBeVisible();
 
   // Nos detalhes, a empresa é a da unidade escolhida

@@ -8,13 +8,6 @@ async function choose(page: Page, label: string, option: string | RegExp) {
   await page.getByRole("option", { name: option }).click();
 }
 
-/** Campo de várias opções: marca (ou desmarca) uma e fecha a lista com Esc. */
-async function mark(page: Page, label: string, option: string | RegExp) {
-  await page.getByRole("dialog").getByRole("combobox", { name: label }).click();
-  await page.getByRole("option", { name: option }).click();
-  await page.keyboard.press("Escape");
-}
-
 test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", async ({ page }) => {
   const blocked: string[] = [];
   page.on("console", (message) => {
@@ -85,31 +78,36 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   // Lançar conta nova, que já aparece no dia
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
   const form = page.getByRole("dialog");
-  // Os valores vêm primeiro, alinhados à esquerda como os outros campos; depois, a divisão entre projetos
-  // (com o "Colar várias linhas"); e só então "Repetir esta conta"
+  // Na ordem da tela antiga (18/11): os valores alinhados com os outros campos e antes da forma de
+  // pagamento; o rateio (com o "Colar várias linhas") logo abaixo do projeto; a descrição numa caixa de
+  // várias linhas; e só então "Repetir esta conta"
   const payment = await box(form.getByRole("combobox", { name: "Forma de pagamento *" }));
   const grossField = await box(form.getByLabel("Valor principal (R$) *"));
   const netField = await box(form.getByLabel("Valor líquido"));
+  const projectField = await box(form.getByRole("combobox", { name: "Projeto *" }));
+  const unitField = await box(form.getByRole("combobox", { name: "Unidade *" }));
   const paste = await box(form.getByText("Colar várias linhas da planilha"));
   const repeat = await box(form.getByLabel("Repetir esta conta"));
-  // A descrição vem logo abaixo do valor líquido, numa caixa de várias linhas, antes da divisão entre projetos
   const description = await box(form.getByLabel("Descrição *"));
-  expect(description.y).toBeGreaterThan(netField.y + netField.height);
-  expect(description.height).toBeGreaterThan(80);
-  expect(paste.y).toBeGreaterThan(description.y + description.height);
+  expect(payment.y).toBeGreaterThan(netField.y + netField.height);
   expect(Math.abs(grossField.x - payment.x)).toBeLessThan(2);
-  expect(paste.y).toBeGreaterThan(netField.y + netField.height);
+  expect(paste.y).toBeGreaterThan(projectField.y + projectField.height);
+  expect(paste.y).toBeLessThan(unitField.y);
+  expect(description.height).toBeGreaterThan(80);
+  expect(repeat.y).toBeGreaterThan(description.y + description.height);
   // Palavra comprida, sem espaço, quebra dentro da caixa e não empurra a janela para o lado
   await form.getByLabel("Descrição *").fill("a".repeat(255));
   expect(await form.evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth)).toBe(true);
   expect(repeat.y).toBeGreaterThan(paste.y + paste.height);
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Informe um valor maior que zero.")).toBeVisible();
-  const today = await form.getByLabel("Programação *").inputValue();
+  // O campo mostra dd/mm/aaaa (18/11); as contas do teste usam aaaa-mm-dd
+  const [todayDay, todayMonth, todayYear] = (await form.getByLabel("Programação *").inputValue()).split("/");
+  const today = `${todayYear}-${todayMonth}-${todayDay}`;
   await form.getByLabel("Vencimento *").fill(today);
   await form.getByLabel("Valor principal (R$) *").fill("1.000,50");
   await choose(page, "Fornecedor *", /Exata/);
-  await choose(page, "Categoria *", /Serviços de terceiros/);
+  await choose(page, "Plano de contas *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Consultoria de teste");
   await choose(page, "Unidade *", /Consumo SP · PPlus/); // a empresa vem da unidade
   await choose(page, "Centro de custo *", "Administrativo");
@@ -118,7 +116,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByLabel("Buscar na lista").fill("pi");
   await expect(page.getByRole("option", { name: "Boleto" })).toHaveCount(0);
   await page.getByRole("option", { name: "Pix" }).click();
-  await form.getByRole("combobox", { name: "Projeto", exact: true }).click();
+  await form.getByRole("combobox", { name: "Projeto *", exact: true }).click();
   await page.getByLabel("Buscar na lista").fill("1790");
   await expect(page.getByRole("option", { name: /PRJ-1790/ })).toBeVisible();
   await expect(page.getByRole("option", { name: /PRJ-1804/ })).toHaveCount(0);
@@ -142,7 +140,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(total).toContainText("6 contas");
 
   // Busca e filtro combinados
-  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("consultoria");
+  await page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").fill("consultoria");
   await expect(total).toContainText("1 conta");
   await page.getByRole("button", { name: /Limpar filtros/ }).click();
   await expect(total).toContainText("6 contas");
@@ -206,7 +204,11 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await page.getByRole("button", { name: "Só este dia" }).click();
   await expect(page.getByRole("combobox", { name: "Visão por período" })).toContainText("Dia");
   await expect(total).toContainText("1 conta");
-  await page.getByRole("button", { name: "Hoje", exact: true }).click();
+  // De volta ao dia de hoje pelo mesmo calendário (o botão "Hoje" saiu em 18/11)
+  await expect(page.getByRole("button", { name: "Hoje", exact: true })).toHaveCount(0);
+  await dates.click();
+  await day(today).click();
+  await page.getByRole("button", { name: "Só este dia" }).click();
 
   // Exportar traz o que os filtros mostram, em CSV ou em Excel
   await page.getByRole("button", { name: "Exportar" }).click();
@@ -397,34 +399,30 @@ test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ 
   await page.goto("/contas-a-pagar");
 
   // Importar planilha: confere antes, e cria um lançamento por data de pagamento
-  const sheet = [
-    "Nome;CPF;Chave Pix;Valor;Data da pesquisa",
-    "Respondente A;000.000.000-00;pessoa-a@exemplo.invalid;120,00;22/10/2026",
-    "Respondente B;000.000.000-00;pessoa-b@exemplo.invalid;80,00;26/10/2026",
-    "Respondente C;000.000.000-00;pessoa-c@exemplo.invalid;R$ 400;26/10/2026",
-  ].join("\r\n");
-  await page.getByRole("button", { name: "Importar planilha" }).click();
+  const sheetOf = (project: string) => ({
+    name: "incentivos-exemplo.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      [
+        "Projeto;Plano de contas;Forma de pagamento;Nome;CPF;Chave Pix;Valor;Data da pesquisa",
+        `${project};2.02 Incentivos;Pix;Respondente A;000.000.000-00;pessoa-a@exemplo.invalid;120,00;22/10/2026`,
+        `${project};2.02 Incentivos;Pix;Respondente B;000.000.000-00;pessoa-b@exemplo.invalid;80,00;26/10/2026`,
+        `${project};2.02 Incentivos;Pix;Respondente C;000.000.000-00;pessoa-c@exemplo.invalid;R$ 400;26/10/2026`,
+      ].join("\r\n"),
+      "utf-8"
+    ),
+  });
+  await page.getByRole("button", { name: "Carregar incentivos" }).click();
   const importer = page.getByRole("dialog");
   await importer.getByRole("button", { name: "Ler planilha" }).click();
   await expect(importer.getByText("Escolha a planilha.")).toBeVisible();
-  await mark(page, "Projeto", "PRJ-1790");
-  await mark(page, "Categoria", /Serviços de terceiros/);
-  await mark(page, "Forma de pagamento", "Pix");
-  await mark(page, "Empresa", "PPlus");
-  await mark(page, "Unidade", "Consumo SP");
-  await mark(page, "Centro de custo", "Administrativo");
-  await importer.getByLabel("Planilha *").setInputFiles({
-    name: "incentivos-exemplo.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(sheet, "utf-8"),
-  });
+  await importer.getByLabel("Planilha *").setInputFiles(sheetOf("1790"));
   await importer.getByRole("button", { name: "Ler planilha" }).click();
-  // Projeto sem prazo não importa linha sem data de pagamento
-  await expect(importer.getByText("Este projeto não tem incentivo ou prazo marcado")).toBeVisible();
+  // Projeto sem prazo não importa linha sem data de pagamento: a planilha precisa trazer a data
+  await expect(importer.getByText("A planilha precisa da data de pagamento")).toBeVisible();
   await importer.getByRole("button", { name: "Voltar" }).click();
-  // A marcação continua: tira o 1790 e marca o 1804
-  await mark(page, "Projeto", "PRJ-1790");
-  await mark(page, "Projeto", "PRJ-1804");
+  // A planilha corrigida, no projeto que tem prazo de incentivo
+  await importer.getByLabel("Planilha *").setInputFiles(sheetOf("1804"));
   await importer.getByRole("button", { name: "Ler planilha" }).click();
   await expect(importer.getByText("Use só números no valor")).toBeVisible();
   await expect(importer).not.toContainText("pessoa-a@exemplo.invalid");
@@ -471,17 +469,12 @@ test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ 
   await page.getByRole("dialog").getByRole("button", { name: "Excluir" }).click();
   await expect(created).toHaveCount(0);
 
-  // O projeto vem do Connect: aqui só se marca o tipo e o incentivo
+  // A janela do projeto tem só o cadastro (ver testes-16-11): o tipo e o incentivo saíram em 18/11
   await page.getByRole("link", { name: "Projetos" }).click();
-  const project = page.getByRole("row", { name: /PRJ-1790/ });
-  await expect(project).toContainText("Sem incentivo");
-  await project.getByRole("button", { name: "Editar tipo e incentivo" }).click();
-  await choose(page, "Tem incentivo?", "Sim");
-  await page.getByRole("dialog").getByRole("button", { name: "Salvar" }).click();
-  await expect(page.getByRole("dialog").getByText(/de 1 a 30/)).toBeVisible();
-  await page.getByLabel("Prazo do incentivo (dias úteis)").fill("3");
-  await page.getByRole("dialog").getByRole("button", { name: "Salvar" }).click();
-  await expect(project).toContainText("Incentivo em 3 dias úteis");
+  await page.getByRole("button", { name: "Editar PRJ-1790" }).click();
+  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Cliente *" })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Tem incentivo?")).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
 
   // O menu recolhe, continua navegável e lembra da escolha
   await page.getByRole("button", { name: "Recolher menu" }).click();
@@ -496,54 +489,39 @@ test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ 
   expect(blocked).toEqual([]);
 });
 
-test("Importar planilha com vários projetos: todos os da planilha, ou só os marcados", async ({ page }) => {
+test("Carregar incentivos de vários projetos na mesma planilha", async ({ page }) => {
   // outra conta: o mesmo código do autenticador não vale duas vezes no mesmo período
   await signIn(page, "importacao@e2e.invalid");
   await page.goto("/contas-a-pagar");
   const sheet = [
-    "Nome;Valor;Data de pagamento;Projeto;Empresa;Unidade",
-    "Respondente A;100,00;19/11/2026;1804;PPlus;Consumo SP",
-    "Respondente B;50,00;19/11/2026;1790;MC;Matriz",
-    "Respondente C;70,00;27/11/2026;PRJ-1804;PPlus;CATI Curitiba",
-    "Respondente D;30,00;27/11/2026;9999;PPlus;Consumo SP",
+    "Nome;Valor;Data de pagamento;Projeto;Plano de contas;Forma de pagamento;Empresa;Unidade",
+    "Respondente A;100,00;19/11/2026;1804;2.02 Incentivos;Pix;PPlus;Consumo SP",
+    "Respondente B;50,00;19/11/2026;1790;2.02 Incentivos;Pix;MC;Matriz",
+    "Respondente C;70,00;27/11/2026;PRJ-1804;2.02 Incentivos;Pix;PPlus;CATI Curitiba",
+    "Respondente D;30,00;27/11/2026;9999;2.02 Incentivos;Pix;PPlus;Consumo SP",
   ].join("\r\n");
-  await page.getByRole("button", { name: "Importar planilha" }).click();
+  await page.getByRole("button", { name: "Carregar incentivos" }).click();
   const importer = page.getByRole("dialog");
-  // Empresa e unidade ficam em "Todas": a planilha diz as de cada linha
-  await mark(page, "Categoria", /Serviços de terceiros/);
-  await mark(page, "Forma de pagamento", "Pix");
-  await mark(page, "Centro de custo", "Administrativo");
+  // Empresa e unidade vêm da planilha, linha a linha; o centro de custo, do cadastro do projeto
   await importer.getByLabel("Planilha *").setInputFiles({
     name: "incentivos-varios-projetos.csv",
     mimeType: "text/csv",
     buffer: Buffer.from(sheet, "utf-8"),
   });
 
-  // Sem marcar projeto, entram todos os projetos que a planilha trouxer
-  await expect(importer.getByRole("combobox", { name: "Projeto" })).toContainText("Todos os projetos da planilha");
+  // Entram todos os projetos que a planilha trouxer
   await importer.getByRole("button", { name: "Ler planilha" }).click();
   await expect(importer.getByText("PRJ-1790, PRJ-1804")).toBeVisible();
   await expect(importer.getByText("Projeto 9999 não existe")).toBeVisible();
   // Cada combinação de projeto, empresa e unidade vira um lançamento, com a classificação à mostra
   await expect(importer.getByText("por classificação e data de pagamento")).toBeVisible();
-  await expect(importer.getByText("MC · Matriz · Administrativo").first()).toBeVisible();
-  await expect(importer.getByRole("button", { name: "Criar 3 lançamentos com 3 itens" })).toBeEnabled();
-
-  // Marcando só o 1804 e a PPlus, a linha do 1790 (e da MC) fica de fora sem virar erro
-  await importer.getByRole("button", { name: "Voltar" }).click();
-  await mark(page, "Projeto", "PRJ-1804");
-  await mark(page, "Empresa", "PPlus");
-  await expect(importer.getByRole("combobox", { name: "Projeto" })).toContainText("PRJ-1804");
-  await expect(importer.getByRole("combobox", { name: "Empresa" })).toContainText("PPlus");
-  await importer.getByRole("button", { name: "Ler planilha" }).click();
-  await expect(importer.getByText("Fora da seleção").first()).toBeVisible();
-  await importer.getByRole("button", { name: "Criar 2 lançamentos com 2 itens" }).click();
-  await expect(page.getByText(/2 lançamentos criados, 2 itens/)).toBeVisible();
+  await expect(importer.getByText("MC · Matriz · Campo").first()).toBeVisible();
+  await importer.getByRole("button", { name: "Criar 3 lançamentos com 3 itens" }).click();
+  await expect(page.getByText(/3 lançamentos criados, 3 itens/)).toBeVisible();
   // O banco é compartilhado com os outros testes: confere só as datas desta planilha.
-  // Em 19/11 entrou só a Respondente A (1804); a B (1790) ficou de fora. (Não é 20/11: é feriado nacional, e a
-  // data de pagamento da planilha em feriado vai para o próximo dia útil.)
+  // (Não é 20/11: é feriado nacional, e a data de pagamento da planilha em feriado vai para o próximo dia útil.)
   const created = page.getByRole("row", { name: /Incentivos \(1 pessoa\)/ });
-  await expect(created.filter({ hasText: "19/11/2026" })).toHaveCount(1);
+  await expect(created.filter({ hasText: "19/11/2026" })).toHaveCount(2);
   await expect(created.filter({ hasText: "27/11/2026" })).toHaveCount(1);
 });
 
@@ -558,46 +536,34 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await form.getByLabel("Vencimento *").fill("2027-03-15");
   await form.getByLabel("Valor principal (R$) *").fill("1.000,00");
   await choose(page, "Fornecedor *", /Exata/);
-  await choose(page, "Categoria *", /Serviços de terceiros/);
+  await choose(page, "Plano de contas *", /Serviços de terceiros/);
   await form.getByLabel("Descrição *").fill("Conta com ajustes");
+  await choose(page, "Projeto *", /PRJ-1804/); // toda conta tem projeto
   await choose(page, "Unidade *", /Consumo SP · PPlus/); // a empresa vem da unidade
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Pix");
 
-  // Cada botão abre a lista de lançamentos do tipo, e o total fica só para leitura
+  // Os três botões abrem a mesma janela, com os campos fixos do sistema antigo; o total fica só para leitura
   await expect(form.getByLabel("(+) Total de acréscimos")).toHaveValue(/0,00/);
   await form.getByRole("button", { name: "Acréscimos" }).click();
-  const surcharges = page.getByRole("dialog", { name: "Acréscimos" });
-  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click(); // lista vazia: nada a conferir
+  const values = page.getByRole("dialog", { name: "Acréscimos, descontos e impostos" });
+  await values.getByRole("button", { name: "Salvar", exact: true }).click(); // tudo vazio: nada a conferir
   await form.getByRole("button", { name: "Acréscimos" }).click();
-  await surcharges.getByLabel("Descrição da linha 1").fill("Multa por atraso");
-  await surcharges.getByLabel("Valor da linha 1").fill("abc");
-  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click();
-  await expect(surcharges.getByText('Informe o valor de "Multa por atraso", como 12,50.')).toBeVisible();
-  await surcharges.getByLabel("Valor da linha 1").fill("20,00");
-  await surcharges.getByRole("button", { name: "Adicionar linha" }).click();
-  await surcharges.getByLabel("Descrição da linha 2").fill("Juros");
-  await surcharges.getByLabel("Valor da linha 2").fill("5,00");
-  await expect(surcharges.getByText(/Total:\s*R\$\s25,00/)).toBeVisible();
-  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click();
+  // O cursor começa no grupo do botão clicado
+  await expect(values.getByLabel("Juros", { exact: true })).toBeFocused();
+  await values.getByLabel("Multa", { exact: true }).fill("20,00");
+  await values.getByLabel("Juros", { exact: true }).fill("5,00");
+  await expect(values.getByText(/Total:\s*R\$\s25,00/)).toBeVisible();
+  await values.getByLabel("Desconto", { exact: true }).fill("50,00");
+  await values.getByLabel("ISS", { exact: true }).fill("30,00");
+  await values.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(form.getByLabel("(+) Total de acréscimos")).toHaveValue(/25,00/);
-
-  await form.getByRole("button", { name: "Descontos" }).click();
-  const discounts = page.getByRole("dialog", { name: "Descontos" });
-  await discounts.getByLabel("Descrição da linha 1").fill("Desconto combinado");
-  await discounts.getByLabel("Valor da linha 1").fill("50,00");
-  await discounts.getByRole("button", { name: "Salvar descontos" }).click();
-  await form.getByRole("button", { name: "Impostos" }).click();
-  const taxes = page.getByRole("dialog", { name: "Impostos" });
-  await taxes.getByLabel("Descrição da linha 1").fill("ISS retido");
-  await taxes.getByLabel("Valor da linha 1").fill("30,00");
-  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
   // 1.000,00 + 25,00 − 50,00 − 30,00
   await expect(form.getByLabel("Valor líquido")).toHaveValue(/945,00/);
   await form.getByRole("button", { name: "Lançar conta" }).click();
 
   // A lista mostra o líquido, e a conta aberta mostra o valor principal, os três totais e as linhas
-  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("Conta com ajustes");
+  await page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").fill("Conta com ajustes");
   const row = page.getByRole("row", { name: /Conta com ajustes/ });
   await expect(row).toContainText(/R\$\s945,00/);
   await row.getByText("Conta com ajustes").first().click();
@@ -605,8 +571,8 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await expect(opened.getByText("Valor principal:")).toBeVisible();
   await expect(opened.getByText("Valor principal:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s1\.000,00/);
   await expect(opened.getByText("Valor líquido:").locator("xpath=following-sibling::dd[1]")).toContainText(/R\$\s945,00/);
-  await expect(opened.getByText(/Multa por atraso R\$\s20,00 · Juros R\$\s5,00/)).toBeVisible();
-  await expect(opened.getByText(/ISS retido R\$\s30,00/)).toBeVisible();
+  await expect(opened.getByText(/Juros R\$\s5,00 · Multa R\$\s20,00/)).toBeVisible();
+  await expect(opened.getByText(/ISS R\$\s30,00/)).toBeVisible();
 
   // Editar abre com o valor principal (não o líquido) e as linhas já lançadas
   await opened.getByRole("tab", { name: "Editar conta" }).click();
@@ -614,20 +580,20 @@ test("Acréscimos, descontos e impostos: lançar pelos botões, ver o líquido e
   await expect(opened.getByLabel("(−) Total de impostos")).toHaveValue(/30,00/);
   // Desconto que zera o valor é barrado na hora
   await opened.getByRole("button", { name: /Descontos/ }).click();
-  const editDiscounts = page.getByRole("dialog", { name: "Descontos" });
-  await editDiscounts.getByLabel("Valor da linha 1").fill("2.000,00");
-  await editDiscounts.getByRole("button", { name: "Salvar descontos" }).click();
+  const editValues = page.getByRole("dialog", { name: "Acréscimos, descontos e impostos" });
+  // A janela abre com o que já foi lançado
+  await expect(editValues.getByLabel("ISS", { exact: true })).toHaveValue("30,00");
+  await expect(editValues.getByLabel("Desconto", { exact: true })).toBeFocused();
+  await editValues.getByLabel("Desconto", { exact: true }).fill("2.000,00");
+  await editValues.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(opened.getByText(/valor líquido precisa ser maior que zero/).first()).toBeVisible();
   await opened.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(opened.getByText(/valor líquido precisa ser maior que zero/).first()).toBeVisible();
   // Volta o desconto e tira o imposto
   await opened.getByRole("button", { name: /Descontos/ }).click();
-  await editDiscounts.getByLabel("Valor da linha 1").fill("50,00");
-  await editDiscounts.getByRole("button", { name: "Salvar descontos" }).click();
-  await opened.getByRole("button", { name: /Impostos/ }).click();
-  const editTaxes = page.getByRole("dialog", { name: "Impostos" });
-  await editTaxes.getByRole("button", { name: "Tirar a linha 1" }).click();
-  await editTaxes.getByRole("button", { name: "Salvar impostos" }).click();
+  await editValues.getByLabel("Desconto", { exact: true }).fill("50,00");
+  await editValues.getByLabel("ISS", { exact: true }).fill("");
+  await editValues.getByRole("button", { name: "Salvar", exact: true }).click();
   await opened.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByText("Conta alterada.")).toBeVisible();
   await opened.getByRole("tab", { name: "Histórico" }).click();

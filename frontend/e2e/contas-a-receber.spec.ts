@@ -114,6 +114,10 @@ test("Contas a receber: título novo pode ficar sem projeto e o cadastro de clie
   await page.goto("/contas-a-receber");
   await page.getByRole("button", { name: "Nova conta a receber" }).click();
   const form = page.getByRole("dialog");
+  // Vencimento em dia útil: o padrão (hoje + 30 dias) pode cair num fim de semana, e o aviso de dia não
+  // útil, que aparece depois, empurraria os campos no meio das medidas
+  await form.getByLabel("Vencimento *").fill("2027-03-15");
+  await expect(form.getByText(/Deseja antecipar ou postergar/)).toHaveCount(0);
   // Os valores vêm depois da classificação e antes do documento
   const costCenter = await box(form.getByRole("combobox", { name: "Centro de custo *" }));
   const grossField = await box(form.getByLabel("Valor principal (R$) *"));
@@ -132,12 +136,11 @@ test("Contas a receber: título novo pode ficar sem projeto e o cadastro de clie
   await expect(page.getByRole("option", { name: "Sem projeto" })).toBeVisible();
   await page.keyboard.press("Escape");
   await form.getByLabel("Valor principal (R$) *").fill("1.000,00");
-  // Os impostos retidos entram pelo botão: uma linha por lançamento, e o líquido aparece na hora
+  // Os impostos retidos entram pelo botão, nos campos fixos, e o líquido aparece na hora
   await form.getByRole("button", { name: "Impostos" }).click();
-  const taxes = page.getByRole("dialog", { name: "Impostos" });
-  await taxes.getByLabel("Descrição da linha 1").fill("Retenção na nota");
-  await taxes.getByLabel("Valor da linha 1").fill("115,00");
-  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  const taxes = page.getByRole("dialog", { name: "Acréscimos, descontos e impostos" });
+  await taxes.getByLabel("Outros impostos").fill("115,00");
+  await taxes.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(form.getByLabel("Valor líquido")).toHaveValue(/885,00/);
   await form.getByRole("button", { name: "Lançar conta" }).click();
   // Campo vazio: a mensagem diz quais são. O projeto não está entre eles (nem toda receita tem projeto)
@@ -151,13 +154,13 @@ test("Contas a receber: título novo pode ficar sem projeto e o cadastro de clie
   await choose(page, "Unidade", "Consumo SP");
   await choose(page, "Centro de custo *", "Administrativo");
   await form.getByRole("button", { name: /Impostos/ }).click();
-  await taxes.getByLabel("Valor da linha 1").fill("1.000,00");
-  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  await taxes.getByLabel("Outros impostos").fill("1.000,00");
+  await taxes.getByRole("button", { name: "Salvar", exact: true }).click();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText(/valor líquido precisa ser maior que zero/).first()).toBeVisible();
   await form.getByRole("button", { name: /Impostos/ }).click();
-  await taxes.getByLabel("Valor da linha 1").fill("115,00");
-  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  await taxes.getByLabel("Outros impostos").fill("115,00");
+  await taxes.getByRole("button", { name: "Salvar", exact: true }).click();
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(page.getByText(/Conta lançada: R\$\s885,00/)).toBeVisible();
   // Sem projeto escolhido, o título entra e a lista diz "Sem projeto"
@@ -283,20 +286,11 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await choose(page, "Centro de custo *", "Administrativo");
 
   await form.getByRole("button", { name: "Acréscimos" }).click();
-  const surcharges = page.getByRole("dialog", { name: "Acréscimos" });
-  await surcharges.getByLabel("Descrição da linha 1").fill("Correção monetária");
-  await surcharges.getByLabel("Valor da linha 1").fill("40,00");
-  await surcharges.getByRole("button", { name: "Salvar acréscimos" }).click();
-  await form.getByRole("button", { name: "Descontos" }).click();
-  const discounts = page.getByRole("dialog", { name: "Descontos" });
-  await discounts.getByLabel("Descrição da linha 1").fill("Desconto comercial");
-  await discounts.getByLabel("Valor da linha 1").fill("100,00");
-  await discounts.getByRole("button", { name: "Salvar descontos" }).click();
-  await form.getByRole("button", { name: "Impostos" }).click();
-  const taxes = page.getByRole("dialog", { name: "Impostos" });
-  await taxes.getByLabel("Descrição da linha 1").fill("IR retido");
-  await taxes.getByLabel("Valor da linha 1").fill("60,00");
-  await taxes.getByRole("button", { name: "Salvar impostos" }).click();
+  const values = page.getByRole("dialog", { name: "Acréscimos, descontos e impostos" });
+  await values.getByLabel("Outros acréscimos").fill("40,00");
+  await values.getByLabel("Desconto", { exact: true }).fill("100,00");
+  await values.getByLabel("IR", { exact: true }).fill("60,00");
+  await values.getByRole("button", { name: "Salvar", exact: true }).click();
   // 2.000,00 + 40,00 − 100,00 − 60,00
   await expect(form.getByLabel("Valor líquido")).toHaveValue(/1\.880,00/);
   await form.getByRole("button", { name: "Lançar conta" }).click();
@@ -308,8 +302,8 @@ test("Contas a receber: acréscimos, descontos e impostos pelos botões e no det
   await row.getByRole("button", { name: "Ver detalhes" }).click();
   const opened = page.getByRole("dialog");
   await expect(opened.getByText("(+) Acréscimos")).toBeVisible();
-  await expect(opened.getByText("Correção monetária")).toBeVisible();
-  await expect(opened.getByText("IR retido")).toBeVisible();
+  await expect(opened.getByText(/Outros R\$\s40,00/)).toBeVisible();
+  await expect(opened.getByText(/IR R\$\s60,00/)).toBeVisible();
   // Uma linha de abas com cara de botão, na ordem pedida, abrindo em Detalhes e alinhada à esquerda
   await expect(opened.getByRole("tab")).toHaveText([
     "Detalhes",

@@ -51,7 +51,6 @@ const SCREENS = [
   { path: "/divergencias", first: "Divergências", minimum: 2 },
   { path: "/cadastros", first: "Cadastros", minimum: 3 },
   { path: "/relatorios/projeto", first: "Relatório do projeto", minimum: 2 },
-  { path: "/incentivos", first: "Incentivos", minimum: 3 },
 ];
 
 test("passeio de cada tela: o botão do menu explica a tela aberta, passo a passo, e não mexe no passeio geral", async ({

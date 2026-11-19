@@ -12,7 +12,7 @@ const rgb = (element: Locator) =>
 
 // Campo obrigatório vazio: a mensagem diz quais são, e todo "*" (rótulos e legenda) aparece em vermelho.
 test("campos obrigatórios: o * é vermelho e a mensagem diz quais campos faltam", async ({ page }) => {
-  await signIn(page, "faixa@e2e.invalid");
+  await signIn(page, "campos@e2e.invalid");
   await page.getByRole("link", { name: /Contas a pagar/ }).click();
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
   const form = page.getByRole("dialog");
@@ -34,12 +34,12 @@ test("campos obrigatórios: o * é vermelho e a mensagem diz quais campos faltam
   // também é um alerta no diálogo.
   const alert = form.getByRole("alert").filter({ hasText: "Preencha os campos obrigatórios:" });
   await expect(alert).toBeVisible();
-  // Os mesmos campos obrigatórios do sistema antigo: sem Empresa (ela vem da unidade) e com Unidade
-  for (const name of ["Fornecedor", "Categoria", "Unidade", "Centro de custo", "Forma de pagamento", "Descrição"]) {
-    await expect(alert).toContainText(name);
-  }
+  // Os campos obrigatórios do sistema antigo, sem Empresa (ela vem da unidade) e com Unidade, e o projeto,
+  // que toda conta tem (testes de 16/11). Na ordem da tela, que é a da tela antiga (18/11).
+  await expect(alert).toContainText(
+    "Fornecedor, Forma de pagamento, Projeto, Unidade, Centro de custo, Plano de contas e Descrição."
+  );
   await expect(alert).not.toContainText("Empresa");
-  await expect(alert).not.toContainText("Projeto"); // o projeto continua opcional
   await expect(alert).not.toContainText("campos com *");
   await expect(form.getByRole("combobox", { name: /Empresa/ })).toHaveCount(0);
 });

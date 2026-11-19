@@ -16,8 +16,9 @@ test("repetir uma conta, ajustar a tabela, alterar e cancelar a série", async (
   await form.getByLabel("Vencimento *").fill("2027-01-31");
   await form.getByLabel("Valor principal (R$) *").fill("150,00");
   await choose(page, "Fornecedor *", /Batel/);
-  await choose(page, "Categoria *", /Aluguel/);
+  await choose(page, "Plano de contas *", /Aluguel/);
   await form.getByLabel("Descrição *").fill("Aluguel da sala de teste");
+  await choose(page, "Projeto *", /PRJ-1804/); // toda conta tem projeto
   await choose(page, "Unidade *", /Consumo SP · PPlus/); // a empresa vem da unidade
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Boleto");
@@ -28,11 +29,25 @@ test("repetir uma conta, ajustar a tabela, alterar e cancelar a série", async (
   await form.getByRole("button", { name: "Lançar conta" }).click();
   await expect(form.getByText("Clique em Simular para conferir as ocorrências antes de salvar.")).toBeVisible();
 
-  // 31/01/2027 é domingo: vai para segunda, 01/02; o dia 31 volta em março
+  // 31/01/2027 é domingo: vai para segunda, 01/02, e a linha avisa (testes de 16/11, A6); o dia 31 volta em março
   await form.getByRole("button", { name: "Simular" }).click();
-  await expect(form.getByLabel("Vencimento da ocorrência 1")).toHaveValue("2027-02-01");
-  await expect(form.getByLabel("Vencimento da ocorrência 2")).toHaveValue("2027-03-01");
-  await expect(form.getByLabel("Vencimento da ocorrência 3")).toHaveValue("2027-03-31");
+  await expect(form.getByLabel("Vencimento da ocorrência 1")).toHaveValue("01/02/2027");
+  // A linha avisa como o campo Vencimento (18/11): o dia, o motivo e para onde foi, com antecipar ou manter.
+  // (O vencimento da conta, 31/01, também avisa lá em cima: por isso o teste olha dentro de cada linha.)
+  const row = (index: number) =>
+    form.getByRole("row").filter({ has: page.getByLabel(`Vencimento da ocorrência ${index}`) });
+  await expect(row(1).getByText("31/01/2027 é domingo")).toBeVisible();
+  await expect(row(1).getByText("O vencimento foi para seg 01/02.")).toBeVisible();
+  await expect(form.getByLabel("Vencimento da ocorrência 2")).toHaveValue("01/03/2027");
+  await expect(form.getByLabel("Vencimento da ocorrência 3")).toHaveValue("31/03/2027");
+  await row(1).getByRole("button", { name: "Antecipar para sex 29/01" }).click();
+  await expect(form.getByLabel("Vencimento da ocorrência 1")).toHaveValue("29/01/2027");
+  await expect(row(1).getByText("31/01/2027 é domingo")).toHaveCount(0);
+  // Trocar a data da linha à mão para um sábado também avisa
+  await form.getByLabel("Vencimento da ocorrência 2").fill("06/03/2027");
+  await expect(row(2).getByText("06/03/2027 é sábado")).toBeVisible();
+  await row(2).getByRole("button", { name: "Postergar para seg 08/03" }).click();
+  await expect(form.getByLabel("Vencimento da ocorrência 2")).toHaveValue("08/03/2027");
 
   // Mudar o valor depois de simular tira a tabela (ela mostraria um total que não vai ser lançado)
   await form.getByLabel("Valor principal (R$) *").fill("200,00");
@@ -47,12 +62,13 @@ test("repetir uma conta, ajustar a tabela, alterar e cancelar a série", async (
   // A tabela é editável: o valor da 2ª muda antes de salvar
   await form.getByLabel("Valor da ocorrência 2").fill("163,40");
   await form.getByRole("button", { name: "Lançar conta" }).click();
-  await expect(page.getByText(/3 contas lançadas, a primeira vence em 01\/02\/2027/)).toBeVisible();
+  // a 1ª foi antecipada para 29/01 lá em cima, e a tabela ajustada é a que vale
+  await expect(page.getByText(/3 contas lançadas, a primeira vence em 29\/01\/2027/)).toBeVisible();
 
   // As 3 aparecem na lista, marcadas com o número na série
   await page.getByRole("combobox", { name: "Visão por período" }).click();
   await page.getByRole("option", { name: "Tudo" }).click();
-  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("sala de teste");
+  await page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").fill("sala de teste");
   await expect(page.getByRole("row", { name: /Aluguel da sala de teste/ })).toHaveCount(3);
   await expect(page.getByRole("row", { name: /1\/3/ })).toContainText("R$ 150,00");
   await expect(page.getByRole("row", { name: /2\/3/ })).toContainText("R$ 163,40");
@@ -89,8 +105,9 @@ test("a conta aberta mostra a série na aba Repetir e deixa alterar a série e d
   await form.getByLabel("Vencimento *").fill("2028-03-15");
   await form.getByLabel("Valor principal (R$) *").fill("200,00");
   await choose(page, "Fornecedor *", /Batel/);
-  await choose(page, "Categoria *", /Aluguel/);
+  await choose(page, "Plano de contas *", /Aluguel/);
   await form.getByLabel("Descrição *").fill("Mensalidade do detalhe");
+  await choose(page, "Projeto *", /PRJ-1804/); // toda conta tem projeto
   await choose(page, "Unidade *", /Consumo SP · PPlus/); // a empresa vem da unidade
   await choose(page, "Centro de custo *", "Administrativo");
   await choose(page, "Forma de pagamento *", "Boleto");
@@ -102,7 +119,7 @@ test("a conta aberta mostra a série na aba Repetir e deixa alterar a série e d
 
   await page.getByRole("combobox", { name: "Visão por período" }).click();
   await page.getByRole("option", { name: "Tudo" }).click();
-  await page.getByLabel("Buscar conta, fornecedor ou NF").fill("Mensalidade do detalhe");
+  await page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").fill("Mensalidade do detalhe");
   await expect(page.getByRole("row", { name: /Mensalidade do detalhe/ })).toHaveCount(3);
 
   // O resumo fica acima das abas, e a aba Repetir lista a série inteira

@@ -37,6 +37,9 @@ const backendEnv = {
   // Busca de feriados de mentira: a BrasilAPI de verdade também nunca entra no e2e.
   HOLIDAYS_LOOKUP_MODE: "simulated",
   FILES_MODE: "memory",
+  // Navegador liberado ligado, como em produção: cada conta dos testes entra em um navegador só, e
+  // e2e/navegador-liberado.spec.ts testa o pedido e a liberação.
+  DEVICE_APPROVAL_ENABLED: "true",
   FILES_MASTER_KEY: Buffer.alloc(32, "f").toString("base64"), // gitleaks:allow
   CORS_ORIGINS: FRONTEND_URL,
   FRONTEND_URL,

@@ -31,9 +31,10 @@ test("menu lateral e título: a página e a seção em que a pessoa está ficam 
   await expect(title("Cadastros - Plano de contas")).toBeVisible();
   await expect(current).toHaveText("Plano de contas");
 
-  await menu.getByRole("link", { name: "Feriados", exact: true }).click();
-  await expect(title("Cadastros - Feriados")).toBeVisible();
-  await expect(current).toHaveText("Feriados");
+  await menu.getByRole("link", { name: "Impostos retidos", exact: true }).click();
+  await expect(title("Cadastros - Impostos retidos")).toBeVisible();
+  await expect(current).toHaveText("Impostos retidos");
+  await expect(menu.getByRole("link", { name: "Feriados", exact: true })).toHaveCount(0); // saiu do menu em 19/11
 
   // A seção continua destacada com o grupo recolhido: a pessoa vê em que parte do menu está
   await group("Cadastros").click();
@@ -42,11 +43,10 @@ test("menu lateral e título: a página e a seção em que a pessoa está ficam 
 
   // Relatórios
   await group("Relatórios").click();
-  await menu.getByRole("link", { name: "Incentivos", exact: true }).click();
-  await expect(title("Relatórios - Incentivos")).toBeVisible();
-  await expect(group("Relatórios")).toHaveAttribute("data-current", "true");
+  await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(0); // saiu do menu em 18/11
   await menu.getByRole("link", { name: "Relatório do projeto", exact: true }).click();
   await expect(title("Relatórios - Relatório do projeto")).toBeVisible();
+  await expect(group("Relatórios")).toHaveAttribute("data-current", "true");
 
   // Financeiro, as outras telas (o grupo continua aberto desde o começo)
   await menu.getByRole("link", { name: "Divergências", exact: true }).click();

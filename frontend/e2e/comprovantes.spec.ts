@@ -33,17 +33,21 @@ test("enviar o PDF de comprovantes, conferir e confirmar a baixa", async ({ page
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "Enviar comprovantes" })).toBeVisible();
-  // sem projeto e sem arquivo, nada é enviado
-  await dialog.getByRole("button", { name: "Ler comprovantes" }).click();
-  await expect(dialog.getByText("Escolha o projeto.")).toBeVisible();
-
+  // O projeto vem do lançamento (A18): o PRJ-1804 é o projeto 1804 do Connect, sem campo para escolher
+  await expect(dialog.getByText("PRJ-1804 · Pesquisa de mobilidade urbana")).toBeVisible();
+  await expect(dialog.getByRole("combobox", { name: "Projeto *" })).toHaveCount(0);
+  // sem arquivo, nada é enviado
+  await dialog.getByRole("button", { name: "Salvar comprovantes" }).click();
+  await expect(dialog.getByText("Escolha o PDF de comprovantes.")).toBeVisible();
+  // "Trocar" abre a lista, para o caso de o comprovante ser de outro projeto
+  await dialog.getByRole("button", { name: "Trocar" }).click();
   await choose(page, "Projeto *", "Pesquisa de mobilidade urbana");
   await dialog.getByLabel("PDF de comprovantes *").setInputFiles({
     name: "comprovantes.pdf",
     mimeType: "application/pdf",
     buffer: pdf,
   });
-  await dialog.getByRole("button", { name: "Ler comprovantes" }).click();
+  await dialog.getByRole("button", { name: "Salvar comprovantes" }).click();
 
   // Conferência: dois batem, um recebeu fora do projeto e nunca é pago
   await expect(dialog.getByRole("tab", { name: "Batem (2)" })).toBeVisible();
@@ -82,13 +86,13 @@ test("enviar o PDF de comprovantes, conferir e confirmar a baixa", async ({ page
   await page.getByRole("button", { name: "Esconder os itens" }).click();
 
   await page.getByRole("row", { name: /4 entrevistadores/ }).getByRole("button", { name: "Enviar comprovantes" }).click();
-  await choose(page, "Projeto *", "Pesquisa de mobilidade urbana");
+  await expect(page.getByRole("dialog").getByText("PRJ-1804 · Pesquisa de mobilidade urbana")).toBeVisible();
   await page.getByRole("dialog").getByLabel("PDF de comprovantes *").setInputFiles({
     name: "comprovantes.pdf",
     mimeType: "application/pdf",
     buffer: pdf,
   });
-  await page.getByRole("dialog").getByRole("button", { name: "Ler comprovantes" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Salvar comprovantes" }).click();
   await expect(page.getByRole("dialog").getByRole("tab", { name: "Erros (2)" })).toBeVisible();
   await expect(page.getByRole("dialog").getByRole("tab", { name: "Batem (0)" })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Cancelar envio" }).click();
