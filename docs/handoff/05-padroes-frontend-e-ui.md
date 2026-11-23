@@ -469,6 +469,15 @@ function FinanceiroProjetosContent() {
 
 Tela de detalhe: botão "voltar" `variant="ghost" size="sm"` com `ArrowLeft`, sobretítulo `PRJ-{id}`, `h1` `text-2xl font-bold`. Projeto é sempre identificado como **`PRJ-{id}`**.
 
+### Abas: a tela escondida continua viva
+
+Toda tela de `src/app/(app)` abre numa aba ([ADR 0025](../architecture/adr/0025-abas-de-telas-com-activity.md); regra em `src/lib/tabs.ts`, montagem em `src/components/ScreenTabs.tsx`). Escondida, a tela fica dentro de um `<Activity mode="hidden">`: o estado fica, os efeitos param.
+
+- **Tela nova:** entra em `SCREENS` (`lib/tabs.ts`) e em `PAGES` (`ScreenTabs.tsx`); o TypeScript cobra os dois.
+- **Ler o endereço:** `useScreenSearchParams()` de `@/components/ScreenTabs`, nunca `useSearchParams` direto. Escondida, a tela precisa continuar vendo o `?…` dela; com o global, a `key` de reinício mudaria e o que a pessoa fez se perderia.
+- **Efeitos rodam de novo** quando a aba volta para a frente. Buscar dados de novo é bom; efeito que muda estado a partir do endereço precisa de trava, para não desfazer o que a pessoa escolheu depois (ex.: `linkHandled` em `contas-a-pagar/page.tsx`).
+- **Navegar:** `<Link>` e `router.push` trocam a tela da aba atual. Abrir noutra aba é só pelo duplo clique no menu (`useScreenTabs().openInNewTab`).
+
 ### Estados
 
 | Estado | Como o Connect faz |

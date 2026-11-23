@@ -104,9 +104,24 @@ Pedido do Bruno ([ADR 0024](../architecture/adr/0024-feriados-das-capitais-pelo-
 
 Pedido do Bruno ([acesso-e-auditoria](../specs/acesso-e-auditoria.md), [demandas](../specs/demandas.md), [ADR 0023](../architecture/adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)): três níveis, **super admin**, **admin** e **usuário**. Em **Acessos > Pessoas e telas**, o admin bloqueia telas de cada usuário; a tela some do menu e a API recusa. Todos têm **Abrir demanda** no menu, com tipo, descrição e anexo obrigatórios; só o super admin vê a tela **Demandas**.
 
+## Abas de telas (23/11/2026)
+
+Pedido do Bruno ([transcrição](../transcricoes/2026-11-23-abas-como-no-vs-code.md), [ADR 0025](../architecture/adr/0025-abas-de-telas-com-activity.md)): abas como no VS Code, abaixo da busca geral. **Duplo clique** numa tela do menu abre a tela noutra aba; o clique simples troca a tela da aba atual. Uma aba por tela. Cada aba guarda o que a pessoa fez (filtros, busca, seleção, o que foi digitado) até ser fechada; depois do F5 as abas voltam, mas cada tela recomeça do zero. Pergunta nova: Q62 (avisar antes de fechar aba com algo digitado).
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
+
+### Abas de telas (23/11)
+
+1. Entre: a fileira de abas mostra só **Início**, sem ×, e a dica "Dois cliques numa tela do menu abrem outra aba".
+2. Um clique em **Contas a pagar** no menu: a aba Início vira Contas a pagar (continua uma aba só). Busque **grafica**.
+3. Dois cliques em **Contas a receber**: abre uma aba nova ao lado, já na frente. Busque **satisfacao** e mude o período para **Tudo**.
+4. Clique na aba **Contas a pagar**: a busca "grafica" e a lista estão como você deixou. Volte para **Contas a receber**: "satisfacao" e o período Tudo também.
+5. Clique de novo em **Contas a pagar** no menu: vai para a aba dela, sem abrir outra.
+6. **F5**: as duas abas voltam, cada tela do zero (busca vazia).
+7. No **×** da aba da frente: ela fecha e a vizinha vem para a frente. Com uma aba só, não há ×. O botão do meio do mouse também fecha.
+8. Os testes: `npx vitest run src/lib/tabs.test.ts` e `npx playwright test e2e/abas.spec.ts` em `frontend/`.
 
 ### Navegador liberado
 
