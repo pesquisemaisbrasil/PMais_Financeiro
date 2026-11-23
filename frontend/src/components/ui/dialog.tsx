@@ -6,6 +6,7 @@ import { XIcon } from "lucide-react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
+import { isInTabBar, useTabPortal } from "@/lib/tab-portal"
 
 function Dialog({
   ...props
@@ -22,7 +23,8 @@ function DialogTrigger({
 function DialogPortal({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+  // dentro da aba: a janela some e volta com ela (lib/tab-portal.ts)
+  return <DialogPrimitive.Portal data-slot="dialog-portal" container={useTabPortal()} {...props} />
 }
 
 function DialogClose({
@@ -51,6 +53,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -64,6 +67,11 @@ function DialogContent({
           "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border bg-background p-6 shadow-lg outline-none sm:max-w-lg",
           className
         )}
+        // trocar de aba não fecha a janela: ela fica na aba dela, com o que foi digitado
+        onInteractOutside={(event) => {
+          if (isInTabBar(event.target)) event.preventDefault()
+          onInteractOutside?.(event)
+        }}
         {...props}
       >
         {children}

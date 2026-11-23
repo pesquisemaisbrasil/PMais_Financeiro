@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/finance";
 import { Button } from "@/components/ui/button";
 import { screenAllowed } from "@/lib/access";
 import { useAuth } from "@/lib/auth-context";
+import { TAB_BAR_ATTRIBUTE, TabPortalContext } from "@/lib/tab-portal";
 import {
   TABS_KEY_PREFIX,
   closeTab,
@@ -149,11 +150,46 @@ export function ScreenTabsProvider({ children }: { children: React.ReactNode }) 
 export function ScreenTabsBar() {
   const api = useScreenTabs();
   // com uma tela só, a fileira não aparece (pedido do Bruno, 23/11)
-  if (!api?.current || api.state.tabs.length < 2) return null;
+  const visible = Boolean(api?.current) && (api?.state.tabs.length ?? 0) >= 2;
+  const bar = useRef<HTMLDivElement>(null);
+
+  // Onde a fileira termina (--abas-fim): com ela na tela, as janelas abrem abaixo dela (globals.css), e a
+  // fileira continua clicável para trocar de aba com uma janela aberta, que fica guardada na aba dela.
+  useLayoutEffect(() => {
+    const element = bar.current;
+    if (!visible || !element) return;
+    const root = document.documentElement;
+    const update = () =>
+      root.style.setProperty("--abas-fim", `${Math.max(0, Math.round(element.getBoundingClientRect().bottom))}px`);
+    root.setAttribute("data-abas", "");
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer.disconnect();
+      root.removeAttribute("data-abas");
+      root.style.removeProperty("--abas-fim");
+    };
+  }, [visible]);
+
+  if (!api || !visible) return null;
   const { state, select, close } = api;
   return (
-    // de ponta a ponta da área da tela (pedido do Bruno, 23/11); sem rolagem vertical, só a de lado com muitas abas
-    <div className="w-full border-b border-border pt-4">
+    // de ponta a ponta da área da tela e presa no alto ao rolar (pedido do Bruno, 23/11); clicável mesmo com
+    // uma janela aberta (o Radix tira o clique do resto da página); sem rolagem vertical, só a de lado
+    <div
+      ref={bar}
+      {...{ [TAB_BAR_ATTRIBUTE]: "" }}
+      style={{ pointerEvents: "auto" }}
+      // com uma janela aberta, o Radix esconde o resto da página dos leitores de tela (aria-hidden) e poupa
+      // só o que tem aria-live: "off" não anuncia nada e deixa as abas alcançáveis
+      aria-live="off"
+      className="sticky top-[var(--faixa,0px)] z-40 w-full border-b border-border bg-background pt-4"
+    >
       <nav aria-label="Abas abertas" className="flex items-end gap-1 overflow-x-auto overflow-y-hidden px-4">
         {state.tabs.map((tab) => {
           const front = tab.path === state.active;
@@ -208,6 +244,17 @@ function Blocked() {
   );
 }
 
+/** O lugar das janelas da aba: escondida a aba, as janelas abertas nela somem junto e voltam com ela. */
+function TabScreen({ children }: { children: React.ReactNode }) {
+  const [portal, setPortal] = useState<HTMLElement | null>(null);
+  return (
+    <TabPortalContext.Provider value={portal}>
+      {children}
+      <div ref={setPortal} data-janelas-da-aba="" />
+    </TabPortalContext.Provider>
+  );
+}
+
 /** As telas abertas: a da frente aparece, as outras ficam escondidas e vivas até a aba fechar. */
 export function ScreenTabsContent({ children }: { children: React.ReactNode }) {
   const api = useScreenTabs();
@@ -219,7 +266,9 @@ export function ScreenTabsContent({ children }: { children: React.ReactNode }) {
     return (
       <Activity key={tab.path} mode={tab.path === api.state.active ? "visible" : "hidden"}>
         <OwnQuery.Provider value={tab.query}>
-          <Suspense>{user && !screenAllowed(user, tab.path) ? <Blocked /> : <Page />}</Suspense>
+          <TabScreen>
+            <Suspense>{user && !screenAllowed(user, tab.path) ? <Blocked /> : <Page />}</Suspense>
+          </TabScreen>
         </OwnQuery.Provider>
       </Activity>
     );

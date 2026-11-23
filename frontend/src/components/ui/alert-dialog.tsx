@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui"
 
 import { Button } from "@/components/ui/button"
+import { useTabPortal } from "@/lib/tab-portal"
 
 function AlertDialog({
   ...props
@@ -24,7 +25,8 @@ function AlertDialogPortal({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Portal>) {
   return (
-    <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />
+    // dentro da aba: a confirmação some e volta com ela (lib/tab-portal.ts)
+    <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" container={useTabPortal()} {...props} />
   )
 }
 

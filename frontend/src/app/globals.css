@@ -145,3 +145,21 @@
 .driver-popover.passeio .driver-popover-close-btn {
   color: var(--muted-foreground);
 }
+
+/* Abas (ADR 0025): com a fileira de abas na tela (duas ou mais telas abertas), as janelas abrem abaixo dela,
+   e a fileira continua clicável para trocar de aba com uma janela aberta. --abas-fim: onde a fileira
+   termina, medido pelo ScreenTabsBar. */
+html[data-abas] [data-slot="dialog-overlay"],
+html[data-abas] [data-slot="alert-dialog-overlay"],
+html[data-abas] [data-slot="sheet-overlay"] {
+  top: var(--abas-fim, 0px);
+}
+html[data-abas] [data-slot="dialog-content"],
+html[data-abas] [data-slot="alert-dialog-content"] {
+  top: calc(50% + var(--abas-fim, 0px) / 2);
+  max-height: calc(100vh - var(--abas-fim, 0px) - 1rem);
+}
+html[data-abas] [data-slot="sheet-content"] {
+  top: var(--abas-fim, 0px);
+  height: auto;
+}

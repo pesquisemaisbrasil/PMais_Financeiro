@@ -4,6 +4,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { XIcon } from "lucide-react"
 import { Dialog as SheetPrimitive } from "radix-ui"
+import { isInTabBar, useTabPortal } from "@/lib/tab-portal"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -24,7 +25,8 @@ function SheetClose({
 function SheetPortal({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
-  return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
+  // dentro da aba: o painel some e volta com ela (lib/tab-portal.ts)
+  return <SheetPrimitive.Portal data-slot="sheet-portal" container={useTabPortal()} {...props} />
 }
 
 function SheetOverlay({
@@ -48,6 +50,7 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  onInteractOutside,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left"
@@ -70,6 +73,11 @@ function SheetContent({
             "inset-x-0 bottom-0 h-auto border-t",
           className
         )}
+        // trocar de aba não fecha o painel: ele fica na aba dele
+        onInteractOutside={(event) => {
+          if (isInTabBar(event.target)) event.preventDefault()
+          onInteractOutside?.(event)
+        }}
         {...props}
       >
         {children}
