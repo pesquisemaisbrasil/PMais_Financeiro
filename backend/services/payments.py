@@ -43,6 +43,11 @@ REFUSAL_MESSAGES = {
     "mixed_interviewer": "O Connect achou entrevistas de outra pessoa ou de outro projeto",
     "not_payable": "O Connect não considera essas entrevistas prontas para pagar",
     "idempotency_conflict": "O Connect já tem um pedido diferente com essa mesma referência",
+    # adiantamento (relatório do Connect, seção 4.4): sempre divergência para uma pessoa olhar
+    "covered_by_advance": "O Connect diz que o adiantamento já pagou alguma dessas entrevistas",
+    "exceeds_net_payable": (
+        "O valor passa do que a pessoa tem a receber no projeto, já descontado o adiantamento"
+    ),
 }
 
 

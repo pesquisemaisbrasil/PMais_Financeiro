@@ -122,6 +122,8 @@ def _payables(items: list[dict[str, Any]]) -> list[ConnectPayable]:
                 status=str(p["status"]),
                 paid_on=date.fromisoformat(p["paidOn"]) if p["paidOn"] else None,
                 updated_at=_to_datetime(p["updatedAt"]),
+                # Connect anterior ao adiantamento não manda o campo: nada coberto
+                advance_covered=Decimal(p.get("advanceCovered") or "0.00"),
             )
         )
     return payables

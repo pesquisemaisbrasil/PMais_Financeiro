@@ -70,10 +70,18 @@ class ConnectPayable:
     amount: Decimal
     launched_at: datetime
     due_on: date
-    # to_pay | paid | removed
+    # to_pay | covered (o adiantamento já pagou inteira) | paid | removed; desconhecido = não pagar
     status: str
     paid_on: date | None
     updated_at: datetime
+    # a parte do `amount` que o adiantamento já pagou (relatório do adiantamento, seção 4.1)
+    advance_covered: Decimal = Decimal("0.00")
+
+    @property
+    def net_amount(self) -> Decimal:
+        """A parte do Financeiro: o que falta pagar (a pagar) ou o que saiu por baixa (paga), sem o
+        que o adiantamento já pagou. É o valor que a baixa soma, nunca o `amount` cheio."""
+        return self.amount - self.advance_covered
 
 
 @dataclass(frozen=True)

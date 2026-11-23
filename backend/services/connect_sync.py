@@ -14,7 +14,9 @@ from models.project_ref import ProjectRef
 from models.reference import Project
 from services.connect_gateway import ConnectGateway, ConnectPayable, ConnectProject
 
-STATUS = {"to_pay": "a_pagar", "paid": "pago", "removed": "cancelado"}
+# `covered`: o adiantamento já pagou a entrevista inteira; nunca é oferecida para pagar.
+# Status que o Financeiro não conhece vira cancelado: não paga (regra de versão do v1).
+STATUS = {"to_pay": "a_pagar", "covered": "adiantamento", "paid": "pago", "removed": "cancelado"}
 
 
 def _upsert_financial_project(db: Session, project: ConnectProject) -> None:
@@ -62,7 +64,8 @@ def _apply(db: Session, project: ProjectRef, payable: ConnectPayable) -> None:
     elif row.status == "pago" and payable.status == "to_pay":
         return  # o Financeiro já aplicou a baixa; o Connect ainda não refletiu
     row.connect_interviewer_id = payable.interviewer_id
-    row.amount = payable.amount
+    # sem a parte que o adiantamento já pagou: a conciliação e a baixa somam este valor
+    row.amount = payable.net_amount
     row.launchedAt = payable.launched_at
     row.dueOn = payable.due_on
     row.status = STATUS.get(payable.status, "cancelado")

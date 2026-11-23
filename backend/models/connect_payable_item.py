@@ -19,11 +19,13 @@ class ConnectPayableItem(Base):
         Integer, ForeignKey("project_refs.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     connect_interviewer_id = Column(Integer, nullable=False, index=True)
-    # earnedValue congelado no lançamento
+    # a parte do Financeiro: o valor da entrevista menos o que o adiantamento já pagou
+    # (`amount − advanceCovered` do Connect), a pagar ou já pago por baixa
     amount = Column(Numeric(10, 2), nullable=False)
     launchedAt = Column(DateTime(timezone=True), nullable=False)
     dueOn = Column(Date, nullable=False)
-    # a_pagar → pago; cancelado se o Connect apagou o lançamento
+    # a_pagar → pago; adiantamento se o adiantamento já pagou inteira (não se paga);
+    # cancelado se o Connect apagou o lançamento
     status = Column(String(20), nullable=False, default="a_pagar", index=True)
     paidOn = Column(Date, nullable=True)
     # evento mais velho que o já aplicado é ignorado

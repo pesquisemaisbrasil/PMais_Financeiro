@@ -176,7 +176,8 @@ class DevCheck:
         )
 
     def _total(self) -> Decimal:
-        return sum((item.amount for item in self.items), Decimal("0"))
+        # o que falta pagar, sem o que o adiantamento já pagou: o Connect recusa o valor cheio
+        return sum((item.net_amount for item in self.items), Decimal("0"))
 
     def _new_order(self, **overrides: object) -> PaymentOrder:
         project, interviewer = self._need()
