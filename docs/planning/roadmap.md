@@ -169,7 +169,7 @@ Com dois administradores (por exemplo os dois do banco local) e o sistema rodand
 2. Entre com um admin: **Acessos > Pessoas e telas** lista todos, com o nível. Em um usuário, **Telas**, desmarque **Contas a receber** e **Cadastros** e salve.
 3. Entre com esse usuário: o menu não tem Contas a receber nem Cadastros, nem Acessos e Demandas. Abra `/contas-a-receber` pelo endereço: aparece **Tela não liberada**.
 4. Ainda como usuário, **Abrir demanda**: Enviar sem nada pede Tipo, Descrição e Anexo. Escolha **Correção de bugs**, escreva, cole um print com Ctrl + V e envie.
-5. Como super admin: o sino avisa a demanda nova; em **Demandas** aparecem o tipo, a descrição, a tela, quem abriu e **Baixar**.
+5. Como super admin: o sino avisa a demanda nova; em **Demandas** aparecem o tipo, a descrição, a tela, quem abriu, a situação **Aberta** e **Baixar**. Clique em **Concluído** e confirme: a situação vira **Concluída**, e quem abriu vê no sino "Sua demanda foi concluída".
 6. Caso negado: o admin não muda as próprias telas nem as de outro admin (na lista aparece "Só o super admin muda").
 7. Os testes: `pytest tests/test_niveis_de_acesso.py` em `backend/`, `npx vitest run src/lib/access.test.ts` e `npx playwright test e2e/niveis-de-acesso.spec.ts` em `frontend/`.
 

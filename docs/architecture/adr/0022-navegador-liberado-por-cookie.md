@@ -23,6 +23,7 @@ O login já tem senha e autenticador (TOTP), com a sessão aberta em `_start_ses
 
 ## Consequências
 
+- Desde 19/11/2026, o **super admin** (o desenvolvedor, provisório) fica de fora da liberação: entra com senha e autenticador em qualquer computador ([ADR 0023](0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)).
 - Limpar os dados do navegador, trocar de navegador ou usar janela anônima pede nova liberação. A tela de espera explica isso, e o admin libera em **Acessos**.
 - Dado novo da equipe: navegador, IP mascarado e datas de pedido, decisão e último uso (`trusted_browsers`). Inventário e ROPA atualizados; o prazo de guarda fica com o DPO (Q57). Nada é apagado: a role da app não tem `DELETE` na tabela.
 - `login_events` ganha os motivos `browser_first`, `browser_pending`, `browser_refused` e `browser_server_approved`.

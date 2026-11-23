@@ -10,6 +10,7 @@ Contrato do canal em que qualquer pessoa do Financeiro pede uma mudança no sist
   - **Anexo** (obrigatório): um print da tela, escolhido no computador ou **colado com Ctrl + V**, ou um PDF (PNG, JPG, WEBP ou PDF, até 10 MB), com a prévia da imagem no modal.
   - **Enviar** guarda a demanda com a tela de onde ela saiu, quem estava logado e a hora, e mostra "Demanda enviada. Obrigado!".
 - O super admin recebe um aviso no sino ("Nova demanda: Correção de bugs") e tem no menu a tela **Demandas**: a lista da mais nova para a mais antiga, com a hora, o tipo, a descrição, a tela ("Financeiro - Contas a pagar"), quem abriu e o botão **Baixar** do anexo. **Atualizar** busca de novo.
+- Cada demanda tem a **Situação** (Aberta ou Concluída, com a data e quem concluiu) e o botão **Concluído**. Ele pede confirmação, marca a demanda como concluída e manda um aviso no sino de quem abriu: "Sua demanda foi concluída: Correção de bugs", com a data em que ela foi aberta e quem concluiu.
 - Admin e usuário não veem a tela Demandas nem o menu dela.
 
 ## Regras
@@ -17,8 +18,9 @@ Contrato do canal em que qualquer pessoa do Financeiro pede uma mudança no sist
 1. Abrir demanda vale para os três níveis. Ler a lista e baixar o anexo, só o super admin (`require_superadmin`).
 2. O anexo é aceito **pelos primeiros bytes** (PNG, JPG, WEBP ou PDF), não pelo nome; o nome guardado leva a extensão do conteúdo conferido, sem pasta nem caractere de controle. Volta sempre como download, com `nosniff` e sem cache.
 3. O anexo pode mostrar **dado real** da tela (nomes, valores, chaves Pix mascaradas). Por isso fica **cifrado no cofre** (`core/file_vault.py`, chave amarrada à demanda), como os anexos das contas, e só o super admin baixa.
-4. Uma demanda não é editada nem apagada pela tela. O prazo de guarda fica com o DPO (Q56).
-5. O super admin é provisório: existe até o fim do desenvolvimento (Bruno, 19/11/2026).
+4. Uma demanda não é editada nem apagada pela tela; só muda de Aberta para Concluída, uma vez, pelo super admin. O prazo de guarda fica com o DPO (Q56).
+5. O aviso de concluída diz o tipo e quando a demanda foi aberta, **sem a descrição**: ela é texto livre e pode citar pessoas.
+6. O super admin é provisório: existe até o fim do desenvolvimento (Bruno, 19/11/2026).
 
 ## Casos negados
 
@@ -31,6 +33,9 @@ Contrato do canal em que qualquer pessoa do Financeiro pede uma mudança no sist
 | Anexo com mais de 10 MB | 413 | O anexo passa de 10 MB. Envie um arquivo menor. |
 | Ler a lista ou baixar o anexo sem ser super admin | 403 | Esta tela é só do super admin |
 | Baixar o anexo de uma demanda que não existe | 404 | Demanda não encontrada |
+| Concluir sem ser super admin | 403 | Esta tela é só do super admin |
+| Concluir uma demanda já concluída | 409 | Esta demanda já foi concluída |
+| Concluir uma demanda que não existe | 404 | Demanda não encontrada |
 | Sem login | 401 | (padrão do login) |
 
 Na tela, antes de enviar: "Preencha os campos obrigatórios: Tipo, Descrição e Anexo." (só os que faltam), "Anexe uma imagem (PNG, JPG ou WEBP) ou um PDF." e "O anexo passa de 10 MB. Envie um arquivo menor.".
@@ -41,6 +46,7 @@ Na tela, antes de enviar: "Preencha os campos obrigatórios: Tipo, Descrição e
 - [x] O super admin vê a demanda em Demandas, com a tela de onde veio e quem abriu, e baixa o anexo; recebe o aviso no sino.
 - [x] Admin e usuário não veem a tela Demandas e recebem 403 chamando a API direto.
 - [x] O anexo fica cifrado no cofre: o que está guardado não é o arquivo enviado.
+- [x] O super admin clica em Concluído, confirma, e a demanda fica Concluída; quem abriu vê o aviso no sino.
 
 ## Onde está no código
 
@@ -50,3 +56,4 @@ Na tela, antes de enviar: "Preencha os campos obrigatórios: Tipo, Descrição e
 ## Ajustes
 
 - 2026-11-19: primeira versão. O anexo aceita imagem ou PDF até 10 MB (escolha do Bruno entre imagem só, imagem ou PDF e qualquer arquivo). Fica para depois: situação de cada demanda (em análise, feita) e responder pela tela.
+- 2026-11-19 (**Concluído**, Bruno, com o print da tela Demandas: "precisa ter um botão para mim clicar em concluído e notificar o usuário na plataforma"): situação Aberta ou Concluída e o botão Concluído, que avisa quem abriu no sino. A coluna Tela passa a mostrar o nome das telas de primeiro nível do menu (Demandas, Acessos) em vez do endereço.

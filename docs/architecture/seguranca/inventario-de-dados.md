@@ -106,6 +106,7 @@ O **Abrir demanda** do sistema de verdade guarda no servidor da empresa ([spec](
 |---|---|---|---|---|
 | Tipo, **descrição** (texto livre), tela de origem, quem abriu (`user_id`), data e hora | `demands` | Em claro no banco. A descrição pode citar pessoas | Corrigir e mudar o sistema a partir do pedido da equipe | A definir com o DPO (Q56). Nada apaga hoje |
 | **Anexo** (print da tela ou PDF): pode mostrar dado real da tela, como nomes, valores e chaves Pix mascaradas | Cofre (`demand/<id>/...`); nome, tipo, tamanho e SHA-256 em `demands` | **Cifrado** (AES-256-GCM, chave amarrada à demanda), só PNG, JPG, WEBP ou PDF conferidos pelos bytes, até 10 MB | Mostrar o problema | A definir com o DPO (Q56) |
+| Quando a demanda foi concluída e quem concluiu (o super admin), e o aviso no sino para quem abriu: tipo, data de abertura e nome de quem concluiu, sem a descrição | `demands.doneAt`, `demands.done_by_user_id`; `notifications` | Em claro no banco | Avisar quem abriu que o pedido foi atendido | A definir com o DPO (Q56) |
 | Telas bloqueadas de cada pessoa | `users.blockedScreens` | Em claro; a troca vai para `record_events` (quem trocou, quando, quais telas) | Restringir o que cada pessoa vê | Enquanto a conta existir |
 
 ## Conferência bancária (PF-69 a PF-72)
