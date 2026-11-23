@@ -11,12 +11,13 @@ O passo a passo para instalar e manter o Financeiro no servidor do escritório (
 | API | o backend, em modo produção; as migrations rodam quando ela sobe | `https://<IP do servidor>:8443` |
 | Telas | o frontend | `https://<IP do servidor>` |
 | HTTPS | Caddy, com certificado da própria máquina | portas 80 (redireciona), 443 e 8443 |
+| Feriados | feriados.dev com o banco dele: os feriados estaduais e municipais das 27 capitais, buscados pela API a cada 6 horas ([ADR 0024](../architecture/adr/0024-feriados-das-capitais-pelo-feriados-dev.md)) | não é exposto |
 
 ## Antes de começar
 
 - [ ] Servidor **Ubuntu** com IP fixo na rede (reservado no roteador).
 - [ ] Docker, Compose, make, git, openssl e curl instalados, e as portas 80, 443 e 8443 liberadas no `ufw`. Os comandos estão em [O que precisa ter no servidor](../operations/servidor-local.md#o-que-precisa-ter-no-servidor-ubuntu).
-- [ ] **Dado real:** o DPO aprovou onde ficam o banco, os backups e as chaves (pergunta Q51 em [perguntas-abertas](../planning/perguntas-abertas.md)). Sem isso, o servidor pode subir, mas não recebe dado de verdade.
+- [ ] **Dado real:** o servidor sobe com o banco vazio e passa a receber os dados reais da equipe (decisão do Bruno, 23/11/2026). Antes do primeiro lançamento, a cópia do `deploy/.env` precisa estar num cofre fora da máquina e as cópias de backup precisam ter para onde ir fora dele. Para onde e por quanto tempo, o DPO responde (Q51 em [perguntas-abertas](../planning/perguntas-abertas.md)).
 
 ## Primeira instalação
 
@@ -31,6 +32,7 @@ make verificar HOST=192.168.0.50     # confere se o servidor está pronto; não 
 make configurar HOST=192.168.0.50    # gera deploy/.env com chaves novas (só se a verificação passar)
 make subir                           # sobe tudo e termina testando pelo HTTPS (o primeiro build leva alguns minutos)
 make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"    # primeiro administrador; pede a senha
+make definir-nivel EMAIL=voce@pesquisemais.com.br NIVEL=superadmin   # quem desenvolve vira super admin (vê Demandas)
 make certificado                     # gera financeiro-certificado-raiz.crt para os computadores
 ```
 
@@ -40,7 +42,7 @@ Depois:
 
 1. **Guarde o `deploy/.env` num cofre, fora do servidor.** Ele tem as chaves que abrem os dados; sem elas, banco e arquivos não abrem. Ele nunca vai para o git.
 2. **Instale o `financeiro-certificado-raiz.crt` em cada computador da equipe** (no Windows: clique duas vezes → Instalar Certificado → Autoridades de Certificação Raiz Confiáveis). O passo a passo para Windows, macOS e Linux está no [guia](../operations/servidor-local.md#certificado-nos-computadores-da-equipe).
-3. Abra `https://<IP do servidor>` num computador da rede e entre com o administrador; o primeiro acesso cadastra o autenticador (MFA).
+3. Abra `https://<IP do servidor>` num computador da rede e entre com o administrador; o primeiro acesso cadastra o autenticador (MFA). O primeiro computador de cada pessoa fica liberado sozinho; os outros viram pedido na tela **Acessos** para um administrador liberar (o super admin não passa por isso).
 4. Para ligar o **P+ Connect**, preencha `CONNECT_BASE_URL` (só `https`), `CONNECT_CLIENT_ID` e `CONNECT_CLIENT_SECRET` no `deploy/.env` e rode `make subir`.
 5. Agende o **backup diário** no `crontab -e` (a linha está no [guia](../operations/servidor-local.md#backup-automático-recomendado)) e leve as cópias para fora do servidor.
 
@@ -76,6 +78,9 @@ Volta o código para a versão desse backup e **troca o banco pelo do backup**: 
 | `make backup` | Backup na hora, em `backups/` |
 | `make restaurar-banco ARQUIVO=... CONFIRMAR=sim` | **Apaga** o banco e põe o de um backup |
 | `make restaurar-arquivos ARQUIVO=... CONFIRMAR=sim` | **Apaga** os arquivos do cofre e põe os de um backup |
+| `make admin EMAIL=... NOME="..."` | Cria um administrador (pede a senha) |
+| `make definir-nivel EMAIL=... NIVEL=...` | Troca o nível de uma conta: `financeiro` (usuário), `admin` ou `superadmin` |
+| `make liberar-navegador EMAIL=...` | Libera o computador que a pessoa pediu por último, quando não há outro administrador para liberar na tela Acessos |
 
 Os containers voltam sozinhos quando o servidor reinicia, e os logs têm tamanho limitado.
 
