@@ -222,14 +222,19 @@ def test_the_advance_is_read_and_the_finance_part_is_what_is_left(
     connect: HttpConnect, session: FakeSession
 ) -> None:
     """Relatório do adiantamento, 4.1: 5 entrevistas de 100 e 250 de adiantamento."""
-    covered = {"amount": "100.00", "advanceCovered": "100.00", "payableAmount": "0.00"}
     session.add(
         "GET /integrations/v1/payables",
         FakeResponse(
             200,
             {
                 "items": [
-                    payable(5529, status="covered", **covered),
+                    payable(
+                        5529,
+                        status="covered",
+                        amount="100.00",
+                        advanceCovered="100.00",
+                        payableAmount="0.00",
+                    ),
                     payable(5531, amount="100.00", advanceCovered="50.00", payableAmount="50.00"),
                     payable(5532, amount="100.00", advanceCovered="0.00", payableAmount="100.00"),
                     payable(5533, amount="100.00"),  # Connect sem o campo: nada coberto
