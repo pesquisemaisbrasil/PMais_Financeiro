@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from core import config
 from core.net import mask_ip
+from core.permissions import SUPERADMIN
 from core.security import hash_token
 from models.refresh_token import RefreshToken
 from models.trusted_browser import TrustedBrowser
@@ -103,6 +104,10 @@ def check(
     navegadores. Dá commit."""
     if not config.DEVICE_APPROVAL_ENABLED:
         return Decision(allowed=True)
+    # O super admin é o desenvolvedor e não passa pela liberação (Bruno, 19/11/2026, ADR 0023):
+    # senha e autenticador continuam. O cargo é provisório, até o fim do desenvolvimento.
+    if user.role == SUPERADMIN:
+        return Decision(allowed=True, cookie=cookie, reason="browser_superadmin")
     label, masked = browser_label(user_agent), mask_ip(ip)
     browser = None
     if cookie:
