@@ -89,6 +89,20 @@ test("níveis de acesso: o admin bloqueia telas, o usuário abre demanda e só o
   await row.getByRole("button", { name: "Baixar tela.png" }).click();
   expect((await download).suggestedFilename()).toBe("tela.png");
 
+  // Concluído: pede confirmação, marca a demanda e avisa no sino quem abriu
+  await expect(row).toContainText("Aberta");
+  await row.getByRole("button", { name: "Concluir a demanda de niveis-usuario" }).click();
+  const confirm = superPage.getByRole("alertdialog", { name: "Concluir esta demanda?" });
+  await expect(confirm).toContainText("niveis-usuario recebe um aviso no sino");
+  await confirm.getByRole("button", { name: "Concluir" }).click();
+  await expect(superPage.getByText("Demanda concluída. niveis-usuario recebeu o aviso no sino.")).toBeVisible();
+  await expect(row).toContainText("Concluída");
+  await expect(row.getByRole("button", { name: /Concluir a demanda/ })).toHaveCount(0);
+
+  await user.reload();
+  await user.getByRole("button", { name: /^Avisos/ }).click();
+  await expect(user.getByText("Sua demanda foi concluída: Correção de bugs")).toBeVisible();
+
   await userContext.close();
   await superContext.close();
 });

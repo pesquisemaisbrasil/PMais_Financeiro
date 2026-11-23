@@ -33,9 +33,13 @@ describe("solicitações: o que a tela confere antes de enviar", () => {
   it("a tela de onde veio aparece como no título dela", () => {
     expect(pageLabel("/contas-a-pagar/")).toBe("Financeiro - Contas a pagar");
     expect(pageLabel("/cadastros?aba=suppliers")).toBe("Cadastros - Fornecedores");
+    // telas de primeiro nível do menu: só o nome (19/11)
+    expect(pageLabel("/demandas")).toBe("Demandas");
+    expect(pageLabel("/acessos")).toBe("Acessos");
     expect(pageLabel("/cadastros/")).toBe("Cadastros - Empresas");
     expect(pageLabel("/")).toBe("Início");
-    expect(pageLabel("/solicitacoes")).toBe("/solicitacoes");
+    expect(pageLabel("/solicitacoes")).toBe("Solicitações");
+    expect(pageLabel("/tela-que-nao-existe")).toBe("/tela-que-nao-existe");
   });
 
   it("o nome de cada tipo", () => {

@@ -339,3 +339,29 @@ def test_the_server_command_approves_the_latest_request(
 )
 def test_the_browser_name_the_admin_sees(user_agent: str | None, label: str) -> None:
     assert browsers.browser_label(user_agent) == label
+
+
+# ---- Super admin (Bruno, 19/11/2026) ----
+
+
+def test_the_super_admin_enters_any_browser_without_approval(
+    client: TestClient, db_session: Session, make_user: Callable[..., User]
+) -> None:
+    # o desenvolvedor: senha e autenticador continuam, a liberação do computador não
+    dev = make_user(email="dev@pesquisemais.com.br", role="superadmin")
+    make_user(email="chefe@pesquisemais.com.br", role="admin")
+    enter(client, db_session, dev)
+    other = enter(client, db_session, dev, user_agent="Mozilla/5.0 Firefox/133.0")
+    assert other.status_code == 200, other.text
+    assert db_session.query(TrustedBrowser).count() == 0
+    assert db_session.query(Notification).count() == 0
+    reason = db_session.query(LoginEvent).order_by(LoginEvent.id.desc()).first()
+    assert reason is not None and reason.reason == "browser_superadmin"
+
+
+def test_an_admin_still_needs_approval_on_a_new_browser(
+    client: TestClient, db_session: Session, people: dict[str, User]
+) -> None:
+    enter(client, db_session, people["chefe"])
+    waiting = enter(client, db_session, people["chefe"], user_agent="Mozilla/5.0 Firefox/133.0")
+    assert waiting.status_code == 403

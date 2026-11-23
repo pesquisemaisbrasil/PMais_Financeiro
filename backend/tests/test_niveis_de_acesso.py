@@ -312,3 +312,38 @@ def test_the_attachment_name_follows_the_content_not_the_name_sent(
 def test_demands_need_login(client: TestClient) -> None:
     assert client.get("/demands").status_code == 401
     assert client.post("/demands", data={"kind": "bug"}).status_code == 401
+
+
+def test_the_super_admin_concludes_a_demand_and_the_author_is_notified(
+    client: TestClient, team: dict[str, User], vault: MemoryFileStore, db_session: Session
+) -> None:
+    demand_id = open_demand(client, team["user"]).json()["id"]
+    response = client.post(f"/demands/{demand_id}/concluir", headers=bearer(team["super"]))
+    assert response.status_code == 200
+    assert response.json()["doneBy"] == "Ana"  # o make_user dá o nome Ana a todos
+    assert response.json()["doneAt"] is not None
+    listed = client.get("/demands", headers=bearer(team["super"])).json()
+    assert listed[0]["doneAt"] is not None
+    # quem abriu recebe o aviso, com o tipo e a data, sem a descrição (texto livre)
+    notice = (
+        db_session.query(Notification)
+        .filter(Notification.type == "demanda_concluida", Notification.user_id == team["user"].id)
+        .one()
+    )
+    assert notice.title == "Sua demanda foi concluída: Correção de bugs"
+    assert notice.body is not None and "O total não bate" not in notice.body
+    assert notice.body.startswith("Aberta em ")
+
+    again = client.post(f"/demands/{demand_id}/concluir", headers=bearer(team["super"]))
+    assert (again.status_code, again.json()["detail"]) == (409, "Esta demanda já foi concluída")
+
+
+def test_only_the_super_admin_concludes_and_a_missing_demand_is_404(
+    client: TestClient, team: dict[str, User], vault: MemoryFileStore
+) -> None:
+    demand_id = open_demand(client, team["user"]).json()["id"]
+    for who in ("admin", "user"):
+        refused = client.post(f"/demands/{demand_id}/concluir", headers=bearer(team[who]))
+        assert refused.status_code == 403
+    missing = client.post("/demands/9999/concluir", headers=bearer(team["super"]))
+    assert (missing.status_code, missing.json()["detail"]) == (404, "Demanda não encontrada")
