@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { closeTab, hrefOf, openBeside, readTabs, sync, tabLabel, toTab, visit, writeTabs, type TabsState } from "./tabs";
+import { closeTab, forgetTabs, hrefOf, openBeside, readTabs, sync, tabLabel, toTab, visit, writeTabs, type TabsState } from "./tabs";
 
 const pagar = { path: "/contas-a-pagar", query: "" };
 const receber = { path: "/contas-a-receber", query: "" };
@@ -66,6 +66,19 @@ describe("abas de telas", () => {
     expect(tabLabel({ path: "/cadastros", query: "aba=holidays" })).toBe("Cadastros");
     expect(tabLabel({ path: "/acessos", query: "" })).toBe("Acessos");
     expect(tabLabel({ path: "/incentivos", query: "" })).toBe("Incentivos");
+  });
+
+  it("ao sair, apaga só as abas guardadas", () => {
+    const storage = {
+      "financeiro:abas:2": "{}",
+      "financeiro:abas:7": "{}",
+      "financeiro:passeio-visto": "1",
+      removeItem(key: string) {
+        delete (this as Record<string, unknown>)[key];
+      },
+    };
+    forgetTabs(storage as unknown as Storage);
+    expect(Object.keys(storage)).toEqual(["financeiro:passeio-visto", "removeItem"]);
   });
 
   it("guardar e ler na aba do navegador, ignorando o que não é tela ou está estragado", () => {

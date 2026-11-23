@@ -105,8 +105,10 @@ test("com o MFA cadastrado, a sessão aguenta recarregar e abrir duas abas, e sa
     session: Object.keys(sessionStorage),
     cookie: document.cookie,
   }));
-  // Nada de sessão no navegador: só a marca de que o passeio de introdução já foi visto (todo navegador de teste nasce com ela)
-  expect(stored).toEqual({ local: ["financeiro:passeio-visto"], session: [], cookie: "" });
+  // Nada de sessão no navegador: só a marca de que o passeio de introdução já foi visto (todo navegador de teste nasce com
+  // ela) e a lista de abas abertas (só os endereços das telas, sem token; o Sair apaga)
+  expect(stored.session.every((key) => key.startsWith("financeiro:abas:"))).toBe(true);
+  expect({ ...stored, session: [] }).toEqual({ local: ["financeiro:passeio-visto"], session: [], cookie: "" });
   const cookie = await refreshCookie(page);
   expect(cookie?.httpOnly).toBe(true);
   expect(cookie?.sameSite).toBe("Strict");
@@ -126,6 +128,7 @@ test("com o MFA cadastrado, a sessão aguenta recarregar e abrir duas abas, e sa
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(await refreshCookie(page)).toBeUndefined();
+  expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
 });
