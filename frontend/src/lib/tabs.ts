@@ -109,3 +109,11 @@ export function readTabs(raw: string | null): TabsState {
 export function writeTabs(state: TabsState): string {
   return JSON.stringify({ tabs: state.tabs, active: state.active });
 }
+
+/** A chave das abas guardadas, por pessoa. Guarda só os endereços das telas abertas, nunca token. */
+export const TABS_KEY_PREFIX = "financeiro:abas:";
+
+/** Ao sair, a lista de abas não fica no navegador para quem usar depois. */
+export function forgetTabs(storage: Storage): void {
+  for (const key of Object.keys(storage)) if (key.startsWith(TABS_KEY_PREFIX)) storage.removeItem(key);
+}

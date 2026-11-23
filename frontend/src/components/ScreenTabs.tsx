@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { screenAllowed } from "@/lib/access";
 import { useAuth } from "@/lib/auth-context";
 import {
+  TABS_KEY_PREFIX,
   closeTab,
   hrefOf,
   openBeside,
@@ -83,7 +84,7 @@ export function useScreenSearchParams(): URLSearchParams {
 }
 
 function storageKey(userId: number) {
-  return `financeiro:abas:${userId}`;
+  return `${TABS_KEY_PREFIX}${userId}`;
 }
 
 export function ScreenTabsProvider({ children }: { children: React.ReactNode }) {

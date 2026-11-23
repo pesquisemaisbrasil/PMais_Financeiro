@@ -8,6 +8,7 @@ import {
   refreshSession,
   type UserPublic,
 } from "./api";
+import { forgetTabs } from "./tabs";
 
 interface AuthContextValue {
   user: UserPublic | null;
@@ -47,6 +48,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // sem rede a sessão não é revogada no servidor; a tela sai mesmo assim e o cookie vence sozinho
     } finally {
+      try {
+        forgetTabs(sessionStorage);
+      } catch {
+        // sem armazenamento não há abas guardadas
+      }
       setUser(null);
     }
   }, []);
