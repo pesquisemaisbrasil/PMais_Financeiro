@@ -7,3 +7,7 @@ npm-debug.log*
 e2e
 playwright-report
 test-results
+# testes e prints fora da imagem de produção (o build não acha os helpers de e2e/)
+e2e-prints
+.next-prints
+.next-e2e
