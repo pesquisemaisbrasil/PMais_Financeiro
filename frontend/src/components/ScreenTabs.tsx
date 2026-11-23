@@ -147,12 +147,13 @@ export function ScreenTabsProvider({ children }: { children: React.ReactNode }) 
 /** A fileira de abas, entre a busca geral e o título da tela. */
 export function ScreenTabsBar() {
   const api = useScreenTabs();
-  if (!api?.current || api.state.tabs.length === 0) return null;
+  // com uma tela só, a fileira não aparece (pedido do Bruno, 23/11)
+  if (!api?.current || api.state.tabs.length < 2) return null;
   const { state, select, close } = api;
-  const single = state.tabs.length === 1;
   return (
-    <div className="mx-auto w-full max-w-[1280px] px-6 pt-4">
-      <nav aria-label="Abas abertas" className="flex items-end gap-1 overflow-x-auto border-b border-border">
+    // de ponta a ponta da área da tela (pedido do Bruno, 23/11); sem rolagem vertical, só a de lado com muitas abas
+    <div className="w-full border-b border-border pt-4">
+      <nav aria-label="Abas abertas" className="flex items-end gap-1 overflow-x-auto overflow-y-hidden px-4">
         {state.tabs.map((tab) => {
           const front = tab.path === state.active;
           const label = tabLabel(tab);
@@ -160,7 +161,7 @@ export function ScreenTabsBar() {
             <div
               key={tab.path}
               className={cn(
-                "group -mb-px flex shrink-0 items-center rounded-t-lg border border-b-0",
+                "group flex shrink-0 items-center rounded-t-lg border border-b-0",
                 front
                   ? "border-border bg-white shadow-[inset_0_2px_0_var(--brand-azul-deep)]"
                   : "border-transparent hover:bg-muted"
@@ -180,25 +181,18 @@ export function ScreenTabsBar() {
               >
                 {label}
               </Button>
-              {!single && (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={`Fechar a aba ${label}`}
-                  onClick={() => close(tab)}
-                  className="mr-1 text-muted-foreground"
-                >
-                  <X />
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`Fechar a aba ${label}`}
+                onClick={() => close(tab)}
+                className="mr-1 text-muted-foreground"
+              >
+                <X />
+              </Button>
             </div>
           );
         })}
-        {single && (
-          <span className="ml-auto hidden shrink-0 self-center pb-1 text-xs text-muted-foreground md:inline">
-            Dois cliques numa tela do menu abrem outra aba
-          </span>
-        )}
       </nav>
     </div>
   );
