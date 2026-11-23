@@ -2,7 +2,7 @@
 
 O Financeiro inteiro numa máquina do escritório, aberto pela rede: banco (Postgres), cofre de arquivos (MinIO), API, telas e HTTPS com certificado da própria máquina (Caddy). Tudo pelo `Makefile` da raiz, com o `deploy/compose.yml`. Decisões do Bruno em 17/11/2026: acesso pela rede, HTTPS com certificado local, banco vazio para dados reais. Por que é assim: [ADR 0020](../architecture/adr/0020-servidor-local-com-docker-compose-e-caddy.md).
 
-> **Dado real:** o servidor sobe com o banco vazio para receber dados reais. Antes de lançar dado de verdade, o DPO aprova onde ficam o banco, os backups e as chaves (Q51), e o inventário de dados vale para este servidor.
+> **Dado real:** o servidor sobe com o banco vazio e passa a receber os dados reais da equipe a partir daí (decisão do Bruno, 23/11/2026). O inventário de dados vale para este servidor. Antes do primeiro lançamento real: guarde uma cópia do `deploy/.env` num cofre fora da máquina (sem ela, anexos, chaves Pix e autenticadores não abrem mais) e leve as cópias de backup para fora do servidor. Para onde e por quanto tempo, o DPO responde (Q51).
 
 ## O que precisa ter no servidor (Ubuntu)
 

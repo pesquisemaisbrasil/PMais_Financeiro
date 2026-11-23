@@ -1,6 +1,6 @@
 # ADR 0020: Servidor local com Docker Compose, Makefile e Caddy com certificado da própria máquina
 
-**Status:** Aceito, provisório (dado real depende do DPO: Q51)
+**Status:** Aceito, provisório (dado real liberado pelo Bruno em 23/11/2026; onde ficam os backups e a cópia das chaves, com o DPO: Q51)
 **Data:** 17/11/2026
 
 ## Contexto
@@ -31,7 +31,7 @@ O `docker-compose.yml` da raiz é só do desenvolvimento: senhas fixas, portas a
 
 ## Consequências
 
-- **Dado real** num servidor do escritório: banco, arquivos cifrados, backups e o `deploy/.env` ficam nessa máquina. O DPO aprova antes de lançar dado de verdade (Q51). O guia manda guardar o `deploy/.env` num cofre e as cópias de backup fora do servidor, longe dele.
+- **Dado real** num servidor do escritório: banco, arquivos cifrados, backups e o `deploy/.env` ficam nessa máquina. Desde 23/11/2026 o servidor recebe dado real, começando com o banco vazio (Bruno); o DPO responde para onde vão os backups e a cópia das chaves, e por quanto tempo (Q51). O guia manda guardar o `deploy/.env` num cofre e as cópias de backup fora do servidor, longe dele.
 - Cada computador da equipe instala o **certificado raiz** uma vez. Sem ele, o navegador bloqueia a API (o aviso não aparece para as chamadas da tela). Apagar o volume `financeiro_caddydata` gera outra CA.
 - `shortcut`: a API usa o administrador do MinIO (como no desenvolvimento, ADR 0010), e o limite de requisições é em memória (uma instância só). Evoluir quando houver outro sistema no mesmo MinIO ou mais de uma instância da API.
 - `shortcut`: o backup é manual (`make backup`, e `make atualizar` faz um antes de cada versão nova). Agendar (cron ou Agendador de Tarefas) e levar a cópia para fora do servidor ficam com quem cuida da máquina.
