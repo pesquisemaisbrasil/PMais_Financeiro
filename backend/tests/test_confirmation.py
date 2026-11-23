@@ -280,6 +280,56 @@ def test_an_older_read_does_not_undo_what_the_mirror_already_knows(
     assert db_session.query(ConnectPayableItem).one().status == "pago"
 
 
+def test_the_mirror_keeps_only_what_the_advance_did_not_pay(
+    db_session: Session, project: ProjectRef
+) -> None:
+    """Relatório do adiantamento: 5 entrevistas de 100 e 250 de adiantamento. As duas mais antigas
+    o adiantamento pagou inteiras (nunca vão para pagamento); da 3ª falta 50; a pagar = 250."""
+    from services.connect_sync import sync_items
+
+    at = datetime(2026, 11, 1, tzinfo=UTC)
+    due = date(2026, 12, 1)
+
+    def item(interview: int, status: str, covered: str) -> ConnectPayable:
+        return ConnectPayable(
+            interview, 87, 12, Decimal("100.00"), at, due, status, None, at, Decimal(covered)
+        )
+
+    fake = FakeConnect(
+        payables=[
+            item(1, "covered", "100.00"),
+            item(2, "covered", "100.00"),
+            item(3, "to_pay", "50.00"),
+            item(4, "to_pay", "0.00"),
+            item(5, "to_pay", "0.00"),
+        ]
+    )
+    sync_items(db_session, fake, project, {87})
+
+    rows = db_session.query(ConnectPayableItem).order_by(ConnectPayableItem.connect_interview_id)
+    assert [(r.status, r.amount) for r in rows] == [
+        ("adiantamento", Decimal("0.00")),
+        ("adiantamento", Decimal("0.00")),
+        ("a_pagar", Decimal("50.00")),
+        ("a_pagar", Decimal("100.00")),
+        ("a_pagar", Decimal("100.00")),
+    ]
+    to_pay = sum(r.amount for r in rows if r.status == "a_pagar")
+    assert to_pay == Decimal("250.00")
+
+
+def test_an_unknown_status_from_the_connect_is_never_paid(
+    db_session: Session, project: ProjectRef
+) -> None:
+    """Regra de versão do v1: status que o Financeiro não conhece = não pagar."""
+    from services.connect_sync import sync_items
+
+    at = datetime(2026, 11, 1, tzinfo=UTC)
+    novo = ConnectPayable(9, 87, 12, Decimal("10.00"), at, date(2026, 12, 1), "novo", None, at)
+    sync_items(db_session, FakeConnect(payables=[novo]), project, {87})
+    assert db_session.query(ConnectPayableItem).one().status != "a_pagar"
+
+
 # ---- Connect falha ou recusa ----
 
 
@@ -355,6 +405,14 @@ def test_a_lost_request_is_sent_again_with_the_same_key(
         ("already_paid", "O Connect já tinha essas entrevistas como pagas"),
         ("duplicate_e2e", "O Connect já recebeu esse Pix em outra baixa"),
         ("amount_mismatch", "O valor do Pix não bate com a soma das entrevistas no Connect"),
+        (
+            "covered_by_advance",
+            "O Connect diz que o adiantamento já pagou alguma dessas entrevistas",
+        ),
+        (
+            "exceeds_net_payable",
+            "O valor passa do que a pessoa tem a receber no projeto, já descontado o adiantamento",
+        ),
     ],
 )
 def test_a_refusal_from_the_connect_becomes_a_divergence_and_is_never_fixed_alone(

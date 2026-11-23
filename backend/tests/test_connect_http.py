@@ -218,6 +218,50 @@ def test_payables_of_each_person_become_mirror_rows(
     assert call["params"]["projectId"] == 12 and call["params"]["interviewerId"] == 87
 
 
+def test_the_advance_is_read_and_the_finance_part_is_what_is_left(
+    connect: HttpConnect, session: FakeSession
+) -> None:
+    """Relatório do adiantamento, 4.1: 5 entrevistas de 100 e 250 de adiantamento."""
+    covered = {"amount": "100.00", "advanceCovered": "100.00", "payableAmount": "0.00"}
+    session.add(
+        "GET /integrations/v1/payables",
+        FakeResponse(
+            200,
+            {
+                "items": [
+                    payable(5529, status="covered", **covered),
+                    payable(5531, amount="100.00", advanceCovered="50.00", payableAmount="50.00"),
+                    payable(5532, amount="100.00", advanceCovered="0.00", payableAmount="100.00"),
+                    payable(5533, amount="100.00"),  # Connect sem o campo: nada coberto
+                ],
+                "nextCursor": None,
+            },
+        ),
+    )
+    rows = connect.list_payables(12, [87])
+
+    assert [(r.status, r.amount, r.advance_covered, r.net_amount) for r in rows] == [
+        ("covered", Decimal("100.00"), Decimal("100.00"), Decimal("0.00")),
+        ("to_pay", Decimal("100.00"), Decimal("50.00"), Decimal("50.00")),
+        ("to_pay", Decimal("100.00"), Decimal("0.00"), Decimal("100.00")),
+        ("to_pay", Decimal("100.00"), Decimal("0.00"), Decimal("100.00")),
+    ]
+
+
+def test_an_empty_page_with_a_cursor_is_followed_to_the_end(
+    connect: HttpConnect, session: FakeSession
+) -> None:
+    """Com filtro de situação, a página pode vir vazia com o cursor preenchido (relatório, 6.8)."""
+    session.add(
+        "GET /integrations/v1/payables", FakeResponse(200, {"items": [], "nextCursor": "c2"})
+    )
+    session.add(
+        "GET /integrations/v1/payables",
+        FakeResponse(200, {"items": [payable(5531)], "nextCursor": None}),
+    )
+    assert [r.interview_id for r in connect.list_project_payables(12, "to_pay")] == [5531]
+
+
 def test_each_person_is_asked_separately(connect: HttpConnect, session: FakeSession) -> None:
     session.add(
         "GET /integrations/v1/payables",
