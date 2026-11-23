@@ -120,6 +120,8 @@ WITH_MFA = [
     "niveis-super@e2e.invalid",
     "niveis-admin@e2e.invalid",
     "niveis-usuario@e2e.invalid",
+    # abas de telas, como no VS Code (frontend/e2e/abas.spec.ts)
+    "abas@e2e.invalid",
 ]
 # Só quem é administrador reabre um mês fechado e libera os navegadores.
 ADMINS = ["fechamento@e2e.invalid", "acessos-admin@e2e.invalid", "niveis-admin@e2e.invalid"]
