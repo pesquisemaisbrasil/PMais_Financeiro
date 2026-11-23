@@ -103,6 +103,23 @@ def list_demands(request: Request, db: DbSession, _: SuperAdminUser) -> list[dic
     return demands.listing(db)
 
 
+@router.post(
+    "/demands/{demand_id}/concluir",
+    response_model=DemandOut,
+    description="Marca a demanda como concluída e avisa no sino quem abriu (só o super admin)",
+)
+@limiter.limit(WRITE_LIMIT)
+def conclude_demand(
+    request: Request, demand_id: int, db: DbSession, user: SuperAdminUser
+) -> dict[str, Any]:
+    try:
+        return _in_transaction(db, lambda: demands.conclude(db, demand_id, user))
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Demanda não encontrada") from exc
+        raise
+
+
 @router.get(
     "/demands/{demand_id}/anexo",
     response_class=Response,

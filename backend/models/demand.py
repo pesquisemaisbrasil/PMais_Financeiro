@@ -23,3 +23,6 @@ class Demand(Base):
     fileKey = Column(String(200), nullable=False, unique=True)
     fileSha256 = Column(String(64), nullable=False)
     createdAt = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    # Concluída pelo super admin: quem abriu recebe o aviso no sino (Bruno, 19/11/2026)
+    doneAt = Column(DateTime(timezone=True), nullable=True)
+    done_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)

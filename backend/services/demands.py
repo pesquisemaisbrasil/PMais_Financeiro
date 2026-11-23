@@ -7,16 +7,19 @@ no cofre (`core/file_vault.py`), como os anexos das contas: o print pode mostrar
 
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from core import file_vault
 from core.permissions import SUPERADMIN
+from core.text import format_datetime_br
 from models.demand import Demand
+from models.notification import Notification
 from models.user import User
 from services.notifications import notify_admins
-from services.payable import PayableInvalid, PayableNotFound
+from services.payable import PayableConflict, PayableInvalid, PayableNotFound
 
 VAULT_KIND = "demand"
 KINDS = {"nova": "Abrir nova demanda", "bug": "Correção de bugs", "regra": "Correção de regra"}
@@ -25,6 +28,7 @@ MAX_DESCRIPTION = 4000
 LONG_DESCRIPTION = "A descrição passa de 4.000 caracteres. Resuma um pouco."
 INVALID_FILE = "Anexe uma imagem (PNG, JPG ou WEBP) ou um PDF."
 TOO_LARGE = "O anexo passa de 10 MB. Envie um arquivo menor."
+ALREADY_DONE = "Esta demanda já foi concluída"
 EXTENSIONS = {
     "application/pdf": "pdf",
     "image/png": "png",
@@ -57,7 +61,7 @@ def _page(page: str) -> str:
     return page[:200] if page.startswith("/") else "/"
 
 
-def _row(demand: Demand, sender: str) -> dict[str, Any]:
+def _row(demand: Demand, sender: str, done_by: str | None = None) -> dict[str, Any]:
     return {
         "id": demand.id,
         "kind": demand.kind,
@@ -69,6 +73,8 @@ def _row(demand: Demand, sender: str) -> dict[str, Any]:
         "fileName": demand.fileName,
         "contentType": demand.contentType,
         "size": demand.size,
+        "doneAt": demand.doneAt,
+        "doneBy": done_by,
     }
 
 
@@ -120,13 +126,38 @@ def create(
 
 
 def listing(db: Session) -> list[dict[str, Any]]:
+    done_by = aliased(User)
     rows = (
-        db.query(Demand, User.name)
+        db.query(Demand, User.name, done_by.name)
         .join(User, User.id == Demand.user_id)
+        .outerjoin(done_by, done_by.id == Demand.done_by_user_id)
         .order_by(Demand.createdAt.desc(), Demand.id.desc())
         .all()
     )
-    return [_row(demand, sender) for demand, sender in rows]
+    return [_row(demand, sender, finisher) for demand, sender, finisher in rows]
+
+
+def conclude(db: Session, demand_id: int, user: User) -> dict[str, Any]:
+    """Marca como concluída e avisa no sino quem abriu. O aviso diz o tipo e quando foi aberta, sem
+    a descrição: ela é texto livre e pode citar pessoas."""
+    demand = db.query(Demand).filter(Demand.id == demand_id).with_for_update().one_or_none()
+    if demand is None:
+        raise PayableNotFound
+    if demand.doneAt is not None:
+        raise PayableConflict(ALREADY_DONE)
+    demand.doneAt, demand.done_by_user_id = datetime.now(UTC), user.id
+    opened = format_datetime_br(demand.createdAt)[:16].replace(" ", " às ")
+    db.add(
+        Notification(
+            user_id=demand.user_id,
+            type="demanda_concluida",
+            title=f"Sua demanda foi concluída: {KINDS.get(demand.kind, demand.kind)}",
+            body=f"Aberta em {opened}, concluída por {user.name}.",
+        )
+    )
+    db.commit()
+    sender = db.get(User, demand.user_id)
+    return _row(demand, sender.name if sender else "", user.name)
 
 
 def download(db: Session, demand_id: int) -> tuple[str, str, bytes]:

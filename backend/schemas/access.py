@@ -39,3 +39,6 @@ class DemandOut(BaseModel):
     fileName: str
     contentType: str
     size: int
+    # concluída pelo super admin (19/11): quando e por quem
+    doneAt: datetime | None = None
+    doneBy: str | None = None
