@@ -220,7 +220,9 @@ test("a agenda de incentivos e o Início usam as regras de verdade", async ({ pa
   await enter(page);
   await expect(page.getByText("1 conta a pagar vencida")).toBeVisible();
 
-  await go(page, "Relatórios", "Incentivos");
+  // A agenda saiu do menu em 18/11 e abre só pelo endereço; a demonstração guarda o trabalho e a sessão
+  // ao recarregar (o teste "recarregar a página..." abaixo), então o page.goto aqui não perde nada.
+  await page.goto(`${BASE}incentivos/`);
   await expect(page.getByText("Incentivos · pesquisa de satisfação")).toBeVisible();
   await expect(page.getByText("Vencem hoje")).toBeVisible();
 });
