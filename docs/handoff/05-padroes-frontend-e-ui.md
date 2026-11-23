@@ -477,6 +477,7 @@ Toda tela de `src/app/(app)` abre numa aba ([ADR 0025](../architecture/adr/0025-
 - **Ler o endereço:** `useScreenSearchParams()` de `@/components/ScreenTabs`, nunca `useSearchParams` direto. Escondida, a tela precisa continuar vendo o `?…` dela; com o global, a `key` de reinício mudaria e o que a pessoa fez se perderia.
 - **Efeitos rodam de novo** quando a aba volta para a frente. Buscar dados de novo é bom; efeito que muda estado a partir do endereço precisa de trava, para não desfazer o que a pessoa escolheu depois (ex.: `linkHandled` em `contas-a-pagar/page.tsx`).
 - **Navegar:** `<Link>` e `router.push` trocam a tela da aba atual. Abrir noutra aba é só pelo duplo clique no menu (`useScreenTabs().openInNewTab`).
+- **Janelas:** use Dialog, AlertDialog e Sheet de `components/ui`: eles abrem dentro da aba e somem e voltam com ela. Um portal próprio, fora deles, ficaria na tela ao trocar de aba.
 
 ### Estados
 

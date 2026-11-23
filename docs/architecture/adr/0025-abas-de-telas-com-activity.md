@@ -31,4 +31,5 @@ O layout de `src/app/(app)` monta as abas por conta própria (`components/Screen
 - Tela nova em `src/app/(app)` precisa entrar em `SCREENS` (`lib/tabs.ts`) e em `PAGES` (`ScreenTabs.tsx`); o TypeScript cobra o par.
 - Proibido `useSearchParams` direto numa tela: use `useScreenSearchParams`. Efeito que muda estado a partir do endereço roda de novo a cada volta da aba e precisa de trava (ex.: `linkHandled` em `contas-a-pagar/page.tsx`).
 - As telas abertas ficam todas montadas: no máximo uma por tela (11 hoje).
+- As janelas (Dialog, AlertDialog e Sheet de `components/ui`) abrem dentro da aba (`lib/tab-portal.ts`): escondem e voltam com ela, com o que foi digitado. Com duas ou mais abas, a fileira fica presa no alto, as janelas abrem abaixo dela (`--abas-fim`, em `globals.css`) e clicar numa aba não fecha a janela (23/11, pedido do Bruno). A fileira leva `aria-live="off"` para o Radix não escondê-la dos leitores de tela com a janela aberta.
 - Código: `frontend/src/lib/tabs.ts`, `frontend/src/components/ScreenTabs.tsx`, `frontend/src/app/(app)/layout.tsx`, `frontend/src/components/Sidebar.tsx`; testes em `lib/tabs.test.ts` e `e2e/abas.spec.ts`.

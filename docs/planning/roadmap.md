@@ -138,6 +138,7 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 3. Dois cliques em **Contas a receber**: a fileira aparece, com a aba nova ao lado, já na frente. Busque **satisfacao** e mude o período para **Tudo**.
 4. Clique na aba **Contas a pagar**: a busca "grafica" e a lista estão como você deixou. Volte para **Contas a receber**: "satisfacao" e o período Tudo também.
 5. Clique de novo em **Contas a pagar** no menu: vai para a aba dela, sem abrir outra.
+   Com uma janela aberta e pela metade (por exemplo, **Nova conta a pagar** com a descrição digitada), clique na outra aba e volte: a janela continua aberta com o que foi digitado. A fileira fica presa no alto ao rolar, e as janelas abrem abaixo dela.
 6. **F5**: as duas abas voltam, cada tela do zero (busca vazia).
 7. No **×** da aba da frente: ela fecha e a vizinha vem para a frente; sobrando uma, a fileira some. O botão do meio do mouse também fecha.
 8. Os testes: `npx vitest run src/lib/tabs.test.ts` e `npx playwright test e2e/abas.spec.ts` em `frontend/`.
