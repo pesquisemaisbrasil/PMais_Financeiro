@@ -280,10 +280,10 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 | `connect_interview_id` | Integer, **unique** | idempotência da sincronização; uma linha por entrevista |
 | `project_ref_id` | FK `project_refs.id`, `RESTRICT` | não some com o projeto |
 | `connect_interviewer_id` | Integer, index | id da ficha no Connect; casa com o comprovante |
-| `amount` | Numeric(10,2) | `earnedValue` congelado no lançamento |
+| `amount` | Numeric(10,2) | a parte do Financeiro: `amount − advanceCovered` do Connect (o valor da entrevista menos o que o adiantamento já pagou), a pagar ou já pago por baixa. Desde 23/11/2026; antes, o `earnedValue` cheio |
 | `launchedAt` | DateTime(tz) | `Interview.createdAt` (base do prazo) |
 | `dueOn` | Date | `expected_payment_date` calculado no Connect |
-| `status` | String(20) | `a_pagar → pago`; `cancelado` se o Connect apagou o lançamento |
+| `status` | String(20) | `a_pagar → pago`; `adiantamento` se o adiantamento já pagou a entrevista inteira (`covered`, nunca vai para pagamento); `cancelado` se o Connect apagou o lançamento ou mandou um status desconhecido |
 | `paidOn` | Date, nullable | data do Pix que pagou |
 | `connectUpdatedAt` | DateTime(tz) | ignorar evento mais velho que o já aplicado |
 | `syncedAt` | DateTime(tz) | |

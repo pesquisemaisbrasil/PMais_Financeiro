@@ -112,9 +112,18 @@ Pedido do Bruno ([transcrição](../transcricoes/2026-11-23-abas-como-no-vs-code
 
 As 10 senhas erradas por hora que barram o login passam a contar por **e-mail e rede juntos** ([acesso-e-auditoria](../specs/acesso-e-auditoria.md), Ajustes de 23/11). Antes, bastava saber o e-mail de alguém para deixar a pessoa uma hora sem entrar, mesmo com a senha certa.
 
+## Adiantamento do Connect, parte de leitura (23/11/2026)
+
+O Connect passou a descontar o adiantamento do "a pagar" ([relatório](../specs/RELATORIO_ADIANTAMENTO_FINANCEIRO.md), [integração, Ajustes de 23/11](../specs/integracao-com-o-connect.md)). O Financeiro guarda no espelho só o que falta pagar, sem a parte do adiantamento: a conciliação do comprovante e a baixa somam o valor líquido, como a planilha. A entrevista que o adiantamento pagou inteira nunca vai para pagamento, e as duas recusas novas do Connect viram divergência com mensagem em palavras simples. Falta mostrar o adiantamento e o saldo negativo de cada pessoa na tela (Q63).
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
+
+### Adiantamento do Connect (23/11)
+
+1. Os testes: `pytest tests/test_connect_http.py tests/test_confirmation.py` em `backend/` (o exemplo do relatório: 5 entrevistas de R$ 100 e R$ 250 de adiantamento dão R$ 250 a pagar, com as duas mais antigas fora do pagamento).
+2. Com o Connect de dev (quando a conta de serviço existir, PF-77): lance um adiantamento numa pessoa do projeto de teste e rode `python scripts/connect_dev_check.py`. A baixa do roteiro soma o valor líquido e o Connect aceita.
 
 ### Login não trava por quem é de fora (PF-53, 23/11)
 
