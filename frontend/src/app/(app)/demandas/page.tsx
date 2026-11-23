@@ -1,14 +1,24 @@
 "use client";
 
-import { ClipboardList, Download, RefreshCw } from "lucide-react";
+import { CheckCircle2, ClipboardList, Download, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, PageHeader, TD, TH, Tag } from "@/components/finance";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { isSuperAdmin } from "@/lib/access";
-import { ApiError, downloadDemandAttachment, listDemands, type DemandRow } from "@/lib/api";
+import { ApiError, concludeDemand, downloadDemandAttachment, listDemands, type DemandRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { saveBlob } from "@/lib/documents";
 import { pageLabel } from "@/lib/feedback";
@@ -33,6 +43,8 @@ export default function DemandsPage() {
 function DemandList() {
   const [rows, setRows] = useState<DemandRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [concluding, setConcluding] = useState<DemandRow | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -53,6 +65,21 @@ function DemandList() {
       saveBlob(await downloadDemandAttachment(row.id), row.fileName);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Não foi possível baixar o anexo");
+    }
+  }
+
+  async function conclude() {
+    if (!concluding) return;
+    setBusy(true);
+    try {
+      await concludeDemand(concluding.id);
+      toast.success(`Demanda concluída. ${concluding.sender} recebeu o aviso no sino.`);
+      setConcluding(null);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível concluir. Tente de novo.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -92,7 +119,8 @@ function DemandList() {
                 <TableHead className={TH}>Descrição</TableHead>
                 <TableHead className={TH}>Tela</TableHead>
                 <TableHead className={TH}>Quem abriu</TableHead>
-                <TableHead className={TH}>Anexo</TableHead>
+                <TableHead className={TH}>Situação</TableHead>
+                <TableHead className={TH} />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -106,10 +134,31 @@ function DemandList() {
                   <TableCell className={TD}>{pageLabel(row.page)}</TableCell>
                   <TableCell className={TD}>{row.sender}</TableCell>
                   <TableCell className={TD}>
-                    <Button variant="outline" size="sm" aria-label={`Baixar ${row.fileName}`} onClick={() => void download(row)}>
-                      <Download size={14} />
-                      Baixar
-                    </Button>
+                    {row.doneAt ? (
+                      <div className="flex flex-col items-start gap-0.5">
+                        <Tag color="verde">Concluída</Tag>
+                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                          {formatDateTime(row.doneAt)}
+                          {row.doneBy ? ` · ${row.doneBy}` : ""}
+                        </span>
+                      </div>
+                    ) : (
+                      <Tag color="ambar">Aberta</Tag>
+                    )}
+                  </TableCell>
+                  <TableCell className={TD}>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" aria-label={`Baixar ${row.fileName}`} onClick={() => void download(row)}>
+                        <Download size={14} />
+                        Baixar
+                      </Button>
+                      {!row.doneAt && (
+                        <Button size="sm" aria-label={`Concluir a demanda de ${row.sender}`} onClick={() => setConcluding(row)}>
+                          <CheckCircle2 size={14} />
+                          Concluído
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -119,6 +168,34 @@ function DemandList() {
           <p className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhuma demanda aberta ainda.</p>
         )}
       </div>
+
+      <AlertDialog open={concluding !== null} onOpenChange={(open) => !open && !busy && setConcluding(null)}>
+        <AlertDialogContent>
+          {concluding && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Concluir esta demanda?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {concluding.kindLabel} de {concluding.sender}. Ela fica como concluída, e {concluding.sender} recebe
+                  um aviso no sino.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={busy}>Voltar</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={busy}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void conclude();
+                  }}
+                >
+                  {busy ? "Salvando…" : "Concluir"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

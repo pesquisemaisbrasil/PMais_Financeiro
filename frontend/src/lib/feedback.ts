@@ -3,7 +3,7 @@
  * enviar e a chave do desenvolvimento guardada no navegador. Quem guarda é a função do Netlify
  * (netlify/solicitacoes.mjs). docs/specs/solicitacoes.md
  */
-import { normalizePath, place } from "./nav";
+import { NAV, normalizePath, place } from "./nav";
 
 export const FEEDBACK_TYPES = [
   { id: "bug", label: "Correção de bug", hint: "Algo deu erro ou não funciona como deveria." },
@@ -57,6 +57,9 @@ export function pageLabel(page: string): string {
   const clean = normalizePath(path || "/");
   if (clean === "/") return "Início";
   const href = clean === "/cadastros" ? `/cadastros?aba=${new URLSearchParams(query).get("aba") ?? "companies"}` : clean;
+  // telas de primeiro nível do menu (Acessos, Demandas): só o nome
+  const entry = NAV.find((item) => item.href === href);
+  if (entry) return entry.label;
   try {
     const { section, title } = place(href);
     return `${section} - ${title}`;

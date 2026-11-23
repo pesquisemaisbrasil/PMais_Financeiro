@@ -548,6 +548,9 @@ export interface DemandRow {
   fileName: string;
   contentType: string;
   size: number;
+  /** Concluída pelo super admin: quando e por quem (quem abriu recebe o aviso no sino). */
+  doneAt: string | null;
+  doneBy: string | null;
 }
 
 export function listPeople(): Promise<PeopleList> {
@@ -564,6 +567,10 @@ export function sendDemand(form: FormData): Promise<DemandRow> {
 
 export function listDemands(): Promise<DemandRow[]> {
   return request<DemandRow[]>("/demands");
+}
+
+export function concludeDemand(id: number): Promise<DemandRow> {
+  return send<DemandRow>(`/demands/${id}/concluir`, "POST", {});
 }
 
 export function downloadDemandAttachment(id: number): Promise<Blob> {
