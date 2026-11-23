@@ -37,7 +37,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useScreenSearchParams } from "@/components/ScreenTabs";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
@@ -395,7 +395,7 @@ function Cell({ row, column, open, onToggle }: { row: PayableRow; column: string
 }
 
 function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
-  const params = useSearchParams();
+  const params = useScreenSearchParams();
   const linkedId = Number(params.get("conta")) || null;
 
   const [mode, setMode] = useState<PeriodMode>((params.get("modo") as PeriodMode) ?? "dia");
@@ -517,9 +517,12 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
     loadReference();
   }, [loadReference]);
 
-  // Link do Início: vai para o dia da conta e abre os itens, ou o detalhe se ela não tiver itens.
+  // Link do Início: vai para o dia da conta e abre os itens, ou o detalhe se ela não tiver itens. Uma vez por link:
+  // a aba que volta para a frente refaz os efeitos, e o período que a pessoa escolheu depois não pode ser desfeito.
+  const linkHandled = useRef<number | null>(null);
   useEffect(() => {
-    if (!linkedId) return;
+    if (!linkedId || linkHandled.current === linkedId) return;
+    linkHandled.current = linkedId;
     getPayable(linkedId).then(
       (payable) => {
         setMode("dia");
@@ -1376,6 +1379,6 @@ export default function PayablesPage() {
 
 /** A busca geral do topo manda `?busca=`: a lista recomeça com ela. */
 function PayablesByUrl() {
-  const linkedSearch = useSearchParams().get("busca") ?? "";
+  const linkedSearch = useScreenSearchParams().get("busca") ?? "";
   return <PayablesContent key={linkedSearch} linkedSearch={linkedSearch} />;
 }

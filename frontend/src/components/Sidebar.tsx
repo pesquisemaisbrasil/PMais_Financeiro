@@ -3,12 +3,13 @@
 import { ChevronDown, Compass, LogOut, MessageSquarePlus, PanelLeftClose, PanelLeftOpen, SquarePen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { DemandDialog } from "@/components/DemandDialog";
 import { FeedbackDialog } from "@/components/FeedbackDialog";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { TourAutoStart, startTour } from "@/components/ProductTour";
+import { useScreenTabs } from "@/components/ScreenTabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -33,6 +34,8 @@ const GROUP_CURRENT = "font-semibold text-brand-azul-deep";
 
 
 const COLLAPSED_KEY = "financeiro:menu-recolhido";
+// Tempo para o segundo clique do duplo clique (abrir noutra aba).
+const DOUBLE_CLICK_MS = 300;
 
 function readCollapsed(): boolean {
   try {
@@ -68,6 +71,32 @@ export function Sidebar() {
     const current = NAV.find((entry) => entry.children?.some((leaf) => isActive(leaf.href, pathname, aba)));
     return [current?.id ?? "financeiro"];
   });
+
+  // Clique simples troca a tela da aba atual; dois cliques abrem a tela noutra aba (abas como no VS Code). O clique
+  // simples espera um instante para saber se vem o segundo, senão a aba atual já teria trocado de tela.
+  const router = useRouter();
+  const tabs = useScreenTabs();
+  const clickTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(clickTimer.current), []);
+  function menuLink(href: string) {
+    return {
+      onClick: (event: React.MouseEvent) => {
+        // Ctrl/Shift/Cmd + clique: o navegador abre noutra janela, como sempre
+        if (!tabs || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        window.clearTimeout(clickTimer.current);
+        // pelo teclado (Enter) não há segundo clique a esperar
+        if (event.detail === 0) router.push(href);
+        else if (event.detail === 1) clickTimer.current = window.setTimeout(() => router.push(href), DOUBLE_CLICK_MS);
+      },
+      onDoubleClick: (event: React.MouseEvent) => {
+        if (!tabs) return;
+        event.preventDefault();
+        window.clearTimeout(clickTimer.current);
+        tabs.openInNewTab(href);
+      },
+    };
+  }
 
   useEffect(() => {
     function load() {
@@ -177,6 +206,7 @@ export function Sidebar() {
               <Hint key={entry.id} show={collapsed} label={entry.label}>
                 <Link
                   href={entry.href ?? "/"}
+                  {...menuLink(entry.href ?? "/")}
                   data-tour={`menu-${entry.id}`}
                   aria-label={entry.label}
                   aria-current={active ? "page" : undefined}
@@ -245,6 +275,7 @@ export function Sidebar() {
                     <Link
                       key={leaf.href}
                       href={leaf.href}
+                      {...menuLink(leaf.href)}
                       aria-current={active ? "page" : undefined}
                       className={cn(ROW, "py-[7px] pl-9 text-[13px]", active ? ROW_ACTIVE : ROW_IDLE)}
                     >

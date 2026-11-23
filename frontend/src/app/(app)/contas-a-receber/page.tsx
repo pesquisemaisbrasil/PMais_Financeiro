@@ -21,7 +21,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useScreenSearchParams } from "@/components/ScreenTabs";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
@@ -237,7 +237,7 @@ export default function ReceivablesPage() {
 
 /** A busca geral do topo manda `?busca=` e `?conta=`: a tela recomeça com a busca ou com a conta aberta. */
 function ReceivablesByUrl() {
-  const params = useSearchParams();
+  const params = useScreenSearchParams();
   const linkedId = Number(params.get("conta")) || null;
   const linkedSearch = params.get("busca") ?? "";
   const linkedMode = (params.get("modo") as PeriodMode | null) ?? "dia";

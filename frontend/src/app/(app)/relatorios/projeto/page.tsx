@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useScreenSearchParams } from "@/components/ScreenTabs";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, PageHeader, SituationTag, TD, TH, Tag } from "@/components/finance";
@@ -59,7 +59,7 @@ export default function ProjectReportPage() {
 
 /** Sem `?codigo=`, a lista dos projetos; com ele, o relatório daquele projeto. */
 function ByUrl() {
-  const code = useSearchParams().get("codigo");
+  const code = useScreenSearchParams().get("codigo");
   return (
     <main className="mx-auto w-full max-w-[1920px] px-6 pb-16 pt-8 lg:px-8">
       {code ? <Report key={code} code={code} /> : <ProjectList />}

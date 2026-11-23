@@ -15,7 +15,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useScreenSearchParams } from "@/components/ScreenTabs";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { DateInput } from "@/components/DateInput";
@@ -1115,7 +1115,7 @@ export default function RecordsPage() {
 }
 
 function RecordsByUrl() {
-  const params = useSearchParams();
+  const params = useScreenSearchParams();
   const aba = params.get("aba");
   // a busca geral do topo manda `?busca=`: a aba recomeça com ela
   const linkedSearch = params.get("busca") ?? "";
