@@ -126,7 +126,7 @@ def login_for_mfa_token(
     email = normalize_email(form_data.username)
     email_hash = hash_email(email)
 
-    if too_many_failures(db, email_hash):
+    if too_many_failures(db, email_hash, _client_info(request)["ip"]):
         # sem o hash: uma tentativa barrada não pode esticar o bloqueio
         record_login_event(
             db,
