@@ -12,7 +12,7 @@ Versões **instaladas** hoje (lidas de `frontend/node_modules`; o `package.json`
 
 | Peça | Versão | Observação |
 |---|---|---|
-| Next.js | **16.4.2** (fixa) | App Router, `output: "standalone"` em `next.config.ts` |
+| Next.js | **16.4.6** (fixa; era 16.4.2 até 23/11/2026, atualizada por falha de segurança) | App Router, `output: "standalone"` em `next.config.ts` |
 | React / React DOM | **19.2.8** (fixa) | |
 | TypeScript | 5.9.3 (`^5`) | `strict: true`, alias `@/*` → `./src/*` |
 | Tailwind CSS | 4.3.3 (`^4`) | via `@tailwindcss/postcss`; **sem** `tailwind.config.*` (tema em CSS) |
@@ -24,7 +24,7 @@ Versões **instaladas** hoje (lidas de `frontend/node_modules`; o `package.json`
 | class-variance-authority / clsx / tailwind-merge | 0.7.1 / 2.1.1 / 3.7.0 | `cn()` em `src/lib/utils.ts` |
 | tw-animate-css | 1.4.0 | animações do shadcn |
 | pdf-lib | 1.17.1 | só se o Financeiro manipular PDF no navegador |
-| ESLint | 9 + `eslint-config-next` 16.4.2 | `core-web-vitals` + `typescript` |
+| ESLint | 9 + `eslint-config-next` 16.4.6 | `core-web-vitals` + `typescript` |
 | Vitest | 3.2.7 (`^3.2.4`) | ambiente `node`, só `src/**/*.test.ts` |
 | Playwright | 1.64.1 | só Chromium |
 | Node | 22 | `node:22-slim` no `Dockerfile` e na CI |
@@ -762,7 +762,7 @@ npx playwright test e2e/financeiro.spec.ts
 
 Copie para o PR do Financeiro e marque cada item.
 
-- [ ] `package.json` com Next **16.4.2**, React **19.2.8**, Tailwind 4, `radix-ui`, `lucide-react`, `sonner`, `react-imask`, Vitest 3 e Playwright 1.64; Node 22.
+- [ ] `package.json` com Next **16.4.6**, React **19.2.8**, Tailwind 4, `radix-ui`, `lucide-react`, `sonner`, `react-imask`, Vitest 3 e Playwright 1.64; Node 22.
 - [ ] `frontend/AGENTS.md` copiado; código de rota conferido em `node_modules/next/dist/docs/`.
 - [ ] `npx next typegen` roda antes do `npx tsc --noEmit` (local e CI).
 - [ ] `components.json` igual (new-york, neutral, cssVariables, alias `@/components/ui`).

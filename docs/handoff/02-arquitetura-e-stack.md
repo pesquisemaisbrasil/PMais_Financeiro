@@ -70,7 +70,7 @@ Copie as versões de `backend/requirements.txt` e `backend/requirements-dev.txt`
 
 | Pacote | Versão |
 |---|---|
-| next | 16.4.2 (APIs diferentes das versões antigas: leia `frontend/AGENTS.md` do Connect) |
+| next | 16.4.2 no Connect; no Financeiro, **16.4.6** desde 23/11/2026, correção de segurança (APIs diferentes das versões antigas: leia `frontend/AGENTS.md` do Connect) |
 | react / react-dom | 19.2.8 |
 | tailwindcss | ^4 |
 | radix-ui (shadcn) | ^1.6.7 |
