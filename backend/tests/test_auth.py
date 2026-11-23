@@ -12,12 +12,13 @@ import api.auth as auth_api
 from core.config import ALGORITHM, JWT_AUDIENCE, JWT_ISSUER, SECRET_KEY
 from core.limiter import limiter
 from core.net import mask_ip
+from core.security import hash_email
 from db.connection import Base
 from models.login_event import LoginEvent
 from models.refresh_token import RefreshToken
 from models.user import User
 from schemas.user import validate_password_strength
-from services.login_events import MAX_FAILURES_PER_EMAIL
+from services.login_events import MAX_FAILURES_PER_EMAIL_AND_NETWORK
 from tests.conftest import PASSWORD, TOTP_SECRET
 
 EMAIL = "ana@pesquisemais.com.br"
@@ -166,12 +167,35 @@ def test_email_limit_does_not_reveal_who_exists(
 ) -> None:
     make_user()
     monkeypatch.setattr(limiter, "enabled", False)
-    for _ in range(MAX_FAILURES_PER_EMAIL):
+    for _ in range(MAX_FAILURES_PER_EMAIL_AND_NETWORK):
         assert login(client, email=email, password="WrongPass1!").status_code == 401
 
     # bloqueado mesmo com a senha certa, e o outro e-mail segue livre
     assert login(client, email=email).status_code == 429
     assert login(client, email="outra@pesquisemais.com.br").status_code == 401
+
+
+def test_failures_from_another_network_do_not_lock_the_person(
+    client: TestClient,
+    db_session: Session,
+    make_user: Callable[..., User],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PF-53: quem é de fora e sabe o e-mail não trava o login da pessoa, que entra da rede dela."""
+    make_user()
+    monkeypatch.setattr(limiter, "enabled", False)
+    for _ in range(MAX_FAILURES_PER_EMAIL_AND_NETWORK):
+        db_session.add(
+            LoginEvent(
+                emailHash=hash_email(EMAIL),
+                success=False,
+                reason="bad_password",
+                ipMasked="200.1.2.0",
+            )
+        )
+    db_session.commit()
+
+    assert login(client).status_code == 200
 
 
 def test_blocked_attempts_do_not_extend_the_block(
@@ -182,7 +206,7 @@ def test_blocked_attempts_do_not_extend_the_block(
 ) -> None:
     make_user()
     monkeypatch.setattr(limiter, "enabled", False)
-    for _ in range(MAX_FAILURES_PER_EMAIL):
+    for _ in range(MAX_FAILURES_PER_EMAIL_AND_NETWORK):
         login(client, password="WrongPass1!")
     login(client)
 

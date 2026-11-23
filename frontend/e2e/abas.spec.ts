@@ -10,15 +10,13 @@ test("abas: dois cliques abrem outra aba, cada uma guarda a busca e o F5 reabre 
   const tabs = page.getByRole("navigation", { name: "Abas abertas" });
   const tab = (name: string) => tabs.getByRole("button", { name, exact: true });
 
-  // Uma aba só: sem botão de fechar, e a dica do duplo clique
-  await expect(tab("Início")).toHaveAttribute("aria-current", "page");
-  await expect(tabs.getByRole("button", { name: /^Fechar a aba/ })).toHaveCount(0);
-  await expect(tabs).toContainText("Dois cliques numa tela do menu abrem outra aba");
+  // Com uma tela só, a fileira de abas não aparece
+  await expect(tabs).toHaveCount(0);
 
-  // Clique simples: a aba atual troca de tela (o Início sai)
+  // Clique simples: a tela da aba atual troca (o Início sai, e continua uma aba só)
   await menu.getByRole("link", { name: /^Contas a pagar/ }).click();
   await expect(page.getByRole("heading", { name: "Financeiro - Contas a pagar" })).toBeVisible();
-  await expect(tabs.getByRole("button")).toHaveText(["Contas a pagar"]);
+  await expect(tabs).toHaveCount(0);
   const payablesSearch = page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor");
   await payablesSearch.fill("grafica");
   await expect(page.getByRole("row", { name: /Gráfica Ponto Certo/ }).first()).toBeVisible();
@@ -57,10 +55,10 @@ test("abas: dois cliques abrem outra aba, cada uma guarda a busca e o F5 reabre 
   await expect(tab("Contas a receber")).toBeVisible();
   await expect(payablesSearch).toHaveValue("");
 
-  // Fechar a aba da frente: a vizinha vem para a frente; a última aba não fecha
+  // Fechar a aba da frente: a vizinha vem para a frente; sobrando uma, a fileira some
   await tabs.getByRole("button", { name: "Fechar a aba Contas a pagar" }).click();
   await expect(page).toHaveURL(/\/contas-a-receber$/);
   await expect(page.getByRole("heading", { name: "Financeiro - Contas a receber" })).toBeVisible();
-  await expect(tabs.getByRole("button")).toHaveText(["Contas a receber"]);
+  await expect(tabs).toHaveCount(0);
   await expect(page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor")).toHaveCount(0);
 });
