@@ -43,6 +43,31 @@ test("abas: dois cliques abrem outra aba, cada uma guarda a busca e o F5 reabre 
   await tab("Contas a receber").click();
   await expect(receivablesSearch).toHaveValue("satisfacao");
 
+  // Janela aberta e pela metade em cada aba: a fileira continua clicável, trocar de aba não fecha a janela, e
+  // ela volta com o que foi digitado (pedido do Bruno, 23/11)
+  await page.getByRole("button", { name: "Nova conta a receber" }).click();
+  const newReceivable = page.getByRole("dialog", { name: "Nova conta a receber" });
+  await newReceivable.getByLabel("Contrato").fill("CT-ABAS-01");
+  await tab("Contas a pagar").click();
+  await expect(page.getByRole("heading", { name: "Financeiro - Contas a pagar" })).toBeVisible();
+  await expect(newReceivable).toBeHidden();
+  await page.getByRole("button", { name: "Nova conta a pagar" }).click();
+  const newPayable = page.getByRole("dialog", { name: "Nova conta a pagar" });
+  await newPayable.getByLabel("Descrição *").fill("Conta pela metade");
+  await tab("Contas a receber").click();
+  await expect(newReceivable).toBeVisible();
+  await expect(newReceivable.getByLabel("Contrato")).toHaveValue("CT-ABAS-01");
+  await expect(newPayable).toBeHidden();
+  await tab("Contas a pagar").click();
+  await expect(newPayable.getByLabel("Descrição *")).toHaveValue("Conta pela metade");
+  // fechar a janela é com a pessoa: Esc fecha a da frente, e a da outra aba continua lá
+  await page.keyboard.press("Escape");
+  await expect(newPayable).toBeHidden();
+  await tab("Contas a receber").click();
+  await expect(newReceivable).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(newReceivable).toBeHidden();
+
   // Clicar no menu numa tela que já tem aba só vai para ela, sem abrir outra
   await menu.getByRole("link", { name: /^Contas a pagar/ }).click();
   await expect(tab("Contas a pagar")).toHaveAttribute("aria-current", "page");
