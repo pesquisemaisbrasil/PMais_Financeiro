@@ -10,7 +10,7 @@ Sistema financeiro da Pesquise+, separado do P+ Connect, que substitui o SGE4B, 
 | Vai montar o repositório ou escrever código | [handoff/](handoff/README.md), arquivos 02 a 10 |
 | Vai implementar um módulo | [planning/roadmap](planning/roadmap.md), [planning/proximos-passos](planning/proximos-passos.md) e os specs do módulo em [specs/](specs/README.md) |
 | PO / direção | [planning/perguntas-abertas](planning/perguntas-abertas.md) e [specs/futuro/](specs/futuro/README.md) |
-| Vai instalar ou atualizar o sistema no servidor local | [deploy/README](deploy/README.md) |
+| Vai instalar ou atualizar o sistema no servidor local | [DEPLOY.md](../DEPLOY.md), na raiz do repositório |
 
 Regras de trabalho, skills e revisores: [AGENTS.md](../AGENTS.md).
 
@@ -26,6 +26,6 @@ Regras de trabalho, skills e revisores: [AGENTS.md](../AGENTS.md).
 | [development/](development/README.md) | Padrões de código, testes e entrega; por enquanto aponta para o handoff |
 | [operations/](operations/README.md) | Runbooks; por enquanto aponta para o README da raiz. Inclui [testar com o Connect de dev](operations/testar-com-o-connect-dev.md), a partir do [guia do João](connect-dev-integracao-financeiro.md), e a [versão de demonstração](operations/publicar-a-versao-de-teste.md) (telas reais com dados fictícios, no site do protótipo) |
 | [functional-map/](functional-map/README.md) | Jornadas e fluxos; por enquanto aponta para os specs |
-| [deploy/](deploy/README.md) | Passo a passo do deploy no servidor local (Ubuntu) pelo `Makefile`: primeira instalação, versão nova, voltar versão, comandos do dia a dia |
+| [DEPLOY.md](../DEPLOY.md) | O deploy no servidor local (Ubuntu) pelo `Makefile`, num arquivo só: preparar o servidor, primeira instalação, certificado, backup, versão nova, voltar versão, comandos e solução de problemas |
 
 **Fora do repositório:** as entrevistas com a gestão operacional, o levantamento do SGE4B e a transcrição bruta das reuniões têm nomes, valores e comentários internos. Ficam com o PO e são citados nos specs como `[S1]`, `[S2]`, `[SGE4B]`, `[SWOT]` e `[Reunião dd/mm]` e `[Kickoff dd/mm]`.

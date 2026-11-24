@@ -4,7 +4,7 @@ Runbooks: `rodar-local.md`, `bootstrap.md` e `deploy.md` entram aqui. Comando, v
 
 Enquanto isso, o passo a passo para rodar localmente está na seção "Como rodar" do [README](../../README.md).
 
-**Servidor local** (deploy da branch `development` numa máquina do escritório, aberto pela rede com HTTPS, banco vazio para dados reais): `make configurar`, `make subir`, backup e restauração, certificado nos computadores: [servidor-local.md](servidor-local.md).
+**Servidor local** (deploy da branch `development` numa máquina do escritório, aberto pela rede com HTTPS, banco vazio para dados reais): `make configurar`, `make subir`, backup e restauração, certificado nos computadores: [DEPLOY.md](../../DEPLOY.md), na raiz do repositório.
 
 Versão de demonstração (as telas reais com dados fictícios, backend no navegador) no mesmo site do protótipo, em `teste/`: como gerar, publicar e o que conferir no Netlify: [publicar-a-versao-de-teste.md](publicar-a-versao-de-teste.md).
 
