@@ -9,6 +9,11 @@ test("busca geral: separa por grupo, marca a palavra e abre o item", async ({ pa
   const search = page.getByRole("combobox", { name: "Buscar em todo o sistema" });
   const results = page.getByRole("region", { name: "Resultados da busca" });
 
+  // Recolhida (24/11): só a lupa na faixa do alto; o clique nela (ou Ctrl+K) abre o campo já com o cursor
+  await expect(search).toHaveCount(0);
+  await page.getByRole("button", { name: "Buscar em todo o sistema (Ctrl+K)" }).click();
+  await expect(search).toBeFocused();
+
   // Sem acento: "itau" acha a conta bancária "Itaú · PPlus", com a palavra marcada
   await search.fill("itau");
   const banks = results.getByRole("region", { name: "Contas bancárias" });
@@ -34,7 +39,8 @@ test("busca geral: separa por grupo, marca a palavra e abre o item", async ({ pa
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  // Casos negados: uma letra só não busca; sem achado, a tela diz
+  // Casos negados: uma letra só não busca; sem achado, a tela diz (abrir o item recolheu a busca)
+  await page.keyboard.press("Control+k");
   await search.fill("a");
   await expect(results).toContainText("Digite ao menos 2 letras.");
   await search.fill("zzqqxx");
