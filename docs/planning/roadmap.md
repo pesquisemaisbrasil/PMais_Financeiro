@@ -205,7 +205,7 @@ Com dois administradores (por exemplo os dois do banco local) e o sistema rodand
 
 ### Busca em todo o sistema (18/11)
 
-1. Em qualquer tela, clique em **Buscar em todo o sistema** (ou Ctrl+K) e digite **itau**: aparece **Contas bancárias** com "Itaú · PPlus", com "Itaú" marcado.
+1. Em qualquer tela, clique na **lupa** no alto, à direita (ou Ctrl+K) e digite **itau**: aparece **Contas bancárias** com "Itaú · PPlus", com "Itaú" marcado.
 2. Digite o nome de um cliente: ele aparece em **Contas a receber** e em **Clientes**, cada um no seu grupo. Clique no cliente: abre Cadastros > Clientes com a busca preenchida.
 3. Digite o nome de um fornecedor e clique numa conta a pagar: abre Contas a pagar com a conta aberta.
 4. Digite um número de NF ou um valor ("1.250,00"): a conta aparece, e a NF também em **Notas fiscais**.

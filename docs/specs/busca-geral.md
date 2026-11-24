@@ -4,7 +4,7 @@ Pedido do Bruno em 18/11/2026: uma busca no alto de todas as telas. Ao procurar 
 
 ## 1. Comportamento
 
-- A barra **"Buscar em todo o sistema"** fica no alto de todas as telas, acima do título, para quem entra no Financeiro (papéis `financeiro` e `admin`). **Ctrl+K** (ou ⌘K no Mac) leva o cursor para ela em qualquer tela.
+- A busca **"Buscar em todo o sistema"** fica na faixa do alto de todas as telas, à direita das abas, para quem entra no Financeiro (papéis `financeiro` e `admin`). Ela fica **recolhida**, só a lupa com "Ctrl K": **Ctrl+K** (ou ⌘K no Mac) ou o clique na lupa abrem o campo já com o cursor, em qualquer tela. Esc, o clique fora ou abrir um resultado a recolhem de novo.
 - A partir de 2 letras, a busca começa sozinha, um instante depois da última tecla. O resultado aparece embaixo da barra, **separado por grupo**, nesta ordem, e só aparecem os grupos com resultado:
   1. **Contas a pagar**: descrição, fornecedor ou favorecido, número do documento, plano de contas, projeto e valor;
   2. **Contas a receber**: descrição, contrato, número do documento, cliente, projeto e valor;
@@ -56,3 +56,7 @@ Na tela, com 1 letra aparece "Digite ao menos 2 letras." e, sem achado, "Nada en
 - `frontend/src/components/GlobalSearch.tsx` (a barra, no `app/(app)/layout.tsx`), `frontend/src/lib/search.ts` (destaque sem acento)
 - `?busca=` e `?conta=` nas telas: `contas-a-pagar/page.tsx`, `contas-a-receber/page.tsx`, `cadastros/page.tsx`
 - Testes: `backend/tests/test_busca_geral.py`, `frontend/src/lib/search.test.ts`, `frontend/e2e/busca-geral.spec.ts`
+
+## Ajustes
+
+- 2026-11-24: a busca fica recolhida na faixa do alto, à direita das abas, e abre com Ctrl+K ou com o clique na lupa. A faixa tem a altura do cabeçalho do logo no menu, e a linha de baixo dela continua a do logo. Pedido do Bruno.
