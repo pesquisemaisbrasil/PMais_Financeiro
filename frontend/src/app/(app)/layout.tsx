@@ -19,11 +19,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Sidebar />
               </Suspense>
               <div className="min-w-0 flex-1">
-                {/* Busca em todo o sistema, no alto de todas as telas (spec busca-geral): só a barra, no centro */}
-                <div className="flex justify-center px-6 pt-5">
+                {/* A faixa do alto: abas à esquerda e a busca em todo o sistema, recolhida, à direita (Ctrl+K) */}
+                <ScreenTabsBar>
                   <GlobalSearch />
-                </div>
-                <ScreenTabsBar />
+                </ScreenTabsBar>
                 <ScreenTabsContent>{children}</ScreenTabsContent>
               </div>
             </div>

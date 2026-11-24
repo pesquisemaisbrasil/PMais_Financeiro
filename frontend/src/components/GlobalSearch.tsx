@@ -39,6 +39,8 @@ export function GlobalSearch() {
   const input = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState("");
   const [open, setOpen] = useState(false);
+  // Recolhida até o Ctrl+K ou o clique na lupa (pedido do Bruno, 24/11: a faixa do alto tem a altura do logo)
+  const [shown, setShown] = useState(false);
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -48,19 +50,29 @@ export function GlobalSearch() {
     function onKey(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        input.current?.focus();
-        input.current?.select();
+        // aberta: leva o cursor; recolhida: abre, e o efeito abaixo leva o cursor
+        if (input.current) {
+          input.current.focus();
+          input.current.select();
+        } else setShown(true);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Clique fora fecha
+  useEffect(() => {
+    if (shown) input.current?.focus();
+  }, [shown]);
+
+  // Clique fora fecha e recolhe
   useEffect(() => {
     if (!open) return;
     function onPointer(event: PointerEvent) {
-      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+      if (box.current && !box.current.contains(event.target as Node)) {
+        setOpen(false);
+        setShown(false);
+      }
     }
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
@@ -94,6 +106,7 @@ export function GlobalSearch() {
 
   function close() {
     setOpen(false);
+    setShown(false);
     input.current?.blur();
   }
 
@@ -106,8 +119,23 @@ export function GlobalSearch() {
   const current = ready && result && result.term === term.trim() ? result : null;
   const first = current?.groups[0]?.hits[0];
 
+  if (!shown) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        aria-label="Buscar em todo o sistema (Ctrl+K)"
+        onClick={() => setShown(true)}
+        className="gap-2 text-muted-foreground"
+      >
+        <Search size={16} aria-hidden="true" />
+        <span className="rounded border border-border px-1.5 text-[11px]">Ctrl K</span>
+      </Button>
+    );
+  }
+
   return (
-    <div ref={box} className="relative w-full max-w-xl">
+    <div ref={box} className="relative w-[28rem] max-w-[60vw]">
       <Search
         size={16}
         aria-hidden="true"

@@ -147,7 +147,7 @@ export function ScreenTabsProvider({ children }: { children: React.ReactNode }) 
 }
 
 /** A fileira de abas, entre a busca geral e o título da tela. */
-export function ScreenTabsBar() {
+export function ScreenTabsBar({ children }: { children: React.ReactNode }) {
   const api = useScreenTabs();
   // com uma tela só, a fileira não aparece (pedido do Bruno, 23/11)
   const visible = Boolean(api?.current) && (api?.state.tabs.length ?? 0) >= 2;
@@ -176,21 +176,27 @@ export function ScreenTabsBar() {
     };
   }, [visible]);
 
-  if (!api || !visible) return null;
+  if (!api) return null;
   const { state, select, close } = api;
   return (
-    // de ponta a ponta da área da tela e presa no alto ao rolar (pedido do Bruno, 23/11); clicável mesmo com
-    // uma janela aberta (o Radix tira o clique do resto da página); sem rolagem vertical, só a de lado
+    // A faixa do alto, presa ao rolar: 69 px, a altura do cabeçalho do logo no menu, para as linhas de baixo
+    // baterem (pedido do Bruno, 24/11). Abas à esquerda, encostadas na linha; a busca (children) à direita.
     <div
       ref={bar}
-      {...{ [TAB_BAR_ATTRIBUTE]: "" }}
-      style={{ pointerEvents: "auto" }}
-      // com uma janela aberta, o Radix esconde o resto da página dos leitores de tela (aria-hidden) e poupa
-      // só o que tem aria-live: "off" não anuncia nada e deixa as abas alcançáveis
-      aria-live="off"
-      className="sticky top-[var(--faixa,0px)] z-40 w-full border-b border-border bg-background pt-4"
+      className="sticky top-[var(--faixa,0px)] z-40 flex h-[69px] w-full items-end gap-4 border-b border-border bg-background px-4"
     >
-      <nav aria-label="Abas abertas" className="flex items-end gap-1 overflow-x-auto overflow-y-hidden px-4">
+      <div className="min-w-0 flex-1">
+        {visible && (
+      <nav
+        aria-label="Abas abertas"
+        {...{ [TAB_BAR_ATTRIBUTE]: "" }}
+        // clicável mesmo com uma janela aberta (o Radix tira o clique do resto da página)
+        style={{ pointerEvents: "auto" }}
+        // com uma janela aberta, o Radix esconde o resto da página dos leitores de tela (aria-hidden) e poupa
+        // só o que tem aria-live: "off" não anuncia nada e deixa as abas alcançáveis
+        aria-live="off"
+        className="flex items-end gap-1 overflow-x-auto overflow-y-hidden"
+      >
         {state.tabs.map((tab) => {
           const front = tab.path === state.active;
           const label = tabLabel(tab);
@@ -231,6 +237,9 @@ export function ScreenTabsBar() {
           );
         })}
       </nav>
+        )}
+      </div>
+      <div className="shrink-0 self-center">{children}</div>
     </div>
   );
 }
