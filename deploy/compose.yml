@@ -1,6 +1,6 @@
 # Servidor local (deploy da branch development, dados reais): banco, cofre de arquivos (MinIO com
 # TLS), API, telas e o HTTPS (Caddy, com certificado da própria máquina). Os comandos ficam no
-# Makefile da raiz; o guia é docs/operations/servidor-local.md.
+# Makefile da raiz; o guia é o DEPLOY.md da raiz.
 # Segredos e endereço vêm de deploy/.env, gerado por `make configurar` e fora do git.
 # Só o Caddy publica portas (80, 443 e 8443); banco, MinIO, API e telas ficam na rede interna.
 # O docker-compose.yml da raiz continua só para o desenvolvimento.

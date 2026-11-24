@@ -3,7 +3,7 @@ name: Deploy (servidor local)
 # Roda o deploy do servidor local de ponta a ponta num Ubuntu, como no servidor do escritório:
 # make verificar, configurar e subir (que confere pelo HTTPS), administrador e login, backup,
 # voltar a uma versão com o banco dela e restaurar os arquivos. Só quando algo do deploy muda.
-# docs/operations/servidor-local.md
+# DEPLOY.md
 on:
   push:
     branches: [main, homolog, development]

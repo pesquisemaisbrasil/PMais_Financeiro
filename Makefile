@@ -1,5 +1,5 @@
 # Deploy do Financeiro no servidor local (branch development): banco, cofre de arquivos, API, telas
-# e HTTPS com certificado da própria máquina. Guia: docs/operations/servidor-local.md
+# e HTTPS com certificado da própria máquina. Guia: DEPLOY.md
 #
 # Primeira vez, no servidor, dentro da pasta do repositório:
 #   make verificar HOST=<IP ou nome do servidor>    confere programas, Docker, portas, firewall e disco
@@ -21,7 +21,7 @@ AGORA := $(shell date +%Y%m%d-%H%M%S)
 	atualizar voltar backup restaurar-banco restaurar-arquivos admin certificado
 
 ajuda: ## Lista os comandos
-	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: docs/operations/servidor-local.md"
+	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: DEPLOY.md"
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN { FS = ":.*## " } { printf "  make %-20s %s\n", $$1, $$2 }'
 
 verificar: ## Confere se o servidor está pronto: programas, Docker, portas, firewall, disco, endereço
@@ -181,4 +181,4 @@ liberar-navegador: $(ENV_FILE) ## Libera o computador que a pessoa pediu por úl
 
 certificado: $(ENV_FILE) ## Copia o certificado raiz do HTTPS, para instalar nos computadores da equipe
 	$(COMPOSE) cp proxy:/data/caddy/pki/authorities/local/root.crt financeiro-certificado-raiz.crt
-	@echo "Instale financeiro-certificado-raiz.crt em cada computador (guia: docs/operations/servidor-local.md)."
+	@echo "Instale financeiro-certificado-raiz.crt em cada computador (guia: DEPLOY.md)."

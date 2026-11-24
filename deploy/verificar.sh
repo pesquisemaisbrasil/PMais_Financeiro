@@ -2,7 +2,7 @@
 # Confere se o servidor está pronto para o Financeiro: programas, Docker, portas, firewall, disco,
 # endereço e branch. Roda com `make verificar`, e também antes do `make configurar` (primeira
 # instalação) e do `make subir`. Sai com erro se algo impede o deploy; aviso não impede.
-# Guia: docs/operations/servidor-local.md
+# Guia: DEPLOY.md
 set -u
 
 PORTAS="80 443 8443"
@@ -24,7 +24,7 @@ done
 # ---- Docker ----
 docker_ok=0
 if ! command -v docker >/dev/null 2>&1; then
-  erro "Falta o Docker: instale pelo repositório oficial (docs/operations/servidor-local.md)"
+  erro "Falta o Docker: instale pelo repositório oficial (DEPLOY.md)"
 elif saida=$(docker info 2>&1); then
   docker_ok=1
   ok "Docker $(docker version --format '{{.Server.Version}}' 2>/dev/null) rodando e acessível por $(id -un)"
