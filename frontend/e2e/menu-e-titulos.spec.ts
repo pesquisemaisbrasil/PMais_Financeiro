@@ -48,11 +48,17 @@ test("menu lateral e título: a página e a seção em que a pessoa está ficam 
   await expect(title("Relatórios - Relatório do projeto")).toBeVisible();
   await expect(group("Relatórios")).toHaveAttribute("data-current", "true");
 
-  // Financeiro, as outras telas (o grupo continua aberto desde o começo)
-  await menu.getByRole("link", { name: "Divergências", exact: true }).click();
-  await expect(title("Financeiro - Divergências")).toBeVisible();
-  await menu.getByRole("link", { name: "Conferência bancária", exact: true }).click();
-  await expect(title("Financeiro - Conferência bancária")).toBeVisible();
+  // Financeiro, as outras telas (o grupo continua aberto desde o começo). Conferência bancária e
+  // Divergências ficam "Em breve" no menu (pedido do Bruno, 24/11), sem link; pelo endereço, abrem
+  await expect(menu.getByRole("link", { name: "Divergências", exact: true })).toHaveCount(0);
+  await expect(menu.getByRole("link", { name: "Conferência bancária", exact: true })).toHaveCount(0);
+  for (const soon of ["Conferência bancária", "Divergências"]) {
+    await expect(menu.locator('[aria-disabled="true"]', { hasText: soon })).toContainText("Em breve");
+  }
   await menu.getByRole("link", { name: "Contas a receber", exact: true }).click();
   await expect(title("Financeiro - Contas a receber")).toBeVisible();
+  await page.goto("/divergencias");
+  await expect(title("Financeiro - Divergências")).toBeVisible();
+  await page.goto("/conferencia-bancaria");
+  await expect(title("Financeiro - Conferência bancária")).toBeVisible();
 });

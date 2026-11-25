@@ -462,7 +462,7 @@ test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ 
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
   await page.getByLabel("Buscar em fornecedores").fill("teste ltda");
   const created = page.getByRole("row", { name: /Teste Ltda/ });
-  await expect(created).toContainText("11.222.333/0001-81");
+  await expect(created).toContainText("Fornecedor de Teste Ltda");
   await created.getByRole("button", { name: /^Inativar/ }).click();
   await expect(created).toContainText("Inativo");
   await created.getByRole("button", { name: /^Excluir/ }).click();

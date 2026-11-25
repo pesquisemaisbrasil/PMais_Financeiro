@@ -132,11 +132,12 @@ def test_a_cpf_typed_in_the_notes_is_refused_but_other_numbers_are_fine(
     assert ok.status_code == 201
 
 
-def test_only_customers_get_the_extra_fields(client: TestClient, auth: dict[str, str]) -> None:
+def test_suppliers_get_the_same_card_since_24_11(client: TestClient, auth: dict[str, str]) -> None:
+    # como no sistema antigo, o fornecedor tem a mesma ficha do cliente (os documentos, não)
     supplier = _post(
         client, auth, "suppliers", name="Forn", nickname="Forn", notes="x", addressCity="Rio"
     ).json()
-    assert supplier["notes"] is None and supplier["addressCity"] is None
+    assert supplier["notes"] == "x" and supplier["addressCity"] == "Rio"
 
 
 # ---- Documentos ----

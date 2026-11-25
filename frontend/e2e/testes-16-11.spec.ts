@@ -52,7 +52,28 @@ test("projeto cadastrado no Financeiro: traz a unidade e o centro de custo, e a 
   await dialog.getByLabel("Nome *").fill("Hábitos de teste");
   await dialog.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("PRJ-1950 cadastrado.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /PRJ-1950/ })).toContainText("CATI Curitiba · Tecnologia");
+  // a lista é como a do sistema antigo (24/11): agrupada por empresa e unidade, com o código sem "PRJ-"
+  await expect(page.getByRole("columnheader")).toHaveText([
+    "Código",
+    "Projeto",
+    "Cliente",
+    "Empresa",
+    "Unidade",
+    "C.Custo",
+    "Infos",
+    "Ações",
+  ]);
+  const created = page.getByRole("row", { name: /Hábitos de teste/ });
+  await expect(created.getByRole("cell")).toHaveText([
+    "1950",
+    "Hábitos de teste",
+    "Alfa Pesquisas Ltda",
+    "PPlus",
+    "CATI Curitiba",
+    "Tecnologia",
+    "Ativo",
+    "",
+  ]);
 
   // Nova conta a pagar na ordem da tela antiga (18/11), um campo por linha: fornecedor, vencimento,
   // programação, valor, forma de pagamento, projeto, unidade, centro de custo, plano de contas e descrição
@@ -109,7 +130,7 @@ test("projeto cadastrado no Financeiro: traz a unidade e o centro de custo, e a 
   await choose(page, "Inativo", "Sim");
   await editing.getByRole("button", { name: "Salvar" }).click();
   await expect(page.getByText("PRJ-1950 atualizado.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /PRJ-1950/ })).toContainText("Inativo");
+  await expect(page.getByRole("row", { name: /Hábitos de teste/ })).toContainText("Inativo");
   await page.goto("/contas-a-pagar");
   await page.getByRole("button", { name: "Nova conta a pagar" }).click();
   await page.getByRole("dialog").getByRole("combobox", { name: "Projeto *", exact: true }).click();
@@ -129,7 +150,7 @@ test("projeto cadastrado no Financeiro: traz a unidade e o centro de custo, e a 
   await page.getByRole("dialog").getByRole("button", { name: "Excluir" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Excluir" }).click();
   await expect(page.getByText("PRJ-1950 excluído.")).toBeVisible();
-  await expect(page.getByRole("row", { name: /PRJ-1950/ })).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Hábitos de teste/ })).toHaveCount(0);
 });
 
 test("lista: setas da data, calendário na tela, busca sem acento e por valor, clipe, anexo e reclassificação em lote", async ({

@@ -82,11 +82,11 @@ describe("extrato bancário", () => {
   });
 
   it("identifica a conta numa linha só, e conta antiga diz que falta o banco", () => {
-    expect(bankLine({ bankName: "Itaú", agency: "1234", accountNumber: "12345-6", accountType: "corrente" })).toBe(
-      "Itaú · ag. 1234 · conta 12345-6 · Conta corrente"
+    expect(bankLine({ bankName: "Itaú", agency: "1234", accountNumber: "12345-6", accountType: "cc" })).toBe(
+      "Itaú · ag. 1234 · conta 12345-6 · CC"
     );
     expect(bankLine({ bankName: null, agency: null, accountNumber: null, accountType: null })).toBe(
-      "banco não informado · Conta corrente"
+      "banco não informado · CC"
     );
   });
 
@@ -117,9 +117,10 @@ describe("extrato bancário", () => {
     expect(checkReconcile({ classification: "incentivo", nfNumber: "", nfIssuedOn: "" })).toBeNull();
   });
 
-  it("o tipo da conta tem nome em português, e o desconhecido é conta corrente", () => {
-    expect(accountTypeLabel("aplicacao")).toBe("Aplicação");
-    expect(accountTypeLabel("caixa")).toBe("Caixa");
-    expect(accountTypeLabel(null)).toBe("Conta corrente");
+  it("o tipo da conta é o do sistema antigo (24/11), e o desconhecido é CC", () => {
+    expect(accountTypeLabel("ci")).toBe("CI");
+    expect(accountTypeLabel("interna")).toBe("Interna");
+    expect(accountTypeLabel("credito")).toBe("Crédito");
+    expect(accountTypeLabel(null)).toBe("CC");
   });
 });

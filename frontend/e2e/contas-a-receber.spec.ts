@@ -169,9 +169,12 @@ test("Contas a receber: título novo pode ficar sem projeto e o cadastro de clie
   await page.getByLabel("Buscar título, cliente ou contrato").fill("Pesquisa de teste");
   await expect(page.getByRole("row", { name: /Pesquisa de teste/ })).toContainText("Sem projeto");
 
-  // O cliente é um cadastro, com CNPJ e sem CPF
+  // O cliente é um cadastro, com CNPJ e sem CPF (a lista é como a do sistema antigo, sem a coluna
+  // do CNPJ: ele está na ficha)
   await page.goto("/cadastros?aba=customers");
-  await expect(page.getByRole("row", { name: /Alfa Pesquisas Ltda/ })).toContainText("11.222.333/0001-81");
+  await page.getByRole("button", { name: "Editar Alfa Pesquisas Ltda" }).click();
+  await expect(page.getByRole("dialog").getByLabel("CNPJ")).toHaveValue("11.222.333/0001-81");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
 });
 
 test("Contas a receber: receita parcelada em 3, ajuste da tabela, alterar a série e exportar", async ({ page }) => {

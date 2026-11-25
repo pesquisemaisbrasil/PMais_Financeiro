@@ -20,6 +20,7 @@ from models.reference import (
     Company,
     CostCenter,
     ExpenseCategory,
+    ExpenseCategoryGroup,
     PaymentMethod,
     Project,
     Supplier,
@@ -227,7 +228,8 @@ def test_each_line_becomes_one_account_and_the_paid_one_gets_its_payment(
     ]
     first = preview["lines"][0]
     assert first["line"] == 5  # o cabeçalho está na linha 4
-    assert first["classification"] == "PPlus Pesquisas Ltda · Matriz · Adm_Geral · 2.01 Aluguel"
+    # a empresa aparece pelo apelido, como no sistema antigo (24/11)
+    assert first["classification"] == "Pesquisa+ · Matriz · Adm_Geral · 2.01 Aluguel"
     assert (
         preview["lines"][1]["willPay"] is True and preview["lines"][1]["account"] == "Itaú · PPlus"
     )
@@ -458,7 +460,7 @@ def test_the_company_comes_from_the_unit_and_the_company_column_only_breaks_a_ti
     unregistered = entry(company="Empresa que não existe", unit="Filial MC", description="Outra")
     preview = read(client, auth, report(entry(), mc, plain, unregistered), legacy)
     lines = preview["lines"]
-    assert lines[0]["classification"].startswith("PPlus Pesquisas Ltda · Matriz")
+    assert lines[0]["classification"].startswith("Pesquisa+ · Matriz")
     assert lines[1]["classification"].startswith("MC · Matriz")
     assert lines[2]["errors"] == [
         "Unidade Matriz existe em mais de uma empresa: o relatório precisa trazer a empresa"
@@ -469,7 +471,7 @@ def test_the_company_comes_from_the_unit_and_the_company_column_only_breaks_a_ti
         client, auth, report(entry(unit="Unidade X")), legacy, unitId=legacy["other_unit"].id
     )
     assert wrong_default["lines"][0]["errors"] == [
-        "A unidade padrão Filial MC não é da empresa PPlus Pesquisas Ltda"
+        "A unidade padrão Filial MC não é da empresa Pesquisa+"
     ]
 
 
@@ -505,7 +507,7 @@ def test_a_paid_line_without_a_known_account_uses_the_default_or_is_left_out(
     unknown = report(paid(account="Banco Inexistente"))
     bare = read(client, auth, unknown, legacy)
     assert bare["lines"][0]["errors"] == [
-        "Conta bancária Banco Inexistente não existe na empresa PPlus Pesquisas Ltda"
+        "Conta bancária Banco Inexistente não existe na empresa Pesquisa+"
     ]
     blank = read(client, auth, report(paid(account=None)), legacy)
     assert blank["lines"][0]["errors"] == [
@@ -513,7 +515,7 @@ def test_a_paid_line_without_a_known_account_uses_the_default_or_is_left_out(
     ]
     other_company = read(client, auth, unknown, legacy, bankAccountId=legacy["other_account"].id)
     assert other_company["lines"][0]["errors"] == [
-        "A conta padrão Bradesco · MC não é da empresa PPlus Pesquisas Ltda"
+        "A conta padrão Bradesco · MC não é da empresa Pesquisa+"
     ]
     fixed = read(client, auth, unknown, legacy, bankAccountId=legacy["account"].id)
     assert fixed["goodCount"] == 1 and fixed["usedDefaultCount"] == 1
@@ -761,6 +763,64 @@ def test_the_html_that_the_old_system_saves_as_xls_is_read(
     assert db_session.query(Payable).count() == 2
     payable = db_session.query(Payable).filter_by(documentNumber="NF 77").one()
     assert payable.supplier_id == legacy["supplier"].id and len(payable.payments) == 1
+
+
+def test_the_page_saved_by_excel_is_read_and_the_total_lines_are_skipped(
+    client: TestClient, auth: dict[str, str], legacy: dict[str, Any]
+) -> None:
+    # O sheet001.htm que o Excel grava: quebra o texto longo no meio da célula e fecha o relatório
+    # com as linhas TOTAL PAGO, PENDENTE e GERAL.
+    pending = entry(supplier="Ponto\r\n  Certo", category="Material de\r\nApoio Projeto")
+    totals = [
+        entry(scheduled="TOTAL", paid_on=kind, supplier=None, category=None, description=None)
+        for kind in ("PAGO", "PENDENTE", "GERAL")
+    ]
+    preview = read(client, auth, html_report(pending, *totals), legacy, name="sheet001.htm")
+    assert (preview["goodCount"], preview["errorCount"]) == (1, 0)
+    [line] = preview["lines"]
+    assert line["supplier"] == "Ponto Certo"
+    assert line["classification"].endswith("2.10 Material de Apoio Projeto")
+
+    # A capa que o Excel salva com a extensão .xls, sem os dados (eles ficam na pasta "_arquivos")
+    cover = b'<html><head><meta name="Excel Workbook Frameset"></head><frameset rows="*,39">'
+    response = post(client, auth, PREVIEW, cover, legacy, name="DadosAPagar.xls")
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Este arquivo é só a capa de uma página salva pelo Excel, sem os dados. "
+        "Abra o relatório no Excel e salve como .xlsx"
+    )
+
+
+def test_a_supplier_name_found_twice_enters_with_the_name_only(
+    client: TestClient, auth: dict[str, str], legacy: dict[str, Any], db_session: Session
+) -> None:
+    # o sistema antigo tem fornecedores com o mesmo nome: a conta entra, só com o nome (24/11)
+    db_session.add(Supplier(nickname="Ponto Certo", name="Ponto Certo Filial"))
+    db_session.commit()
+    preview = read(client, auth, report(entry()), legacy)
+    assert (preview["goodCount"], preview["errorCount"]) == (1, 0)
+    assert preview["lines"][0]["notes"][0] == (
+        "Fornecedor Ponto Certo aparece mais de uma vez no cadastro: entra só com o nome"
+    )
+    assert enter(client, auth, report(entry()), legacy).status_code == 201
+    payable = db_session.query(Payable).one()
+    assert (payable.supplier_id, payable.payeeName) == (None, "Ponto Certo")
+
+
+def test_an_account_name_found_twice_uses_the_lowest_code(
+    client: TestClient, auth: dict[str, str], legacy: dict[str, Any], db_session: Session
+) -> None:
+    # o plano de contas do sistema antigo tem contas repetidas: vale a de código menor (24/11)
+    group = ExpenseCategoryGroup(code="012", name="Despesas Bancárias")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add(ExpenseCategory(code="9999", name="Aluguel", group_id=group.id))
+    db_session.commit()
+    preview = read(client, auth, report(entry()), legacy)
+    assert (preview["goodCount"], preview["errorCount"]) == (1, 0)
+    [line] = preview["lines"]
+    assert line["classification"].endswith("2.01 Aluguel")
+    assert "Plano de contas Aluguel aparece mais de uma vez: usada 2.01 Aluguel" in line["notes"]
 
 
 def test_the_old_binary_xls_is_refused_with_a_clear_message(

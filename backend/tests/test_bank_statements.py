@@ -195,7 +195,7 @@ def account_body(world: dict[str, Any], **over: Any) -> dict[str, Any]:
         "bankName": "Itaú",
         "agency": "1234",
         "accountNumber": "12345-6",
-        "accountType": "corrente",
+        "accountType": "cc",
         "openingBalance": "1000.00",
         "openingDate": "2026-11-01",
         **over,
@@ -214,24 +214,35 @@ def test_the_bank_account_keeps_bank_agency_account_type_and_opening_balance(
         "12345-6",
     )
     assert (created["accountType"], created["openingBalance"], created["openingDate"]) == (
-        "corrente",
+        "cc",
         "1000.00",
         "2026-11-01",
     )
-    # o tipo e o saldo têm padrão: corrente e zero
+    # o tipo e o saldo têm padrão: CC e zero; o banco é opcional, como no sistema antigo (24/11),
+    # e a conta entra no fluxo de caixa se não disser que não
     minimal = client.post(
         "/records/bankAccounts",
-        json={"name": "Caixa", "companyId": world["company"].id, "bankName": "Caixa interno"},
+        json={"name": "Caixinha", "companyId": world["company"].id},
         headers=auth,
     ).json()
-    assert (minimal["accountType"], minimal["openingBalance"]) == ("corrente", "0.00")
+    assert (minimal["accountType"], minimal["openingBalance"]) == ("cc", "0.00")
+    assert (minimal["bankName"], minimal["impactsCashFlow"]) == (None, True)
+    # o cartão de crédito aceita a bandeira na agência, e pode ficar fora do fluxo de caixa
+    card = client.post(
+        "/records/bankAccounts",
+        json={
+            **account_body(world, name="Cartão", agency="Master", accountType="credito"),
+            "impactsCashFlow": False,
+            "legacyCode": "3",
+        },
+        headers=auth,
+    ).json()
+    assert (card["agency"], card["impactsCashFlow"], card["legacyCode"]) == ("Master", False, "3")
 
 
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"bankName": " "}, "Preencha o banco"),
-        ({"bankName": None}, "Preencha o banco"),
         ({"agency": "12 34 abc"}, "A agência tem só números, hífen e o dígito (pode ser X)"),
         ({"accountNumber": "conta"}, "A conta tem só números, hífen e o dígito (pode ser X)"),
         ({"openingDate": None}, "Informe a data do saldo inicial"),

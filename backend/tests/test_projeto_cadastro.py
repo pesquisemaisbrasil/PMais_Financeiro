@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from models.reference import Customer, Project, RecordEvent
+from models.reference import BusinessUnit, Company, Customer, Project, RecordEvent
 from models.user import User
 from services.auth import create_access_token
 from tests.test_payables import (  # noqa: F401
@@ -150,3 +150,47 @@ def test_only_a_project_without_launches_is_deleted(
     used = client.delete(f"/projects/{world['project'].id}", headers=auth)
     assert (used.status_code, used.json()["detail"]) == (409, IN_USE)
     assert client.delete("/projects/99999", headers=auth).status_code == 404
+
+
+def test_the_same_number_can_exist_in_another_company_and_the_notes_are_kept(
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    filled: dict[str, Any],
+    db_session: Session,
+) -> None:
+    # Como no sistema antigo (24/11): o 1417 está na Pesquise+ e na IHEA; na mesma empresa, não
+    other = Company(name="IHEA")
+    db_session.add(other)
+    db_session.flush()
+    other_unit = BusinessUnit(company_id=other.id, name="Matriz IHEA")
+    db_session.add(other_unit)
+    db_session.commit()
+    first = client.post(
+        "/projects",
+        json={**filled, "notes": "Metodologia: ON LINE", "legacyCode": "CARPE DIEM"},
+        headers=auth,
+    )
+    assert first.status_code == 201, first.text
+    assert (first.json()["notes"], first.json()["legacyCode"]) == (
+        "Metodologia: ON LINE",
+        "CARPE DIEM",
+    )
+    repeated = client.post("/projects", json={**filled, "title": "Outro"}, headers=auth)
+    assert (repeated.status_code, repeated.json()["detail"]) == (
+        409,
+        "Já existe o projeto PRJ-1900 nessa empresa",
+    )
+    elsewhere = client.post(
+        "/projects", json={**filled, "title": "Outro", "unitId": other_unit.id}, headers=auth
+    )
+    assert elsewhere.status_code == 201, elsewhere.text
+    codes = [(p.code, p.company_id) for p in db_session.query(Project).filter_by(code="1900")]
+    assert sorted(codes) == sorted([("1900", world["unit"].company_id), ("1900", other.id)])
+    # o projeto sem empresa (o 1804 do Connect, ainda sem unidade) segura o número em todas
+    held = client.post("/projects", json={**filled, "code": "1804"}, headers=auth)
+    assert (held.status_code, held.json()["detail"]) == (409, "Já existe o projeto PRJ-1804")
+    # o número diferencia maiúscula, como no sistema antigo, que tem o "xxx" e o "XXX" (24/11)
+    for code in ("xxx", "XXX"):
+        created = client.post("/projects", json={**filled, "code": code}, headers=auth)
+        assert created.status_code == 201

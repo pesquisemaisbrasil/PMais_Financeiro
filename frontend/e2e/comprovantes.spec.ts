@@ -106,8 +106,8 @@ test("enviar o PDF de comprovantes, conferir e confirmar a baixa", async ({ page
   await page.getByText(title).first().click();
   await expect(page.getByRole("button", { name: "Avisos, 1 não lidos" })).toBeVisible();
 
-  // Divergências: nenhuma baixa foi recusada
-  await page.getByRole("link", { name: "Divergências" }).click();
+  // Divergências: nenhuma baixa foi recusada (no menu, "Em breve" desde 24/11; abre pelo endereço)
+  await page.goto("/divergencias");
   await expect(page.getByRole("heading", { name: "Divergências" })).toBeVisible();
   await expect(page.getByText("Nenhuma divergência. Toda baixa enviada ao Connect foi aceita.")).toBeVisible();
 });

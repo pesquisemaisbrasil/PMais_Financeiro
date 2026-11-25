@@ -531,6 +531,99 @@ def test_units_get_a_generated_code_that_never_repeats_or_comes_back(
     assert listed == {"Matriz": "0001", "Outra": "0003"}
 
 
+# ---- Cadastro como no sistema antigo (24/11) ----
+
+
+def test_unit_and_company_keep_the_old_system_card_and_the_generated_code(
+    client: TestClient, auth: dict[str, str], db_session: Session
+) -> None:
+    company = _post(
+        client,
+        auth,
+        "companies",
+        name="Pesquise Mais",
+        nickname="Pesquise+",
+        personType="PJ",
+        document="11.222.333/0001-81",
+        stateRegistration="123456789",
+        legacyCode="1",
+    ).json()
+    assert (company["code"], company["legacyCode"]) == ("0001", "1")
+    assert company["stateRegistration"] == "123456789"
+    body = {"name": "Administrativo", "companyId": company["id"], "nickname": "001"}
+    # a unidade pode levar o CNPJ da empresa: no sistema antigo ele se repete
+    unit = _post(
+        client,
+        auth,
+        "units",
+        **body,
+        document="11.222.333/0001-81",
+        stateRegistration="987654",
+        legacyCode="001",
+    ).json()
+    assert (unit["code"], unit["legacyCode"], unit["nickname"]) == ("0001", "001", "001")
+    assert (unit["document"], unit["stateRegistration"]) == ("11222333000181", "987654")
+    other = _post(
+        client,
+        auth,
+        "units",
+        **{**body, "name": "Comercial"},
+        document="11222333000181",
+        legacyCode="002",
+    ).json()
+    assert other["document"] == "11222333000181"
+    edited = client.patch(
+        f"/records/units/{unit['id']}", json={**body, "legacyCode": "UN1"}, headers=auth
+    ).json()
+    assert (edited["code"], edited["legacyCode"], edited["document"]) == ("0001", "UN1", None)
+    # o centro de custo também guarda o código antigo, que nem sempre segue a numeração gerada
+    center = _post(client, auth, "costCenters", name="Unidade Latam", legacyCode="200").json()
+    assert (center["code"], center["legacyCode"]) == ("001", "200")
+    # o fornecedor tem a mesma ficha do cliente, e as observações também recusam CPF
+    card = {"phone2": "+55 41 3333-4444", "addressCity": "Curitiba", "origin": "Planilha"}
+    supplier = _post(client, auth, "suppliers", **_supplier(), **card, legacyCode="GRAF").json()
+    assert {key: supplier[key] for key in (*card, "legacyCode")} == {**card, "legacyCode": "GRAF"}
+    refused = _post(
+        client, auth, "suppliers", **_supplier(name="Outro"), notes="CPF 529.982.247-25"
+    )
+    assert refused.json()["detail"] == "Não escreva CPF nas observações: ele não é guardado"
+
+
+@pytest.mark.parametrize(
+    ("changes", "detail"),
+    [
+        ({"document": "11.111.111/1111-11"}, "CNPJ inválido. Confira os dígitos"),
+        ({"document": "529.982.247-25"}, "Por enquanto, só CNPJ: CPF não é guardado aqui"),
+        (
+            {"stateRegistration": "529.982.247-25"},
+            "Informe só a inscrição estadual (IE): CPF e RG não são guardados",
+        ),
+        ({"legacyCode": "X" * 21}, None),
+    ],
+)
+def test_the_unit_card_refuses_a_bad_cnpj_a_cpf_and_a_long_old_code(
+    client: TestClient,
+    auth: dict[str, str],
+    db_session: Session,
+    changes: dict[str, str],
+    detail: str | None,
+) -> None:
+    company = _company(db_session)
+    response = _post(client, auth, "units", name="Matriz", companyId=company.id, **changes)
+    assert response.status_code == 422
+    if detail:
+        assert response.json()["detail"] == detail
+
+
+def test_the_screens_show_the_company_by_its_nickname(
+    client: TestClient, auth: dict[str, str], db_session: Session
+) -> None:
+    db_session.add_all([Company(name="Pesquise Mais", nickname="Pesquise+"), Company(name="IHEA")])
+    db_session.commit()
+    companies = client.get("/reference", headers=auth).json()["companies"]
+    assert sorted(c["name"] for c in companies) == ["IHEA", "Pesquise+"]
+
+
 # ---- Centros de custo em árvore ----
 
 

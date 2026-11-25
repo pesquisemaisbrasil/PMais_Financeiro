@@ -57,7 +57,7 @@ test("extrato × sistema, saldo do mês e fechamento: fechar, a trava, a planilh
   const account = page.getByRole("row", { name: /Itaú · PPlus/ });
   await expect(account).toContainText("R$ 1.000,00"); // entradas
   await expect(account).toContainText("R$ 18,90"); // saídas
-  await expect(account).toContainText("PPlus · Conta corrente");
+  await expect(account).toContainText("PPlus · CC");
   await expect(page.getByRole("row", { name: /Consolidado/ })).toBeVisible();
 
   // ---- Fechamento: ainda não dá, e diz por quê ----

@@ -68,7 +68,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   // as informações são editáveis, e o código é opcional
   await supplier.getByLabel("Apelido *").fill("Gráfica Exemplo");
   // o código é gerado pelo sistema: o campo só mostra
-  await expect(supplier.getByLabel("Código")).toBeDisabled();
+  await expect(supplier.getByLabel("Código", { exact: true })).toBeDisabled();
   await supplier.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
   await expect(total.getByText(/^\d+$/)).toHaveText(String(before + 1));
@@ -76,7 +76,21 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   const row = page.getByRole("row", { name: /Gráfica Exemplo/ });
   await expect(row.getByRole("cell").first()).toHaveText(/^\d{4}$/); // 0001, 0002...
   await expect(row).toContainText("GRAFICA EXEMPLO LTDA");
-  await expect(row).toContainText("11.444.777/0001-61");
+  // a lista é como a do sistema antigo, com o tipo e o CNPJ na coluna Documentos
+  await expect(page.getByRole("columnheader")).toHaveText([
+    "Código",
+    "Apelido",
+    "Nome",
+    "Fones",
+    "Emails",
+    "Documentos",
+    "Infos",
+    "Ações",
+  ]);
+  await expect(row).toContainText("PJ11.444.777/0001-61");
+  await row.getByRole("button", { name: "Editar GRAFICA EXEMPLO LTDA" }).click();
+  await expect(page.getByRole("dialog").getByLabel("CNPJ")).toHaveValue("11.444.777/0001-61");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
 
   // O que a pessoa já escreveu a consulta automática não troca; o botão Buscar troca
   await page.getByRole("button", { name: "Novo fornecedor" }).click();
@@ -112,20 +126,38 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await person.getByLabel("Apelido *").fill("João Autônomo");
   await person.getByLabel("Nome / razão social *").fill("João da Silva Autônomo");
   await person.getByRole("button", { name: "Cadastrar" }).click();
-  await expect(page.getByRole("row", { name: /João Autônomo/ })).toContainText("Pessoa física");
+  await page.getByRole("button", { name: "Editar João da Silva Autônomo" }).click();
+  await expect(page.getByRole("dialog").getByRole("combobox", { name: "Tipo" })).toContainText("Pessoa física");
+  await page.getByRole("dialog").getByRole("button", { name: "Cancelar" }).click();
 
-  // Unidade: o código também é gerado
+  // Unidade: o código também é gerado, e o do sistema antigo fica à parte. A lista é como a de lá
+  // (Empresa | Unidade | Código | Infos | Ações), com o código antigo na coluna Código (24/11).
   await page.goto("/cadastros?aba=units");
+  await expect(page.getByRole("columnheader")).toHaveText(["Empresa", "Unidade", "Código", "Infos", "Ações"]);
   await page.getByRole("button", { name: "Nova unidade" }).click();
   const unit = page.getByRole("dialog");
-  await expect(unit.getByLabel("Código")).toBeDisabled();
+  await expect(unit.getByLabel("Código", { exact: true })).toBeDisabled();
   await unit.getByRole("combobox", { name: "Empresa *" }).click();
   await page.getByRole("option", { name: "PPlus" }).click();
+  await unit.getByLabel("Código no sistema antigo").fill("UN9");
   await unit.getByLabel("Nome *").fill("Unidade do teste de cadastros");
+  await unit.getByLabel("IE (inscrição estadual)").fill("123456789");
   await unit.getByRole("button", { name: "Cadastrar" }).click();
-  await expect(page.getByRole("row", { name: /Unidade do teste de cadastros/ }).getByRole("cell").first()).toHaveText(
-    /^\d{4}$/
-  );
+  await expect(page.getByRole("row", { name: /Unidade do teste de cadastros/ }).getByRole("cell")).toHaveText([
+    "PPlus",
+    "Unidade do teste de cadastros",
+    "UN9",
+    "Ativo",
+    "",
+  ]);
+  // um CPF no lugar do CNPJ é recusado: ele não é guardado
+  await page.getByRole("button", { name: "Editar Unidade do teste de cadastros" }).click();
+  const editUnit = page.getByRole("dialog");
+  await expect(editUnit.getByLabel("Código", { exact: true })).toHaveValue(/^\d{4}$/);
+  await editUnit.getByLabel("CNPJ").fill("529.982.247-25");
+  await editUnit.getByRole("button", { name: "Salvar alterações" }).click();
+  await expect(editUnit.getByRole("alert")).toContainText("Por enquanto, só CNPJ: CPF não é guardado aqui");
+  await editUnit.getByRole("button", { name: "Cancelar" }).click();
 
   // Centro de custo em árvore: principal e sub-centro, com o código gerado (001 e 001.001)
   await page.goto("/cadastros?aba=costCenters");
@@ -162,8 +194,10 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await principalRow.getByRole("button", { name: /^Excluir / }).click();
   await expect(page.getByText(/tem lançamentos ou sub-centros: inative em vez de excluir/)).toBeVisible();
 
-  // Cliente MEI: o CPF que vem no fim da razão social nunca chega à tela
+  // Cliente MEI: o CPF que vem no fim da razão social nunca chega à tela. A lista é como a do sistema
+  // antigo, com telefones e e-mails cada um na sua coluna (24/11)
   await page.goto("/cadastros?aba=customers");
+  await expect(page.getByRole("columnheader")).toHaveText(["Código", "Apelido", "Nome", "Fones", "Emails", "Infos", "Ações"]);
   await page.getByRole("button", { name: "Novo cliente" }).click();
   const customer = page.getByRole("dialog");
   await customer.getByLabel("CNPJ").fill(MEI);
@@ -228,7 +262,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   const company = page.getByRole("dialog");
   await company.getByLabel("CNPJ").fill(ALFA);
   await expect(company.getByLabel("Nome / razão social *")).toHaveValue("ALFA PESQUISAS LTDA");
-  await expect(company.getByLabel("Código")).toBeDisabled();
+  await expect(company.getByLabel("Código", { exact: true })).toBeDisabled();
   await company.getByRole("button", { name: "Cadastrar" }).click();
   await expect(page.getByText("Cadastro criado.")).toBeVisible();
   const companyRow = page.getByRole("row", { name: /Alfa Pesquisas/ });
@@ -269,4 +303,28 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await expect(
     page.getByRole("option", { name: `${centerCode}.001 · Centro do teste de cadastros › Sub do teste` })
   ).toBeVisible();
+
+  // Plano de contas em árvore, como no sistema antigo (24/11): o grupo em destaque, com as contas dele
+  // embaixo; o grupo não recebe lançamento
+  await page.goto("/cadastros?aba=categories");
+  await expect(page.getByRole("columnheader")).toHaveText(["Tipo", "Plano de contas", "Código", "Infos", "Ações"]);
+  await page.getByRole("button", { name: "Novo grupo" }).click();
+  const group = page.getByRole("dialog");
+  await expect(group.getByRole("heading", { name: "Cadastrar grupo" })).toBeVisible();
+  await group.getByLabel("Código *").fill("900");
+  await group.getByLabel("Nome *").fill("Grupo do teste de cadastros");
+  await group.getByRole("button", { name: "Cadastrar" }).click();
+  await page.getByRole("button", { name: "Nova conta", exact: true }).click();
+  const account = page.getByRole("dialog");
+  await account.getByLabel("Código *").fill("900.001");
+  await account.getByLabel("Nome *").fill("Conta do teste no grupo");
+  await account.getByRole("combobox", { name: "Grupo" }).click();
+  await page.getByRole("option", { name: "900 Grupo do teste de cadastros" }).click();
+  await account.getByRole("button", { name: "Cadastrar" }).click();
+  await page.getByLabel("Buscar em plano de contas").fill("teste");
+  const planRows = page.getByRole("row").filter({ has: page.getByRole("button", { name: /^Editar / }) });
+  await expect(planRows).toHaveCount(2);
+  await expect(planRows.nth(0)).toContainText("Grupo do teste de cadastros");
+  await expect(planRows.nth(1)).toContainText("Conta do teste no grupo");
+  await expect(planRows.nth(1)).toContainText("900.001");
 });

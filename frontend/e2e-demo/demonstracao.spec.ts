@@ -207,7 +207,16 @@ test("Contas a receber abre no dia com títulos que vencem hoje", async ({ page 
 
 test("a Conferência bancária mostra o extrato conciliado e os outros meses", async ({ page }) => {
   await enter(page);
-  await go(page, "Financeiro", "Conferência bancária");
+  // no menu, "Em breve" desde 24/11 (pedido do Bruno), sem link: abre pelo endereço. Recarregar
+  // mantém a sessão e o banco do navegador (veja "recarregar a página mantém o que foi feito")
+  const menu = page.getByRole("navigation");
+  const soon = menu.locator('[aria-disabled="true"]', { hasText: "Conferência bancária" });
+  if (!(await soon.isVisible())) {
+    await menu.getByRole("button", { name: /^Financeiro/ }).first().click();
+  }
+  await expect(soon).toBeVisible();
+  await expect(menu.getByRole("link", { name: /^Conferência bancária/ })).toHaveCount(0);
+  await page.goto(`${BASE}conferencia-bancaria/`);
 
   await expect(page.getByText("PAGTO BOLETO ALUGUEL SALA EXEMPLO")).toBeVisible();
   await expect(page.getByText("TED RECEBIDA CLIENTE EXEMPLO")).toBeVisible();

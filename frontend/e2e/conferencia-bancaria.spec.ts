@@ -21,7 +21,7 @@ test("conta bancária com os dados do banco e extrato importado sem duplicar", a
   await page.goto("/cadastros?aba=bankAccounts");
   await page.getByRole("button", { name: "Nova conta bancária" }).click();
   const form = page.getByRole("dialog");
-  await expect(form.getByLabel("Banco *")).toHaveValue("Itaú"); // o banco de hoje já vem preenchido
+  await expect(form.getByLabel("Banco", { exact: true })).toHaveValue("Itaú"); // o banco de hoje já vem preenchido
   await form.getByRole("combobox", { name: "Empresa *" }).click();
   await page.getByRole("option", { name: "PPlus" }).click();
   await form.getByLabel("Nome *").fill("Itaú · Extrato E2E");
@@ -37,16 +37,27 @@ test("conta bancária com os dados do banco e extrato importado sem duplicar", a
   await form.getByLabel("Data do saldo").fill("2030-03-01");
   await form.getByRole("button", { name: "Cadastrar" }).click();
   const account = page.getByRole("row", { name: /Itaú · Extrato E2E/ });
-  await expect(account).toContainText("Itaú · ag. 1234 · conta 98765-4 · Conta corrente");
+  // a lista é como a do sistema antigo (24/11): Empresa | Código | Nome | Tipo | Banco | Agência | Conta
+  await expect(page.getByRole("columnheader")).toHaveText([
+    "Empresa",
+    "Código",
+    "Nome",
+    "Tipo",
+    "Banco",
+    "Agência",
+    "Conta",
+    "Infos",
+    "Ações",
+  ]);
+  await expect(account).toContainText("CC");
+  await expect(account).toContainText("98765-4");
 
-  // ---- Conferência bancária: importar o extrato ----
-  const menu = page.getByRole("navigation", { name: "Menu principal" });
-  await menu.getByRole("button", { name: "Financeiro" }).click();
-  await menu.getByRole("link", { name: "Conferência bancária" }).click();
+  // ---- Conferência bancária: importar o extrato (no menu, "Em breve" desde 24/11; abre pelo endereço) ----
+  await page.goto("/conferencia-bancaria");
   await expect(page.getByRole("heading", { name: "Conferência bancária" })).toBeVisible();
   await page.getByRole("combobox", { name: "Conta bancária" }).click();
   await page.getByRole("option", { name: "Itaú · Extrato E2E" }).click();
-  await expect(page.getByText("Itaú · ag. 1234 · conta 98765-4 · Conta corrente")).toBeVisible();
+  await expect(page.getByText("Itaú · ag. 1234 · conta 98765-4 · CC")).toBeVisible();
   await expect(page.getByText("Nenhum extrato importado nesta conta ainda.")).toBeVisible();
 
   // Arquivo que não é extrato: a mensagem do servidor, e nada é gravado
