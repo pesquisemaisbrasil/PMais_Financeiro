@@ -2,7 +2,7 @@
 
 import { FileUp, Landmark } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DateInput } from "@/components/DateInput";
 import { ReasonDialog } from "@/components/ReasonDialog";
@@ -72,6 +72,9 @@ export default function BankReconciliationPage() {
   const [undoing, setUndoing] = useState<Transaction | null>(null);
   const [view, setView] = useState<View>("conciliacao");
   const [month, setMonth] = useState(currentMonth);
+  // a busca mais recente: a resposta de uma busca anterior (outro período, outra conta) que chega
+  // depois é descartada, para a lista não mostrar as linhas de um filtro que já mudou
+  const latest = useRef(0);
 
   const loadAccounts = useCallback(() => {
     setAccountsError(null);
@@ -95,12 +98,14 @@ export default function BankReconciliationPage() {
 
   const load = useCallback(async () => {
     if (accountId === null) return;
+    const mine = ++latest.current;
     setError(null);
     try {
       const [transactions, statements] = await Promise.all([
         listTransactions(accountId, { start, end, page, situation }),
         listStatements(accountId),
       ]);
+      if (mine !== latest.current) return;
       const lastPage = Math.max(1, Math.ceil(transactions.total / PAGE_SIZE));
       if (page > lastPage) {
         setPage(lastPage); // a última linha da página saiu da lista: busca de novo na página que existe
@@ -109,6 +114,7 @@ export default function BankReconciliationPage() {
       setData(transactions);
       setHistory(statements);
     } catch (err) {
+      if (mine !== latest.current) return;
       setData(null);
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar o extrato");
     }
