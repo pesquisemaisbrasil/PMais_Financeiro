@@ -104,6 +104,8 @@ WITH_MFA = [
     "fechamento@e2e.invalid",
     "paginacao@e2e.invalid",
     "contas-erro@e2e.invalid",
+    # a resposta atrasada de um filtro anterior não troca a lista da conferência (25/11)
+    "extrato-ordem@e2e.invalid",
     # testes com o financeiro de 16/11 (frontend/e2e/testes-16-11.spec.ts)
     "pedidos-projeto@e2e.invalid",
     "pedidos-lista@e2e.invalid",

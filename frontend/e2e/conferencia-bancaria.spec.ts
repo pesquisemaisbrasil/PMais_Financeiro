@@ -212,3 +212,50 @@ test("se as contas bancárias não carregam, a tela diz o erro, não diz que nã
   await expect(page.getByRole("combobox", { name: "Conta bancária" })).toBeVisible();
   await expect(page.getByText("Falha de teste")).toHaveCount(0);
 });
+
+test("mudar o período rápido: a resposta atrasada do filtro anterior não troca a lista", async ({ page }) => {
+  // Defeito visto no CI em 25/11: o "De" e o "Até" preenchidos em seguida fazem duas buscas, e a
+  // do "De" sozinho, se chegasse por último, voltava a lista para as linhas de um período que já
+  // tinha mudado. Aqui o servidor é simulado e a resposta do "De" sozinho chega depois de propósito.
+  await signIn(page, "extrato-ordem@e2e.invalid");
+  const line = (id: number, day: string) => ({
+    id,
+    postedOn: `2030-03-${day}`,
+    description: `LINHA DO DIA ${day}`,
+    amount: "10.00",
+    statementId: 1,
+    reconciliation: null,
+  });
+  const list = (items: ReturnType<typeof line>[]) => ({
+    items,
+    total: items.length,
+    page: 1,
+    pageSize: 50,
+    counts: { pending: items.length, reconciled: 0, exceptions: 0 },
+    income: (items.length * 10).toFixed(2),
+    expense: "0.00",
+  });
+  const onlyStart = (url: URL) => url.searchParams.has("from") && !url.searchParams.has("to");
+  await page.route("**/bank-accounts/*/transactions?*", async (route) => {
+    const url = new URL(route.request().url());
+    if (onlyStart(url)) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      return route.fulfill({ json: list([line(2, "06"), line(3, "07")]) });
+    }
+    if (url.searchParams.has("to")) return route.fulfill({ json: list([line(2, "06")]) });
+    return route.fulfill({ json: list([line(1, "05"), line(2, "06"), line(3, "07")]) });
+  });
+
+  await page.goto("/conferencia-bancaria");
+  await expect(page.getByText("3 linhas · página 1 de 1")).toBeVisible();
+  const late = page.waitForResponse((response) => onlyStart(new URL(response.url())));
+  await page.getByLabel("De", { exact: true }).fill("2030-03-06");
+  await page.getByLabel("Até", { exact: true }).fill("2030-03-06");
+  await expect(page.getByText("1 linha · página 1 de 1")).toBeVisible();
+
+  // a resposta atrasada chega, e a lista continua a do período de agora
+  await late;
+  await page.waitForTimeout(500); // o tempo de a tela trocar a lista, se fosse trocar
+  await expect(page.getByText("1 linha · página 1 de 1")).toBeVisible();
+  await expect(page.getByRole("row", { name: /LINHA DO DIA 07/ })).toHaveCount(0);
+});
