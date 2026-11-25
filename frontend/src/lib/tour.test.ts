@@ -59,6 +59,7 @@ describe("passeio de cada tela", () => {
       "/contas-a-pagar",
       "/contas-a-receber",
       "/divergencias",
+      "/relatorios/dre",
       "/relatorios/fluxo-de-caixa",
       "/relatorios/projeto",
     ]);
