@@ -49,7 +49,7 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 - [x] Na exportação, aparecem os filtros usados, os totais e os IDs dos títulos (serve para auditoria e migração).
 - [x] O relatório do projeto 1804 mostra orçamento, lançado, pago, a pagar, saldo e os anexos de todos os seus lançamentos; clicar no código do projeto em Contas a pagar abre esse relatório.
 - [ ] O resultado por projeto de um projeto fechado bate com o fechamento financeiro dele.
-- [ ] O DRE do mês bate com a soma das contas analíticas vinculadas a cada linha.
+- [x] O DRE do mês bate com a soma das contas analíticas vinculadas a cada linha.
 - [x] O fluxo de caixa previsto da próxima semana lista os títulos em aberto por vencimento, e o realizado as baixas.
 - [ ] Um favorito salvo reabre com os mesmos filtros e colunas.
 
@@ -85,3 +85,12 @@ Origem do requisito:
 
   A tela é bloqueável por pessoa (`fluxo-de-caixa`). Ainda **fora**: a transferência entre empresas (F15) não é eliminada no consolidado; não há filtro por empresa; e o consumo do orçamento lido do Connect não entra, porque as provisões são as do Financeiro.
 - 2026-11-25 (**extrato × despesas exportável**, PF-74): a aba **Extrato × sistema** da Conferência bancária, que já comparava as saídas do extrato com as baixas por dia (PF-71), ganha **Exportar Excel** (`/bank-accounts/{id}/difference/export`): uma linha por dia (saídas do extrato, baixas do sistema e diferença), o total, e na primeira linha a conta, o mês e o que explica a diferença (saídas sem par, baixas sem linha e voltas).
+- 2026-11-25 (**DRE**, PF-76, decisão do Bruno de usar os grupos): a tela **Relatórios → DRE** (`GET /reports/dre`, só lê) mostra **Receitas**, **Despesas** e **Resultado** (receitas menos despesas) por mês, de 1º de janeiro até hoje ao abrir, com até 24 meses. As regras:
+  - **Linhas:** cada **grupo do plano de contas** é uma linha, na ordem do código do grupo, com as **contas analíticas** dele embaixo (botão Mostrar as contas). A conta sem grupo vai para "Sem grupo". O grupo que tem conta de receita e de despesa aparece uma vez em cada bloco. A linha é sempre a soma das contas dela.
+  - **Competência:** a do título. A conta a pagar sem competência usa o mês da emissão.
+  - **Valor:** o **principal** do título, sem os acréscimos, descontos e impostos. As linhas de dedução ficam para quando a Vivi definir o DRE completo.
+  - **Fora:** cancelado, substituído, excluído e as **provisões**, que são estimativa.
+  - **Filtros:** empresa, unidade, projeto e centro de custo. Com o projeto, a conta repartida entre projetos entra só com a **parte do projeto**. Exportar com um filtro de cadastro que não existe mais dá 422 "O filtro de ... não existe mais. Limpe e escolha de novo".
+  - **Exportar Excel** (`/reports/dre/export`): as linhas, as contas e o resultado, com o período e os filtros na primeira linha e sem linha de total, porque as linhas já são subtotais umas das outras.
+
+  A tela é bloqueável por pessoa (`dre`). **Falta da PF-76:** o fluxo mensal por plano de contas, os recebimentos de projetos × ano, o previsto × realizado (depende do orçamento) e o filtro favorito salvo.

@@ -128,22 +128,22 @@ Pedido do Bruno ([acesso-e-auditoria, Ajustes de 25/11](../specs/acesso-e-audito
 
 Pedido do Bruno ([registro de 24/11](../transcricoes/2026-11-24-cadastros-iguais-ao-sistema-antigo.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)): o `scripts/gerar-dump-local.sh` gera, na pasta `backups/` (fora do git), o pacote do banco local inteiro (o banco, os arquivos do cofre e as três chaves que os abrem), e o `make restaurar-local` do servidor põe esse pacote no ar. Na primeira instalação, o `make subir-projeto HOST=<IP> CONFIRMAR=sim` faz tudo de uma vez: confere o pacote, configura, sobe, põe o banco do pacote, liga as 22h e gera o certificado. O `make agendar` liga a atualização automática da `development` todo dia às 22h: sem versão nova, só o backup; com versão nova que não sobe, volta sozinho à de antes com o banco do backup. O `make verificar` avisa quando o fuso do servidor não é o de São Paulo.
 
-## Fluxo de caixa e o número na exportação (25/11/2026)
+## Fluxo de caixa, DRE e o número na exportação (25/11/2026)
 
-Tarefas do Jira PF-74 e PF-73 ([relatorios-e-analises, Ajustes de 25/11](../specs/relatorios-e-analises.md)). **Relatórios → Fluxo de caixa** abre desta semana até 4 semanas depois. O que mostra:
+Tarefas do Jira PF-74, PF-76 (o DRE) e PF-73 ([relatorios-e-analises, Ajustes de 25/11](../specs/relatorios-e-analises.md)). **Relatórios → Fluxo de caixa** abre desta semana até 4 semanas depois. O que mostra:
 
 - **Por período (dia, semana ou mês):** o previsto, que são os títulos em aberto de Contas a pagar (com as provisões) e a receber, pelo vencimento; o realizado, que são as baixas e os recebimentos que valem, pela data do dinheiro; e o saldo projetado acumulado.
 - **No alto:** o saldo das contas bancárias que entram no fluxo de caixa e o que já estava em atraso antes do período, que entra no saldo.
 - **Por conta bancária:** o realizado de cada conta.
 - **Ver:** abre os títulos e as baixas do período, com o link para cada um. **Exportar Excel** leva a tabela para a planilha.
 
-A aba **Extrato × sistema** da Conferência bancária também exporta para o Excel. As planilhas de Contas a pagar e a receber ganham o **número da conta** na última coluna. O DRE usa os grupos do plano de contas, e o Resultado por projeto espera o Connect (decisões do Bruno, [registro](../transcricoes/2026-11-25-decisoes-dos-relatorios.md)).
+A aba **Extrato × sistema** da Conferência bancária também exporta para o Excel. As planilhas de Contas a pagar e a receber ganham o **número da conta** na última coluna. **Relatórios → DRE** mostra receitas, despesas e resultado por mês, pela competência: cada grupo do plano de contas é uma linha, com as contas dele, e dá para filtrar por empresa, unidade, projeto e centro de custo e exportar. O Resultado por projeto espera o Connect (decisões do Bruno, [registro](../transcricoes/2026-11-25-decisoes-dos-relatorios.md)).
 
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
 
-### Fluxo de caixa e o número na exportação (25/11)
+### Fluxo de caixa, DRE e o número na exportação (25/11)
 
 1. Em Relatórios → Fluxo de caixa, a tela abre desta semana até 4 semanas depois, por semana. Uma conta a pagar em aberto que vence na semana que vem aparece em Saídas previstas daquela semana. Ver lista a conta, com o link para ela.
 2. Dê baixa numa conta hoje: o valor sai do previsto e entra em Saídas realizadas desta semana, e a conta bancária mostra a saída. Estorne a baixa: ela volta ao previsto.
@@ -152,7 +152,8 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 5. Troque para Mês e para Dia; ponha a data final antes da inicial: "A data final vem antes da inicial". Exportar Excel baixa a planilha com o saldo inicial na primeira linha.
 6. Na Conferência bancária (pelo endereço), aba Extrato × sistema, Exportar Excel baixa uma linha por dia, com o total.
 7. Em Contas a pagar e a receber, Exportar: a última coluna é o Nº da conta (ou do título).
-8. Os testes: `pytest tests/test_fluxo_de_caixa.py tests/test_bank_reports.py` em `backend/` e `npx playwright test e2e/fluxo-de-caixa.spec.ts e2e/fechamento.spec.ts` em `frontend/`.
+8. Em Relatórios → DRE, cada grupo do plano de contas é uma linha; Mostrar as contas abre as contas de cada grupo, e a linha é a soma delas. Mude o grupo de uma conta em Cadastros → Plano de contas: ela passa para a linha do grupo novo. Filtre por um projeto: a conta dividida entre projetos entra só com a parte dele. Provisões e contas canceladas não entram.
+9. Os testes: `pytest tests/test_fluxo_de_caixa.py tests/test_bank_reports.py tests/test_dre.py` em `backend/` e `npx playwright test e2e/fluxo-de-caixa.spec.ts e2e/fechamento.spec.ts e2e/dre.spec.ts` em `frontend/`.
 
 ### Cadastros iguais aos do sistema antigo (24/11)
 
