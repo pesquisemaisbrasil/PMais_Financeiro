@@ -116,9 +116,21 @@ As 10 senhas erradas por hora que barram o login passam a contar por **e-mail e 
 
 O Connect passou a descontar o adiantamento do "a pagar" ([relatório](../specs/RELATORIO_ADIANTAMENTO_FINANCEIRO.md), [integração, Ajustes de 23/11](../specs/integracao-com-o-connect.md)). O Financeiro guarda no espelho só o que falta pagar, sem a parte do adiantamento: a conciliação do comprovante e a baixa somam o valor líquido, como a planilha. A entrevista que o adiantamento pagou inteira nunca vai para pagamento, e as duas recusas novas do Connect viram divergência com mensagem em palavras simples. Falta mostrar o adiantamento e o saldo negativo de cada pessoa na tela (Q63).
 
+## Cadastros iguais aos do sistema antigo (24/11/2026)
+
+Pedido do Bruno ([registro](../transcricoes/2026-11-24-cadastros-iguais-ao-sistema-antigo.md), [cadastros, Ajustes de 24/11](../specs/cadastros-e-dimensoes.md)): empresa, unidade, centro de custo, cliente e fornecedor ganham o código no sistema antigo (à parte do gerado), que a coluna Código das listas mostra; o cliente, a origem; o fornecedor, a mesma ficha do cliente; clientes e fornecedores, a lista do sistema antigo (Código | Apelido | Nome | Fones | Emails | Infos | Ações); a empresa e a unidade, a IE; e a unidade, apelido e CNPJ. A empresa aparece pelo apelido em todas as telas (Pesquise+), e a lista de Unidades fica como a do sistema antigo (Empresa | Unidade | Código | Infos | Ações). O script `backend/scripts/importar_relatorio_receber_antigo.py` faz o mesmo com o relatório "Lançamentos a Receber" (títulos a receber e os recebimentos). O script `backend/scripts/importar_cadastros.py` popula os cadastros com o .csv que o sistema antigo exporta, um tipo por vez (empresas, unidades, centros de custo, clientes, fornecedores, plano de contas, com os grupos, projetos, com a unidade e o centro de custo obrigatórios, e o número único dentro da empresa, e contas bancárias, com os tipos CC, CI, Interna e Crédito). Conferência bancária e Divergências ficam "Em breve" no menu.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
+
+### Cadastros iguais aos do sistema antigo (24/11)
+
+1. Em Cadastros → Unidades, a lista tem Empresa | Unidade | Código | Infos | Ações. Nova unidade: preencha Código no sistema antigo (UN9), Nome e IE e cadastre: a coluna Código mostra UN9, e a janela de editar mostra o código gerado (0001...).
+2. Na mesma janela, troque o CNPJ por um CPF e salve: "Por enquanto, só CNPJ: CPF não é guardado aqui".
+3. Em Cadastros → Empresas, uma empresa com apelido (Pesquise+): em Contas a pagar, na escolha da unidade e na lista, ela aparece pelo apelido.
+4. Importar o .csv do sistema antigo: `python scripts/importar_cadastros.py --tipo empresas --email voce@... < Empresas.csv` mostra a prévia; com `--gravar`, grava. Depois `--tipo unidades`, `--tipo centros`, `--tipo clientes`, `--tipo fornecedores`, `--tipo plano`, `--tipo projetos` e `--tipo contas --empresa Pesquise+ --empresa-das-contas "IHEA=7,20,21,22"`. Em Cadastros → Plano de contas, a lista em árvore: o grupo em destaque e as contas embaixo; Novo grupo ao lado de Nova conta. Rodar de novo não cria nada.
+5. Os testes: `pytest tests/test_records.py tests/test_importar_cadastros.py` em `backend/` e `npx playwright test e2e/cadastros.spec.ts` em `frontend/`.
 
 ### Adiantamento do Connect (23/11)
 
