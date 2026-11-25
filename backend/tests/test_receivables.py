@@ -506,8 +506,10 @@ def test_export_names_every_chosen_option(
 def test_export_to_excel_has_real_numbers_totals_and_the_filters_on_top(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
-    create(client, auth, world, dueDate=days(-5), amount="1000.00", adjustments=tax("100.00"))
-    create(client, auth, world, dueDate=days(9), amount="500.00")
+    late_title = create(
+        client, auth, world, dueDate=days(-5), amount="1000.00", adjustments=tax("100.00")
+    )
+    future_title = create(client, auth, world, dueDate=days(9), amount="500.00")
     response = client.get(
         f"/receivables/export?format=xlsx&mode=tudo&customer={world['customer'].id}", headers=auth
     )
@@ -526,9 +528,13 @@ def test_export_to_excel_has_real_numbers_totals_and_the_filters_on_top(
     assert sorted(Decimal(str(row[net])) for row in rows) == [Decimal("500.00"), Decimal("900.00")]
     # só o título vencido tem dias de atraso
     assert sorted((row[late] is None, row[late]) for row in rows) == [(False, 5), (True, None)]
+    # o número do título vai na última coluna, para auditoria e migração (PF-73)
+    assert headers[-1] == "Nº do título"
+    assert sorted(row[-1] for row in rows) == sorted([late_title["id"], future_title["id"]])
     total = [cell.value for cell in sheet[5]]
     assert total[0] == "Total"
     assert Decimal(str(total[net])) == Decimal("1400.00")
+    assert total[-1] is None
     assert client.get("/receivables/export?format=pdf", headers=auth).status_code == 422
 
 

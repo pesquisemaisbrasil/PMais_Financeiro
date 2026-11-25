@@ -1249,8 +1249,7 @@ def test_period_can_follow_payment_date_or_competence(
 def test_export_brings_all_filtered_rows_with_filters_on_top(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
-    for value in range(1, 15):
-        create(client, auth, world, amount=f"{value}.00")
+    ids = [create(client, auth, world, amount=f"{value}.00")["id"] for value in range(1, 15)]
     response = client.get(f"/payables/export?supplier={world['supplier'].id}", headers=auth)
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
@@ -1259,8 +1258,10 @@ def test_export_brings_all_filtered_rows_with_filters_on_top(
     lines = response.text.lstrip("\ufeff").splitlines()
     assert "fornecedor=Gráfica Ponto Certo" in lines[0]
     assert lines[1].startswith("Vencimento;Fornecedor;")
+    assert lines[1].endswith(";Pendente;Nº da conta")
     assert len(lines) == 16
-    assert lines[2].endswith(";Vence hoje;1,00;0,00;0,00;0,00;1,00;0,00;1,00")
+    # o número da conta vai no fim da linha, para auditoria e migração (PF-73)
+    assert lines[2].endswith(f";Vence hoje;1,00;0,00;0,00;0,00;1,00;0,00;1,00;{ids[0]}")
 
 
 def _sheet(content: bytes) -> Any:
@@ -1299,7 +1300,8 @@ def test_export_to_excel_keeps_numbers_dates_and_the_filters_on_top(
     assert totals[0] == "Total"
     assert Decimal(str(totals[10])) == Decimal("61.50")
     assert Decimal(str(totals[16])) == Decimal("61.50")
-    assert sheet.auto_filter.ref == "A2:Q5"
+    assert totals[17] is None  # o número da conta não entra no total
+    assert sheet.auto_filter.ref == "A2:R5"
     assert sheet.freeze_panes == "A3"
 
 

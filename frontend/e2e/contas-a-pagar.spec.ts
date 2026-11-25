@@ -237,6 +237,7 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   expect(download.suggestedFilename()).toMatch(/^contas-a-pagar-.*\.csv$/);
   const csv = await readFile(await download.path(), "utf-8");
   expect(csv).toContain("Vencimento;Fornecedor;");
+  expect(csv).toContain(";Pendente;Nº da conta"); // o número de cada conta, no fim (PF-73)
   expect(csv).toContain("Consultoria de teste");
   await page.getByRole("button", { name: "Exportar" }).click();
   const [excel] = await Promise.all([
