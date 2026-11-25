@@ -64,8 +64,15 @@ def test_password_alone_gives_no_session(
     response = login(client)
 
     assert response.status_code == 200
-    assert set(response.json()) == {"mfa_token", "token_type", "setup_required"}
+    # password_change_required: a senha inicial de primeiro acesso (25/11), falso numa conta normal
+    assert set(response.json()) == {
+        "mfa_token",
+        "token_type",
+        "setup_required",
+        "password_change_required",
+    }
     assert response.json()["setup_required"] is False
+    assert response.json()["password_change_required"] is False
     assert "set-cookie" not in response.headers
     assert db_session.query(RefreshToken).count() == 0
     db_session.refresh(user)

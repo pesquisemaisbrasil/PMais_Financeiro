@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   API_URL,
+  PASSWORD,
   RECOVERY_CODE,
   TOTP_SECRET,
   expectHome,
@@ -90,6 +91,53 @@ test("o primeiro login cadastra o autenticador e mostra os códigos antes de lib
 
   await page.getByRole("button", { name: "Já guardei, continuar" }).click();
   await expectHome(page);
+});
+
+test("o primeiro acesso com a senha inicial cria a senha nova antes do autenticador, e a inicial deixa de valer", async ({
+  page,
+}) => {
+  // Pedido do Bruno (25/11/2026): a conta nasce com uma senha inicial, que só vale para o primeiro acesso
+  await submitPassword(page, "primeiro-acesso@e2e.invalid");
+  await expect(page.getByRole("heading", { name: "Crie a sua senha" })).toBeVisible();
+  await expect(page.getByText("Anote a senha nova num lugar seguro")).toBeVisible();
+  expect(await refreshCookie(page)).toBeUndefined();
+
+  // as duas não batem: nem vai ao servidor
+  await page.getByLabel("Senha nova", { exact: true }).fill("Minha!Senha9");
+  await page.getByLabel("Repita a senha nova").fill("Minha!Senha8");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByText("As duas senhas não são iguais. Digite de novo.")).toBeVisible();
+
+  // fraca: o servidor diz o que falta
+  await page.getByLabel("Senha nova", { exact: true }).fill("semmaiuscula1!");
+  await page.getByLabel("Repita a senha nova").fill("semmaiuscula1!");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByText("Senha precisa ter pelo menos uma letra maiúscula")).toBeVisible();
+
+  // igual à inicial: recusada
+  await page.getByLabel("Senha nova", { exact: true }).fill(PASSWORD);
+  await page.getByLabel("Repita a senha nova").fill(PASSWORD);
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByText("A senha nova precisa ser diferente da senha inicial")).toBeVisible();
+
+  // a certa segue para o cadastro do autenticador, como qualquer primeiro login
+  await page.getByLabel("Senha nova", { exact: true }).fill("Minha!Senha9");
+  await page.getByLabel("Repita a senha nova").fill("Minha!Senha9");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByRole("heading", { name: "Cadastre o segundo fator" })).toBeVisible();
+  const secret = (await page.locator("code").innerText()).trim();
+  await page.getByLabel(/Código/).fill(totp(secret));
+  await page.getByRole("button", { name: "Confirmar" }).click();
+  await expect(page.getByRole("heading", { name: "Guarde seus códigos de recuperação" })).toBeVisible();
+  await page.getByRole("button", { name: "Já guardei, continuar" }).click();
+  await expectHome(page);
+
+  // a senha inicial não entra mais; a nova vai direto ao código do app
+  await page.context().clearCookies();
+  await submitPassword(page, "primeiro-acesso@e2e.invalid");
+  await expect(page.getByText("E-mail ou senha incorretos")).toBeVisible();
+  await submitPassword(page, "primeiro-acesso@e2e.invalid", "Minha!Senha9");
+  await expect(page.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();
 });
 
 test("com o MFA cadastrado, a sessão aguenta recarregar e abrir duas abas, e sair encerra", async ({ page }) => {

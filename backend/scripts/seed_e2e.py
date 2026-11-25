@@ -70,6 +70,8 @@ TOTP_SECRET = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"  # gitleaks:allow
 RECOVERY_CODE = "E2E2RECUPERACAO2"
 
 WITHOUT_MFA = ["novo@e2e.invalid"]
+# senha inicial de primeiro acesso (frontend/e2e/login.spec.ts): troca a senha antes do autenticador
+FIRST_ACCESS = ["primeiro-acesso@e2e.invalid"]
 WITH_MFA = [
     "ana@e2e.invalid",
     "repete@e2e.invalid",
@@ -246,8 +248,15 @@ def main() -> None:
     db = SessionLocal()
     try:
         password_hash = hash_password(PASSWORD)
-        for email in WITHOUT_MFA + WITH_MFA:
-            db.add(User(name=email.split("@")[0], email=email, passwordHash=password_hash))
+        for email in WITHOUT_MFA + WITH_MFA + FIRST_ACCESS:
+            db.add(
+                User(
+                    name=email.split("@")[0],
+                    email=email,
+                    passwordHash=password_hash,
+                    mustChangePassword=email in FIRST_ACCESS,
+                )
+            )
         db.commit()
         for email in WITH_MFA:
             user = db.query(User).filter(User.email == email).one()
