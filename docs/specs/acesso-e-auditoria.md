@@ -12,6 +12,12 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
   - a Microsoft fica limitada à empresa (`MICROSOFT_TENANT_ID`), e o Google exige e-mail verificado;
   - sem as chaves do provedor, o botão continua na tela e avisa que ainda não está disponível.
 - **Não há cadastro público:** a conta nasce com `backend/scripts/create_user.py` até existir a tela de usuários.
+- **Senha inicial de primeiro acesso** (pedido do Bruno, 25/11/2026): a conta da equipe nasce com uma senha inicial (`create_user.py --primeiro-acesso`, ou `make conta` no servidor), que vale só para o primeiro login:
+  - depois da senha inicial, a tela **"Crie a sua senha"** pede a senha nova duas vezes, com a mesma regra de força de sempre, e diz para anotá-la num lugar seguro;
+  - `POST /auth/token` devolve `password_change_required`, e `POST /auth/password/initial`, com o token parcial, troca a senha e devolve um token parcial novo;
+  - a senha nova não pode ser igual à inicial, e a inicial deixa de valer na hora;
+  - depois, o login segue como o de qualquer conta nova: o cadastro do autenticador, os códigos de recuperação e o primeiro computador liberado sozinho;
+  - antes da troca, nada abre, no servidor também: o cadastro do autenticador, o código e a sessão respondem 403.
 - **MFA (TOTP) obrigatório** para quem entra por e-mail e senha, em todos os papéis (`admin` e `financeiro`):
   - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela: `POST /auth/mfa/setup` devolve uma chave nova a cada pedido e o QR code, e `POST /auth/mfa/setup/confirm` prova o cadastro com o primeiro código e abre a sessão;
   - `POST /auth/token` devolve um token parcial (`mfa_pending`, 5 min);
@@ -83,6 +89,11 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 | Conta desativada com token de acesso ainda válido | 401 | (padrão do login) |
 | Código MFA errado ou token parcial vencido | 401 | Código de verificação inválido |
 | Cadastrar MFA numa conta que já tem | 409 | O MFA já está cadastrado |
+| Cadastrar o autenticador, mandar o código ou abrir a sessão com a senha inicial ainda por trocar | 403 | Troque a senha inicial antes de continuar |
+| Senha nova igual à inicial | 422 | A senha nova precisa ser diferente da senha inicial |
+| Senha nova fraca | 422 | Senha precisa ter... (o que falta, numa frase) |
+| Trocar a senha inicial que já foi trocada, ou numa conta sem senha inicial | 409 | A senha inicial já foi trocada. Entre de novo. |
+| Senha nova e a repetição diferentes (só na tela) | — | As duas senhas não são iguais. Digite de novo. |
 | SSO sem as chaves do provedor | 303 para `/login?erro=sso_indisponivel` | Esse login ainda não está disponível. Use e-mail e senha. |
 | SSO de quem não tem conta ativa no Financeiro | 303 para `/login?erro=sso_conta` | Essa conta não tem acesso ao Financeiro. Fale com o administrador. |
 | SSO cancelado, com estado errado ou token recusado | 303 para `/login?erro=sso_falhou` | Não foi possível entrar por essa conta. Tente de novo ou use e-mail e senha. |
@@ -109,6 +120,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 ## Critérios de aceite
 
 - [x] O primeiro login de um usuário novo cai no cadastro do MFA e não chega a nenhuma outra tela antes disso.
+- [x] Com a senha inicial, o primeiro login pede a senha nova antes do autenticador; a inicial deixa de valer, e nada abre antes da troca (`backend/tests/test_senha_inicial.py`, `frontend/e2e/login.spec.ts`).
 - [ ] Gerar a planilha com chave completa pede o código MFA de novo.
 - [x] Desativar um usuário derruba a sessão dele no próximo refresh.
 - [x] Reapresentar um refresh já usado revoga a família inteira.
@@ -146,3 +158,4 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 - 2026-11-19 (**três níveis de acesso e telas por pessoa**, Bruno: "Eu quero trabalhar em três níveis de acessos diferentes no sistema: o admin, que pode aprovar acessos em outras máquinas, e o usuário que não pode aprovar, e o super admin; e o admin pode restringir telas para o usuário também. O super admin vai ter tudo, só que ele vai ter uma tela que ele recebe demandas para mudanças do sistema"; [ADR 0023](../architecture/adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)): papéis `superadmin`, `admin` e `financeiro` (Usuário). **Qualquer admin libera o computador do super admin** (Bruno: "essa posição de superadmin é temporária até o desenvolvimento do projeto"). Em **Acessos > Pessoas e telas**, o admin desmarca as telas que cada usuário não usa; o super admin faz o mesmo com os admins. A trava vale no servidor: a rota da tela bloqueada responde 403, e a busca geral tira os grupos dela. Não há tela para trocar nível: `make definir-nivel EMAIL=... NIVEL=superadmin`. A tela Demandas, só do super admin, está em [demandas](demandas.md).
 - 2026-11-19 (**super admin sem liberação de computador**, Bruno: "o acesso de super admin não precisa ter liberação, ele é para o desenvolvedor, que no caso sou eu"): o super admin entra em qualquer navegador depois da senha e do autenticador, sem virar pedido em Acessos; `login_events` grava o motivo `browser_superadmin`. Admin e usuário continuam com a liberação ([ADR 0022](../architecture/adr/0022-navegador-liberado-por-cookie.md), [ADR 0023](../architecture/adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)).
 - 2026-11-23 (**PF-53, quem é de fora não trava o login de outra pessoa**, Bruno): as 10 falhas/h passam a contar por e-mail e rede juntos. Antes, bastava saber o e-mail para deixar a pessoa uma hora sem entrar, mesmo com a senha certa. Um ataque de muitas redes fica no limite de 5 tentativas por minuto de cada IP, e a conta continua protegida pelo autenticador e pelo computador liberado.
+- 2026-11-25 (**senha inicial de primeiro acesso**, Bruno: "eu quero que para todos eles coloque essa senha inicial [...] e apenas para o primeiro acesso, depois eu peço para eles trocarem para uma própria e para eles anotarem, depois disso ele vai para as opções normais de cadastro que nós já temos"): as contas da equipe nascem com uma senha inicial, a mesma para todas, e o primeiro login pede a senha nova antes do autenticador. A senha que ele mandou não tinha letra maiúscula; ele escolheu pôr o P maiúsculo em vez de abrir exceção na regra de força, que vale para a inicial e para a nova. A troca acontece antes do autenticador, com o token parcial do login (5 minutos), e não pede a senha inicial de novo: ela acabou de ser digitada. A inicial nunca vai para o repositório nem para os docs. Coluna `users.mustChangePassword`, migration `a7d3e5f9c2b4`. As 5 contas da equipe (2 com o nível Usuário e 3 admins) foram criadas no banco local e vão no pacote para o servidor ([ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)).

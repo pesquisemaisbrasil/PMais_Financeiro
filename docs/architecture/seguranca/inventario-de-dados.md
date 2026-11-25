@@ -8,6 +8,7 @@ O que o Financeiro guarda para a pessoa entrar e manter a sessão. Os dados de C
 | E-mail | `users.email` | Em claro, em minúsculas | Identificar a conta e entrar | Enquanto a conta existir |
 | Senha | `users.passwordHash` | Só o hash da senha | Primeiro fator do login por senha | Enquanto a conta existir |
 | Papel e situação | `users.role`, `users.status` | Em claro | Dizer o que a pessoa pode fazer e barrar conta desativada | Enquanto a conta existir |
+| Troca da senha inicial | `users.mustChangePassword` | Sim ou não. A senha inicial só existe como o hash em `passwordHash`, que a senha nova substitui | Pedir a senha nova da pessoa no primeiro acesso, antes do autenticador (25/11) | Enquanto a conta existir |
 | Chave do autenticador (TOTP) | `users.totpSecretEncrypted` | Cifrada (AES-256-GCM), nunca em claro | Segundo fator | Enquanto o MFA estiver ativo |
 | Controle do TOTP | `users.totpLastUsedStep`, `mfaFailedAttempts`, `mfaLockedUntil`, `mfaEnabledAt` | Números e datas | Impedir código repetido e adivinhação | Enquanto a conta existir |
 | Códigos de recuperação | `mfa_recovery_codes.codeHash`, `usedAt` | Só o hash; o código aparece uma vez | Entrar se o autenticador for perdido | Até o uso, ou até o MFA ser refeito |
