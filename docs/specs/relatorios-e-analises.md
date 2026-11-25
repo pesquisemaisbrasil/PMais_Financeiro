@@ -50,7 +50,7 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 - [x] O relatório do projeto 1804 mostra orçamento, lançado, pago, a pagar, saldo e os anexos de todos os seus lançamentos; clicar no código do projeto em Contas a pagar abre esse relatório.
 - [ ] O resultado por projeto de um projeto fechado bate com o fechamento financeiro dele.
 - [ ] O DRE do mês bate com a soma das contas analíticas vinculadas a cada linha.
-- [ ] O fluxo de caixa previsto da próxima semana lista os títulos em aberto por vencimento, e o realizado as baixas.
+- [x] O fluxo de caixa previsto da próxima semana lista os títulos em aberto por vencimento, e o realizado as baixas.
 - [ ] Um favorito salvo reabre com os mesmos filtros e colunas.
 
 ## Onde está no código
@@ -74,3 +74,14 @@ Origem do requisito:
 - 2026-11-17 (**busca no relatório do projeto**, testes de 16/11, A20, [registro de 16/11](../transcricoes/2026-11-16-testes-em-conjunto-com-o-financeiro.md)): a lista de projetos do relatório ganha a busca pelo **número ou nome** ("aqui só tem 2, mas daqui a pouco vai ter 2000"), sem acento e sem maiúscula. Cada projeto mostra tudo o que já foi lançado nele, de qualquer data: não há filtro de período a ajustar.
 - 2026-11-25 (**número da conta na exportação**, PF-73): a planilha de Contas a pagar (Excel e CSV) ganha a coluna **Nº da conta** e a de Contas a receber a coluna **Nº do título**, no fim da linha, para auditoria e migração. Elas ficam por último para as outras colunas não mudarem de posição (a impressão e os totais continuam iguais), e não entram no total. Com isso, as listas de Contas a pagar e a receber cumprem o relatório de lançamentos da fase 1, menos o filtro por linha do DRE e os favoritos, que vão com o DRE (PF-76).
 - 2026-11-25 (**DRE e Resultado por projeto**, decisões do Bruno, [registro de 25/11](../transcricoes/2026-11-25-decisoes-dos-relatorios.md)): o **DRE usa os grupos do plano de contas** importados do SGE4B, e cada grupo vira uma linha do DRE. O vínculo pode ser mudado em Cadastros, e a Vivi confere (fecha a parte do DRE da F3). O **Resultado por projeto espera** o Connect real (o planejado vem do orçamento) e a lista de causas do resultado negativo.
+- 2026-11-25 (**fluxo de caixa**, PF-74): a tela **Relatórios → Fluxo de caixa** (`GET /reports/cash-flow`, só lê) mostra, por **dia, semana (de segunda a domingo) ou mês**, as **entradas e saídas previstas** e **realizadas** e o **saldo projetado** acumulado. Ela abre desta semana até 4 semanas depois, e o período vai até 3 anos e 400 períodos. Cada parte:
+  - **Previsto:** o que ainda falta pagar ou receber dos títulos em aberto, pelo vencimento, com as **provisões** do Contas a pagar. A conta parcial entra pelo que falta.
+  - **Realizado:** as baixas e os recebimentos que valem (sem estornados nem Pix devolvidos), pela data do dinheiro.
+  - **Saldo:** parte do **saldo inicial das contas bancárias ativas que entram no fluxo de caixa** ("Entra no fluxo de caixa", de 24/11). O que a conta movimentou antes da data do saldo já está nele. A conta que começa dentro do período entra na data do saldo dela. A conta fora do fluxo (cartão, Caixinha) não entra no saldo nem no realizado.
+  - **Atraso:** o que está em aberto e venceu **antes do período** aparece à parte (a receber e a pagar) e **já entra no saldo projetado**, para não sumir da conta.
+  - **Por conta bancária:** só o realizado, porque o previsto não tem conta até a baixa.
+  - **Ver:** abre os títulos e as baixas do período (`GET /reports/cash-flow/detail`), com o link para cada um.
+  - **Exportar Excel** (`/reports/cash-flow/export`): os períodos, com o saldo inicial e o atraso na primeira linha. O saldo, que é acumulado, fica fora do total.
+
+  A tela é bloqueável por pessoa (`fluxo-de-caixa`). Ainda **fora**: a transferência entre empresas (F15) não é eliminada no consolidado; não há filtro por empresa; e o consumo do orçamento lido do Connect não entra, porque as provisões são as do Financeiro.
+- 2026-11-25 (**extrato × despesas exportável**, PF-74): a aba **Extrato × sistema** da Conferência bancária, que já comparava as saídas do extrato com as baixas por dia (PF-71), ganha **Exportar Excel** (`/bank-accounts/{id}/difference/export`): uma linha por dia (saídas do extrato, baixas do sistema e diferença), o total, e na primeira linha a conta, o mês e o que explica a diferença (saídas sem par, baixas sem linha e voltas).
