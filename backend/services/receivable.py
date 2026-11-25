@@ -499,6 +499,7 @@ def _export_table(
         "Líquido",
         "Recebido",
         "Pendente",
+        "Nº do título",  # no fim: as colunas de cima não mudam de posição (impressão e totais)
     ]
     rows: list[list[Any]] = []
     for r in selected:
@@ -526,6 +527,7 @@ def _export_table(
                 net_amount(r),
                 received_amount(r),
                 pending_amount(r),
+                r.id,
             ]
         )
     return " · ".join(header), headers, rows
