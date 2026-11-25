@@ -114,7 +114,9 @@ def list_projects(db: Session) -> list[dict[str, Any]]:
 
 
 def report(db: Session, code: str) -> dict[str, Any]:
-    project = db.query(Project).filter(Project.code == code).first()
+    # shortcut: o mesmo número pode estar em duas empresas (24/11); abre o primeiro cadastrado,
+    # até o relatório escolher pela empresa
+    project = db.query(Project).filter(Project.code == code).order_by(Project.id).first()
     if project is None:
         raise ProjectNotFound
     on = payables.today()

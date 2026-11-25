@@ -109,7 +109,7 @@ def _accounts(db) -> tuple[BankAccount, BankAccount]:  # type: ignore[no-untyped
         (bradesco, "Bradesco", "0002", "12345-6", "20000.00"),
     ):
         account.bankName, account.agency, account.accountNumber = bank, agency, number
-        account.accountType = "corrente"
+        account.accountType = "cc"
         account.openingBalance, account.openingDate = Decimal(opening), month_before
     db.commit()
     return itau, bradesco

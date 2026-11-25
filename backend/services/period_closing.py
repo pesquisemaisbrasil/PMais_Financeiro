@@ -98,14 +98,14 @@ def status(db: Session, month: str) -> dict[str, Any]:
         companies.append(
             {
                 "id": company.id,
-                "name": company.name,
+                "name": company.label,
                 "closed": closing is not None,
                 "closedAt": closing.createdAt if closing else None,
                 "closedBy": names.get(closing.closed_by_id) if closing else None,
                 **pending,
             }
         )
-    company_names = dict(db.query(Company.id, Company.name))
+    company_names = {c.id: c.label for c in db.query(Company)}
     return {
         "month": month,
         "companies": companies,
@@ -143,7 +143,7 @@ def close(db: Session, company_id: int, month: str, user: User) -> None:
     open_lines = pending["withoutPair"] + pending["withoutClassification"]
     if open_lines:
         raise PayableConflict(
-            f"Há {open_lines} linhas não conciliadas ou sem classificação em {company.name}"
+            f"Há {open_lines} linhas não conciliadas ou sem classificação em {company.label}"
         )
     db.add(PeriodClosing(company_id=company.id, month=month, closed_by_id=user.id))
     _event(db, company.id, month, user, f"Fechou {month_name(month)}")
@@ -214,7 +214,7 @@ def sheet(db: Session, company_id: int, month: str, user: User) -> tuple[bytes, 
         )
     content = build_xlsx(
         sheet="Conciliação",
-        title=f"Conciliação bancária · {company.name} · {month_name(month)}",
+        title=f"Conciliação bancária · {company.label} · {month_name(month)}",
         headers=SHEET_HEADERS,
         rows=rows,
         total_columns=(3,),
@@ -227,5 +227,5 @@ def sheet(db: Session, company_id: int, month: str, user: User) -> tuple[bytes, 
         f"Baixou a planilha da contabilidade de {month_name(month)} ({len(rows)} linhas)",
     )
     db.commit()
-    slug = re.sub(r"[^a-z0-9]+", "-", company.name.lower()).strip("-") or str(company.id)
+    slug = re.sub(r"[^a-z0-9]+", "-", company.label.lower()).strip("-") or str(company.id)
     return content, f"conciliacao-{slug}-{month}.xlsx"

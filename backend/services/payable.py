@@ -308,7 +308,7 @@ def row(payable: Payable, on: date, item_count: int, attachment_count: int = 0) 
         "categoryName": payable.category.name,
         "costCenterName": payable.cost_center.path,
         "paymentMethodName": payable.payment_method.name,
-        "companyName": payable.company.name,
+        "companyName": payable.company.label,
         "amount": net_amount(payable),
         "grossAmount": payable.amount,
         "paid": paid_amount(payable),
@@ -611,7 +611,7 @@ def _export_table(
                 p.category.name,
                 p.cost_center.path,
                 p.payment_method.name,
-                p.company.name,
+                p.company.label,
                 SITUATION_LABELS[situation(p, on)],
                 p.amount,
                 adj.total(p.adjustments, "acrescimo"),
@@ -1099,7 +1099,7 @@ def _update_unit(db: Session, payable: Payable, data: PayableUpdate) -> list[str
             )
         company = _active(db, Company, unit.company_id, "Empresa")
         _period_open(db, company.id, payable.issueDate)
-        changes.append(f"empresa {payable.company.name} → {company.name}")
+        changes.append(f"empresa {payable.company.label} → {company.label}")
         payable.company_id = company.id
         payable.company = company
     payable.unit_id = unit.id
@@ -1682,7 +1682,8 @@ def reference(db: Session) -> dict[str, Any]:
         return db.query(model).filter(model.active.is_(True)).order_by(model.name)
 
     return {
-        "companies": active(Company).all(),
+        # as telas mostram a empresa pelo apelido, como no sistema antigo (Pesquise+, 24/11)
+        "companies": [{"id": c.id, "name": c.label} for c in active(Company)],
         "units": [
             {"id": u.id, "name": u.name, "companyId": u.company_id} for u in active(BusinessUnit)
         ],

@@ -24,7 +24,9 @@ def _upsert_financial_project(db: Session, project: ConnectProject) -> None:
     (spec projetos-financeiros). O código é o ID do Connect (PRJ-1820). O que o financeiro marcou
     aqui (tipo, incentivo) e a situação não mudam: só o título acompanha o Connect."""
     code = str(project.id)
-    row = db.query(Project).filter_by(code=code).first()
+    # shortcut: o mesmo número pode estar em duas empresas (24/11); fica o primeiro cadastrado,
+    # até o contrato com o Connect dizer a empresa do projeto
+    row = db.query(Project).filter_by(code=code).order_by(Project.id).first()
     if row is None:
         db.add(Project(code=code, title=project.title[:200]))
     else:

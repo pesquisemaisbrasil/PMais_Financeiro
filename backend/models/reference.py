@@ -12,6 +12,7 @@ from sqlalchemy import (
     false,
     func,
     text,
+    true,
 )
 from sqlalchemy.orm import relationship
 
@@ -43,7 +44,15 @@ class Company(Base):
     code = Column(String(20), nullable=True)
     # Só CNPJ: CPF não é guardado (pergunta Q23).
     document = Column(String(14), nullable=True)
+    stateRegistration = Column(String(30), nullable=True)
+    # O código no sistema antigo (24/11): o `code` continua o gerado pelo Financeiro.
+    legacyCode = Column(String(20), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
+
+    @property
+    def label(self) -> str:
+        """Como a empresa aparece nas telas: pelo apelido, como no sistema antigo (Pesquise+)."""
+        return str(self.nickname or self.name)
 
 
 class BusinessUnit(Base):
@@ -57,6 +66,11 @@ class BusinessUnit(Base):
         Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     name = Column(String(100), nullable=False)
+    # A ficha do sistema antigo (24/11). O CNPJ é só CNPJ e pode repetir o da empresa.
+    nickname = Column(String(100), nullable=True)
+    document = Column(String(14), nullable=True)
+    stateRegistration = Column(String(30), nullable=True)
+    legacyCode = Column(String(20), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 
@@ -93,6 +107,8 @@ class CostCenter(Base):
         Integer, ForeignKey("cost_centers.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     name = Column(String(100), nullable=False)
+    # O código no sistema antigo (24/11): nem sempre segue a numeração gerada (200, IHEA...).
+    legacyCode = Column(String(20), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
     parent = relationship("CostCenter", remote_side=[id], lazy="joined")
@@ -108,13 +124,50 @@ class CostCenter(Base):
         return f"{self.code} · {self.path}" if self.code else self.path
 
 
+class ExpenseCategoryGroup(Base):
+    """Grupo do plano de contas, como no sistema antigo (24/11): agrupa as contas e nunca recebe
+    lançamento. Fica numa tabela à parte para nunca aparecer onde se escolhe a conta."""
+
+    __tablename__ = "expense_category_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(20), nullable=False, unique=True)
+    name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+
+
 class ExpenseCategory(Base):
     """Conta analítica do plano de contas: só ela recebe lançamento."""
 
     __tablename__ = "expense_categories"
+    # O código não repete entre as contas sem grupo, nem dentro do mesmo grupo (24/11): no sistema
+    # antigo, o 002.009 está em dois grupos.
+    __table_args__ = (
+        Index(
+            "uq_expense_categories_code_root",
+            "code",
+            unique=True,
+            postgresql_where=text("group_id IS NULL"),
+            sqlite_where=text("group_id IS NULL"),
+        ),
+        Index(
+            "uq_expense_categories_code_group",
+            "group_id",
+            "code",
+            unique=True,
+            postgresql_where=text("group_id IS NOT NULL"),
+            sqlite_where=text("group_id IS NOT NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(20), nullable=False, unique=True)
+    code = Column(String(20), nullable=False)
+    group_id = Column(
+        Integer,
+        ForeignKey("expense_category_groups.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     name = Column(String(100), nullable=False)
     # despesa (Contas a pagar) | receita (Contas a receber): cada tela só vê a sua
     kind = Column(String(10), nullable=False, default="despesa", server_default="despesa")
@@ -142,8 +195,11 @@ class BankAccount(Base):
     bankName = Column(String(60), nullable=True)
     agency = Column(String(20), nullable=True)
     accountNumber = Column(String(30), nullable=True)
-    # corrente, aplicacao ou caixa
+    # Como no sistema antigo (24/11): cc (conta corrente), ci, interna ou credito (cartão)
     accountType = Column(String(20), nullable=True)
+    # O código no sistema antigo, e se a conta entra no fluxo de caixa (a Caixinha e o cartão não)
+    legacyCode = Column(String(20), nullable=True)
+    impactsCashFlow = Column(Boolean, nullable=False, default=True, server_default=true())
     openingBalance = Column(Numeric(14, 2), nullable=False, default=0, server_default="0")
     openingDate = Column(Date, nullable=True)
 
@@ -189,6 +245,9 @@ class Customer(Base):
     addressDistrict = Column(String(80), nullable=True)
     addressCity = Column(String(80), nullable=True)
     addressState = Column(String(2), nullable=True)
+    # Como no sistema antigo (24/11): o código de lá, à parte do gerado, e a origem do cadastro.
+    legacyCode = Column(String(20), nullable=True)
+    origin = Column(String(100), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
     attachments = relationship("CustomerAttachment", order_by="CustomerAttachment.id")
@@ -248,6 +307,22 @@ class Supplier(Base):
     phone = Column(String(30), nullable=True)
     email = Column(String(200), nullable=True)
     paymentTerms = Column(String(200), nullable=True)
+    # A mesma ficha do cliente, como no sistema antigo (24/11). Chave Pix e CPF nunca (Q23).
+    stateRegistration = Column(String(30), nullable=True)
+    phone2 = Column(String(30), nullable=True)
+    phone3 = Column(String(30), nullable=True)
+    emailAlt = Column(String(200), nullable=True)
+    notes = Column(String(1000), nullable=True)
+    addressCountry = Column(String(60), nullable=True)
+    addressZip = Column(String(8), nullable=True)
+    addressStreet = Column(String(150), nullable=True)
+    addressNumber = Column(String(20), nullable=True)
+    addressComplement = Column(String(100), nullable=True)
+    addressDistrict = Column(String(80), nullable=True)
+    addressCity = Column(String(80), nullable=True)
+    addressState = Column(String(2), nullable=True)
+    origin = Column(String(100), nullable=True)
+    legacyCode = Column(String(20), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 
@@ -256,10 +331,36 @@ class Project(Base):
     testes de 16/11): quando o Connect mandar os projetos, eles chegam sozinhos."""
 
     __tablename__ = "projects"
+    # O número do projeto não repete dentro da empresa (24/11, como no sistema antigo, em que o 1417
+    # existe na Pesquise+ e na IHEA); sem empresa (o que chegou do Connect sem unidade), na tabela.
+    __table_args__ = (
+        Index(
+            "uq_projects_code_company",
+            "company_id",
+            "code",
+            unique=True,
+            postgresql_where=text("company_id IS NOT NULL"),
+            sqlite_where=text("company_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_projects_code_root",
+            "code",
+            unique=True,
+            postgresql_where=text("company_id IS NULL"),
+            sqlite_where=text("company_id IS NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(20), nullable=False, unique=True)
+    code = Column(String(20), nullable=False)
     title = Column(String(200), nullable=False)
+    # A empresa da unidade, guardada para o número não repetir dentro dela (24/11)
+    company_id = Column(
+        Integer, ForeignKey("companies.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    # Como no sistema antigo (24/11): as observações e o código de lá (CARPE DIEM vira CARPE_DIEM)
+    notes = Column(String(1000), nullable=True)
+    legacyCode = Column(String(20), nullable=True)
     # em_andamento → encerrado. Encerrado não aceita lançamento nem mudança de valor.
     status = Column(String(20), nullable=False, default="em_andamento")
     # Por enquanto marcados aqui (F23). Sem prazo, incentivo sem data na planilha é recusado.

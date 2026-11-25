@@ -676,7 +676,7 @@ def _resolve(
             _accept(line, COMPANY, owner, selected["company"])
         company, unit = line.refs.get("company"), line.refs.get("unit")
         if company is not None and unit is not None and unit.company_id != company.id:
-            line.errors.append(f"A unidade {unit.name} não é da empresa {company.name}")
+            line.errors.append(f"A unidade {unit.name} não é da empresa {company.label}")
 
 
 def _enters(line: Line) -> bool:
@@ -687,7 +687,7 @@ def _classification(refs: dict[str, Any]) -> str:
     category = refs["category"]
     return " · ".join(
         [
-            refs["company"].name,
+            refs["company"].label,
             refs["unit"].name,
             refs["center"].path,
             f"{category.code} {category.name}",

@@ -8,6 +8,7 @@ RecordKind = Literal[
     "suppliers",
     "customers",
     "categories",
+    "categoryGroups",
     "companies",
     "units",
     "costCenters",
@@ -20,7 +21,11 @@ class RecordIn(BaseModel):
     name: str = Field(max_length=200)
     nickname: str | None = Field(default=None, max_length=100)
     code: str | None = Field(default=None, max_length=20)
+    # o código no sistema antigo (empresa e unidade, 24/11); o `code` gerado continua
+    legacyCode: str | None = Field(default=None, max_length=20)
     companyId: int | None = None
+    # só na conta do plano de contas: o grupo dela (24/11; vazio = sem grupo)
+    groupId: int | None = None
     document: str | None = Field(default=None, max_length=30)
     # pessoa física (PF) ou jurídica (PJ); PF não tem documento, porque CPF não é guardado
     personType: Literal["PF", "PJ"] | None = None
@@ -32,6 +37,8 @@ class RecordIn(BaseModel):
     paymentTerms: str | None = Field(default=None, max_length=200)
     # só no cliente: o resto da ficha (IE, telefones, e-mail alternativo, observações e endereço)
     stateRegistration: str | None = Field(default=None, max_length=30)
+    # só no cliente: de onde veio o cadastro, como no sistema antigo (24/11)
+    origin: str | None = Field(default=None, max_length=100)
     phone2: str | None = Field(default=None, max_length=30)
     phone3: str | None = Field(default=None, max_length=30)
     emailAlt: str | None = Field(default=None, max_length=200)
@@ -50,7 +57,10 @@ class RecordIn(BaseModel):
     bankName: str | None = Field(default=None, max_length=60)
     agency: str | None = Field(default=None, max_length=20)
     accountNumber: str | None = Field(default=None, max_length=30)
-    accountType: Literal["corrente", "aplicacao", "caixa"] | None = None
+    # os tipos do sistema antigo (24/11): CC, CI, Interna e Crédito (cartão)
+    accountType: Literal["cc", "ci", "interna", "credito"] | None = None
+    # só na conta bancária: se entra no fluxo de caixa (vazio = sim)
+    impactsCashFlow: bool | None = None
     openingBalance: Decimal | None = Field(default=None, max_digits=14, decimal_places=2)
     openingDate: date | None = None
 
@@ -71,7 +81,9 @@ class RecordOut(BaseModel):
     inUse: bool
     nickname: str | None
     code: str | None
+    legacyCode: str | None
     companyId: int | None
+    groupId: int | None
     parentId: int | None
     document: str | None
     personType: str | None
@@ -80,6 +92,7 @@ class RecordOut(BaseModel):
     email: str | None
     paymentTerms: str | None
     stateRegistration: str | None
+    origin: str | None
     phone2: str | None
     phone3: str | None
     emailAlt: str | None
@@ -97,6 +110,7 @@ class RecordOut(BaseModel):
     agency: str | None
     accountNumber: str | None
     accountType: str | None
+    impactsCashFlow: bool | None
     openingBalance: Decimal | None
     openingDate: date | None
 
@@ -129,3 +143,6 @@ class ProjectIn(ProjectIncentive):
     costCenterId: int | None = None
     # Só a edição muda: o projeto novo nasce ativo.
     active: bool = True
+    # Como no sistema antigo (24/11)
+    notes: str | None = Field(default=None, max_length=1000)
+    legacyCode: str | None = Field(default=None, max_length=20)

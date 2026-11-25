@@ -66,6 +66,11 @@ OLD_XLS = (
     "Este .xls é do formato antigo do Excel, que o sistema não lê. "
     "Abra o arquivo no Excel e salve como .xlsx ou .csv"
 )
+# O Excel, ao salvar como página da web, grava os dados numa pasta ao lado ("..._arquivos").
+EXCEL_PAGE = (
+    "Este arquivo é só a capa de uma página salva pelo Excel, sem os dados. "
+    "Abra o relatório no Excel e salve como .xlsx"
+)
 # A linha digitável do boleto (banco ou concessionária), que o sistema antigo guarda na descrição.
 BARCODES = (
     re.compile(r"(?<!\d)\d{5}\.\d{5}\s+\d{5}\.\d{6}\s+\d{5}\.\d{6}\s+\d\s+\d{14}(?!\d)"),
@@ -231,7 +236,8 @@ class _TableReader(HTMLParser):
             self._depth -= 1
         elif self._depth == 1 and tag in ("td", "th") and self._cell is not None:
             if self._row is not None:
-                self._row.append("".join(self._cell))
+                # como o Excel mostra: a quebra de linha que ele põe no meio do texto vira espaço
+                self._row.append(" ".join("".join(self._cell).split()))
             self._cell = None
         elif self._depth == 1 and tag == "tr" and self._row is not None:
             if len(self.rows) < self._limit:
@@ -252,6 +258,8 @@ def _html_rows(content: bytes) -> list[tuple[Any, ...]]:
         text = content.decode("cp1252", errors="replace")
     if "<" not in text[:2000]:
         raise _unreadable()
+    if "<frameset" in text.lower():
+        raise PayableInvalid(EXCEL_PAGE)
     reader = _TableReader(MAX_ROWS + 2)
     reader.feed(text)
     reader.close()
@@ -338,8 +346,8 @@ def _parse(rows: list[tuple[Any, ...]], at: int, positions: dict[str, int]) -> l
         identity = [
             _text(cell(values, key)) for key in ("scheduled", "supplier", "category", "description")
         ]
-        if not any(identity):
-            continue  # linha em branco ou de total
+        if not any(identity) or _norm(identity[0]).startswith("total"):
+            continue  # linha em branco ou de total (TOTAL PAGO, PENDENTE e GERAL no fim)
         line = Row(row=number)
         line.supplierText = _clean(line, "supplier", _text(cell(values, "supplier")))[:200]
         if not line.supplierText:
@@ -515,13 +523,19 @@ def _by_name(
     title: str,
     article: str,
     name: Callable[[Any], str],
+    lowest: bool = False,
 ) -> Any | None:
     """Plano de contas, centro de custo e forma de pagamento: pelo nome do relatório; sem achar,
-    o padrão marcado na tela; sem padrão, a linha fica de fora."""
+    o padrão marcado na tela; sem padrão, a linha fica de fora. Com `lowest`, o nome repetido no
+    cadastro usa o de código menor (o plano de contas do sistema antigo tem contas repetidas)."""
     text = line.texts.get(key, "")
     found = _match(index, text)
     if len(found) == 1:
         return found[0]
+    if len(found) > 1 and lowest:
+        chosen = min(found, key=lambda record: (record.code, record.id))
+        line.notes.append(f"{title} {text} aparece mais de uma vez: usada {name(chosen)}")
+        return chosen
     if len(found) > 1:
         line.errors.append(f"{title} {text} aparece mais de uma vez no cadastro")
         return None
@@ -558,7 +572,7 @@ def _unit_and_company(line: Row, look: Lookups) -> None:
     elif look.unit is not None:
         unit = look.unit
         if company is not None and unit.company_id != company.id:
-            line.errors.append(f"A unidade padrão {unit.name} não é da empresa {company.name}")
+            line.errors.append(f"A unidade padrão {unit.name} não é da empresa {company.label}")
             return
         if text:
             line.notes.append(f"Unidade {text} não existe: usada {unit.name}")
@@ -599,7 +613,7 @@ def _bank_account(line: Row, look: Lookups) -> None:
         line.account = found[0]
     elif len(found) > 1:
         line.errors.append(
-            f"Conta {text} aparece mais de uma vez na empresa {line.company.name}: "
+            f"Conta {text} aparece mais de uma vez na empresa {line.company.label}: "
             "marque a conta padrão na tela"
         )
     elif default is not None and default.company_id == line.company.id:
@@ -608,10 +622,10 @@ def _bank_account(line: Row, look: Lookups) -> None:
             line.notes.append(f"Conta {text} não existe: usada {default.name}")
             line.usedDefault = True
     elif default is not None:
-        line.errors.append(f"A conta padrão {default.name} não é da empresa {line.company.name}")
+        line.errors.append(f"A conta padrão {default.name} não é da empresa {line.company.label}")
     else:
         line.errors.append(
-            f"Conta bancária {text} não existe na empresa {line.company.name}"
+            f"Conta bancária {text} não existe na empresa {line.company.label}"
             if text
             else "Linha paga sem conta bancária e nenhuma conta padrão marcada na tela"
         )
@@ -620,6 +634,9 @@ def _bank_account(line: Row, look: Lookups) -> None:
 def _project(line: Row, look: Lookups) -> None:
     text = line.texts.get("project", "")
     found = _match(look.projects, text)
+    if len(found) > 1 and line.company is not None:
+        # o mesmo número em duas empresas (24/11): vale o da empresa da linha
+        found = [p for p in found if p.company_id == line.company.id] or found
     if len(found) > 1:
         line.errors.append(f"Projeto {text} aparece mais de uma vez no cadastro")
     elif len(found) == 1 and found[0].status != "encerrado" and found[0].active:
@@ -653,8 +670,11 @@ def _resolve(db: Session, look: Lookups, lines: list[Row]) -> None:
             continue  # a prévia mostra todos os problemas da linha de uma vez
         found = _match(look.suppliers, line.supplierText)
         if len(found) > 1:
-            line.errors.append(
-                f"Fornecedor {line.supplierText} aparece mais de uma vez no cadastro"
+            # dois cadastros com o mesmo nome (o sistema antigo tem): a conta não fica de fora,
+            # entra só com o nome, como a do fornecedor que não está nos cadastros (24/11)
+            line.notes.append(
+                f"Fornecedor {line.supplierText} aparece mais de uma vez no cadastro: "
+                "entra só com o nome"
             )
         elif found:
             line.supplier = found[0]
@@ -662,7 +682,6 @@ def _resolve(db: Session, look: Lookups, lines: list[Row]) -> None:
             line.notes.append(
                 f"Fornecedor {line.supplierText} não está nos cadastros: entra só com o nome"
             )
-        _project(line, look)
         line.category = _by_name(
             line,
             look.categories,
@@ -671,6 +690,7 @@ def _resolve(db: Session, look: Lookups, lines: list[Row]) -> None:
             "Plano de contas",
             "plano de contas",
             lambda c: f"{c.code} {c.name}",
+            lowest=True,  # decisão do Bruno, 24/11: a conta repetida usa a de código menor
         )
         line.center = _by_name(
             line,
@@ -691,6 +711,7 @@ def _resolve(db: Session, look: Lookups, lines: list[Row]) -> None:
             lambda m: m.name,
         )
         _unit_and_company(line, look)
+        _project(line, look)  # depois da empresa: o número pode repetir em outra
         if line.company is None:
             continue
         if line.scheduled is not None and _closed(db, look, line.company, line.scheduled):
@@ -764,7 +785,7 @@ def _classification(line: Row) -> str | None:
         return None
     return " · ".join(
         [
-            line.company.name,
+            line.company.label,
             line.unit.name,
             line.center.path,
             f"{line.category.code} {line.category.name}",

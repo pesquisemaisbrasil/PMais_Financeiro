@@ -84,7 +84,7 @@ def _situation(active: bool) -> str:
 def _company_name(companies: dict[int, Company], company_id: int | None) -> str | None:
     """O apelido da empresa, ou o nome quando ela não tem apelido."""
     company = companies.get(company_id) if company_id is not None else None
-    return (company.nickname or company.name) if company else None
+    return company.label if company else None
 
 
 def _named(name: str, document: str | None, active: bool) -> str:

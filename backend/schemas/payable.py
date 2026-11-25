@@ -378,6 +378,9 @@ class ProjectOut(BaseModel):
     customerId: int | None = None
     unitId: int | None = None
     costCenterId: int | None = None
+    # como no sistema antigo (24/11)
+    notes: str | None = None
+    legacyCode: str | None = None
 
 
 class Reference(BaseModel):

@@ -238,7 +238,7 @@ def balances(db: Session, month: str) -> dict[str, Any]:
             {
                 "id": account.id,
                 "name": account.name,
-                "company": company.name if company else "",
+                "company": company.label if company else "",
                 "accountType": account.accountType,
                 "opening": opening,
                 "income": _cents(income),

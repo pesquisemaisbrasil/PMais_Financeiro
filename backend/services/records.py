@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from core.document import clean_cnpj, is_cpf_shaped, valid_cnpj
@@ -21,6 +21,7 @@ from models.reference import (
     Customer,
     CustomerAttachment,
     ExpenseCategory,
+    ExpenseCategoryGroup,
     PaymentMethod,
     Project,
     RecordCounter,
@@ -53,6 +54,8 @@ KINDS: dict[str, Kind] = {
         (Receivable.customer_id, CustomerAttachment.customer_id, Project.customer_id),
     ),
     "categories": Kind(ExpenseCategory, "conta", (Payable.category_id, Receivable.category_id)),
+    # grupo com conta embaixo não se exclui (24/11)
+    "categoryGroups": Kind(ExpenseCategoryGroup, "grupo", (ExpenseCategory.group_id,)),
     "companies": Kind(
         Company,
         "empresa",
@@ -114,6 +117,7 @@ CUSTOMER_DETAILS = (
     "addressDistrict",
     "addressCity",
     "addressState",
+    "origin",
 )
 # Os dados da conta bancária: banco, agência, conta, tipo e saldo inicial com a data.
 BANK_DETAILS = (
@@ -121,10 +125,11 @@ BANK_DETAILS = (
     "agency",
     "accountNumber",
     "accountType",
+    "impactsCashFlow",
     "openingBalance",
     "openingDate",
 )
-ACCOUNT_TYPES = ("corrente", "aplicacao", "caixa")
+ACCOUNT_TYPES = ("cc", "ci", "interna", "credito")
 BANK_NUMBER = re.compile(r"[0-9][0-9.\-/xX]*")
 UFS = frozenset(
     "AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO".split()
@@ -153,7 +158,9 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "inUse": in_use,
         "nickname": getattr(record, "nickname", None),
         "code": getattr(record, "code", None),
+        "legacyCode": getattr(record, "legacyCode", None),
         "companyId": getattr(record, "company_id", None),
+        "groupId": getattr(record, "group_id", None),
         "parentId": getattr(record, "parent_id", None),
         "document": getattr(record, "document", None),
         "personType": getattr(record, "personType", None),
@@ -204,9 +211,15 @@ def _taken(db: Session, kind: str, record_id: int | None, *conditions: Any) -> b
 
 
 def _party_document(
-    db: Session, kind: str, record_id: int | None, value: str | None, person_type: str | None
+    db: Session,
+    kind: str,
+    record_id: int | None,
+    value: str | None,
+    person_type: str | None,
+    unique: bool = True,
 ) -> str | None:
-    """CNPJ de fornecedor, cliente ou empresa do Grupo: só CNPJ, válido, e único entre os ativos."""
+    """CNPJ de fornecedor, cliente ou empresa do Grupo: só CNPJ, válido, e único entre os ativos.
+    O da unidade (`unique=False`) pode repetir: no sistema antigo ela leva o CNPJ da empresa."""
     if not _filled(value):
         return None
     if person_type == "PF":
@@ -217,7 +230,7 @@ def _party_document(
     if not valid_cnpj(document):
         raise PayableInvalid("CNPJ inválido. Confira os dígitos")
     model = KINDS[kind].model
-    if _taken(db, kind, record_id, model.document == document, model.active.is_(True)):
+    if unique and _taken(db, kind, record_id, model.document == document, model.active.is_(True)):
         raise PayableConflict(
             f"Já existe {_ARTICLE[kind]} {KINDS[kind].one} {_ACTIVE[kind]} com esse documento"
         )
@@ -240,6 +253,20 @@ def _next_number(db: Session, key: str) -> int:
         db.flush()
     counter.lastValue += 1
     return int(counter.lastValue)
+
+
+def _category_group(db: Session, record_id: int | None, group_id: int | None) -> int | None:
+    """O grupo da conta do plano de contas: um grupo ativo, ou nenhum. A conta que já estava num
+    grupo depois inativado continua editável nele."""
+    if group_id is None:
+        return None
+    current = db.get(ExpenseCategory, record_id) if record_id is not None else None
+    if current is not None and current.group_id == group_id:
+        return group_id
+    group = db.get(ExpenseCategoryGroup, group_id)
+    if group is None or not group.active:
+        raise PayableInvalid("Escolha um grupo do plano de contas ativo")
+    return int(group.id)
 
 
 def _cost_center_parent(db: Session, record_id: int | None, parent_id: int | None) -> int | None:
@@ -287,9 +314,29 @@ def _next_code(db: Session, kind: str) -> str:
             return code
 
 
-def _customer_details(data: RecordIn) -> dict[str, Any]:
-    """O resto da ficha do cliente, tudo opcional. CPF e RG nunca entram: a IE e as observações
-    que parecem CPF são recusadas (Q23 e Q37)."""
+def _state_registration(data: RecordIn) -> str | None:
+    """A IE (cliente, empresa e unidade). CPF e RG não entram (Q23 e Q37)."""
+    registration = _filled(data.stateRegistration)
+    if registration and (
+        CPF_MASKED.search(registration) or is_valid_cpf(re.sub(r"\D", "", registration))
+    ):
+        raise PayableInvalid("Informe só a inscrição estadual (IE): CPF e RG não são guardados")
+    return registration
+
+
+def _old_system(model: Any, data: RecordIn) -> dict[str, Any]:
+    """Empresa, unidade, centro e cliente como no sistema antigo (24/11): o código de lá e a IE."""
+    legacy = _filled(data.legacyCode)
+    if legacy:
+        _check_length(model, "legacyCode", legacy, "O código no sistema antigo")
+    if not hasattr(model, "stateRegistration"):
+        return {"legacyCode": legacy}  # centro de custo: só o código antigo
+    return {"stateRegistration": _state_registration(data), "legacyCode": legacy}
+
+
+def _customer_details(model: Any, data: RecordIn) -> dict[str, Any]:
+    """O resto da ficha do cliente (e do fornecedor, desde 24/11), tudo opcional. CPF e RG nunca
+    entram: a IE e as observações que parecem CPF são recusadas (Q23 e Q37)."""
     details: dict[str, Any] = {}
     for attribute, label in (("phone2", "Telefone 2"), ("phone3", "Telefone 3")):
         phone = _filled(getattr(data, attribute))
@@ -300,13 +347,7 @@ def _customer_details(data: RecordIn) -> dict[str, Any]:
     if email and not EMAIL.fullmatch(email):
         raise PayableInvalid("E-mail alternativo inválido")
     details["emailAlt"] = email
-
-    registration = _filled(data.stateRegistration)
-    if registration and (
-        CPF_MASKED.search(registration) or is_valid_cpf(re.sub(r"\D", "", registration))
-    ):
-        raise PayableInvalid("Informe só a inscrição estadual (IE): CPF e RG não são guardados")
-    details["stateRegistration"] = registration
+    details["stateRegistration"] = _state_registration(data)
     notes = _filled(data.notes)
     if notes and any(
         is_valid_cpf(re.sub(r"\D", "", found.group())) for found in CPF_IN_TEXT.finditer(notes)
@@ -332,29 +373,37 @@ def _customer_details(data: RecordIn) -> dict[str, Any]:
     ):
         value = _filled(getattr(data, attribute))
         if value:
-            _check_length(Customer, attribute, value, label)
+            _check_length(model, attribute, value, label)
         details[attribute] = value
-    for attribute, label in (("addressCountry", "O país"), ("notes", "As observações")):
+    details["origin"] = _filled(data.origin)
+    for attribute, label in (
+        ("addressCountry", "O país"),
+        ("notes", "As observações"),
+        ("origin", "A origem"),
+    ):
         if details[attribute]:
-            _check_length(Customer, attribute, details[attribute], label)
+            _check_length(model, attribute, details[attribute], label)
     return details
 
 
 def _bank_details(data: RecordIn) -> dict[str, Any]:
-    """Banco (obrigatório), agência e conta, tipo e saldo inicial. São dados da conta da empresa."""
+    """Banco, agência e conta, tipo e saldo inicial. São dados da conta da empresa. Como no sistema
+    antigo (24/11): o banco é opcional (a Caixinha não tem) e, no cartão de crédito, a agência e a
+    conta aceitam texto (a bandeira, "Master")."""
     bank = _filled(data.bankName)
-    if not bank:
-        raise PayableInvalid("Preencha o banco")
-    _check_length(BankAccount, "bankName", bank, "O banco")
+    if bank:
+        _check_length(BankAccount, "bankName", bank, "O banco")
     details: dict[str, Any] = {"bankName": bank}
+    kind = data.accountType or "cc"
     for attribute, label in (("agency", "A agência"), ("accountNumber", "A conta")):
         value = _filled(getattr(data, attribute))
         if value:
             _check_length(BankAccount, attribute, value, label)
-            if not BANK_NUMBER.fullmatch(value):
+            if kind != "credito" and not BANK_NUMBER.fullmatch(value):
                 raise PayableInvalid(f"{label} tem só números, hífen e o dígito (pode ser X)")
         details[attribute] = value
-    details["accountType"] = data.accountType or "corrente"
+    details["accountType"] = kind
+    details["impactsCashFlow"] = data.impactsCashFlow is not False
     balance = data.openingBalance if data.openingBalance is not None else Decimal("0")
     if balance != 0 and data.openingDate is None:
         raise PayableInvalid("Informe a data do saldo inicial")
@@ -393,17 +442,35 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         )
         if kind == "suppliers":
             fields["paymentTerms"] = _filled(data.paymentTerms)
-        if kind == "customers":
-            fields.update(_customer_details(data))
+        # a mesma ficha nos dois, como no sistema antigo (24/11)
+        fields.update(_customer_details(model, data))
+        fields.update(_old_system(model, data))
     elif kind == "categories":
         code = (data.code or "").strip()
         if not code:
             raise PayableInvalid("Preencha o código da conta")
         _check_length(model, "code", code, "O código")
-        if _taken(db, kind, record_id, model.code == code):
-            raise PayableConflict("Já existe uma conta com esse código")
+        group_id = _category_group(db, record_id, data.groupId)
+        # o código não repete sem grupo nem dentro do mesmo grupo (no sistema antigo, o 002.009
+        # está em dois grupos)
+        same_group = model.group_id == group_id if group_id else model.group_id.is_(None)
+        if _taken(db, kind, record_id, model.code == code, same_group):
+            raise PayableConflict(
+                "Esse grupo já tem uma conta com esse código"
+                if group_id
+                else "Já existe uma conta com esse código"
+            )
         fields["code"] = code
         fields["kind"] = data.kind or "despesa"
+        fields["group_id"] = group_id
+    elif kind == "categoryGroups":
+        code = (data.code or "").strip()
+        if not code:
+            raise PayableInvalid("Preencha o código do grupo")
+        _check_length(model, "code", code, "O código")
+        if _taken(db, kind, record_id, model.code == code):
+            raise PayableConflict("Já existe um grupo com esse código")
+        fields["code"] = code
     elif kind in ("units", "bankAccounts"):
         company_id = _company(db, data.companyId)
         if _taken(db, kind, record_id, same_name, model.company_id == company_id):
@@ -411,6 +478,16 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         fields["company_id"] = company_id
         if kind == "bankAccounts":
             fields.update(_bank_details(data))
+            fields.update(_old_system(model, data))
+        else:
+            unit_nickname = _filled(data.nickname)
+            if unit_nickname:
+                _check_length(model, "nickname", unit_nickname, "O apelido")
+            fields.update(
+                nickname=unit_nickname,
+                document=_party_document(db, kind, record_id, data.document, None, unique=False),
+                **_old_system(model, data),
+            )
     elif kind == "costCenters":
         parent_id = _cost_center_parent(db, record_id, data.parentId)
         same_parent = model.parent_id == parent_id if parent_id else model.parent_id.is_(None)
@@ -421,6 +498,7 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
                 else "Já existe centro de custo com esse nome"
             )
         fields["parent_id"] = parent_id
+        fields.update(_old_system(model, data))
     elif _taken(db, kind, record_id, same_name):
         raise PayableConflict(f"Já existe {KINDS[kind].one} com esse nome")
     elif kind == "companies":
@@ -431,11 +509,20 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
             nickname=short_name,
             personType=data.personType,
             document=_party_document(db, kind, record_id, data.document, data.personType),
+            **_old_system(model, data),
         )
     return fields
 
 
 def create(db: Session, kind: str, data: RecordIn, user: User) -> dict[str, Any]:
+    record = add(db, kind, data, user)
+    db.commit()
+    return _out(record, False)
+
+
+def add(db: Session, kind: str, data: RecordIn, user: User, origin: str = "") -> Any:
+    """Valida e cria o cadastro na transação aberta, sem commit: a importação dos cadastros do
+    sistema antigo grava o arquivo todo junto. `origin` vai no histórico, depois do nome."""
     fields = _fields(db, kind, None, data)
     if kind in GENERATED_CODE:
         # o código vem do sistema; o que a tela mandar não vale. Depois de criado, nunca muda.
@@ -448,9 +535,8 @@ def create(db: Session, kind: str, data: RecordIn, user: User) -> dict[str, Any]
     if kind == "costCenters" and record.parent_id is None:
         # o contador dos sub-centros deste principal já nasce com ele: sem corrida na primeira vez
         db.add(RecordCounter(kind=f"costCenters:{record.id}", lastValue=0))
-    _log(db, kind, record.id, user, f"Cadastrou {record.name}")
-    db.commit()
-    return _out(record, False)
+    _log(db, kind, record.id, user, f"Cadastrou {record.name}{origin}")
+    return record
 
 
 def update(db: Session, kind: str, record_id: int, data: RecordIn, user: User) -> dict[str, Any]:
@@ -542,6 +628,9 @@ def _project_defaults(db: Session, data: ProjectIn) -> dict[str, Any]:
     if data.hasIncentive and not data.incentiveDays:
         raise PayableInvalid("Informe o prazo do incentivo em dias úteis (de 1 a 30)")
     return {
+        "company_id": _unit_company(db, data.unitId),
+        "notes": _filled(data.notes),
+        "legacyCode": _filled(data.legacyCode),
         "customer_id": data.customerId,
         "unit_id": data.unitId,
         "cost_center_id": data.costCenterId,
@@ -551,22 +640,46 @@ def _project_defaults(db: Session, data: ProjectIn) -> dict[str, Any]:
     }
 
 
-def _project_unique(db: Session, data: ProjectIn, project_id: int | None) -> None:
-    """O número do projeto não repete (sem diferença de maiúscula)."""
-    same_code = db.query(Project).filter(func.lower(Project.code) == data.code.lower())
+def _project_unique(
+    db: Session, data: ProjectIn, project_id: int | None, company_id: int | None
+) -> None:
+    """O número do projeto não repete (com diferença de maiúscula), a não ser entre duas empresas
+    diferentes, como no sistema antigo (24/11). O projeto sem empresa (o que chegou do Connect sem
+    unidade) segura o número em todas."""
+    # diferencia maiúscula, como no sistema antigo, que tem o "xxx" e o "XXX" (Bruno, 24/11)
+    same_code = db.query(Project).filter(Project.code == data.code)
+    if company_id:
+        same_code = same_code.filter(
+            or_(Project.company_id == company_id, Project.company_id.is_(None))
+        )
     if project_id is not None:
         same_code = same_code.filter(Project.id != project_id)
-    if same_code.first():
-        raise PayableConflict(f"Já existe o projeto PRJ-{data.code}")
+    clash = same_code.first()
+    if clash:
+        where = " nessa empresa" if clash.company_id else ""
+        raise PayableConflict(f"Já existe o projeto PRJ-{data.code}{where}")
+
+
+def _unit_company(db: Session, unit_id: int | None) -> int | None:
+    """A empresa da unidade escolhida (o número do projeto não repete dentro dela)."""
+    unit = db.get(BusinessUnit, unit_id) if unit_id else None
+    return int(unit.company_id) if unit else None
+
+
+def add_project(db: Session, data: ProjectIn, user: User, origin: str = "") -> Project:
+    """Valida e cria o projeto na transação aberta, sem commit (a importação do sistema antigo grava
+    o arquivo todo junto). `origin` vai no histórico."""
+    _project_unique(db, data, None, _unit_company(db, data.unitId))
+    project = Project(code=data.code, title=data.title, **_project_defaults(db, data))
+    db.add(project)
+    db.flush()
+    _log(db, "projects", project.id, user, f"Criou PRJ-{project.code} · {project.title}{origin}")
+    return project
 
 
 def create_project(db: Session, data: ProjectIn, user: User) -> Project:
     """Provisório (ADR 0021): o financeiro cadastra o projeto até o Connect mandar."""
-    _project_unique(db, data, None)
-    project = Project(code=data.code, title=data.title, **_project_defaults(db, data))
-    db.add(project)
-    db.flush()
-    _log(db, "projects", project.id, user, f"Criou PRJ-{project.code} · {project.title}")
+    project = add_project(db, data, user)
     db.commit()
     return project
 
@@ -592,7 +705,7 @@ def edit_project(db: Session, project_id: int, data: ProjectIn, user: User) -> P
     project = db.query(Project).filter_by(id=project_id).with_for_update().first()
     if project is None:
         raise RecordNotFound
-    _project_unique(db, data, project_id)
+    _project_unique(db, data, project_id, _unit_company(db, data.unitId))
     values = _project_defaults(db, data)
     before = _project_text(db, project)
     project.code = data.code
