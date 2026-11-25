@@ -18,7 +18,7 @@ from core.config import (
     REFRESH_TOKEN_EXPIRE_DAYS,
     SECRET_KEY,
 )
-from core.security import dummy_verify_password, hash_token, verify_password
+from core.security import dummy_verify_password, hash_password, hash_token, verify_password
 from db.connection import get_db
 from models.refresh_token import RefreshToken
 from models.user import User
@@ -193,10 +193,15 @@ def get_current_user(
     return user
 
 
-def get_mfa_pending_user(
+INITIAL_PASSWORD_PENDING = "Troque a senha inicial antes de continuar"
+
+
+def get_password_pending_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     db: Session = Depends(get_db),
 ) -> User:
+    """A conta do token parcial do login, mesmo com a senha inicial ainda por trocar: só a troca da
+    senha inicial usa direto. O resto do login passa por `get_mfa_pending_user`."""
     denied = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Código de verificação inválido",
@@ -210,3 +215,36 @@ def get_mfa_pending_user(
     if user is None or user.status != "active":
         raise denied
     return user
+
+
+def get_mfa_pending_user(
+    user: Annotated[User, Depends(get_password_pending_user)],
+) -> User:
+    # Com a senha inicial, nem o autenticador nem a sessão abrem: a troca vem antes, no servidor
+    # também (quem pular a tela continua barrado aqui).
+    if user.mustChangePassword:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INITIAL_PASSWORD_PENDING)
+    return user
+
+
+class InitialPasswordDone(Exception):
+    """A senha inicial já foi trocada: o token parcial é de antes da troca."""
+
+
+class SameAsInitialPassword(Exception):
+    """A senha nova é igual à inicial."""
+
+
+def change_initial_password(db: Session, user: User, new_password: str) -> None:
+    """Troca a senha inicial de primeiro acesso pela da pessoa. A força da senha nova já foi
+    conferida. Derruba qualquer sessão que a conta tivesse (não deveria haver)."""
+    if not user.mustChangePassword:
+        raise InitialPasswordDone
+    if verify_password(new_password, user.passwordHash):
+        raise SameAsInitialPassword
+    user.passwordHash = hash_password(new_password)
+    user.mustChangePassword = False
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user.id, RefreshToken.revoked.is_(False)
+    ).update({RefreshToken.revoked: True}, synchronize_session=False)
+    db.commit()

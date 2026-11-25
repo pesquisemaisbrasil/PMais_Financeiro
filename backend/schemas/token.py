@@ -18,6 +18,14 @@ class MfaChallenge(BaseModel):
     mfa_token: str
     token_type: str
     setup_required: bool
+    # senha inicial de primeiro acesso: a senha nova vem antes do autenticador
+    password_change_required: bool = False
+
+
+class InitialPassword(BaseModel):
+    # a regra de força (schemas/user.validate_password_strength) é conferida na rota, para a
+    # mensagem sair em uma frase só; aqui, só o teto, antes do hash
+    password: str = Field(max_length=200)
 
 
 class MfaSetup(BaseModel):

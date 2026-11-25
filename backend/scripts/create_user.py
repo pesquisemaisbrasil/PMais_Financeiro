@@ -5,6 +5,9 @@ Uso:
 
 A senha é pedida no terminal, para não ficar no histórico do shell. Sem terminal
 (CI, seed), vem da variável CREATE_USER_PASSWORD. Se o e-mail já existe, não muda nada.
+
+Com --primeiro-acesso, a senha é inicial: vale só para o primeiro login, que pede uma senha nova
+da pessoa antes do cadastro do autenticador (spec acesso-e-auditoria).
 """
 
 import argparse
@@ -32,6 +35,11 @@ def main() -> None:
     parser.add_argument(
         "--role", choices=["financeiro", "admin", "superadmin"], default="financeiro"
     )
+    parser.add_argument(
+        "--primeiro-acesso",
+        action="store_true",
+        help="senha inicial: a pessoa troca por uma só dela no primeiro login",
+    )
     args = parser.parse_args()
 
     email = normalize_email(args.email)
@@ -52,11 +60,16 @@ def main() -> None:
             sys.exit(str(exc))
 
         user = User(
-            name=args.name, email=email, passwordHash=hash_password(password), role=args.role
+            name=args.name,
+            email=email,
+            passwordHash=hash_password(password),
+            role=args.role,
+            mustChangePassword=args.primeiro_acesso,
         )
         db.add(user)
         db.commit()
-        print(f"Conta criada (id={user.id}, papel={user.role}).")
+        initial = ", troca a senha no primeiro acesso" if args.primeiro_acesso else ""
+        print(f"Conta criada (id={user.id}, papel={user.role}{initial}).")
     finally:
         db.close()
 

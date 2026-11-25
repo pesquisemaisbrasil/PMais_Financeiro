@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Integer, String, func
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, false, func
 
 from db.connection import Base
 
@@ -11,6 +11,9 @@ class User(Base):
     # sempre em minúsculas (services/auth.py: normalize_email)
     email = Column(String, unique=True, index=True, nullable=False)
     passwordHash = Column(String, nullable=False)
+    # senha inicial de primeiro acesso (scripts/create_user.py --primeiro-acesso): a pessoa troca
+    # por uma só dela antes do autenticador, e nada abre antes disso (spec acesso-e-auditoria)
+    mustChangePassword = Column(Boolean, nullable=False, default=False, server_default=false())
     # financeiro (usuário) | admin | superadmin (core/permissions.py)
     role = Column(String(20), nullable=False, default="financeiro")
     # as telas que o admin bloqueou para a pessoa, separadas por vírgula (core/permissions.SCREENS)

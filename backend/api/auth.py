@@ -10,14 +10,25 @@ from core.limiter import limiter
 from core.security import hash_email
 from db.connection import get_db
 from models.user import User
-from schemas.token import MfaChallenge, MfaCode, MfaSetup, Token, TokenWithRecoveryCodes
-from schemas.user import UserPublic
+from schemas.token import (
+    InitialPassword,
+    MfaChallenge,
+    MfaCode,
+    MfaSetup,
+    Token,
+    TokenWithRecoveryCodes,
+)
+from schemas.user import UserPublic, validate_password_strength
 from services import browsers, mfa, sso
 from services.auth import (
+    InitialPasswordDone,
+    SameAsInitialPassword,
+    change_initial_password,
     check_credentials,
     create_mfa_token,
     get_current_user,
     get_mfa_pending_user,
+    get_password_pending_user,
     issue_tokens,
     normalize_email,
     revoke_session,
@@ -156,6 +167,40 @@ def login_for_mfa_token(
         mfa_token=create_mfa_token(user.id),
         token_type="bearer",
         setup_required=user.mfaEnabledAt is None,
+        password_change_required=user.mustChangePassword,
+    )
+
+
+@router.post("/password/initial", response_model=MfaChallenge)
+@limiter.limit("5/minute")
+def set_initial_password(
+    request: Request,
+    body: InitialPassword,
+    user: Annotated[User, Depends(get_password_pending_user)],
+    db: Session = Depends(get_db),
+) -> MfaChallenge:
+    """Primeiro acesso: troca a senha inicial pela da pessoa e segue para o autenticador, com um
+    token parcial novo (o da senha inicial pode estar perto de vencer)."""
+    try:
+        validate_password_strength(body.password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    try:
+        change_initial_password(db, user, body.password)
+    except InitialPasswordDone as exc:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="A senha inicial já foi trocada. Entre de novo."
+        ) from exc
+    except SameAsInitialPassword as exc:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A senha nova precisa ser diferente da senha inicial",
+        ) from exc
+    return MfaChallenge(
+        mfa_token=create_mfa_token(user.id),
+        token_type="bearer",
+        setup_required=user.mfaEnabledAt is None,
+        password_change_required=False,
     )
 
 
