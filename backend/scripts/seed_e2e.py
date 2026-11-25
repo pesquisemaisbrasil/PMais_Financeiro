@@ -78,6 +78,8 @@ WITH_MFA = [
     "recupera@e2e.invalid",
     "roubo@e2e.invalid",
     "contas@e2e.invalid",
+    # a seleção da lista não some depois de "Limpar filtros" (contas-a-pagar.spec.ts, 25/11)
+    "selecao@e2e.invalid",
     "comprovantes@e2e.invalid",
     "recorrencia@e2e.invalid",
     "receber@e2e.invalid",

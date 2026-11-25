@@ -8,6 +8,24 @@ async function choose(page: Page, label: string, option: string | RegExp) {
   await page.getByRole("option", { name: option }).click();
 }
 
+test("a conta marcada logo depois de Limpar filtros continua marcada", async ({ page }) => {
+  // Defeito visto no CI em 25/11: o "Limpar filtros" já aplica a busca vazia, mas a espera de
+  // 300 ms da caixa de busca disparava de novo e apagava a seleção feita nesse meio-tempo.
+  await signIn(page, "selecao@e2e.invalid");
+  await page.goto("/contas-a-pagar");
+  await page.getByRole("combobox", { name: "Visão por período" }).click();
+  await page.getByRole("option", { name: "Tudo" }).click();
+  await page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").fill("telefonia");
+  await expect(page.getByRole("button", { name: /^Total/ })).toContainText("1 conta");
+
+  await page.getByRole("button", { name: /Limpar filtros/ }).click();
+  await page.getByRole("checkbox", { name: "Selecionar Telefonia e internet" }).check();
+  await expect(page.getByText("1 selecionada")).toBeVisible();
+  await page.waitForTimeout(600); // passa da espera da busca, que antes apagava a seleção
+  await expect(page.getByText("1 selecionada")).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: "Selecionar Telefonia e internet" })).toBeChecked();
+});
+
 test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", async ({ page }) => {
   const blocked: string[] = [];
   page.on("console", (message) => {
