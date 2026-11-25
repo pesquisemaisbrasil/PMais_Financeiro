@@ -124,6 +124,10 @@ Pedido do Bruno ([registro](../transcricoes/2026-11-24-cadastros-iguais-ao-siste
 
 Pedido do Bruno ([acesso-e-auditoria, Ajustes de 25/11](../specs/acesso-e-auditoria.md)): a conta da equipe nasce com uma senha inicial (`create_user.py --primeiro-acesso`, ou `make conta` no servidor), que vale só para o primeiro login. Depois dela, a tela **Crie a sua senha** pede a senha nova duas vezes e diz para anotá-la; daí em diante, o cadastro do autenticador, os códigos de recuperação e o primeiro computador liberado, como antes. As 5 contas da equipe já estão no banco local e vão no pacote para o servidor.
 
+## Banco local no servidor e atualização às 22h (25/11/2026)
+
+Pedido do Bruno ([registro de 24/11](../transcricoes/2026-11-24-cadastros-iguais-ao-sistema-antigo.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)): o `scripts/gerar-dump-local.sh` gera, na pasta `backups/` (fora do git), o pacote do banco local inteiro (o banco, os arquivos do cofre e as três chaves que os abrem), e o `make restaurar-local` do servidor põe esse pacote no ar. Na primeira instalação, o `make subir-projeto HOST=<IP> CONFIRMAR=sim` faz tudo de uma vez: confere o pacote, configura, sobe, põe o banco do pacote, liga as 22h e gera o certificado. O `make agendar` liga a atualização automática da `development` todo dia às 22h: sem versão nova, só o backup; com versão nova que não sobe, volta sozinho à de antes com o banco do backup. O `make verificar` avisa quando o fuso do servidor não é o de São Paulo.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
@@ -143,6 +147,14 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 3. Com uma senha nova válida, a tela segue para **Cadastre o segundo fator**, e o resto é o primeiro login de sempre.
 4. Saia e entre com a senha inicial: "E-mail ou senha incorretos". Com a nova, vai direto ao código do app.
 5. Os testes: `pytest tests/test_senha_inicial.py` em `backend/` e `npx playwright test e2e/login.spec.ts` em `frontend/`.
+
+### Banco local no servidor e atualização às 22h (25/11)
+
+1. Na máquina do desenvolvimento, com o `docker compose` no ar: `bash scripts/gerar-dump-local.sh` gera os 3 arquivos em `backups/` e diz quantas contas de acesso, contas a pagar e a receber levam.
+2. Num servidor novo, depois do `git clone`: os 3 arquivos em `backups/` e `make subir-projeto HOST=<IP> CONFIRMAR=sim`. Sem `CONFIRMAR=sim`, sem `HOST` ou sem um dos 3 arquivos, ele recusa sem mexer em nada. Num servidor já instalado: `make atualizar` e `make restaurar-local ARQUIVO=backups/local-<data>-banco.dump CONFIRMAR=sim`.
+3. Entre com uma conta da máquina do desenvolvimento: Contas a pagar e Cadastros mostram o mesmo que lá.
+4. `make status`: "Atualização automática: ligada, às 22h" (o `make subir-projeto` liga; à mão, `make agendar`). No dia seguinte, `backups/logs/` tem o log da noite. `make desagendar` desliga.
+5. A CI do deploy (`.github/workflows/deploy.yml`) roda o `make subir-projeto` (com o `restaurar-local` e o `agendar` dentro) e o `make desagendar` num Ubuntu.
 
 ### Adiantamento do Connect (23/11)
 

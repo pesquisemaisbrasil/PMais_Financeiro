@@ -29,3 +29,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0024](0024-feriados-das-capitais-pelo-feriados-dev.md) | Feriados estaduais e municipais das 27 capitais pelo feriados.dev, rodando no nosso servidor e buscados sozinhos | Aceito (provisório) |
 | [0023](0023-tres-niveis-de-acesso-e-telas-por-pessoa.md) | Três níveis de acesso (super admin, admin e usuário) e telas bloqueadas por pessoa, barradas também no servidor | Aceito (super admin provisório) |
 | [0025](0025-abas-de-telas-com-activity.md) | Abas de telas como no VS Code, com o `<Activity>` do React montado no layout: cada aba guarda o estado até fechar | Aceito |
+| [0026](0026-banco-local-no-servidor-e-atualizacao-as-22h.md) | Banco local levado ao servidor num pacote com as chaves, e atualização automática da `development` às 22h, que volta sozinha se a versão nova não subir | Aceito (provisório) |
