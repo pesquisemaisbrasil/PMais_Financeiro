@@ -17,6 +17,7 @@ export const SCREENS = [
   "/conferencia-bancaria",
   "/divergencias",
   "/relatorios/projeto",
+  "/relatorios/fluxo-de-caixa",
   "/cadastros",
   "/incentivos",
   "/acessos",

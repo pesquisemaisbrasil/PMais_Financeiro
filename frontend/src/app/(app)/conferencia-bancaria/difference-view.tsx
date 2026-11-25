@@ -1,12 +1,15 @@
 "use client";
 
-import { CircleHelp, FileQuestion, Scale, Undo2, type LucideIcon } from "lucide-react";
+import { CircleHelp, FileQuestion, FileSpreadsheet, Scale, Undo2, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { CARD, ErrorBox, NUM, TD, TH } from "@/components/finance";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ApiError } from "@/lib/api";
-import { getDifference, monthLabel, type Difference, type DifferenceGroup } from "@/lib/bank-month";
+import { exportDifference, getDifference, monthLabel, type Difference, type DifferenceGroup } from "@/lib/bank-month";
+import { saveBlob } from "@/lib/documents";
 import { brl, formatDate, plural } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
@@ -76,6 +79,7 @@ function Reason({
 export function DifferenceView({ accountId, month }: { accountId: number; month: string }) {
   const [data, setData] = useState<Difference | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const latest = useRef(0);
 
@@ -114,8 +118,25 @@ export function DifferenceView({ accountId, month }: { accountId: number; month:
   }
   const matches = Number(data.difference) === 0;
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      saveBlob(await exportDifference(accountId, month), `extrato-x-sistema-${month}.xlsx`);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível exportar");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
+          <FileSpreadsheet aria-hidden="true" />
+          {exporting ? "Exportando…" : "Exportar Excel"}
+        </Button>
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Tile label="Saídas no extrato" value={brl(data.extractTotal)} detail={monthLabel(month)} />
         <Tile label="Baixas no sistema" value={brl(data.systemTotal)} detail="pagamentos com data no mês" />

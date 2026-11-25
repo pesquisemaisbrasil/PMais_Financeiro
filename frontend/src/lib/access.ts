@@ -19,6 +19,7 @@ export function screenOf(href: string): string | null {
   const path = href.split("?")[0].replace(/\/+$/, "");
   if (path === "/cadastros") return "cadastros";
   if (path === "/relatorios/projeto") return "relatorio-projeto";
+  if (path === "/relatorios/fluxo-de-caixa") return "fluxo-de-caixa";
   return SCREENS.find((screen) => path === `/${screen}`) ?? null;
 }
 

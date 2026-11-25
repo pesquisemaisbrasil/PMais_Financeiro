@@ -191,6 +191,33 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
       text: "Planilhas, comprovantes e notas anexados às contas do projeto. Dá para baixar daqui, e cada download fica no histórico da conta.",
     },
   ],
+  "/relatorios/fluxo-de-caixa": [
+    {
+      target: "tela",
+      title: "Fluxo de caixa",
+      text: "Quanto entra e quanto sai em cada data, para saber quanto vai precisar. Previsto é o que está em aberto em Contas a pagar e a receber, pelo vencimento; realizado são as baixas e os recebimentos, pela data do dinheiro.",
+    },
+    {
+      target: "periodo",
+      title: "O período",
+      text: "Escolha as datas e se quer ver por dia, por semana ou por mês. Exportar Excel leva a mesma tabela para a planilha.",
+    },
+    {
+      target: "saldos",
+      title: "Os saldos",
+      text: "O saldo das contas bancárias no começo do período, o que já estava em atraso antes dele e o saldo projetado no fim. O atrasado entra no saldo, para não sumir da conta.",
+    },
+    {
+      target: "periodos",
+      title: "Cada período",
+      text: "Entradas e saídas previstas e realizadas, e o saldo projetado acumulado. Ver abre os títulos e as baixas do período, com o link para cada um.",
+    },
+    {
+      target: "contas",
+      title: "Por conta bancária",
+      text: "Só o realizado de cada conta. O previsto ainda não tem conta: ela é escolhida na hora da baixa. Contas fora do fluxo de caixa, como o cartão, não entram.",
+    },
+  ],
 };
 
 /** O passeio da tela em que a pessoa está. O endereço pode vir com barra no fim (site exportado). */

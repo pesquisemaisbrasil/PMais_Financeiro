@@ -43,7 +43,7 @@ export const NAV: Entry[] = [
     icon: ChartColumn,
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
-      { label: "Fluxo de caixa" },
+      { href: "/relatorios/fluxo-de-caixa", label: "Fluxo de caixa" },
       { label: "DRE" },
       { label: "Resultado por projeto" },
       { label: "Extrato × despesas" },

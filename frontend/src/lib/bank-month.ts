@@ -138,6 +138,11 @@ export function getDifference(accountId: number, month: string): Promise<Differe
   return request<Difference>(`/bank-accounts/${accountId}/difference?month=${month}`);
 }
 
+/** O extrato × sistema do mês em Excel (PF-74). */
+export function exportDifference(accountId: number, month: string): Promise<Blob> {
+  return fetchBlob(`/bank-accounts/${accountId}/difference/export?month=${month}`);
+}
+
 export function getBalances(month: string): Promise<Balances> {
   return request<Balances>(`/bank-balances?month=${month}`);
 }
