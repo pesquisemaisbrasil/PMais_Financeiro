@@ -185,6 +185,8 @@ export interface MfaChallenge {
   mfa_token: string;
   token_type: string;
   setup_required: boolean;
+  /** Senha inicial de primeiro acesso: a senha nova vem antes do autenticador (25/11). */
+  password_change_required?: boolean;
 }
 
 export interface MfaSetup {
@@ -232,6 +234,11 @@ export function login(email: string, password: string): Promise<MfaChallenge> {
 export async function verifyMfa(mfaToken: string, code: string): Promise<void> {
   const token = await postWithMfaToken<Token>("/auth/token/mfa", mfaToken, { code });
   accessToken = token.access_token;
+}
+
+/** Primeiro acesso: troca a senha inicial pela da pessoa. Devolve um token parcial novo. */
+export function setInitialPassword(mfaToken: string, password: string): Promise<MfaChallenge> {
+  return postWithMfaToken<MfaChallenge>("/auth/password/initial", mfaToken, { password });
 }
 
 export function startMfaSetup(mfaToken: string): Promise<MfaSetup> {

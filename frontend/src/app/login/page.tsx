@@ -10,16 +10,25 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BrowserApprovalError, listFeedback, login, startMfaSetup, verifyMfa } from "@/lib/api";
+import {
+  BrowserApprovalError,
+  listFeedback,
+  login,
+  type MfaChallenge,
+  startMfaSetup,
+  verifyMfa,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { publicAsset } from "@/lib/basePath";
 import { DEMO, demoCode, demoCredentials, type DemoAccess } from "@/lib/demo/client";
 import { saveFeedbackKey } from "@/lib/feedback";
 import { useFormAction } from "@/lib/use-form-action";
+import { InitialPasswordStep } from "./InitialPasswordStep";
 import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep, WaitingStep } from "./MfaSteps";
 
 type Step =
   | { name: "credentials" }
+  | { name: "password"; mfaToken: string }
   | { name: "verify"; mfaToken: string }
   | { name: "setup"; mfaToken: string; secret: string; otpauthUri: string }
   | { name: "recovery"; codes: string[]; then?: Waiting }
@@ -34,11 +43,24 @@ function waitingFrom(error: BrowserApprovalError): Waiting {
 
 const TITLES: Record<Step["name"], string> = {
   credentials: "Entrar na sua conta",
+  password: "Crie a sua senha",
   verify: "Verificação em duas etapas",
   setup: "Cadastre o segundo fator",
   recovery: "Guarde seus códigos de recuperação",
   waiting: "Computador ainda não liberado",
 };
+
+/** Depois da senha (ou da senha nova do primeiro acesso): o código do app, ou o cadastro dele. */
+async function mfaStep(challenge: MfaChallenge): Promise<Step> {
+  if (!challenge.setup_required) return { name: "verify", mfaToken: challenge.mfa_token };
+  const setup = await startMfaSetup(challenge.mfa_token);
+  return {
+    name: "setup",
+    mfaToken: challenge.mfa_token,
+    secret: setup.secret,
+    otpauthUri: setup.otpauth_uri,
+  };
+}
 
 // O que o backend manda em ?erro= quando o login por Google ou Microsoft não termina. Os botões saíram
 // da tela (Bruno, 17/11/2026), mas o endereço do backend continua: quem chegar por ele lê o aviso.
@@ -110,17 +132,12 @@ function CredentialsStep({
         return;
       }
       const challenge = await login(email, password);
-      if (!challenge.setup_required) {
-        onStep({ name: "verify", mfaToken: challenge.mfa_token });
+      // Senha inicial de primeiro acesso: a senha nova vem antes do autenticador (Bruno, 25/11/2026)
+      if (challenge.password_change_required) {
+        onStep({ name: "password", mfaToken: challenge.mfa_token });
         return;
       }
-      const setup = await startMfaSetup(challenge.mfa_token);
-      onStep({
-        name: "setup",
-        mfaToken: challenge.mfa_token,
-        secret: setup.secret,
-        otpauthUri: setup.otpauth_uri,
-      });
+      onStep(await mfaStep(challenge));
     });
   }
 
@@ -256,6 +273,13 @@ function LoginContent() {
 
         {step.name === "credentials" && (
           <CredentialsStep onStep={setStep} onSignedIn={loadUser} ssoError={ssoError} />
+        )}
+        {step.name === "password" && (
+          <InitialPasswordStep
+            mfaToken={step.mfaToken}
+            onChanged={async (challenge) => setStep(await mfaStep(challenge))}
+            onBack={restart}
+          />
         )}
         {step.name === "verify" && (
           <MfaVerifyStep
