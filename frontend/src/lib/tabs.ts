@@ -75,6 +75,14 @@ export function sync(state: TabsState, current: ScreenTab | null): TabsState {
 }
 
 /** O nome da aba, como no menu: "Contas a pagar", "Fornecedores". */
+/** As telas que abrem pelo endereço, fora do menu ou "Em breve" nele: o nome da aba. */
+const OFF_MENU: Record<string, string> = {
+  "/cadastros": "Cadastros",
+  "/incentivos": "Incentivos",
+  "/conferencia-bancaria": "Conferência bancária",
+  "/divergencias": "Divergências",
+};
+
 export function tabLabel(tab: ScreenTab): string {
   const aba = new URLSearchParams(tab.query).get("aba");
   for (const entry of NAV) {
@@ -82,9 +90,7 @@ export function tabLabel(tab: ScreenTab): string {
     const leaf = entry.children?.find((child) => isActive(child.href, tab.path, aba));
     if (leaf) return leaf.label;
   }
-  if (tab.path === "/cadastros") return "Cadastros";
-  if (tab.path === "/incentivos") return "Incentivos";
-  return tab.path;
+  return OFF_MENU[tab.path] ?? tab.path;
 }
 
 /** As abas guardadas na aba do navegador (sessionStorage): só telas conhecidas, sem repetir. */

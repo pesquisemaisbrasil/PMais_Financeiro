@@ -32,8 +32,9 @@ export const NAV: Entry[] = [
       { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
       { href: "/contas-a-receber", label: "Contas a receber" },
       { label: "Notas e RPA" },
-      { href: "/conferencia-bancaria", label: "Conferência bancária" },
-      { href: "/divergencias", label: "Divergências" },
+      // Em breve no menu (pedido do Bruno, 24/11); as telas abrem pelo endereço
+      { label: "Conferência bancária" },
+      { label: "Divergências" },
     ],
   },
   {

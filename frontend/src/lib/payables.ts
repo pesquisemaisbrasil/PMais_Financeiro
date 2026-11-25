@@ -294,6 +294,9 @@ export interface Project {
   costCenterId?: number | null;
   /** Inativo (18/11): some das escolhas de lançamento novo; as contas já lançadas continuam. */
   active?: boolean;
+  /** Como no sistema antigo (24/11): as observações e o código de lá (CARPE DIEM). */
+  notes?: string | null;
+  legacyCode?: string | null;
 }
 
 /** Projeto que aceita lançamento novo: nem encerrado nem inativo. */
@@ -863,6 +866,7 @@ export type RecordKind =
   | "suppliers"
   | "customers"
   | "categories"
+  | "categoryGroups"
   | "companies"
   | "units"
   | "costCenters"
@@ -876,7 +880,11 @@ export interface RecordRow {
   inUse: boolean;
   nickname: string | null;
   code: string | null;
+  /** Empresa e unidade: o código no sistema antigo, à parte do gerado (24/11). */
+  legacyCode: string | null;
   companyId: number | null;
+  /** Só na conta do plano de contas: o grupo dela (24/11; nulo = sem grupo). */
+  groupId: number | null;
   /** Só no centro de custo: o principal em que ele fica embaixo (nulo = é um principal). */
   parentId: number | null;
   document: string | null;
@@ -886,8 +894,11 @@ export interface RecordRow {
   phone: string | null;
   email: string | null;
   paymentTerms: string | null;
-  // só no cliente: o resto da ficha (IE, telefones, e-mail alternativo, observações e endereço)
+  // a IE (cliente, empresa e unidade) e, só no cliente, o resto da ficha (telefones, e-mail
+  // alternativo, observações e endereço)
   stateRegistration: string | null;
+  /** Só no cliente: de onde veio o cadastro, como no sistema antigo (24/11). */
+  origin: string | null;
   phone2: string | null;
   phone3: string | null;
   emailAlt: string | null;
@@ -906,7 +917,9 @@ export interface RecordRow {
   bankName: string | null;
   agency: string | null;
   accountNumber: string | null;
-  accountType: "corrente" | "aplicacao" | "caixa" | null;
+  accountType: "cc" | "ci" | "interna" | "credito" | null;
+  /** Se a conta entra no fluxo de caixa (24/11; a Caixinha e o cartão não). */
+  impactsCashFlow: boolean | null;
   openingBalance: string | null;
   openingDate: string | null;
 }

@@ -67,7 +67,7 @@ import {
   syncConnectProjects,
   updateRecord,
 } from "@/lib/api";
-import { ACCOUNT_TYPES, balanceText, bankLine, parseBalance } from "@/lib/bank";
+import { ACCOUNT_TYPES, accountTypeLabel, balanceText, parseBalance } from "@/lib/bank";
 import { place } from "@/lib/nav";
 import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
 import {
@@ -119,35 +119,67 @@ function GeneratedCodeField({ code, isNew }: { code: string; isNew: boolean }) {
   );
 }
 
+/** O código que o cadastro tinha no sistema antigo: fica à parte do gerado e pode ser editado. */
+function LegacyCodeField({ input }: { input: { value: string; onChange: (event: { target: { value: string } }) => void } }) {
+  return (
+    <Field label="Código no sistema antigo" id="c-antigo">
+      <Input id="c-antigo" {...input} />
+    </Field>
+  );
+}
+
 type SortColumn =
   | "code"
   | "company"
   | "name"
   | "kind"
   | "document"
-  | "contact"
-  | "terms"
   | "status"
   | "project"
-  | "customer";
+  | "customer"
+  | "nickname"
+  | "fullName"
+  | "phones"
+  | "emails";
 type Sort = SortState<SortColumn>;
 
-function recordText(row: RecordRow, column: SortColumn, company: string): string {
+/** Uma linha da lista; no plano de contas, `planGroup` marca a linha do grupo (24/11). */
+type PlanRow = RecordRow & { planGroup?: boolean };
+
+/** Os telefones e os e-mails do cliente, cada um numa linha, como na lista do sistema antigo (24/11). */
+function phonesOf(row: RecordRow): string[] {
+  return [row.phone, row.phone2, row.phone3].filter((value): value is string => Boolean(value));
+}
+
+function emailsOf(row: RecordRow): string[] {
+  return [row.email, row.emailAlt].filter((value): value is string => Boolean(value));
+}
+
+/** O código da lista: o do sistema antigo, como na tela de lá (24/11); sem ele, o gerado (que fica na janela de editar). */
+function listCode(row: RecordRow): string | null {
+  return row.legacyCode ?? row.code;
+}
+
+function recordText(row: RecordRow, column: SortColumn, company: string, code: string | null): string {
   switch (column) {
     case "code":
-      return row.code ?? "";
+      return code ?? "";
     case "company":
       return company;
     case "kind":
       return row.kind ?? "";
     case "document":
       return row.document ?? "";
-    case "contact":
-      return row.contactName ?? "";
-    case "terms":
-      return row.paymentTerms ?? "";
     case "status":
       return row.active ? "Ativo" : "Inativo";
+    case "nickname":
+      return row.nickname ?? "";
+    case "fullName":
+      return row.name;
+    case "phones":
+      return phonesOf(row).join(" ");
+    case "emails":
+      return emailsOf(row).join(" ");
     default:
       return row.nickname ?? row.name;
   }
@@ -207,6 +239,7 @@ function RecordDialog({
   record,
   companies,
   centers,
+  groups,
   onClose,
   onDone,
   onSaved,
@@ -217,6 +250,8 @@ function RecordDialog({
   companies: { id: number; name: string }[];
   /** Os centros de custo já cadastrados (para escolher o superior). */
   centers: RecordRow[];
+  /** Os grupos do plano de contas (para escolher o grupo da conta). */
+  groups: RecordRow[];
   onClose: () => void;
   onDone: () => void;
   /** Salvou, mas a janela continua aberta (cliente que segue para os documentos): atualiza a lista. */
@@ -227,7 +262,9 @@ function RecordDialog({
     name: record?.name ?? "",
     nickname: record?.nickname ?? "",
     code: record?.code ?? "",
+    legacyCode: record?.legacyCode ?? "",
     companyId: record?.companyId ? String(record.companyId) : "",
+    groupId: record?.groupId ? String(record.groupId) : "",
     parentId: record?.parentId ? String(record.parentId) : "",
     document: record?.document ? formatCnpj(record.document) : "",
     // cadastro novo começa como pessoa jurídica (o caminho do CNPJ); o antigo sem tipo fica em branco
@@ -239,6 +276,7 @@ function RecordDialog({
     kind: record?.kind ?? "despesa",
     // só no cliente
     stateRegistration: record?.stateRegistration ?? "",
+    origin: record?.origin ?? "",
     emailAlt: record?.emailAlt ?? "",
     notes: record?.notes ?? "",
     addressCountry: record ? (record.addressCountry ?? "") : "Brasil",
@@ -253,12 +291,15 @@ function RecordDialog({
     bankName: record ? (record.bankName ?? "") : "Itaú",
     agency: record?.agency ?? "",
     accountNumber: record?.accountNumber ?? "",
-    accountType: record?.accountType ?? "corrente",
+    accountType: record?.accountType ?? "cc",
+    impactsCashFlow: record?.impactsCashFlow === false ? "nao" : "sim",
     openingBalance: balanceText(record?.openingBalance ?? null),
     openingDate: record?.openingDate ?? "",
   });
   // Cliente: cadastro em etapas (Principal, Endereço e Documentos), e os três telefones em partes
-  const wizard = kind === "customers";
+  // Cliente e fornecedor (24/11, como no sistema antigo): cadastro em etapas; Documentos, só o cliente
+  const wizard = kind === "customers" || kind === "suppliers";
+  const stepsShown = kind === "customers" ? CUSTOMER_STEPS : CUSTOMER_STEPS.slice(0, 2);
   const [step, setStep] = useState(0);
   // o cliente criado nesta janela: os documentos precisam dele salvo, e salvar de novo é alterar
   const [saved, setSaved] = useState<RecordRow | null>(null);
@@ -359,20 +400,29 @@ function RecordDialog({
       return setLocalError("Escolha o centro principal em que o sub-centro fica.");
     }
     // Os dados da conta bancária só vão quando o cadastro é de conta bancária
-    const { bankName, agency, accountNumber, accountType, openingBalance, openingDate, ...common } = form;
+    const { bankName, agency, accountNumber, accountType, openingBalance, openingDate, impactsCashFlow, ...common } = form;
     const balance = parseBalance(openingBalance);
     if (kind === "bankAccounts" && balance === null) {
       return setLocalError("Saldo inicial inválido. Use o formato 1.234,56.");
     }
     const bank =
       kind === "bankAccounts"
-        ? { bankName, agency, accountNumber, accountType, openingBalance: balance, openingDate: openingDate || null }
+        ? {
+            bankName,
+            agency,
+            accountNumber,
+            accountType,
+            openingBalance: balance,
+            openingDate: openingDate || null,
+            impactsCashFlow: impactsCashFlow !== "nao",
+          }
         : {};
     await run(async () => {
       const body = {
         ...common,
         ...bank,
         companyId: form.companyId ? Number(form.companyId) : null,
+        groupId: form.groupId ? Number(form.groupId) : null,
         parentId: subCenter && form.parentId ? Number(form.parentId) : null,
         personType: form.personType || null,
         ...(wizard && {
@@ -432,7 +482,7 @@ function RecordDialog({
       </DialogHeader>
       {wizard && (
         <nav aria-label="Etapas do cadastro" className="flex flex-wrap gap-2 pt-3">
-          {CUSTOMER_STEPS.map((item, index) => (
+          {stepsShown.map((item, index) => (
             <Button
               key={item.label}
               type="button"
@@ -583,6 +633,22 @@ function RecordDialog({
                 <Field label="Nome / razão social *" id="c-nome">
                   <Input id="c-nome" {...input("name")} />
                 </Field>
+                {kind === "companies" && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="IE (inscrição estadual)" id="c-ie">
+                      <Input id="c-ie" {...input("stateRegistration")} />
+                    </Field>
+                    <LegacyCodeField input={input("legacyCode")} />
+                  </div>
+                )}
+                {wizard && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <LegacyCodeField input={input("legacyCode")} />
+                    <Field label="Origem" id="c-origem" hint="De onde veio o cadastro.">
+                      <Input id="c-origem" {...input("origin")} />
+                    </Field>
+                  </div>
+                )}
               </>
             )}
             {wizard && step === 0 && (
@@ -612,7 +678,20 @@ function RecordDialog({
                     <Input id="c-email2" type="email" {...input("emailAlt")} />
                   </Field>
                 </div>
-                <Field label="Observações" id="c-obs" hint="Não escreva CPF: ele não é guardado.">
+                {kind === "suppliers" && (
+                  <Field label="Condição de pagamento" id="c-cond">
+                    <Input id="c-cond" {...input("paymentTerms")} />
+                  </Field>
+                )}
+                <Field
+                  label="Observações"
+                  id="c-obs"
+                  hint={
+                    kind === "suppliers"
+                      ? "Não escreva CPF nem chave Pix: eles não são guardados."
+                      : "Não escreva CPF: ele não é guardado."
+                  }
+                >
                   <Textarea id="c-obs" rows={3} {...input("notes")} />
                 </Field>
               </>
@@ -668,38 +747,32 @@ function RecordDialog({
                 </div>
               </>
             )}
-            {isParty && !wizard && (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Contato responsável" id="c-contato">
-                    <Input id="c-contato" {...input("contactName")} />
-                  </Field>
-                  <Field label="Telefone" id="c-tel">
-                    <Input id="c-tel" placeholder="+55 41 99999-0000" {...input("phone")} />
-                  </Field>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="E-mail" id="c-email">
-                    <Input id="c-email" type="email" {...input("email")} />
-                  </Field>
-                  {kind === "suppliers" && (
-                    <Field label="Condição de pagamento" id="c-cond">
-                      <Input id="c-cond" {...input("paymentTerms")} />
-                    </Field>
-                  )}
-                </div>
-              </>
+            {(kind === "categories" || kind === "categoryGroups") && (
+              <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
+                <Field label="Código *" id="c-cod">
+                  <Input id="c-cod" autoFocus placeholder={kind === "categories" ? "2.04" : "001"} {...input("code")} />
+                </Field>
+                <Field label="Nome *" id="c-nome">
+                  <Input id="c-nome" {...input("name")} />
+                </Field>
+              </div>
             )}
             {kind === "categories" && (
               <>
-                <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
-                  <Field label="Código *" id="c-cod">
-                    <Input id="c-cod" autoFocus placeholder="2.04" {...input("code")} />
-                  </Field>
-                  <Field label="Nome *" id="c-nome">
-                    <Input id="c-nome" {...input("name")} />
-                  </Field>
-                </div>
+                <Field label="Grupo" id="c-grupo" hint="Como no sistema antigo: o grupo junta as contas, e só a conta recebe lançamento.">
+                  <SearchSelect
+                    id="c-grupo"
+                    searchable
+                    value={form.groupId}
+                    onChange={(value) => setForm((current) => ({ ...current, groupId: value }))}
+                    options={[
+                      { id: "", label: "Sem grupo" },
+                      ...groups
+                        .filter((group) => group.active || String(group.id) === form.groupId)
+                        .map((group) => ({ id: group.id, label: `${group.code} ${group.name}` })),
+                    ]}
+                  />
+                </Field>
                 <Field label="Tipo *" id="c-tipo" hint="Despesa vai para Contas a pagar; receita, para Contas a receber. Com lançamentos, o tipo não muda.">
                   <SearchSelect
                     id="c-tipo"
@@ -713,7 +786,7 @@ function RecordDialog({
                 </Field>
               </>
             )}
-            {!withCnpj && kind !== "categories" && (
+            {!withCnpj && kind !== "categories" && kind !== "categoryGroups" && (
               <>
                 {needsCompany && (
                   <Field label="Empresa *" id="c-emp">
@@ -728,7 +801,7 @@ function RecordDialog({
                 {kind === "bankAccounts" && (
                   <>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Banco *" id="c-banco">
+                      <Field label="Banco" id="c-banco" hint="O nome ou o número do banco (341).">
                         <Input id="c-banco" {...input("bankName")} />
                       </Field>
                       <Field label="Tipo" id="c-tipoconta">
@@ -736,15 +809,15 @@ function RecordDialog({
                           id="c-tipoconta"
                           value={form.accountType}
                           onChange={(value) =>
-                            setForm((current) => ({ ...current, accountType: value as "corrente" | "aplicacao" | "caixa" }))
+                            setForm((current) => ({ ...current, accountType: value as "cc" | "ci" | "interna" | "credito" }))
                           }
                           options={ACCOUNT_TYPES}
                         />
                       </Field>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Agência" id="c-agencia">
-                        <Input id="c-agencia" inputMode="numeric" {...input("agency")} />
+                      <Field label="Agência" id="c-agencia" hint={form.accountType === "credito" ? "No cartão, a bandeira (Master)." : undefined}>
+                        <Input id="c-agencia" {...input("agency")} />
                       </Field>
                       <Field label="Conta" id="c-conta" hint="Com o dígito, por exemplo 12345-6.">
                         <Input id="c-conta" {...input("accountNumber")} />
@@ -757,6 +830,20 @@ function RecordDialog({
                       <Field label="Data do saldo" id="c-saldo-data" hint="Obrigatória se há saldo inicial.">
                         <DateInput id="c-saldo-data" {...input("openingDate")} />
                       </Field>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Entra no fluxo de caixa" id="c-fluxo">
+                        <SearchSelect
+                          id="c-fluxo"
+                          value={form.impactsCashFlow}
+                          onChange={(value) => setForm((current) => ({ ...current, impactsCashFlow: value }))}
+                          options={[
+                            { id: "sim", label: "Sim" },
+                            { id: "nao", label: "Não" },
+                          ]}
+                        />
+                      </Field>
+                      <LegacyCodeField input={input("legacyCode")} />
                     </div>
                   </>
                 )}
@@ -820,11 +907,29 @@ function RecordDialog({
                     </>
                   ))}
                 {(kind === "units" || kind === "costCenters") && (
-                  <GeneratedCodeField code={form.code} isNew={!record} />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <GeneratedCodeField code={form.code} isNew={!record} />
+                    <LegacyCodeField input={input("legacyCode")} />
+                  </div>
                 )}
                 <Field label="Nome *" id="c-nome">
                   <Input id="c-nome" autoFocus={!needsCompany} {...input("name")} />
                 </Field>
+                {kind === "units" && (
+                  <>
+                    <Field label="Apelido" id="c-apelido">
+                      <Input id="c-apelido" {...input("nickname")} />
+                    </Field>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="CNPJ" id="c-doc" hint="Pode ser o da empresa.">
+                        <Input id="c-doc" placeholder="00.000.000/0000-00" {...input("document")} />
+                      </Field>
+                      <Field label="IE (inscrição estadual)" id="c-ie">
+                        <Input id="c-ie" {...input("stateRegistration")} />
+                      </Field>
+                    </div>
+                  </>
+                )}
               </>
             )}
             <FormError message={localError ?? error} />
@@ -848,9 +953,11 @@ function RecordDialog({
                     Avançar
                   </Button>
                 ) : (
-                  <Button type="button" disabled={submitting} onClick={() => void save("documents")}>
-                    Salvar e anexar documentos
-                  </Button>
+                  kind === "customers" && (
+                    <Button type="button" disabled={submitting} onClick={() => void save("documents")}>
+                      Salvar e anexar documentos
+                    </Button>
+                  )
                 )}
               </>
             ) : (
@@ -940,6 +1047,8 @@ function ProjectDialog({
     customerId: project?.customerId ? String(project.customerId) : "",
     costCenterId: project?.costCenterId ? String(project.costCenterId) : "",
     inactive: project?.active === false ? "sim" : "nao",
+    notes: project?.notes ?? "",
+    legacyCode: project?.legacyCode ?? "",
   });
   const [confirmDelete, setConfirmDelete] = useState(false);
   const set = (key: keyof typeof form) => (value: string) => setForm((current) => ({ ...current, [key]: value }));
@@ -966,6 +1075,8 @@ function ProjectDialog({
       customerId: Number(form.customerId),
       costCenterId: Number(form.costCenterId),
       active: form.inactive !== "sim",
+      notes: form.notes.trim() || null,
+      legacyCode: form.legacyCode.trim() || null,
       // Tipo e incentivo saíram da tela (18/11): a edição devolve o que já estava gravado.
       projectType: project?.projectType ?? null,
       hasIncentive: project?.hasIncentive ?? false,
@@ -1037,6 +1148,12 @@ function ProjectDialog({
                 </Field>
               )}
             </div>
+            <Field label="Código no sistema antigo" id="pj-antigo">
+              <Input id="pj-antigo" maxLength={20} value={form.legacyCode} onChange={(event) => set("legacyCode")(event.target.value)} />
+            </Field>
+            <Field label="Observações" id="pj-obs" hint="Como no sistema antigo: metodologia, segmento...">
+              <Textarea id="pj-obs" rows={3} maxLength={1000} value={form.notes} onChange={(event) => set("notes")(event.target.value)} />
+            </Field>
             <FormError message={localError ?? error} />
           </div>
           <DialogFooter>
@@ -1095,14 +1212,21 @@ function ProjectDialog({
 }
 
 /** "Consumo SP · Campo": o padrão do lançamento do projeto, ou um traço. */
-function defaultsLabel(project: Project, reference: Reference | null): string {
-  const unit = reference?.units.find((u) => u.id === project.unitId)?.name;
-  const center = reference?.costCenters.find((c) => c.id === project.costCenterId)?.name;
-  return [unit, center].filter(Boolean).join(" · ") || "—";
+/** O que a lista de projetos mostra, como a do sistema antigo (24/11): o cliente pela razão social, a
+ * empresa (a da unidade), a unidade e o centro de custo pelo nome. */
+function projectParts(project: Project, reference: Reference | null) {
+  const unit = reference?.units.find((u) => u.id === project.unitId);
+  return {
+    customer: reference?.customers.find((c) => c.id === project.customerId)?.name ?? "",
+    company: unit ? (reference?.companies.find((c) => c.id === unit.companyId)?.name ?? "") : "",
+    unit: unit?.name ?? "",
+    center: reference?.costCenters.find((c) => c.id === project.costCenterId)?.name ?? "",
+  };
 }
 
-function customerName(project: Project, reference: Reference | null): string {
-  return reference?.customers.find((c) => c.id === project.customerId)?.nickname ?? "";
+/** O código da lista: o do sistema antigo (CARPE DIEM), ou o do Financeiro. */
+function projectCode(project: Project): string {
+  return project.legacyCode ?? project.code;
 }
 
 /** O tipo de cadastro vem do endereço (?aba=), escolhido no menu lateral. Trocar de tipo recria a tela. */
@@ -1130,6 +1254,11 @@ function RecordsByUrl() {
 function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
   const isParty = tab === "suppliers" || tab === "customers";
   const withCnpj = isParty || tab === "companies";
+  // Como nas listas do sistema antigo (24/11): Unidades (Empresa | Unidade | Código | Infos | Ações) e
+  // Clientes e fornecedores (Código | Apelido | Nome | Fones | Emails | Infos | Ações)
+  const oldLayout = tab === "units";
+  // Contas bancárias como no sistema antigo (24/11): Empresa | Código | Nome | Tipo | Banco | Agência | Conta
+  const bankLayout = tab === "bankAccounts";
   // o que impede excluir: lançamento e, no centro de custo, também ter sub-centros embaixo
   const inUseWhat =
     tab === "costCenters"
@@ -1143,10 +1272,14 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
   const [requestedPage, setPage] = useState(1);
   const [sort, setSort] = useState<Sort>(null);
   const [rows, setRows] = useState<RecordRow[] | null>(null);
+  // Na aba do plano de contas, os grupos (24/11): a coluna Grupo e a escolha na janela
+  const [groups, setGroups] = useState<RecordRow[]>([]);
+  const groupNames = useMemo(() => new Map(groups.map((group) => [group.id, `${group.code} ${group.name}`])), [groups]);
   const [reference, setReference] = useState<Reference | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ record: RecordRow | null } | null>(null);
-  const [deleting, setDeleting] = useState<RecordRow | null>(null);
+  // `group`: o grupo novo do plano de contas (o que já existe vem marcado na própria linha)
+  const [editing, setEditing] = useState<{ record: PlanRow | null; group?: boolean } | null>(null);
+  const [deleting, setDeleting] = useState<PlanRow | null>(null);
   // `project: null` é o projeto novo
   const [editingProject, setEditingProject] = useState<{ project: Project | null } | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -1160,6 +1293,7 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
       const nextReference = await getReference();
       setReference(nextReference);
       setRows(tab === "projects" ? [] : await listRecords(tab));
+      setGroups(tab === "categories" ? await listRecords("categoryGroups") : []);
     } catch (err) {
       setRows(null);
       setError(err instanceof ApiError ? err.message : "Não foi possível carregar os cadastros");
@@ -1174,15 +1308,29 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
   const companies = useMemo(() => reference?.companies ?? [], [reference]);
   const companyName = (id: number | null) => companies.find((c) => c.id === id)?.name ?? "Empresa inativa";
 
-  const shown = useMemo(() => {
+  const shown = useMemo((): PlanRow[] => {
     const all = rows ?? [];
     const companyOf = (id: number | null) => companies.find((c) => c.id === id)?.name ?? "";
-    const text = (row: RecordRow) => recordText(row, sort?.column ?? "name", companyOf(row.companyId));
+    const text = (row: RecordRow) => recordText(row, sort?.column ?? "name", companyOf(row.companyId), listCode(row));
     const byCode = (a: RecordRow, b: RecordRow) =>
       (a.code ?? "\uffff").localeCompare(b.code ?? "\uffff", "pt-BR", { numeric: true });
     // Centro de custo em árvore: os principais na ordem escolhida (a do código, se nada foi escolhido)
     // e, embaixo de cada um, os sub-centros dele na mesma ordem
     const arrange = (list: RecordRow[]) => (sort ? sortedBy(list, text, sort.descending) : [...list].sort(byCode));
+    if (tab === "categories") {
+      // Plano de contas em árvore, como no sistema antigo (24/11): cada grupo, na ordem do código, e
+      // embaixo as contas dele; depois, as contas sem grupo. A busca mostra o grupo das contas achadas.
+      const found = filterOptions(
+        all.map((row) => ({ row, label: [row.code, row.name, groupNames.get(row.groupId ?? 0)].filter(Boolean).join(" ") })),
+        term
+      ).map(({ row }) => row);
+      const tree = [...groups].sort(byCode).flatMap((group): PlanRow[] => {
+        const children = arrange(found.filter((row) => row.groupId === group.id));
+        const itself = filterOptions([{ row: group, label: `${group.code} ${group.name}` }], term).length > 0;
+        return children.length || itself ? [{ ...group, planGroup: true }, ...children] : [];
+      });
+      return [...tree, ...arrange(found.filter((row) => row.groupId === null))];
+    }
     const ordered =
       tab === "costCenters"
         ? arrange(all.filter((row) => row.parentId === null)).flatMap((root) => [
@@ -1195,23 +1343,48 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
     const parentName = (row: RecordRow) => ordered.find((other) => other.id === row.parentId)?.name;
     const labeled = ordered.map((row) => ({
       row,
-      label: [row.name, row.nickname, row.code, row.document, parentName(row)].filter(Boolean).join(" "),
+      label: [row.name, row.nickname, row.code, row.legacyCode, row.document, parentName(row), ...phonesOf(row), ...emailsOf(row)]
+        .filter(Boolean)
+        .join(" "),
     }));
     return filterOptions(labeled, term).map(({ row }) => row);
-  }, [rows, term, tab, sort, companies]);
+  }, [rows, term, tab, sort, companies, groups, groupNames]);
   const projects = useMemo(() => {
     const found = filterOptions(
-      (reference?.projects ?? []).map((project) => ({ project, label: `PRJ-${project.code} ${project.title}` })),
+      (reference?.projects ?? []).map((project) => ({
+        project,
+        label: [`PRJ-${project.code}`, project.legacyCode, project.title, projectParts(project, reference).customer]
+          .filter(Boolean)
+          .join(" "),
+      })),
       term
     ).map(({ project }) => project);
     const text = (project: Project) =>
       sort?.column === "status"
         ? projectSituation(project)
         : sort?.column === "customer"
-          ? customerName(project, reference)
-          : `${project.code} ${project.title}`;
+          ? projectParts(project, reference).customer
+          : sort?.column === "code"
+            ? projectCode(project)
+            : project.title;
     return sort ? sortedBy(found, text, sort.descending) : found;
   }, [reference, term, sort]);
+  // Agrupados por empresa e unidade, como no sistema antigo (24/11); o sem unidade fica no fim
+  const projectGroups = useMemo(() => {
+    const groups = new Map<string, { company: string; unit: string; items: Project[] }>();
+    for (const project of projects) {
+      const { company, unit } = projectParts(project, reference);
+      const key = `${company}|${unit}`;
+      const group = groups.get(key) ?? { company, unit, items: [] };
+      group.items.push(project);
+      groups.set(key, group);
+    }
+    const last = (text: string) => (text ? text : "\uffff");
+    return [...groups.values()].sort(
+      (a, b) =>
+        last(a.company).localeCompare(last(b.company), "pt-BR") || last(a.unit).localeCompare(last(b.unit), "pt-BR")
+    );
+  }, [projects, reference]);
 
   function changeSort(column: SortColumn) {
     setSort((current) => ({ column, descending: current?.column === column ? !current.descending : false }));
@@ -1245,10 +1418,16 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
     }
   }
 
-  async function toggleActive(record: RecordRow) {
+  /** O tipo do grupo do plano: o das contas dele, se todas são do mesmo tipo. */
+  function groupKind(group: RecordRow): RecordRow["kind"] {
+    const kinds = new Set((rows ?? []).filter((row) => row.groupId === group.id).map((row) => row.kind));
+    return kinds.size === 1 ? [...kinds][0] : null;
+  }
+
+  async function toggleActive(record: PlanRow) {
     if (tab === "projects") return;
     try {
-      await setRecordActive(tab, record.id, !record.active);
+      await setRecordActive(record.planGroup ? "categoryGroups" : tab, record.id, !record.active);
       toast.success(
         record.active
           ? `${record.name} inativado. Some das listas de escolha e continua nos relatórios.`
@@ -1279,10 +1458,18 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
             </div>
           ) : (
             current.create && (
-              <Button onClick={() => setEditing({ record: null })} disabled={!rows}>
-                <Plus size={16} />
-                {current.create}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {tab === "categories" && (
+                  <Button variant="outline" onClick={() => setEditing({ record: null, group: true })} disabled={!rows}>
+                    <Plus size={16} />
+                    Novo grupo
+                  </Button>
+                )}
+                <Button onClick={() => setEditing({ record: null })} disabled={!rows}>
+                  <Plus size={16} />
+                  {current.create}
+                </Button>
+              </div>
             )
           )
         }
@@ -1358,35 +1545,56 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <SortHead label="Código" column="code" sort={sort} onSort={changeSort} />
                   <SortHead label="Projeto" column="project" sort={sort} onSort={changeSort} />
-                  <TableHead className={TH}>Unidade e centro de custo</TableHead>
-                  <SortHead label="Situação" column="status" sort={sort} onSort={changeSort} />
                   <SortHead label="Cliente" column="customer" sort={sort} onSort={changeSort} />
-                  <TableHead className={TH} />
+                  <TableHead className={TH}>Empresa</TableHead>
+                  <TableHead className={TH}>Unidade</TableHead>
+                  <TableHead className={TH}>C.Custo</TableHead>
+                  <SortHead label="Infos" column="status" sort={sort} onSort={changeSort} />
+                  <TableHead className={cn(TH, "text-right")}>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell className={cn(TD, "whitespace-normal font-semibold text-brand-cinza-escuro")}>
-                      PRJ-{project.code} · {project.title}
+                {projectGroups.map((group) => [
+                  // a faixa da empresa e da unidade, em destaque como no sistema antigo
+                  <TableRow
+                    key={`grupo-${group.company}-${group.unit}`}
+                    className="bg-brand-azul-deep text-white hover:bg-brand-azul-deep"
+                  >
+                    <TableCell className={cn(TD, "py-2 font-semibold")}>{group.company || "Sem unidade"}</TableCell>
+                    <TableCell className={cn(TD, "py-2 font-semibold")} colSpan={7}>
+                      {group.unit}
                     </TableCell>
-                    <TableCell className={cn(TD, "whitespace-normal")}>{defaultsLabel(project, reference)}</TableCell>
-                    <TableCell className={TD}>
-                      <Tag color={projectSituation(project) === "Em andamento" ? "verde" : "cinza"}>
-                        {projectSituation(project)}
-                      </Tag>
-                    </TableCell>
-                    <TableCell className={cn(TD, "whitespace-normal")}>{customerName(project, reference) || "—"}</TableCell>
-                    <TableCell className={cn(TD, "text-right")}>
-                      <RowButton
-                        icon={Pencil}
-                        label={`Editar PRJ-${project.code}`}
-                        onClick={() => setEditingProject({ project })}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                  </TableRow>,
+                  ...group.items.map((project) => {
+                    const parts = projectParts(project, reference);
+                    return (
+                      <TableRow key={project.id}>
+                        <TableCell className={cn(TD, "font-mono text-xs")}>{projectCode(project)}</TableCell>
+                        <TableCell className={cn(TD, "whitespace-normal font-semibold text-brand-cinza-escuro")}>
+                          {project.title}
+                        </TableCell>
+                        <TableCell className={cn(TD, "whitespace-normal")}>{parts.customer || "—"}</TableCell>
+                        <TableCell className={TD}>{parts.company || "—"}</TableCell>
+                        <TableCell className={TD}>{parts.unit || "—"}</TableCell>
+                        <TableCell className={cn(TD, "whitespace-normal")}>{parts.center || "—"}</TableCell>
+                        <TableCell className={TD}>
+                          <Tag color={projectSituation(project) === "Em andamento" ? "verde" : "cinza"}>
+                            {projectSituation(project) === "Em andamento" ? "Ativo" : projectSituation(project)}
+                          </Tag>
+                        </TableCell>
+                        <TableCell className={cn(TD, "text-right")}>
+                          <RowButton
+                            icon={Pencil}
+                            label={`Editar PRJ-${project.code}`}
+                            onClick={() => setEditingProject({ project })}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }),
+                ])}
               </TableBody>
             </Table>
           ) : (
@@ -1399,25 +1607,70 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {(tab === "categories" || withCnpj || tab === "units" || tab === "costCenters") && (
+                  {tab === "categories" && <SortHead label="Tipo" column="kind" sort={sort} onSort={changeSort} />}
+                  {(withCnpj || tab === "costCenters") && (
                     <SortHead label="Código" column="code" sort={sort} onSort={changeSort} />
                   )}
                   {(tab === "units" || tab === "bankAccounts") && (
                     <SortHead label="Empresa" column="company" sort={sort} onSort={changeSort} />
                   )}
-                  <SortHead label={withCnpj ? "Apelido · nome" : "Nome"} column="name" sort={sort} onSort={changeSort} />
-                  {tab === "categories" && <SortHead label="Tipo" column="kind" sort={sort} onSort={changeSort} />}
-                  {withCnpj && <SortHead label="CNPJ" column="document" sort={sort} onSort={changeSort} />}
-                  {isParty && <SortHead label="Contato" column="contact" sort={sort} onSort={changeSort} />}
-                  {tab === "suppliers" && <SortHead label="Condição" column="terms" sort={sort} onSort={changeSort} />}
-                  <SortHead label="Situação" column="status" sort={sort} onSort={changeSort} />
-                  <TableHead className={TH} />
+                  {bankLayout && <SortHead label="Código" column="code" sort={sort} onSort={changeSort} />}
+                  {isParty ? (
+                    <>
+                      <SortHead label="Apelido" column="nickname" sort={sort} onSort={changeSort} />
+                      <SortHead label="Nome" column="fullName" sort={sort} onSort={changeSort} />
+                    </>
+                  ) : (
+                    <SortHead
+                      label={oldLayout ? "Unidade" : tab === "categories" ? "Plano de contas" : withCnpj ? "Apelido · nome" : "Nome"}
+                      column="name"
+                      sort={sort}
+                      onSort={changeSort}
+                    />
+                  )}
+                  {(oldLayout || tab === "categories") && <SortHead label="Código" column="code" sort={sort} onSort={changeSort} />}
+                  {bankLayout && (
+                    <>
+                      <TableHead className={TH}>Tipo</TableHead>
+                      <TableHead className={TH}>Banco</TableHead>
+                      <TableHead className={TH}>Agência</TableHead>
+                      <TableHead className={TH}>Conta</TableHead>
+                    </>
+                  )}
+                  {tab === "companies" && <SortHead label="CNPJ" column="document" sort={sort} onSort={changeSort} />}
+                  {isParty && (
+                    <>
+                      <SortHead label="Fones" column="phones" sort={sort} onSort={changeSort} />
+                      <SortHead label="Emails" column="emails" sort={sort} onSort={changeSort} />
+                    </>
+                  )}
+                  {tab === "suppliers" && <SortHead label="Documentos" column="document" sort={sort} onSort={changeSort} />}
+                  <SortHead label={oldLayout || isParty || bankLayout || tab === "categories" ? "Infos" : "Situação"} column="status" sort={sort} onSort={changeSort} />
+                  <TableHead className={cn(TH, "text-right")}>{oldLayout || isParty || bankLayout || tab === "categories" ? "Ações" : ""}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visible.map((row) => (
-                  <TableRow key={row.id} className={tab === "costCenters" && row.parentId === null ? "bg-brand-azul-deep/5" : undefined}>
-                    {(tab === "categories" || withCnpj || tab === "units" || tab === "costCenters") && (
+                  <TableRow
+                    key={`${row.planGroup ? "grupo" : "linha"}-${row.id}`}
+                    className={cn(
+                      tab === "costCenters" && row.parentId === null && "bg-brand-azul-deep/5",
+                      // o grupo do plano em destaque, como no sistema antigo
+                      row.planGroup && "bg-brand-azul-deep text-white hover:bg-brand-azul-deep"
+                    )}
+                  >
+                    {tab === "categories" && (
+                      <TableCell className={TD}>
+                        {(row.planGroup ? groupKind(row) : row.kind) ? (
+                          <Tag color={(row.planGroup ? groupKind(row) : row.kind) === "receita" ? "azul" : "cinza"}>
+                            {(row.planGroup ? groupKind(row) : row.kind) === "receita" ? "Receita" : "Despesa"}
+                          </Tag>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    )}
+                    {(withCnpj || tab === "costCenters") && (
                       <TableCell
                         className={cn(
                           TD,
@@ -1425,42 +1678,92 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
                           tab === "costCenters" && (row.parentId === null ? "font-semibold text-brand-cinza-escuro" : "text-muted-foreground")
                         )}
                       >
-                        {row.code ?? "—"}
+                        {listCode(row) ?? "—"}
                       </TableCell>
                     )}
                     {(tab === "units" || tab === "bankAccounts") && (
                       <TableCell className={TD}>{companyName(row.companyId)}</TableCell>
                     )}
-                    <TableCell className={cn(TD, "whitespace-normal", row.parentId !== null && "pl-9")}>
-                      <span className={cn("inline-flex items-center gap-2 text-brand-cinza-escuro", row.parentId !== null ? "font-normal" : "font-semibold")}>
+                    {bankLayout && <TableCell className={cn(TD, "font-mono text-xs")}>{listCode(row) ?? "—"}</TableCell>}
+                    {isParty && (
+                      <>
+                        <TableCell className={cn(TD, "whitespace-normal font-semibold text-brand-cinza-escuro")}>
+                          {row.nickname ?? "—"}
+                        </TableCell>
+                        <TableCell className={cn(TD, "whitespace-normal")}>{row.name}</TableCell>
+                      </>
+                    )}
+                    {!isParty && (
+                    <TableCell
+                      className={cn(TD, "whitespace-normal", (row.parentId !== null || (tab === "categories" && row.groupId !== null)) && "pl-9")}
+                    >
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-2",
+                          row.planGroup ? "text-white" : "text-brand-cinza-escuro",
+                          row.parentId !== null || (tab === "categories" && !row.planGroup) ? "font-normal" : "font-semibold"
+                        )}
+                      >
                         {tab === "costCenters" &&
                           (row.parentId === null ? (
                             <Folder className="size-4 text-brand-azul-deep" aria-hidden />
                           ) : (
                             <CornerDownRight className="size-3.5 text-muted-foreground" aria-hidden />
                           ))}
-                        {row.nickname ?? row.name}
+                        {tab === "categories" &&
+                          (row.planGroup ? (
+                            <Folder className="size-4 text-white" aria-hidden />
+                          ) : (
+                            row.groupId !== null && <CornerDownRight className="size-3.5 text-muted-foreground" aria-hidden />
+                          ))}
+                        {oldLayout ? row.name : (row.nickname ?? row.name)}
                       </span>
-                      {row.nickname && <span className="block text-xs text-muted-foreground">{row.name}</span>}
-                      {tab === "bankAccounts" && <span className="block text-xs text-muted-foreground">{bankLine(row)}</span>}
+                      {row.nickname && !oldLayout && <span className="block text-xs text-muted-foreground">{row.name}</span>}
                     </TableCell>
-                    {tab === "categories" && (
-                      <TableCell className={TD}>
-                        <Tag color={row.kind === "receita" ? "azul" : "cinza"}>{row.kind === "receita" ? "Receita" : "Despesa"}</Tag>
-                      </TableCell>
                     )}
-                    {withCnpj && (
+                    {(oldLayout || tab === "categories") && (
+                      <TableCell className={cn(TD, "font-mono text-xs")}>{listCode(row) ?? "—"}</TableCell>
+                    )}
+                    {bankLayout && (
+                      <>
+                        <TableCell className={TD}>{accountTypeLabel(row.accountType)}</TableCell>
+                        <TableCell className={TD}>{row.bankName ?? "—"}</TableCell>
+                        <TableCell className={cn(TD, "tabular-nums")}>{row.agency ?? "—"}</TableCell>
+                        <TableCell className={cn(TD, "tabular-nums")}>{row.accountNumber ?? "—"}</TableCell>
+                      </>
+                    )}
+                    {tab === "companies" && (
                       <TableCell className={cn(TD, "tabular-nums")}>{row.document ? formatCnpj(row.document) : row.personType === "PF" ? "Pessoa física" : "—"}</TableCell>
                     )}
                     {isParty && (
-                      <TableCell className={cn(TD, "whitespace-normal")}>
-                        {row.contactName ?? "—"}
-                        {(row.email || row.phone) && (
-                          <span className="block text-xs text-muted-foreground">{row.email ?? row.phone}</span>
-                        )}
+                      <>
+                        <TableCell className={cn(TD, "tabular-nums")}>
+                          {phonesOf(row).length
+                            ? phonesOf(row).map((phone) => (
+                                <span key={phone} className="block">
+                                  {phone}
+                                </span>
+                              ))
+                            : "—"}
+                        </TableCell>
+                        <TableCell className={TD}>
+                          {emailsOf(row).length
+                            ? emailsOf(row).map((email) => (
+                                <span key={email} className="block">
+                                  {email}
+                                </span>
+                              ))
+                            : "—"}
+                        </TableCell>
+                      </>
+                    )}
+                    {/* Fornecedor: o tipo e o CNPJ, como na coluna Documentos do sistema antigo (24/11) */}
+                    {tab === "suppliers" && (
+                      <TableCell className={cn(TD, "tabular-nums")}>
+                        {row.personType && <span className="block">{row.personType}</span>}
+                        {row.document ? formatCnpj(row.document) : !row.personType && "—"}
                       </TableCell>
                     )}
-                    {tab === "suppliers" && <TableCell className={cn(TD, "whitespace-normal")}>{row.paymentTerms ?? "—"}</TableCell>}
                     <TableCell className={TD}>
                       <Tag color={row.active ? "verde" : "cinza"}>{row.active ? "Ativo" : "Inativo"}</Tag>
                     </TableCell>
@@ -1513,11 +1816,12 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
 
       {editing && tab !== "projects" && (
         <RecordDialog
-          kind={tab}
-          one={current.one}
+          kind={editing.group || editing.record?.planGroup ? "categoryGroups" : tab}
+          one={editing.group || editing.record?.planGroup ? "grupo" : current.one}
           record={editing.record}
           companies={companies}
           centers={rows ?? []}
+          groups={groups}
           onClose={() => setEditing(null)}
           onDone={() => {
             toast.success(editing.record ? "Alterações salvas." : "Cadastro criado.");
@@ -1529,7 +1833,7 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
       )}
       {deleting && tab !== "projects" && (
         <DeleteDialog
-          kind={tab}
+          kind={deleting.planGroup ? "categoryGroups" : tab}
           record={deleting}
           onClose={() => setDeleting(null)}
           onDone={() => {

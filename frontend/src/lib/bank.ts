@@ -8,17 +8,19 @@ export const STATEMENT_ACCEPT = ".ofx,.csv,.txt";
 export const STATEMENT_HINT = "OFX ou CSV exportado do banco, até 5 MB";
 export const PAGE_SIZE = 50;
 
+/** Os tipos do sistema antigo (24/11): CC (conta corrente), CI, Interna e Crédito (cartão). */
 export const ACCOUNT_TYPES = [
-  { id: "corrente", label: "Conta corrente" },
-  { id: "aplicacao", label: "Aplicação" },
-  { id: "caixa", label: "Caixa" },
+  { id: "cc", label: "CC" },
+  { id: "ci", label: "CI" },
+  { id: "interna", label: "Interna" },
+  { id: "credito", label: "Crédito" },
 ];
 
 export function accountTypeLabel(type: string | null): string {
-  return ACCOUNT_TYPES.find((option) => option.id === type)?.label ?? "Conta corrente";
+  return ACCOUNT_TYPES.find((option) => option.id === type)?.label ?? "CC";
 }
 
-/** "Itaú · ag. 1234 · conta 12345-6 · Conta corrente": a linha que identifica a conta nas listas. */
+/** "Itaú · ag. 1234 · conta 12345-6 · CC": a linha que identifica a conta nas listas. */
 export function bankLine(account: {
   bankName: string | null;
   agency: string | null;
