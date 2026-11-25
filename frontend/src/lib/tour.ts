@@ -218,6 +218,23 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
       text: "Só o realizado de cada conta. O previsto ainda não tem conta: ela é escolhida na hora da baixa. Contas fora do fluxo de caixa, como o cartão, não entram.",
     },
   ],
+  "/relatorios/dre": [
+    {
+      target: "tela",
+      title: "DRE",
+      text: "Receitas, despesas e resultado de cada mês, pela competência. Cada linha é um grupo do plano de contas. Provisões e títulos cancelados ficam de fora.",
+    },
+    {
+      target: "filtros",
+      title: "Os filtros",
+      text: "Escolha o período e, se quiser, a empresa, a unidade, o projeto ou o centro de custo. Com o projeto, a conta dividida entre projetos entra só com a parte dele. Mostrar as contas abre as contas de cada grupo.",
+    },
+    {
+      target: "dre",
+      title: "O DRE",
+      text: "Cada grupo soma as contas dele, e o Resultado é receitas menos despesas. O grupo de cada conta muda em Cadastros, Plano de contas. Exportar Excel leva a tabela, com os filtros, para a planilha.",
+    },
+  ],
 };
 
 /** O passeio da tela em que a pessoa está. O endereço pode vir com barra no fim (site exportado). */

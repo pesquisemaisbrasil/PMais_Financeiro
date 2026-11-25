@@ -44,7 +44,7 @@ export const NAV: Entry[] = [
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
       { href: "/relatorios/fluxo-de-caixa", label: "Fluxo de caixa" },
-      { label: "DRE" },
+      { href: "/relatorios/dre", label: "DRE" },
       { label: "Resultado por projeto" },
       { label: "Extrato × despesas" },
     ],

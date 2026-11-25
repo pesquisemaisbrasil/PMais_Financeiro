@@ -51,6 +51,7 @@ const PAGES: Record<ScreenPath, ComponentType> = {
   "/divergencias": lazy(() => import("@/app/(app)/divergencias/page")),
   "/relatorios/projeto": lazy(() => import("@/app/(app)/relatorios/projeto/page")),
   "/relatorios/fluxo-de-caixa": lazy(() => import("@/app/(app)/relatorios/fluxo-de-caixa/page")),
+  "/relatorios/dre": lazy(() => import("@/app/(app)/relatorios/dre/page")),
   "/cadastros": lazy(() => import("@/app/(app)/cadastros/page")),
   "/incentivos": lazy(() => import("@/app/(app)/incentivos/page")),
   "/acessos": lazy(() => import("@/app/(app)/acessos/page")),
