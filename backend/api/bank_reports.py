@@ -1,8 +1,9 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
 from api.payables import DbSession, FinanceUser
+from core import xlsx
 from core.limiter import limiter
 from core.permissions import require_screen
 from schemas.bank_reports import Balances, Difference
@@ -34,6 +35,32 @@ def difference(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta bancária não encontrada") from exc
     except PayableInvalid as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+@router.get(
+    "/bank-accounts/{account_id}/difference/export",
+    response_class=Response,
+    description="O extrato × sistema do mês em Excel (.xlsx): uma linha por dia, com o total e o "
+    "que explica a diferença na primeira linha",
+)
+@limiter.limit(READ_LIMIT)
+def export_difference(
+    request: Request, account_id: int, month: Month, db: DbSession, _: FinanceUser
+) -> Response:
+    try:
+        content, filename = bank_reports.difference_xlsx(db, account_id, month)
+    except RecordNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Conta bancária não encontrada") from exc
+    except PayableInvalid as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return Response(
+        content,
+        media_type=xlsx.MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get(

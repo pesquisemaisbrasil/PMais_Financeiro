@@ -13,12 +13,15 @@ from typing import Any
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from core.text import format_brl
+from core.xlsx import build_xlsx
 from models.bank_reconciliation import BankReconciliation
 from models.bank_statement import BankTransaction
 from models.payable import Payable, PayablePayment
 from models.reference import BankAccount, Company
 from services.bank_reconciliation import description_of
 from services.payable import PayableInvalid
+from services.period_lock import month_name
 from services.records import RecordNotFound
 
 ZERO = Decimal("0")
@@ -140,6 +143,30 @@ def difference(db: Session, account_id: int, month: str) -> dict[str, Any]:
         "paymentsWithoutLine": _group(_payments_without_line(db, account, system)),
         "returns": _group(returns),
     }
+
+
+DIFFERENCE_HEADERS = ["Dia", "Saídas do extrato", "Baixas do sistema", "Diferença"]
+
+
+def difference_xlsx(db: Session, account_id: int, month: str) -> tuple[bytes, str]:
+    """O extrato × sistema do mês em Excel (PF-74): uma linha por dia, o total, e no título o que
+    explica a diferença."""
+    data = difference(db, account_id, month)
+    account = db.get(BankAccount, account_id)
+    assert account is not None  # difference() já recusou a conta que não existe
+    explained = (
+        f"saídas sem par {format_brl(data['linesWithoutPair']['total'])}, "
+        f"baixas sem linha {format_brl(data['paymentsWithoutLine']['total'])}, "
+        f"voltas {format_brl(data['returns']['total'])}"
+    )
+    content = build_xlsx(
+        sheet="Extrato × sistema",
+        title=f"Extrato × sistema · {account.name} · {month_name(month)} · {explained}",
+        headers=DIFFERENCE_HEADERS,
+        rows=[[d["day"], d["extract"], d["system"], d["difference"]] for d in data["byDay"]],
+        total_columns=(1, 2, 3),
+    )
+    return content, f"extrato-x-sistema-{month}.xlsx"
 
 
 def _payments_without_line(

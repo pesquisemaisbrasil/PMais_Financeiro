@@ -17,6 +17,7 @@ from api.bank_statements import router as bank_statements_router
 from api.batches import router as batches_router
 from api.batches import shared as batches_shared_router
 from api.browsers import router as browsers_router
+from api.cash_flow import router as cash_flow_router
 from api.health import router as health_router
 from api.holidays import router as holidays_router
 from api.incentives import router as incentives_router
@@ -143,4 +144,5 @@ app.include_router(browsers_router)
 app.include_router(access_router)
 app.include_router(incentives_router)
 app.include_router(project_reports_router)
+app.include_router(cash_flow_router)
 app.include_router(search_router)

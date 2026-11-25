@@ -24,6 +24,7 @@ SCREENS = {
     "conferencia-bancaria": "Conferência bancária",
     "divergencias": "Divergências",
     "relatorio-projeto": "Relatório do projeto",
+    "fluxo-de-caixa": "Fluxo de caixa",
     "cadastros": "Cadastros",
 }
 SCREEN_BLOCKED = "Esta tela não está liberada para você. Fale com o administrador."
