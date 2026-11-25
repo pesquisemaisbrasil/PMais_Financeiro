@@ -1,14 +1,18 @@
 # Deploy do Financeiro no servidor local (branch development): banco, cofre de arquivos, API, telas
 # e HTTPS com certificado da própria máquina. Guia: DEPLOY.md
 #
-# Primeira vez, no servidor, dentro da pasta do repositório:
+# Primeira vez, no servidor, dentro da pasta do repositório, com o pacote do banco local em backups/
+# (scripts/gerar-dump-local.sh), tudo de uma vez:
+#   make subir-projeto HOST=<IP ou nome do servidor> CONFIRMAR=sim
+# Ou por partes, sem o pacote:
 #   make verificar HOST=<IP ou nome do servidor>    confere programas, Docker, portas, firewall e disco
 #   make configurar HOST=<IP ou nome do servidor>   verifica de novo e gera deploy/.env com chaves novas
 #   make subir                                      sobe tudo (banco, cofre, API, telas e HTTPS)
 #   make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"
 #   make certificado                                para instalar nos computadores da equipe
-# Depois: make atualizar (backup, baixa a development e sobe a versão nova). Deu problema numa versão
-# nova: make voltar ARQUIVO=backups/banco-<data>.dump CONFIRMAR=sim. `make` sozinho lista tudo.
+# Depois: make atualizar (backup, baixa a development e sobe a versão nova), ou make agendar para isso
+# rodar sozinho todo dia às 22h. Deu problema numa versão nova:
+# make voltar ARQUIVO=backups/banco-<data>.dump CONFIRMAR=sim. `make` sozinho lista tudo.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := ajuda
@@ -18,7 +22,9 @@ COMPOSE := docker compose --env-file $(ENV_FILE) -f deploy/compose.yml
 AGORA := $(shell date +%Y%m%d-%H%M%S)
 
 .PHONY: ajuda verificar configurar banco infra backend frontend proxy subir conferir parar status logs \
-	atualizar voltar backup restaurar-banco restaurar-arquivos admin certificado
+	atualizar voltar backup restaurar-banco restaurar-arquivos restaurar-local conferir-pacote subir-projeto \
+	agendar desagendar admin conta \
+	definir-nivel liberar-navegador certificado
 
 ajuda: ## Lista os comandos
 	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: DEPLOY.md"
@@ -105,8 +111,11 @@ conferir: $(ENV_FILE) ## Testa o sistema no ar pelo HTTPS, como um computador da
 parar: $(ENV_FILE) ## Para tudo, sem apagar nada (make subir volta)
 	$(COMPOSE) stop
 
-status: $(ENV_FILE) ## Mostra a versão no ar e cada parte, se está saudável
+status: $(ENV_FILE) ## Mostra a versão no ar, a atualização automática e cada parte, se está saudável
 	@echo "Versão: $$(git log -1 --format='%h %s (%cd)' --date=format:'%d/%m/%Y %H:%M') na $$(git rev-parse --abbrev-ref HEAD)"
+	@if crontab -l 2>/dev/null | grep -qF "# $(CRON_MARCA)"; then \
+	  echo "Atualização automática: ligada, às $$(crontab -l | grep -F "# $(CRON_MARCA)" | awk '{ print $$2 }')h. Logs em backups/logs/"; \
+	else echo "Atualização automática: desligada (make agendar)"; fi
 	$(COMPOSE) ps --all
 
 logs: $(ENV_FILE) ## Acompanha os logs (SERVICO=api para um só)
@@ -167,9 +176,97 @@ restaurar-arquivos: $(ENV_FILE) ## APAGA os arquivos e põe os de um backup (ARQ
 	$(COMPOSE) up -d --wait minio
 	@echo "Arquivos restaurados de $(ARQUIVO)."
 
+# backups/local-<data>-banco.dump -> os outros dois arquivos do pacote do scripts/gerar-dump-local.sh
+ARQUIVOS_DO_PACOTE = $(patsubst %-banco.dump,%-arquivos.tgz,$(ARQUIVO))
+CHAVES_DO_PACOTE = $(patsubst %-banco.dump,%-chaves.env,$(ARQUIVO))
+# as chaves que abrem o que está guardado: autenticadores, anexos e a chave de repetição dos relatórios
+CHAVES_QUE_VIAJAM := ENCRYPTION_KEY PIX_SECRET_KEY FILES_MASTER_KEY
+
+conferir-pacote: ## Confere o pacote do banco local sem mexer em nada: os 3 arquivos, as chaves e a versão do banco (ARQUIVO=backups/local-...-banco.dump)
+	@case "$(ARQUIVO)" in backups/local-*-banco.dump) ;; *) echo "Use o pacote do scripts/gerar-dump-local.sh, na pasta backups/: ARQUIVO=backups/local-<data>-banco.dump"; exit 1;; esac
+	@for arquivo in "$(ARQUIVO)" "$(ARQUIVOS_DO_PACOTE)" "$(CHAVES_DO_PACOTE)"; do \
+	  test -f "$$arquivo" || { echo "Não achei $$arquivo: os 3 arquivos do pacote vão juntos para backups/."; exit 1; }; done
+	@for chave in $(CHAVES_QUE_VIAJAM); do \
+	  grep -Eq "^$$chave=.+" "$(CHAVES_DO_PACOTE)" || { echo "Falta $$chave em $(CHAVES_DO_PACOTE)."; exit 1; }; done
+	@# o banco do pacote não pode estar numa versão que este código ainda não conhece. Lido por um
+	@# Postgres de passagem (a mesma imagem do banco), para conferir antes de subir qualquer coisa
+	@versao=$$(docker run --rm -i postgres:16 pg_restore -a -t alembic_version -f - < "$(ARQUIVO)" | awk '/^COPY /{ getline; print; exit }') && \
+	  test -n "$$versao" || { echo "Não li a versão do banco em $(ARQUIVO): o arquivo veio inteiro?"; exit 1; }; \
+	  grep -q -- "$$versao" backend/alembic/versions/*.py || \
+	    { echo "O banco do pacote está na versão $$versao, que este código ainda não tem: make atualizar antes."; exit 1; }; \
+	  echo "Pacote $(ARQUIVO) conferido: os 3 arquivos, as chaves e o banco na versão $$versao, que este código tem."
+
+restaurar-local: $(ENV_FILE) ## APAGA o banco e os arquivos e põe os do pacote da máquina do desenvolvimento, com as chaves dele (ARQUIVO=backups/local-...-banco.dump CONFIRMAR=sim)
+	@test "$(CONFIRMAR)" = sim || { echo "Isto APAGA o banco e os arquivos deste servidor e põe os do pacote, com as chaves dele. Rode com ARQUIVO=backups/local-<data>-banco.dump CONFIRMAR=sim"; exit 1; }
+	@$(MAKE) --no-print-directory conferir-pacote ARQUIVO="$(ARQUIVO)"
+	@$(MAKE) --no-print-directory banco
+	$(MAKE) --no-print-directory backup AGORA=$(AGORA)
+	@umask 077 && cp $(ENV_FILE) backups/env-antes-do-local-$(AGORA).env && \
+	  awk -F= -v viajam="$(CHAVES_QUE_VIAJAM)" ' \
+	    BEGIN { split(viajam, lista, " "); for (i in lista) viaja[lista[i]] = 1 } \
+	    NR == FNR { if ($$1 in viaja) nova[$$1] = substr($$0, length($$1) + 2); next } \
+	    ($$1 in nova) { print $$1 "=" nova[$$1]; feita[$$1] = 1; next } { print } \
+	    END { for (c in nova) if (!(c in feita)) print c "=" nova[c] }' \
+	    "$(CHAVES_DO_PACOTE)" $(ENV_FILE) > $(ENV_FILE).novo && mv $(ENV_FILE).novo $(ENV_FILE)
+	@echo "Chaves do pacote no $(ENV_FILE). O de antes ficou em backups/env-antes-do-local-$(AGORA).env."
+	$(MAKE) --no-print-directory restaurar-banco ARQUIVO="$(ARQUIVO)" CONFIRMAR=sim
+	$(MAKE) --no-print-directory restaurar-arquivos ARQUIVO="$(ARQUIVOS_DO_PACOTE)" CONFIRMAR=sim
+	$(MAKE) --no-print-directory subir
+	@echo "Pronto: no ar o banco e os arquivos de $(ARQUIVO). As contas de acesso são as da máquina do desenvolvimento."
+	@echo "Guarde o $(ENV_FILE) novo num cofre e apague $(CHAVES_DO_PACOTE) daqui."
+
+# O pacote do subir-projeto: o mais novo de backups/ (os nomes levam a data), ou PACOTE=...
+PACOTE ?= $(lastword $(sort $(wildcard backups/local-*-banco.dump)))
+
+subir-projeto: ## Primeira instalação de uma vez: configura, sobe, põe o banco do pacote de backups/, liga as 22h e gera o certificado (HOST=<IP ou nome> CONFIRMAR=sim)
+	@test "$(CONFIRMAR)" = sim || { echo "Isto instala o Financeiro e põe nele o banco do pacote de backups/, APAGANDO o banco que este servidor tiver. Rode com HOST=<IP ou nome do servidor> CONFIRMAR=sim"; exit 1; }
+	@test -f $(ENV_FILE) || test -n "$(HOST)" || { echo 'Diga o endereço do servidor: make subir-projeto HOST=192.168.0.50 CONFIRMAR=sim'; exit 1; }
+	@test -n "$(PACOTE)" || { echo "Não achei o pacote do banco em backups/ (local-<data>-banco.dump, -arquivos.tgz e -chaves.env, do scripts/gerar-dump-local.sh)."; \
+	  echo "Copie os 3 arquivos para backups/ e rode de novo. Sem banco para trazer: make configurar, make subir e make admin (DEPLOY.md)."; exit 1; }
+	@echo "== 1/5 O pacote: $(PACOTE)"
+	@$(MAKE) --no-print-directory conferir-pacote ARQUIVO="$(PACOTE)"
+	@echo "== 2/5 A configuração do servidor"
+	@if [ -f $(ENV_FILE) ]; then echo "$(ENV_FILE) já existe: sigo com ele (as chaves do pacote entram no passo 4)."; \
+	  else $(MAKE) --no-print-directory configurar HOST="$(HOST)"; fi
+	@echo "== 3/5 Tudo no ar (banco, cofre, API, telas e HTTPS)"
+	$(MAKE) --no-print-directory subir
+	@echo "== 4/5 O banco, os arquivos e as chaves do pacote"
+	$(MAKE) --no-print-directory restaurar-local ARQUIVO="$(PACOTE)" CONFIRMAR=sim
+	@echo "== 5/5 A atualização automática e o certificado da equipe"
+	$(MAKE) --no-print-directory agendar
+	$(MAKE) --no-print-directory certificado
+	@set -a && . ./$(ENV_FILE) && set +a && echo && \
+	  echo "Financeiro no ar: https://$$SERVER_HOST, com o banco de $(PACOTE)." && \
+	  echo "  - Entre com as contas da máquina do desenvolvimento: mesma senha e mesmo autenticador." && \
+	  echo "  - O primeiro computador de cada conta vira pedido em Acessos; o super admin entra direto e libera." && \
+	  echo "  - Atualização automática ligada: todo dia às $(HORA)h (make status mostra)." && \
+	  echo "  - Instale financeiro-certificado-raiz.crt em cada computador da equipe (DEPLOY.md, seção 3)." && \
+	  echo "  - Guarde o $(ENV_FILE) num cofre e apague $(patsubst %-banco.dump,%-chaves.env,$(PACOTE))."
+
+# A linha do cron leva o caminho do repositório: dá para ligar e desligar sem mexer nas outras.
+HORA ?= 22
+CRON_MARCA = financeiro-atualizar $(CURDIR)
+
+agendar: ## Liga a atualização automática: todo dia às 22h, backup e versão nova da development (HORA=22)
+	@command -v crontab >/dev/null || { echo "Falta o cron: sudo apt install -y cron"; exit 1; }
+	@case "$(HORA)" in [0-9]|1[0-9]|2[0-3]) ;; *) echo "HORA vai de 0 a 23: $(HORA)"; exit 1;; esac
+	@{ crontab -l 2>/dev/null | grep -vF "# $(CRON_MARCA)"; \
+	  echo '0 $(HORA) * * * cd "$(CURDIR)" && bash deploy/atualizar-agendado.sh # $(CRON_MARCA)'; } | crontab -
+	@echo "Agendado: todo dia às $(HORA)h, a versão nova da $(BRANCH) (ou só o backup, se não houver). Logs em backups/logs/. Para desligar: make desagendar"
+
+desagendar: ## Desliga a atualização automática (tira a linha do cron)
+	@command -v crontab >/dev/null || { echo "Falta o cron: sudo apt install -y cron"; exit 1; }
+	@crontab -l 2>/dev/null | grep -vF "# $(CRON_MARCA)" | crontab -
+	@echo "Atualização automática desligada. O backup diário que vinha dela também parou: make backup, ou make agendar de novo."
+
 admin: $(ENV_FILE) ## Cria um administrador e pede a senha no terminal (EMAIL=... NOME="...")
 	@test -n "$(EMAIL)" && test -n "$(NOME)" || { echo 'Use: make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"'; exit 1; }
 	$(COMPOSE) exec api python scripts/create_user.py --email "$(EMAIL)" --name "$(NOME)" --role admin
+
+conta: $(ENV_FILE) ## Cria uma conta da equipe com senha inicial, que a pessoa troca no primeiro acesso; pede a senha inicial no terminal (EMAIL=... NOME="..." NIVEL=financeiro|admin)
+	@test -n "$(EMAIL)" && test -n "$(NOME)" || { echo 'Use: make conta EMAIL=pessoa@pesquisemais.com.br NOME="Nome da pessoa" NIVEL=financeiro'; exit 1; }
+	@case "$(or $(NIVEL),financeiro)" in financeiro|admin) ;; *) echo "NIVEL é financeiro (usuário) ou admin: $(NIVEL)"; exit 1;; esac
+	$(COMPOSE) exec api python scripts/create_user.py --email "$(EMAIL)" --name "$(NOME)" --role "$(or $(NIVEL),financeiro)" --primeiro-acesso
 
 definir-nivel: $(ENV_FILE) ## Troca o nível de uma conta: financeiro, admin ou superadmin (EMAIL=... NIVEL=...)
 	@test -n "$(EMAIL)" && test -n "$(NIVEL)" || { echo 'Use: make definir-nivel EMAIL=voce@pesquisemais.com.br NIVEL=superadmin'; exit 1; }

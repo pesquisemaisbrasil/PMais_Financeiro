@@ -2,7 +2,8 @@ name: Deploy (servidor local)
 
 # Roda o deploy do servidor local de ponta a ponta num Ubuntu, como no servidor do escritório:
 # make verificar, configurar e subir (que confere pelo HTTPS), administrador e login, backup,
-# voltar a uma versão com o banco dela e restaurar os arquivos. Só quando algo do deploy muda.
+# voltar a uma versão com o banco dela, restaurar os arquivos, subir o projeto com o banco de outra
+# máquina (make subir-projeto) e desligar a atualização automática. Só quando algo do deploy muda.
 # DEPLOY.md
 on:
   push:
@@ -71,6 +72,35 @@ jobs:
           make restaurar-arquivos ARQUIVO="$arquivos" CONFIRMAR=sim
           make conferir
           make status
+
+      - name: Subir o projeto com o banco de outra máquina (make subir-projeto), com chaves novas
+        run: |
+          command -v crontab >/dev/null || sudo apt-get install -y cron
+          # um pacote como o do scripts/gerar-dump-local.sh, feito do backup deste mesmo servidor
+          cp "$(ls backups/banco-*.dump | head -n 1)" backups/local-ci-banco.dump
+          cp "$(ls backups/arquivos-*.tgz | head -n 1)" backups/local-ci-arquivos.tgz
+          {
+            echo "ENCRYPTION_KEY=$(openssl rand -base64 32)"
+            echo "PIX_SECRET_KEY=$(openssl rand -hex 32)"
+            echo "FILES_MASTER_KEY=$(openssl rand -base64 32)"
+          } > backups/local-ci-chaves.env
+          # pacote incompleto: recusa sem mexer em nada
+          if make conferir-pacote ARQUIVO=backups/local-falta-banco.dump; then echo "Aceitou um pacote que não existe"; exit 1; fi
+          make subir-projeto PACOTE=backups/local-ci-banco.dump CONFIRMAR=sim
+          # as chaves do pacote entraram no deploy/.env, e o de antes ficou guardado
+          for chave in ENCRYPTION_KEY PIX_SECRET_KEY FILES_MASTER_KEY; do
+            grep -qxF "$(grep "^$chave=" backups/local-ci-chaves.env)" deploy/.env
+          done
+          ls backups/env-antes-do-local-*.env financeiro-certificado-raiz.crt
+
+      - name: A atualização automática ligada pelo subir-projeto, e desligar
+        run: |
+          crontab -l | grep -q "deploy/atualizar-agendado.sh"
+          make status | grep -q "Atualização automática: ligada, às 22h"
+          make desagendar
+          if crontab -l 2>/dev/null | grep -q "deploy/atualizar-agendado.sh"; then
+            echo "O make desagendar não tirou a linha do cron"; exit 1
+          fi
 
       - name: O que deu errado
         if: failure()

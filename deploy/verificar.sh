@@ -119,6 +119,13 @@ elif [ "$host" != localhost ] && command -v getent >/dev/null 2>&1; then
   else aviso "O nome $host não é encontrado; os computadores da equipe também precisam achá-lo"; fi
 fi
 
+# ---- Fuso ----
+# o cron da atualização automática (make agendar) e o nome dos backups usam a hora da máquina
+fuso=$(timedatectl show -p Timezone --value 2>/dev/null || true)
+if [ -z "$fuso" ]; then :
+elif [ "$fuso" = America/Sao_Paulo ]; then ok "Fuso de São Paulo"
+else aviso "O fuso desta máquina é $fuso: as 22h da atualização automática seriam em outra hora. sudo timedatectl set-timezone America/Sao_Paulo"; fi
+
 # ---- Branch ----
 branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 if [ "$branch" = development ]; then ok "Na branch development"

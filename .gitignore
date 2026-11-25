@@ -5,8 +5,11 @@
 *.wav
 *.xlsx
 *.xls
-# Relatórios reais do sistema antigo, guardados só na máquina de quem importa
+*.csv
+# Relatórios reais do sistema antigo, guardados só na máquina de quem importa. A pasta importar/
+# saiu em 25/11 (o servidor recebe o dump do banco, DEPLOY.md seção 8), mas continua barrada aqui
 docs/Excel/
+importar/
 # Servidor local (Makefile): chaves em deploy/.env (já coberto por .env), certificados e backups
 deploy/certs/
 backups/
