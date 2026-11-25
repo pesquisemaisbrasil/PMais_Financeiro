@@ -447,13 +447,16 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
   const [choosingColumns, setChoosingColumns] = useState(false);
 
   useEffect(() => {
+    // Só quando o texto digitado mudou a busca: o "Limpar filtros" já aplica a busca vazia na hora,
+    // e repetir aqui, 300 ms depois, apagava a conta marcada nesse meio-tempo (visto no CI, 25/11).
+    if (searchText === search) return;
     const timer = setTimeout(() => {
       setSearch(searchText);
       setPage(1);
       setSelected(new Set());
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchText]);
+  }, [searchText, search]);
 
   const query = useMemo(
     () => ({

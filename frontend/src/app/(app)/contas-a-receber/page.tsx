@@ -291,12 +291,15 @@ function ReceivablesContent({
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
+    // Só quando o texto digitado mudou a busca: sem isso, 300 ms depois de abrir a tela ou de
+    // "Limpar filtros", a lista voltava para a página 1 mesmo com a busca igual (como no a pagar).
+    if (searchText === search) return;
     const timer = setTimeout(() => {
       setSearch(searchText);
       setPage(1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchText]);
+  }, [searchText, search]);
 
   const query = useMemo(
     () => ({
