@@ -109,12 +109,12 @@ def test_the_list_totals_and_the_filtered_sum_use_the_net(
 def test_the_export_has_the_gross_the_three_totals_and_the_net(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
-    create(client, auth, world, amount="1000.00", adjustments=LINES)
+    created = create(client, auth, world, amount="1000.00", adjustments=LINES)
     lines = client.get("/payables/export?mode=tudo", headers=auth).text.lstrip("﻿").splitlines()
     assert "Valor principal;Acréscimos;Descontos;Impostos;Valor líquido;Pago;Pendente" in lines[1]
-    assert lines[2].endswith(";1.000,00;20,00;50,00;30,00;940,00;0,00;940,00") or lines[2].endswith(
-        ";1000,00;20,00;50,00;30,00;940,00;0,00;940,00"
-    )
+    # depois do pendente, o número da conta (PF-73)
+    ending = f";20,00;50,00;30,00;940,00;0,00;940,00;{created['id']}"
+    assert lines[2].endswith(f";1.000,00{ending}") or lines[2].endswith(f";1000,00{ending}")
 
 
 @pytest.mark.parametrize(
