@@ -50,6 +50,12 @@ test("extrato × sistema, saldo do mês e fechamento: fechar, a trava, a planilh
   await expect(reasons).toContainText("TARIFA MANUTENCAO CONTA");
   await expect(reasons).toContainText("(pendente)");
   await expect(reasons).toContainText("Nenhuma. Pix devolvido: a saída está no extrato");
+  // o extrato × sistema vai para o Excel (PF-74)
+  const [differenceSheet] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Exportar Excel" }).click(),
+  ]);
+  expect(differenceSheet.suggestedFilename()).toMatch(/^extrato-x-sistema-\d{4}-\d{2}\.xlsx$/);
 
   // ---- Saldo do mês: a entrada e a saída do extrato, e o que falta conferir ----
   await page.getByRole("tab", { name: "Saldo do mês" }).click();

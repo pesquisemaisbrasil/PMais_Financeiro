@@ -1,10 +1,12 @@
 # ruff: noqa: F811  (as fixtures importadas de test_payables são reusadas pelo nome)
+import io
 from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from models.reference import BankAccount
@@ -246,6 +248,44 @@ def test_the_difference_ignores_other_accounts_and_an_empty_month_says_not_impor
     assert mine["systemTotal"] == "450.00"  # a baixa é desta conta, e o extrato dela não veio
     assert difference(client, auth, other, OCT)["systemTotal"] == "0.00"
     assert difference(client, auth, account, NOV)["byDay"] == []
+
+
+def test_the_difference_goes_to_excel_one_row_per_day_with_what_explains_it(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    account = world["account"].id
+    pay(client, auth, world, date(2026, 10, 5), amount="450.00")
+    load(
+        client,
+        auth,
+        db_session,
+        account,
+        (date(2026, 10, 5), "-450.00", "PIX GRAFICA"),
+        (date(2026, 10, 9), "-35.00", "TARIFA"),
+    )
+    response = client.get(f"/bank-accounts/{account}/difference/export?month={OCT}", headers=auth)
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="extrato-x-sistema-2026-10.xlsx"'
+    )
+    sheet = load_workbook(io.BytesIO(response.content)).active
+    title = sheet["A1"].value
+    assert "Itaú · PPlus · outubro/2026" in title
+    assert "saídas sem par R$ 485,00" in title and "voltas R$ 0,00" in title
+    assert [cell.value for cell in sheet[2]] == [
+        "Dia",
+        "Saídas do extrato",
+        "Baixas do sistema",
+        "Diferença",
+    ]
+    rows = [[cell.value for cell in row] for row in sheet.iter_rows(min_row=3, max_row=5)]
+    assert [(row[0].date(), Decimal(str(row[3]))) for row in rows[:2]] == [
+        (date(2026, 10, 5), Decimal("0")),
+        (date(2026, 10, 9), Decimal("35.00")),
+    ]
+    assert rows[2][0] == "Total" and Decimal(str(rows[2][3])) == Decimal("35.00")
+    missing = client.get(f"/bank-accounts/9999/difference/export?month={OCT}", headers=auth)
+    assert missing.status_code == 404
 
 
 def test_the_difference_refuses_a_missing_account_and_a_bad_month(
