@@ -1,7 +1,8 @@
 name: Deploy (servidor local)
 
 # Roda o deploy do servidor local de ponta a ponta num Ubuntu, como no servidor do escritório:
-# make verificar, configurar e subir (que confere pelo HTTPS), administrador e login, backup,
+# make verificar, configurar e subir (que confere pelo Caddy local), o nginx da frente com o arquivo
+# do make nginx (ADR 0027), administrador e login, backup,
 # voltar a uma versão com o banco dela, restaurar os arquivos, subir o projeto com o banco de outra
 # máquina (make subir-projeto) e desligar a atualização automática. Só quando algo do deploy muda.
 # DEPLOY.md
@@ -44,22 +45,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verificar o servidor
-        run: make verificar HOST=localhost
+      # o nginx fica na frente do Financeiro, como no servidor
+      - name: nginx do servidor
+        run: command -v nginx || { sudo apt-get update && sudo apt-get install -y nginx; }
 
-      - name: Primeira instalação (configurar e subir, que confere pelo HTTPS)
+      - name: Verificar o servidor
+        run: make verificar DOMINIO=financeiro.ci.test
+
+      - name: O HOST de antes e um IP como DOMINIO são recusados
         run: |
-          make configurar HOST=localhost
+          if make verificar HOST=192.168.0.50; then echo "Aceitou HOST"; exit 1; fi
+          if make configurar DOMINIO=192.168.0.50; then echo "Aceitou um IP como DOMINIO"; exit 1; fi
+          test ! -f deploy/.env
+
+      - name: Primeira instalação (configurar e subir, que confere pelo Caddy local)
+        run: |
+          make configurar DOMINIO=financeiro.ci.test
+          grep -qx "DOMINIO_API=api.financeiro.ci.test" deploy/.env
           make subir
+          # o Caddy só escuta na própria máquina, e o Financeiro não publica outra porta
+          ss -Hltn "sport = :8089" | grep -q "127.0.0.1:8089"
+          if docker ps --filter label=com.docker.compose.project=financeiro --format '{{.Ports}}' | grep -E '0\.0\.0\.0|\[::\]'; then
+            echo "O Financeiro publicou uma porta para fora da máquina"; exit 1
+          fi
+
+      - name: O nginx na frente, com o arquivo do make nginx
+        run: |
+          make nginx
+          sudo cp financeiro.nginx.conf /etc/nginx/sites-available/financeiro.conf
+          sudo ln -sf /etc/nginx/sites-available/financeiro.conf /etc/nginx/sites-enabled/financeiro.conf
+          sudo nginx -t
+          sudo systemctl restart nginx
+          # sem certbot na CI: pelo HTTP do nginx, com os dois nomes
+          curl -fsS -o /dev/null --resolve financeiro.ci.test:80:127.0.0.1 http://financeiro.ci.test/login
+          curl -fsS --resolve api.financeiro.ci.test:80:127.0.0.1 http://api.financeiro.ci.test/readyz
 
       - name: Administrador e login pela rede
         run: |
           senha="$(openssl rand -hex 8)Aa1!"
           docker compose --env-file deploy/.env -f deploy/compose.yml exec -T -e CREATE_USER_PASSWORD="$senha" \
             api python scripts/create_user.py --email ci.deploy@pesquisemais.invalid --name "CI do deploy" --role admin
-          make certificado
-          curl -fsS --cacert financeiro-certificado-raiz.crt -X POST https://localhost:8443/auth/token \
-            -H "Origin: https://localhost" \
+          curl -fsS --resolve api.financeiro.ci.test:80:127.0.0.1 -X POST http://api.financeiro.ci.test/auth/token \
+            -H "Origin: https://financeiro.ci.test" \
             --data-urlencode "username=ci.deploy@pesquisemais.invalid" --data-urlencode "password=$senha" \
             | python3 -c "import json, sys; assert json.load(sys.stdin)['mfa_token']; print('login ok')"
 
@@ -91,7 +118,7 @@ jobs:
           for chave in ENCRYPTION_KEY PIX_SECRET_KEY FILES_MASTER_KEY; do
             grep -qxF "$(grep "^$chave=" backups/local-ci-chaves.env)" deploy/.env
           done
-          ls backups/env-antes-do-local-*.env financeiro-certificado-raiz.crt
+          ls backups/env-antes-do-local-*.env financeiro.nginx.conf
 
       - name: A atualização automática ligada pelo subir-projeto, e desligar
         run: |
