@@ -128,6 +128,10 @@ Pedido do Bruno ([acesso-e-auditoria, Ajustes de 25/11](../specs/acesso-e-audito
 
 Pedido do Bruno ([registro de 24/11](../transcricoes/2026-11-24-cadastros-iguais-ao-sistema-antigo.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)): o `scripts/gerar-dump-local.sh` gera, na pasta `backups/` (fora do git), o pacote do banco local inteiro (o banco, os arquivos do cofre e as três chaves que os abrem), e o `make restaurar-local` do servidor põe esse pacote no ar. Na primeira instalação, o `make subir-projeto IP=<IP> CONFIRMAR=sim` (ou `DOMINIO=<nome>`) faz tudo de uma vez: confere o pacote, configura, sobe, põe o banco do pacote, liga as 22h e gera o certificado (pelo IP) ou o arquivo do nginx (por nome). Até 26/11 era `HOST=<IP>` (ADR 0027). O `make agendar` liga a atualização automática da `development` todo dia às 22h: sem versão nova, só o backup; com versão nova que não sobe, volta sozinho à de antes com o banco do backup. O `make verificar` avisa quando o fuso do servidor não é o de São Paulo.
 
+## Redefinir a senha de quem esqueceu (26/11/2026)
+
+Spec [acesso-e-auditoria, Ajustes de 26/11](../specs/acesso-e-auditoria.md). No servidor, `make redefinir-senha EMAIL=...` pede uma senha provisória no terminal; no próximo login, a pessoa passa pela tela **Crie a sua senha** (que agora diz "Sua senha foi redefinida") e depois digita o código do autenticador de sempre, sem cadastrar de novo. A senha esquecida e a provisória deixam de valer, os computadores liberados continuam e as sessões abertas caem. Ver a senha de alguém continua impossível: o banco só guarda o hash.
+
 ## Servidor pelo IP ou por nome, atrás do nginx (26/11/2026)
 
 No primeiro deploy, o servidor já tinha o nginx nas portas 80 e 443, atendendo outros sistemas, e o `make verificar` parou nelas. Agora o Financeiro abre de dois jeitos, sem usar essas portas ([ADR 0027](../architecture/adr/0027-nginx-do-servidor-na-frente-do-caddy.md)):
@@ -156,6 +160,14 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 3. Com uma senha nova válida, a tela segue para **Cadastre o segundo fator**, e o resto é o primeiro login de sempre.
 4. Saia e entre com a senha inicial: "E-mail ou senha incorretos". Com a nova, vai direto ao código do app.
 5. Os testes: `pytest tests/test_senha_inicial.py` em `backend/` e `npx playwright test e2e/login.spec.ts` em `frontend/`.
+
+### Redefinir a senha (26/11)
+
+1. No servidor: `make redefinir-senha EMAIL=<conta>` e digite uma senha provisória fraca (ex.: sem maiúscula): recusa e diz "Nada mudou". Com um e-mail que não existe: "Nenhuma conta com esse e-mail".
+2. Com uma provisória válida: a senha antiga dá "E-mail ou senha incorretos"; a provisória abre **Crie a sua senha** com "Sua senha foi redefinida".
+3. A senha nova igual à provisória é recusada. Com outra, segue para **Verificação em duas etapas** (o código do app de sempre) e entra.
+4. Quem estava logado com essa conta em outro computador cai quando a sessão precisa se renovar (em poucos minutos) e volta para o login.
+5. Os testes: `pytest tests/test_redefinir_senha.py` em `backend/` e `npx playwright test e2e/login.spec.ts` em `frontend/`.
 
 ### Servidor pelo IP ou por nome (26/11)
 

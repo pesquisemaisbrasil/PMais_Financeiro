@@ -318,6 +318,7 @@ O dump leva **tudo**:
 | `make conta EMAIL=... NOME="..." NIVEL=financeiro` | Cria uma conta da equipe (`financeiro`, o Usuário, ou `admin`) com senha inicial: pede a senha inicial no terminal, e a pessoa troca por uma só dela no primeiro acesso, antes do autenticador |
 | `make definir-nivel EMAIL=... NIVEL=...` | Troca o nível de uma conta: `financeiro` (usuário), `admin` ou `superadmin` |
 | `make liberar-navegador EMAIL=...` | Libera o computador que a pessoa pediu por último, quando não há outro administrador para liberar na tela Acessos |
+| `make redefinir-senha EMAIL=...` | Para quem esqueceu a senha: pede no terminal uma senha provisória (passe à pessoa por um canal seguro). No próximo login, ela cria uma senha só dela antes do código do autenticador, que continua o mesmo. As sessões abertas caem. Ver a senha de alguém não dá: o banco só guarda o hash |
 
 Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopped`), desde que o Docker suba com a máquina. Os logs têm tamanho limitado (5 arquivos de 10 MB por parte), então não enchem o disco.
 
@@ -341,6 +342,7 @@ Para um comando do Docker Compose à mão, use `bash deploy/compose.sh <comando>
 | Por nome, erro 413 ao enviar um arquivo | O nginx barra envios maiores que o `client_max_body_size` do `financeiro.conf` (30 MB). O arquivo veio de outro modelo? Rode `make nginx` e copie de novo (seção 4) |
 | Troquei o IP do servidor, ou ganhamos um nome no DNS | `make trocar-endereco IP=<novo>` ou `make trocar-endereco DOMINIO=<nome>` (seção 5) |
 | `MODO no deploy/.env tem de ser ip ou nginx` | O `deploy/.env` é de antes dos dois modos ou foi editado à mão: rode `make trocar-endereco IP=...` (ou `DOMINIO=...`), que acerta as linhas do endereço |
+| Alguém esqueceu a senha | `make redefinir-senha EMAIL=pessoa@pesquisemais.com.br` e passe a senha provisória à pessoa. Perdeu também o celular do autenticador: `bash deploy/compose.sh exec api python scripts/reset_mfa.py --email pessoa@pesquisemais.com.br`, e no próximo login ela cadastra de novo |
 | Alguém vê "Computador ainda não liberado" depois da senha e do código | É um computador (ou navegador) novo, ou a pessoa limpou os dados do navegador. Outro admin libera em **Acessos**. Sem outro admin: `make liberar-navegador EMAIL=pessoa@pesquisemais.com.br` libera o pedido mais recente dela ([ADR 0022](docs/architecture/adr/0022-navegador-liberado-por-cookie.md)) |
 | A atualização das 22h não rodou | `crontab -l` mostra a linha do Financeiro? Se não, `make agendar`. Se mostra, o log da noite em `backups/logs/` diz o motivo: sem acesso ao GitHub, mudança local nos arquivos ou outra atualização rodando |
 | O log da noite diz "A versão nova não subiu. Voltando..." | No ar ficou a versão de antes, com o banco do backup daquela noite. O erro está no log, acima dessa linha. Corrija na `development`: a próxima noite tenta de novo, ou rode `make atualizar` à mão |
