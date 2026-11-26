@@ -133,7 +133,7 @@ Pedido do Bruno ([registro de 24/11](../transcricoes/2026-11-24-cadastros-iguais
 No primeiro deploy, o servidor já tinha o nginx nas portas 80 e 443, atendendo outros sistemas, e o `make verificar` parou nelas. Agora o Financeiro abre de dois jeitos, sem usar essas portas ([ADR 0027](../architecture/adr/0027-nginx-do-servidor-na-frente-do-caddy.md)):
 
 - **pelo IP**, enquanto não há nome no DNS: `make configurar IP=192.168.30.15`, com as telas em `https://IP:8444` e a API em `https://IP:8443`, e o certificado da própria máquina instalado nos computadores (`make certificado`);
-- **por nome**, como o P+ Connect: `make configurar DOMINIO=financeiro.pesquisemais.com.br`. O nginx cuida do HTTPS (certbot) e repassa a um Caddy que só escuta em `127.0.0.1:8089`; o `make nginx` gera o arquivo do nginx, e só a rede do escritório abre (Q64).
+- **por nome**, como o P+ Connect: `make configurar DOMINIO=financeiro.pesquisemais.com.br`. O nginx cuida do HTTPS (certbot) e repassa a um Caddy que só escuta em `127.0.0.1:8089`; o `make nginx` gera o arquivo do nginx, e o Financeiro fica aberto pela internet, como o Connect, protegido pelo login (Q64).
 
 O `make trocar-endereco` passa de um para o outro sem mexer em chaves, banco e arquivos. `make atualizar`, `make agendar` e `make voltar` seguem iguais. O `HOST=` de antes virou `IP=`.
 
@@ -161,7 +161,7 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 
 1. No servidor: `make verificar IP=192.168.30.15` não reclama mais das portas 80 e 443; confere a 8444 e a 8443. `make verificar HOST=...` recusa e diz para usar `IP=`.
 2. `make configurar IP=192.168.30.15`, `make subir` e `make certificado`: com o certificado instalado, `https://192.168.30.15:8444` abre o login, e o `make conferir` dá `[ok]` nas telas e na API.
-3. Com um nome no DNS: `make trocar-endereco DOMINIO=financeiro.pesquisemais.com.br` sobe de novo com o mesmo banco; `make nginx` e os comandos dele (com o certbot) ligam o HTTPS, e `https://<DOMINIO>` abre sem certificado instalado. De fora da rede do escritório, o nginx responde 403.
+3. Com um nome no DNS: `make trocar-endereco DOMINIO=financeiro.pesquisemais.com.br` sobe de novo com o mesmo banco; `make nginx` e os comandos dele (com o certbot) ligam o HTTPS, e `https://<DOMINIO>` abre sem certificado instalado, de dentro e de fora do escritório.
 4. `make trocar-endereco IP=...` volta ao IP, com o mesmo certificado raiz de antes.
 5. A CI do deploy (`.github/workflows/deploy.yml`) roda os dois modos, com o login, o backup, o `make voltar`, o `make subir-projeto` e a troca de um modo para o outro.
 

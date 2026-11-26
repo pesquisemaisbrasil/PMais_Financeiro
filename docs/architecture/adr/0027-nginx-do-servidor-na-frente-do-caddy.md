@@ -1,6 +1,6 @@
 # ADR 0027: Dois jeitos de abrir o servidor: pelo IP, com o certificado da máquina, ou por nome, atrás do nginx
 
-**Status:** Aceito, provisório (por nome, abrir para a internet ou só para a rede do escritório: Q64)
+**Status:** Aceito, provisório (por nome, aberto pela internet desde 26/11; a confirmação do Bruno e do DPO está na Q64)
 **Data:** 26/11/2026
 **Quem decidiu:** pedidos no primeiro deploy do servidor (26/11/2026): "faça igual ao connect" e, enquanto não há nome no DNS, "deixar sem domínio, só o IP por enquanto", com os dois jeitos possíveis
 
@@ -25,7 +25,7 @@ O Financeiro tem **dois modos**, escolhidos no `make configurar` (`IP=` ou `DOMI
 - **O nginx do servidor** fica com o HTTPS (certbot, que renova sozinho). O Financeiro entra nele como um arquivo separado, `financeiro.conf`, sem mexer nos outros sistemas. O modelo é o `deploy/nginx/financeiro.conf`; o `make nginx` preenche os nomes e a porta e mostra os comandos de instalação, que pedem `sudo` e ficam com quem cuida da máquina.
 - **O Caddy** escuta só em `127.0.0.1:PORTA_LOCAL` (padrão 8089; o Connect usa a 8088), por HTTP (`auto_https off`), e escolhe telas ou API pelo nome. Ele confia no `X-Forwarded-For` e no `X-Forwarded-Proto` do nginx (`trusted_proxies private_ranges`); o nginx substitui o `X-Forwarded-For` do cliente pelo IP que recebeu.
 - **Endereços:** telas em `https://DOMINIO` e API em `https://DOMINIO_API` (padrão `api.DOMINIO`), como `connect.` e `api.connect.`. Telas e API no mesmo domínio-base continuam o mesmo "site" para o cookie `SameSite=Strict`.
-- **Só a rede do escritório**, por enquanto: o `financeiro.conf` libera as faixas privadas e nega o resto. Abrir para a internet fica com a Q64.
+- **Aberto pela internet**, como o Connect (26/11/2026). A primeira versão liberava só as faixas privadas, mas o DNS público leva os computadores do escritório ao IP público do servidor, e o nginx respondia 403 até de dentro do escritório. Quem protege é o login (senha, autenticador e computador liberado) e o limite de tentativas da API. Fechar só para o escritório é acrescentar `allow`/`deny` no `financeiro.conf` do `/etc/nginx` (DEPLOY.md, seção 4); a confirmação fica com a Q64.
 - **Sem log de acesso** no nginx (IP é dado pessoal), **envio até 30 MB** (a parte do PDF de comprovantes tem 25 MB; o padrão do nginx é 1 MB) e até 5 minutos de resposta.
 
 **O que vale para os dois:**
@@ -47,7 +47,7 @@ O Financeiro tem **dois modos**, escolhidos no `make configurar` (`IP=` ou `DOMI
 ## Consequências
 
 - Pelo IP, cada computador da equipe instala o certificado raiz (como no ADR 0020) e abre o endereço com a porta (`:8444`). Na troca para o nome, deixam de precisar dele.
-- Por nome, pede da TI os dois nomes no DNS e, para o certbot, que sejam públicos e a porta 80 alcance o servidor pela internet. Se forem só internos, o certificado é o da empresa, posto à mão no `financeiro.conf` do `/etc/nginx`. Se o DNS público levar os computadores do escritório ao IP público e o roteador não devolver o IP interno, o nginx nega (403): o DNS interno resolve.
+- Por nome, pede da TI os dois nomes no DNS e, para o certbot, que sejam públicos e a porta 80 alcance o servidor pela internet. Se forem só internos, o certificado é o da empresa, posto à mão no `financeiro.conf` do `/etc/nginx`. Por nome, o Financeiro fica alcançável pela internet: senha, autenticador, computador liberado e o limite de tentativas são a proteção, como no Connect.
 - Copiar o `financeiro.conf` de novo para o `/etc/nginx` apaga o HTTPS que o certbot pôs nele: depois de copiar, rode o certbot outra vez (o `make nginx` avisa).
 - Os navegadores liberados (ADR 0022) são por endereço: depois de um `make trocar-endereco`, cada computador vira pedido de novo.
 - Um `deploy/.env` sem `MODO` (do ADR 0020 ou da primeira versão desta decisão) para no `deploy/compose.sh` com a dica do `make trocar-endereco`. Em 26/11 nenhum servidor tinha subido com eles.

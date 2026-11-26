@@ -63,7 +63,7 @@ sudo ufw allow 'Nginx Full'                          # por nome: as portas 80 e 
 ```
 
 - **Pelo IP:** um **IP fixo** na rede (reservado no roteador) e as portas 8444 e 8443 livres. Trocar o IP depois é o `make trocar-endereco` (seção 5).
-- **Por nome:** o nginx e o certbot (`sudo apt install -y nginx certbot python3-certbot-nginx`, se o servidor ainda não tem) e **dois nomes no DNS**, pedidos à TI, apontando para o servidor: um para as telas e um para a API. Para o certbot, os nomes precisam ser públicos e a porta 80 alcançar o servidor pela internet, como no Connect; se forem só da rede interna, o certificado é outro, da empresa (seção 4). Só a rede do escritório abre; abrir pela internet fica com a Q64 ([perguntas-abertas](docs/planning/perguntas-abertas.md)).
+- **Por nome:** o nginx e o certbot (`sudo apt install -y nginx certbot python3-certbot-nginx`, se o servidor ainda não tem) e **dois nomes no DNS**, pedidos à TI, apontando para o servidor: um para as telas e um para a API. Para o certbot, os nomes precisam ser públicos e a porta 80 alcançar o servidor pela internet, como no Connect; se forem só da rede interna, o certificado é outro, da empresa (seção 4). O Financeiro fica **aberto pela internet**, como o Connect: quem protege é o login, com senha, autenticador e computador liberado (Q64 em [perguntas-abertas](docs/planning/perguntas-abertas.md)).
 - **A pasta do repositório é do seu usuário,** não do root: o `make` grava o `deploy/.env` e os `backups/` nela, e o cron das 22h roda com o seu usuário. Clonou com `sudo`? `sudo chown -R "$USER": <pasta>`.
 - **Compose** 2.20 ou mais novo: confira com `docker compose version`.
 - **Internet** só para baixar as imagens, o `npm ci` e o `pip` no build, e para a consulta de CNPJ e de feriados (BrasilAPI). O Connect, se configurado, também.
@@ -162,7 +162,8 @@ sudo certbot --nginx --redirect -d financeiro.pesquisemais.com.br -d api.finance
 - O **certbot** pega o certificado dos dois nomes, acrescenta o HTTPS só no `financeiro.conf` e renova sozinho. Os computadores da equipe não instalam nada.
 - **Nomes só da rede interna** (o certbot não alcança): no lugar do `certbot`, ponha no `/etc/nginx/sites-available/financeiro.conf` um bloco `listen 443 ssl` com o certificado da empresa para os dois nomes, como os outros sistemas do nginx fazem.
 - **Copiar o arquivo de novo** (o modelo mudou, ou outro nome) apaga o HTTPS que o certbot tinha acrescentado: depois de copiar, rode o `certbot` outra vez.
-- O arquivo só deixa entrar a **rede do escritório** (faixas privadas) e não grava log de acesso (IP é dado pessoal). Envio de até 30 MB, para os PDFs de comprovantes.
+- O arquivo deixa o Financeiro **aberto pela internet**, como o Connect: quem protege é o login (senha, autenticador e computador liberado) e o limite de tentativas da API. Ele não grava log de acesso (IP é dado pessoal) e aceita envio de até 30 MB, para os PDFs de comprovantes.
+- **Para fechar só para o escritório,** acrescente no `location /` do `/etc/nginx/sites-available/financeiro.conf` um `allow` com o IP público do escritório e as faixas internas (`allow 192.168.0.0/16;` etc.) e, por último, `deny all;`. Depois, `sudo nginx -t && sudo systemctl reload nginx`. Se o DNS público levar os computadores do escritório ao IP público, o nginx vê esse IP, e não o interno.
 
 Depois, `make conferir` mostra `[ok]` também em `https://<DOMINIO>/login` e `https://<DOMINIO_API>/readyz`.
 
@@ -336,7 +337,7 @@ Para um comando do Docker Compose à mão, use `bash deploy/compose.sh <comando>
 | A tela abre, mas o login diz "Sem conexão com o servidor" | Pelo IP: a porta da API (8443) está fechada no firewall, ou o certificado não foi instalado e o navegador bloqueia a API. Por nome: o nome da API não está no DNS, ou ficou fora do certificado (o `certbot` leva os dois `-d`) |
 | "Os anexos não estão disponíveis agora" | O MinIO não subiu ou o certificado dele sumiu: `make status`; apagar `deploy/certs/` e rodar `make infra` gera outro |
 | Por nome, `make conferir` dá `[aviso]` no HTTPS | O nginx ainda não foi ligado ou não tem o certificado (seção 4), ou o nome não chega nesta máquina (`make verificar` mostra) |
-| Por nome, 403 Forbidden do nginx | O computador não está na rede do escritório. Se está, o DNS leva o nome ao IP público e o roteador não devolve o IP interno: peça à TI que o DNS interno aponte os dois nomes para o IP do servidor na rede |
+| Por nome, 403 Forbidden do nginx | O `financeiro.conf` do `/etc/nginx` tem linhas de `allow`/`deny` (de um modelo antigo ou postas à mão para fechar só para o escritório) e o IP de quem abriu não está liberado. `sudo grep "forbidden by rule" /var/log/nginx/error.log \| tail -3` mostra o IP visto (`client:`): libere-o com um `allow` ou tire as linhas (seção 4) |
 | Por nome, erro 413 ao enviar um arquivo | O nginx barra envios maiores que o `client_max_body_size` do `financeiro.conf` (30 MB). O arquivo veio de outro modelo? Rode `make nginx` e copie de novo (seção 4) |
 | Troquei o IP do servidor, ou ganhamos um nome no DNS | `make trocar-endereco IP=<novo>` ou `make trocar-endereco DOMINIO=<nome>` (seção 5) |
 | `MODO no deploy/.env tem de ser ip ou nginx` | O `deploy/.env` é de antes dos dois modos ou foi editado à mão: rode `make trocar-endereco IP=...` (ou `DOMINIO=...`), que acerta as linhas do endereço |
