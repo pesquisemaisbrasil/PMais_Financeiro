@@ -1,15 +1,16 @@
 # Deploy do Financeiro no servidor local (branch development): banco, cofre de arquivos, API, telas
-# e HTTPS com certificado da própria máquina. Guia: DEPLOY.md
+# e o Caddy, atrás do nginx do servidor, que tem as portas 80 e 443 e o HTTPS (como o P+ Connect,
+# ADR 0027). Guia: DEPLOY.md
 #
 # Primeira vez, no servidor, dentro da pasta do repositório, com o pacote do banco local em backups/
 # (scripts/gerar-dump-local.sh), tudo de uma vez:
-#   make subir-projeto HOST=<IP ou nome do servidor> CONFIRMAR=sim
+#   make subir-projeto DOMINIO=financeiro.pesquisemais.com.br CONFIRMAR=sim
 # Ou por partes, sem o pacote:
-#   make verificar HOST=<IP ou nome do servidor>    confere programas, Docker, portas, firewall e disco
-#   make configurar HOST=<IP ou nome do servidor>   verifica de novo e gera deploy/.env com chaves novas
-#   make subir                                      sobe tudo (banco, cofre, API, telas e HTTPS)
+#   make verificar DOMINIO=<nome>    confere programas, Docker, nginx, porta local, firewall e disco
+#   make configurar DOMINIO=<nome>   verifica de novo e gera deploy/.env com chaves novas
+#   make subir                       sobe tudo (banco, cofre, API, telas e o Caddy em 127.0.0.1)
+#   make nginx                       gera o arquivo do nginx e mostra como ligar o HTTPS (certbot)
 #   make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"
-#   make certificado                                para instalar nos computadores da equipe
 # Depois: make atualizar (backup, baixa a development e sobe a versão nova), ou make agendar para isso
 # rodar sozinho todo dia às 22h. Deu problema numa versão nova:
 # make voltar ARQUIVO=backups/banco-<data>.dump CONFIRMAR=sim. `make` sozinho lista tudo.
@@ -21,28 +22,41 @@ ENV_FILE := deploy/.env
 COMPOSE := docker compose --env-file $(ENV_FILE) -f deploy/compose.yml
 AGORA := $(shell date +%Y%m%d-%H%M%S)
 
+# Telas em https://DOMINIO e API em https://DOMINIO_API (padrão: api.DOMINIO). O nginx separa os
+# sistemas da máquina pelo nome, por isso não vale mais o IP (HOST) de antes.
+ifeq ($(origin HOST),command line)
+$(error HOST não é mais usado: o Financeiro fica atrás do nginx, que separa os sistemas pelo nome. Use DOMINIO=financeiro.pesquisemais.com.br - DEPLOY.md)
+endif
+DOMINIO_API_NOVO = $(or $(DOMINIO_API),api.$(DOMINIO))
+
 .PHONY: ajuda verificar configurar banco infra backend frontend proxy subir conferir parar status logs \
 	atualizar voltar backup restaurar-banco restaurar-arquivos restaurar-local conferir-pacote subir-projeto \
 	agendar desagendar admin conta \
-	definir-nivel liberar-navegador certificado
+	definir-nivel liberar-navegador nginx
 
 ajuda: ## Lista os comandos
 	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: DEPLOY.md"
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN { FS = ":.*## " } { printf "  make %-20s %s\n", $$1, $$2 }'
 
-verificar: ## Confere se o servidor está pronto: programas, Docker, portas, firewall, disco, endereço
-	@HOST="$(HOST)" bash deploy/verificar.sh
+verificar: ## Confere se o servidor está pronto: programas, Docker, nginx, porta local, firewall, disco, endereços
+	@DOMINIO="$(DOMINIO)" DOMINIO_API="$(DOMINIO_API)" PORTA_LOCAL="$(PORTA_LOCAL)" bash deploy/verificar.sh
 
-configurar: ## Primeira vez: verifica o servidor e gera deploy/.env com chaves novas (HOST=<IP ou nome>)
-	@test -n "$(HOST)" || { echo 'Diga o endereço do servidor: make configurar HOST=192.168.0.50'; exit 1; }
-	@case "$(HOST)" in *[/:\ ]*) echo "HOST é só o IP ou o nome, sem http:// nem porta: $(HOST)"; exit 1;; esac
+configurar: ## Primeira vez: verifica o servidor e gera deploy/.env com chaves novas (DOMINIO=<nome das telas>)
+	@test -n "$(DOMINIO)" || { echo 'Diga o endereço das telas: make configurar DOMINIO=financeiro.pesquisemais.com.br'; exit 1; }
+	@for nome in "$(DOMINIO)" "$(DOMINIO_API_NOVO)"; do \
+	  printf '%s' "$$nome" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$$' || \
+	    { echo "Endereço inválido: $$nome. Só o nome, em minúsculas, sem http:// nem porta (ex.: financeiro.pesquisemais.com.br)"; exit 1; }; \
+	done
 	@test ! -f $(ENV_FILE) || { echo "$(ENV_FILE) já existe, e as chaves dele são permanentes: não gero outras."; exit 1; }
-	@HOST="$(HOST)" bash deploy/verificar.sh
+	@DOMINIO="$(DOMINIO)" DOMINIO_API="$(DOMINIO_API_NOVO)" PORTA_LOCAL="$(or $(PORTA_LOCAL),8089)" bash deploy/verificar.sh
 	@command -v openssl >/dev/null || { echo "Falta o openssl neste servidor."; exit 1; }
 	@umask 077 && { \
 	  echo "# Gerado por make configurar em $(AGORA). Fora do git. Guarde uma cópia num cofre, longe deste"; \
 	  echo "# servidor: sem ENCRYPTION_KEY, PIX_SECRET_KEY e FILES_MASTER_KEY os dados guardados não abrem."; \
-	  echo "SERVER_HOST=$(HOST)"; \
+	  echo "# Telas em https://DOMINIO e API em https://DOMINIO_API, pelo nginx; o Caddy escuta em 127.0.0.1:PORTA_LOCAL."; \
+	  echo "DOMINIO=$(DOMINIO)"; \
+	  echo "DOMINIO_API=$(DOMINIO_API_NOVO)"; \
+	  echo "PORTA_LOCAL=$(or $(PORTA_LOCAL),8089)"; \
 	  echo "POSTGRES_PASSWORD=$$(openssl rand -hex 24)"; \
 	  echo "FINANCEIRO_MIGRATOR_PASSWORD=$$(openssl rand -hex 24)"; \
 	  echo "FINANCEIRO_APP_PASSWORD=$$(openssl rand -hex 24)"; \
@@ -58,10 +72,10 @@ configurar: ## Primeira vez: verifica o servidor e gera deploy/.env com chaves n
 	  echo "CONNECT_CLIENT_SECRET="; \
 	  echo "PAYMENT_DISPATCH_SECONDS=0"; \
 	} > $(ENV_FILE)
-	@echo "Pronto: $(ENV_FILE) criado para https://$(HOST). Guarde uma cópia dele num cofre. Agora: make subir"
+	@echo "Pronto: $(ENV_FILE) criado para https://$(DOMINIO) (API em https://$(DOMINIO_API_NOVO)). Guarde uma cópia dele num cofre. Agora: make subir"
 
 $(ENV_FILE):
-	@echo "Falta $(ENV_FILE). Rode primeiro: make configurar HOST=<IP ou nome do servidor>"; exit 1
+	@echo "Falta $(ENV_FILE). Rode primeiro: make configurar DOMINIO=financeiro.pesquisemais.com.br"; exit 1
 
 # Certificado do MinIO (só dentro do servidor): em produção a API só fala https com o cofre.
 deploy/certs/public.crt:
@@ -88,25 +102,41 @@ backend: infra ## Sobe a API (as migrations do banco rodam quando ela sobe)
 frontend: backend ## Sobe as telas
 	$(COMPOSE) up -d --build --wait frontend
 
-proxy: $(ENV_FILE) ## Sobe o HTTPS (Caddy) na frente das telas e da API
+proxy: $(ENV_FILE) ## Sobe o Caddy (só em 127.0.0.1, atrás do nginx) na frente das telas e da API
 	$(COMPOSE) up -d --wait proxy
 
-subir: verificar frontend proxy ## Verifica o servidor, sobe tudo (banco, cofre, API, telas e HTTPS) e confere pelo HTTPS
+subir: verificar frontend proxy ## Verifica o servidor, sobe tudo (banco, cofre, API, telas e Caddy) e confere
 	@$(MAKE) --no-print-directory conferir
 	@set -a && . ./$(ENV_FILE) && set +a && \
-	  echo "Pronto: https://$$SERVER_HOST (API em https://$$SERVER_HOST:8443), versão $$(git rev-parse --short HEAD). Primeira vez? make admin e make certificado"
+	  echo "Pronto: https://$$DOMINIO (API em https://$$DOMINIO_API), versão $$(git rev-parse --short HEAD). Primeira vez? make nginx e make admin"
 
-# O curl do Windows (Schannel) checa revogação, que a CA local não tem; no Ubuntu não precisa.
-CURL_TLS := $(if $(findstring Schannel,$(shell curl -V 2>/dev/null)),--ssl-no-revoke,)
-
-conferir: $(ENV_FILE) ## Testa o sistema no ar pelo HTTPS, como um computador da equipe (telas e API com o banco)
-	@set -a && . ./$(ENV_FILE) && set +a && ca=$$(mktemp) && trap 'rm -f "$$ca"' EXIT && \
-	  $(COMPOSE) cp proxy:/data/caddy/pki/authorities/local/root.crt "$$ca" >/dev/null 2>&1 || \
-	    { echo "  [ERRO]  O HTTPS (proxy) não está no ar: make subir"; exit 1; }; \
-	  for url in "https://$$SERVER_HOST/login" "https://$$SERVER_HOST:8443/readyz"; do \
-	    if curl -fsS -o /dev/null --max-time 30 $(CURL_TLS) --cacert "$$ca" "$$url"; then echo "  [ok]    $$url"; \
-	    else echo "  [ERRO]  $$url não respondeu: make status e make logs SERVICO=proxy"; exit 1; fi; \
+# Primeiro pelo Caddy na porta local (o que o nginx alcança): é isso que barra o subir. Depois pelo
+# HTTPS do nginx, como um computador da equipe; ali só avisa, porque na primeira instalação o nginx
+# é ligado depois do make subir (make nginx).
+conferir: $(ENV_FILE) ## Testa o sistema no ar (telas e API com o banco) pelo Caddy local e pelo HTTPS do nginx
+	@set -a && . ./$(ENV_FILE) && set +a && porta=$${PORTA_LOCAL:-8089} && \
+	  for alvo in "$$DOMINIO /login" "$$DOMINIO_API /readyz"; do \
+	    set -- $$alvo; \
+	    if curl -fsS -o /dev/null --max-time 30 -H "Host: $$1" "http://127.0.0.1:$$porta$$2"; then \
+	      echo "  [ok]    $$1$$2 pelo Caddy (127.0.0.1:$$porta)"; \
+	    else echo "  [ERRO]  $$1$$2 não respondeu no Caddy (127.0.0.1:$$porta): make status e make logs SERVICO=proxy"; exit 1; fi; \
+	  done; \
+	  for url in "https://$$DOMINIO/login" "https://$$DOMINIO_API/readyz"; do \
+	    if curl -fsS -o /dev/null --max-time 15 "$$url" 2>/dev/null; then echo "  [ok]    $$url"; \
+	    else echo "  [aviso] $$url ainda não abre pelo HTTPS: o nginx e o certificado estão ligados? (make nginx)"; fi; \
 	  done
+
+nginx: $(ENV_FILE) ## Gera financeiro.nginx.conf com os endereços do deploy/.env e mostra como ligá-lo no nginx com HTTPS
+	@set -a && . ./$(ENV_FILE) && set +a && \
+	  sed -e "s/{{DOMINIO_API}}/$$DOMINIO_API/g" -e "s/{{DOMINIO}}/$$DOMINIO/g" -e "s/{{PORTA_LOCAL}}/$${PORTA_LOCAL:-8089}/g" \
+	    deploy/nginx/financeiro.conf > financeiro.nginx.conf && \
+	  echo "Gerado financeiro.nginx.conf: https://$$DOMINIO e https://$$DOMINIO_API -> 127.0.0.1:$${PORTA_LOCAL:-8089}." && \
+	  echo "Para ligar (uma vez, com sudo; não mexe nos outros sistemas do nginx):" && \
+	  echo "  sudo cp financeiro.nginx.conf /etc/nginx/sites-available/financeiro.conf" && \
+	  echo "  sudo ln -sf /etc/nginx/sites-available/financeiro.conf /etc/nginx/sites-enabled/financeiro.conf" && \
+	  echo "  sudo nginx -t && sudo systemctl reload nginx" && \
+	  echo "  sudo certbot --nginx --redirect -d $$DOMINIO -d $$DOMINIO_API" && \
+	  echo "Copiar de novo apaga o HTTPS que o certbot pôs no arquivo: depois de copiar, rode o certbot outra vez."
 
 parar: $(ENV_FILE) ## Para tudo, sem apagar nada (make subir volta)
 	$(COMPOSE) stop
@@ -218,29 +248,29 @@ restaurar-local: $(ENV_FILE) ## APAGA o banco e os arquivos e põe os do pacote 
 # O pacote do subir-projeto: o mais novo de backups/ (os nomes levam a data), ou PACOTE=...
 PACOTE ?= $(lastword $(sort $(wildcard backups/local-*-banco.dump)))
 
-subir-projeto: ## Primeira instalação de uma vez: configura, sobe, põe o banco do pacote de backups/, liga as 22h e gera o certificado (HOST=<IP ou nome> CONFIRMAR=sim)
-	@test "$(CONFIRMAR)" = sim || { echo "Isto instala o Financeiro e põe nele o banco do pacote de backups/, APAGANDO o banco que este servidor tiver. Rode com HOST=<IP ou nome do servidor> CONFIRMAR=sim"; exit 1; }
-	@test -f $(ENV_FILE) || test -n "$(HOST)" || { echo 'Diga o endereço do servidor: make subir-projeto HOST=192.168.0.50 CONFIRMAR=sim'; exit 1; }
+subir-projeto: ## Primeira instalação de uma vez: configura, sobe, põe o banco do pacote de backups/, liga as 22h e gera o arquivo do nginx (DOMINIO=<nome> CONFIRMAR=sim)
+	@test "$(CONFIRMAR)" = sim || { echo "Isto instala o Financeiro e põe nele o banco do pacote de backups/, APAGANDO o banco que este servidor tiver. Rode com DOMINIO=<nome das telas> CONFIRMAR=sim"; exit 1; }
+	@test -f $(ENV_FILE) || test -n "$(DOMINIO)" || { echo 'Diga o endereço das telas: make subir-projeto DOMINIO=financeiro.pesquisemais.com.br CONFIRMAR=sim'; exit 1; }
 	@test -n "$(PACOTE)" || { echo "Não achei o pacote do banco em backups/ (local-<data>-banco.dump, -arquivos.tgz e -chaves.env, do scripts/gerar-dump-local.sh)."; \
 	  echo "Copie os 3 arquivos para backups/ e rode de novo. Sem banco para trazer: make configurar, make subir e make admin (DEPLOY.md)."; exit 1; }
 	@echo "== 1/5 O pacote: $(PACOTE)"
 	@$(MAKE) --no-print-directory conferir-pacote ARQUIVO="$(PACOTE)"
 	@echo "== 2/5 A configuração do servidor"
 	@if [ -f $(ENV_FILE) ]; then echo "$(ENV_FILE) já existe: sigo com ele (as chaves do pacote entram no passo 4)."; \
-	  else $(MAKE) --no-print-directory configurar HOST="$(HOST)"; fi
-	@echo "== 3/5 Tudo no ar (banco, cofre, API, telas e HTTPS)"
+	  else $(MAKE) --no-print-directory configurar DOMINIO="$(DOMINIO)" DOMINIO_API="$(DOMINIO_API)" PORTA_LOCAL="$(PORTA_LOCAL)"; fi
+	@echo "== 3/5 Tudo no ar (banco, cofre, API, telas e o Caddy em 127.0.0.1)"
 	$(MAKE) --no-print-directory subir
 	@echo "== 4/5 O banco, os arquivos e as chaves do pacote"
 	$(MAKE) --no-print-directory restaurar-local ARQUIVO="$(PACOTE)" CONFIRMAR=sim
-	@echo "== 5/5 A atualização automática e o certificado da equipe"
+	@echo "== 5/5 A atualização automática e o arquivo do nginx"
 	$(MAKE) --no-print-directory agendar
-	$(MAKE) --no-print-directory certificado
+	$(MAKE) --no-print-directory nginx
 	@set -a && . ./$(ENV_FILE) && set +a && echo && \
-	  echo "Financeiro no ar: https://$$SERVER_HOST, com o banco de $(PACOTE)." && \
+	  echo "Financeiro no ar: https://$$DOMINIO, com o banco de $(PACOTE)." && \
+	  echo "  - Ligue o nginx e o HTTPS com os comandos acima (DEPLOY.md, seção 3), se ainda não ligou." && \
 	  echo "  - Entre com as contas da máquina do desenvolvimento: mesma senha e mesmo autenticador." && \
 	  echo "  - O primeiro computador de cada conta vira pedido em Acessos; o super admin entra direto e libera." && \
 	  echo "  - Atualização automática ligada: todo dia às $(HORA)h (make status mostra)." && \
-	  echo "  - Instale financeiro-certificado-raiz.crt em cada computador da equipe (DEPLOY.md, seção 3)." && \
 	  echo "  - Guarde o $(ENV_FILE) num cofre e apague $(patsubst %-banco.dump,%-chaves.env,$(PACOTE))."
 
 # A linha do cron leva o caminho do repositório: dá para ligar e desligar sem mexer nas outras.
@@ -275,7 +305,3 @@ definir-nivel: $(ENV_FILE) ## Troca o nível de uma conta: financeiro, admin ou 
 liberar-navegador: $(ENV_FILE) ## Libera o computador que a pessoa pediu por último, sem outro admin (EMAIL=...)
 	@test -n "$(EMAIL)" || { echo 'Use: make liberar-navegador EMAIL=pessoa@pesquisemais.com.br'; exit 1; }
 	$(COMPOSE) exec api python scripts/liberar_navegador.py --email "$(EMAIL)"
-
-certificado: $(ENV_FILE) ## Copia o certificado raiz do HTTPS, para instalar nos computadores da equipe
-	$(COMPOSE) cp proxy:/data/caddy/pki/authorities/local/root.crt financeiro-certificado-raiz.crt
-	@echo "Instale financeiro-certificado-raiz.crt em cada computador (guia: DEPLOY.md)."

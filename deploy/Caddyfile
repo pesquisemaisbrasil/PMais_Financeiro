@@ -1,18 +1,24 @@
-# HTTPS do servidor local, com certificado da própria máquina (a CA local do Caddy, sem internet).
-# As telas ficam em https://SERVER_HOST e a API em https://SERVER_HOST:8443: o cookie de sessão é
-# do caminho /auth da API, por isso ela tem um endereço próprio, sem prefixo. Porta 80 só
-# redireciona para o https. Guia: docs/operations/servidor-local.md
+# Caddy do Financeiro: fica atrás do nginx do servidor, que tem as portas 80 e 443 e cuida do
+# HTTPS (deploy/nginx/financeiro.conf, ADR 0027), como no P+ Connect. Escuta só em
+# 127.0.0.1:PORTA_LOCAL (de fora não se alcança) e manda cada endereço para a parte certa. Por isso
+# os endereços abaixo começam com http://.
+# As telas ficam em https://DOMINIO e a API em https://DOMINIO_API: o cookie de sessão é do caminho
+# /auth da API, por isso ela tem um endereço próprio, sem prefixo.
+# Guia: DEPLOY.md
 {
-	local_certs
-	# o certificado raiz é instalado nos computadores da equipe (make certificado), não no container
-	skip_install_trust
+	auto_https off
+	# Confia no X-Forwarded-For e no X-Forwarded-Proto (https) que o nginx manda. Só o nginx
+	# alcança a porta (127.0.0.1), e ele chega por um IP privado (a rede do Docker).
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
-https://{$SERVER_HOST} {
+http://{$DOMINIO} {
 	encode zstd gzip
 	reverse_proxy frontend:3000
 }
 
-https://{$SERVER_HOST}:8443 {
+http://{$DOMINIO_API} {
 	reverse_proxy api:8000
 }

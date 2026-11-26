@@ -1,8 +1,9 @@
 # Servidor local (deploy da branch development, dados reais): banco, cofre de arquivos (MinIO com
-# TLS), API, telas e o HTTPS (Caddy, com certificado da própria máquina). Os comandos ficam no
-# Makefile da raiz; o guia é o DEPLOY.md da raiz.
-# Segredos e endereço vêm de deploy/.env, gerado por `make configurar` e fora do git.
-# Só o Caddy publica portas (80, 443 e 8443); banco, MinIO, API e telas ficam na rede interna.
+# TLS), API, telas e o Caddy, que fica atrás do nginx do servidor (o nginx cuida do HTTPS, como no
+# P+ Connect: ADR 0027). Os comandos ficam no Makefile da raiz; o guia é o DEPLOY.md da raiz.
+# Segredos e endereços vêm de deploy/.env, gerado por `make configurar` e fora do git.
+# Só o Caddy publica porta, e só na própria máquina (127.0.0.1:PORTA_LOCAL, onde o nginx chega);
+# banco, MinIO, API e telas ficam na rede interna.
 # O docker-compose.yml da raiz continua só para o desenvolvimento.
 name: financeiro
 
@@ -83,11 +84,12 @@ services:
       FILES_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       # o boto3 confia no certificado do MinIO por esta variável
       AWS_CA_BUNDLE: /certs/public.crt
-      API_PUBLIC_URL: https://${SERVER_HOST:?rode make configurar}:8443
-      FRONTEND_URL: https://${SERVER_HOST}
-      CORS_ORIGINS: https://${SERVER_HOST}
+      API_PUBLIC_URL: https://${DOMINIO_API:?rode make configurar}
+      FRONTEND_URL: https://${DOMINIO:?rode make configurar}
+      CORS_ORIGINS: https://${DOMINIO}
       REFRESH_COOKIE_SECURE: "true"
-      # só o Caddy alcança a API (a porta dela não é publicada): confia no IP que ele repassa
+      # só o Caddy alcança a API (a porta dela não é publicada): confia no IP que ele repassa, que é
+      # o que o nginx recebeu
       FORWARDED_ALLOW_IPS: "*"
       CONNECT_BASE_URL: ${CONNECT_BASE_URL:-}
       CONNECT_CLIENT_ID: ${CONNECT_CLIENT_ID:-}
@@ -160,8 +162,8 @@ services:
     build:
       context: ../frontend
       args:
-        # o endereço que o NAVEGADOR alcança; trocar o SERVER_HOST pede um build novo (make subir faz)
-        NEXT_PUBLIC_API_URL: https://${SERVER_HOST:?rode make configurar}:8443
+        # o endereço que o NAVEGADOR alcança; trocar o DOMINIO_API pede um build novo (make subir faz)
+        NEXT_PUBLIC_API_URL: https://${DOMINIO_API:?rode make configurar}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
@@ -176,8 +178,10 @@ services:
     image: caddy:2.11.7
     restart: unless-stopped
     environment:
-      SERVER_HOST: ${SERVER_HOST:?rode make configurar}
-    ports: ["80:80", "443:443", "8443:8443"]
+      DOMINIO: ${DOMINIO:?rode make configurar}
+      DOMINIO_API: ${DOMINIO_API:?rode make configurar}
+    # só na própria máquina: quem chega aqui é o nginx (deploy/nginx/financeiro.conf)
+    ports: ["127.0.0.1:${PORTA_LOCAL:-8089}:80"]
     healthcheck:
       # a API de administração do Caddy, que só escuta dentro do container
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
@@ -186,7 +190,7 @@ services:
       retries: 10
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # aqui fica a CA local do Caddy: apagar este volume troca o certificado de todos os computadores
+      # estado interno do Caddy (o certificado é do nginx)
       - caddydata:/data
       - caddyconfig:/config
     depends_on:
