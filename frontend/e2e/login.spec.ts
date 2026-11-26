@@ -140,6 +140,28 @@ test("o primeiro acesso com a senha inicial cria a senha nova antes do autentica
   await expect(page.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();
 });
 
+test("com a senha redefinida, a pessoa troca a provisória e segue para o código do autenticador de sempre", async ({
+  page,
+}) => {
+  // make redefinir-senha (26/11/2026): a conta já tem o autenticador, então não cadastra de novo
+  await submitPassword(page, "senha-redefinida@e2e.invalid");
+  await expect(page.getByRole("heading", { name: "Crie a sua senha" })).toBeVisible();
+  await expect(page.getByText("Sua senha foi redefinida. Troque a senha provisória")).toBeVisible();
+  await expect(page.getByText("digite o código do app autenticador, como sempre")).toBeVisible();
+
+  await page.getByLabel("Senha nova", { exact: true }).fill("Minha!Senha9");
+  await page.getByLabel("Repita a senha nova").fill("Minha!Senha9");
+  await page.getByRole("button", { name: "Salvar e continuar" }).click();
+  await expect(page.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();
+  await submitCode(page, totp(TOTP_SECRET));
+  await expectHome(page);
+
+  // a provisória não entra mais
+  await page.context().clearCookies();
+  await submitPassword(page, "senha-redefinida@e2e.invalid");
+  await expect(page.getByText("E-mail ou senha incorretos")).toBeVisible();
+});
+
 test("com o MFA cadastrado, a sessão aguenta recarregar e abrir duas abas, e sair encerra", async ({ page }) => {
   await submitPassword(page, "ana@e2e.invalid");
   await expect(page.getByRole("heading", { name: "Verificação em duas etapas" })).toBeVisible();

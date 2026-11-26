@@ -72,8 +72,11 @@ RECOVERY_CODE = "E2E2RECUPERACAO2"
 WITHOUT_MFA = ["novo@e2e.invalid"]
 # senha inicial de primeiro acesso (frontend/e2e/login.spec.ts): troca a senha antes do autenticador
 FIRST_ACCESS = ["primeiro-acesso@e2e.invalid"]
+# senha redefinida (make redefinir-senha): com o autenticador, troca a provisória antes do código
+PASSWORD_RESET = ["senha-redefinida@e2e.invalid"]
 WITH_MFA = [
     "ana@e2e.invalid",
+    *PASSWORD_RESET,
     "repete@e2e.invalid",
     "recupera@e2e.invalid",
     "roubo@e2e.invalid",
@@ -256,7 +259,7 @@ def main() -> None:
                     name=email.split("@")[0],
                     email=email,
                     passwordHash=password_hash,
-                    mustChangePassword=email in FIRST_ACCESS,
+                    mustChangePassword=email in FIRST_ACCESS + PASSWORD_RESET,
                 )
             )
         db.commit()
