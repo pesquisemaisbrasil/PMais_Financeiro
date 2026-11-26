@@ -1,0 +1,20 @@
+# Modo ip (ADR 0027): HTTPS pelo IP do servidor, com certificado da própria máquina (a CA local do
+# Caddy, sem internet). As telas ficam em https://IP:PORTA_TELAS e a API em https://IP:PORTA_API:
+# o cookie de sessão é do caminho /auth da API, por isso ela tem um endereço próprio, sem prefixo.
+# As portas 80 e 443 da máquina não são usadas (são do nginx). Guia: DEPLOY.md
+{
+	local_certs
+	# o certificado raiz é instalado nos computadores da equipe (make certificado), não no container
+	skip_install_trust
+	# a porta 80 da máquina não é do Financeiro: sem o redirecionamento de http para https
+	auto_https disable_redirects
+}
+
+https://{$IP}:{$PORTA_TELAS} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}
+
+https://{$IP}:{$PORTA_API} {
+	reverse_proxy api:8000
+}

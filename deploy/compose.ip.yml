@@ -1,0 +1,16 @@
+# Modo ip (MODO=ip no deploy/.env, ADR 0027): sem nome no DNS, a equipe abre pelo IP. O Caddy cuida
+# do HTTPS com o certificado da própria máquina (a CA local dele, instalada nos computadores com
+# make certificado) e publica as duas portas: telas em https://IP:PORTA_TELAS e API em
+# https://IP:PORTA_API. As portas 80 e 443 ficam livres para o nginx e os outros sistemas.
+# Junto com o compose.yml pelo deploy/compose.sh. Guia: DEPLOY.md
+services:
+  proxy:
+    environment:
+      IP: ${IP:?rode make configurar IP=...}
+      PORTA_TELAS: ${PORTA_TELAS:-8444}
+      PORTA_API: ${PORTA_API:-8443}
+    ports:
+      - "${PORTA_TELAS:-8444}:${PORTA_TELAS:-8444}"
+      - "${PORTA_API:-8443}:${PORTA_API:-8443}"
+    volumes:
+      - ./Caddyfile.ip:/etc/caddy/Caddyfile:ro

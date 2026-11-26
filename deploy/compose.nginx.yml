@@ -1,0 +1,12 @@
+# Modo nginx (MODO=nginx no deploy/.env, ADR 0027): o nginx do servidor tem as portas 80 e 443 e
+# o HTTPS, como no P+ Connect, e repassa ao Caddy, que escuta só na própria máquina. Junto com o
+# compose.yml pelo deploy/compose.sh. Guia: DEPLOY.md
+services:
+  proxy:
+    environment:
+      DOMINIO: ${DOMINIO:?rode make configurar DOMINIO=...}
+      DOMINIO_API: ${DOMINIO_API:?rode make configurar DOMINIO=...}
+    # só na própria máquina: quem chega aqui é o nginx (deploy/nginx/financeiro.conf)
+    ports: ["127.0.0.1:${PORTA_LOCAL:-8089}:80"]
+    volumes:
+      - ./Caddyfile.nginx:/etc/caddy/Caddyfile:ro
