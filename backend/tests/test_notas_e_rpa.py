@@ -80,8 +80,12 @@ def test_nf_pending_lists_who_has_no_note_and_registering_the_note_removes_the_w
             ["Ana Ribeiro", "NF", 600, "58", datetime(2026, 10, 27)],
             ["Bruno Lima", "NF", 600, None, None],
             ["Carla Mendes", "RPA", 1000, None, None],
+            ["Davi Souza", "NF", 300, None, None],
         ],
     )
+    # recebida pelo status, mesmo sem o número (como vem do Connect): não é pendente
+    person(team, "Davi Souza").invoiceStatus = "Recebida"
+    db_session.commit()
 
     data = pending(client, auth)
 
@@ -190,6 +194,7 @@ def test_rpa_month_lists_who_was_paid_in_the_month_with_gross_inss_and_net(
         ("Davi Souza", "500.00", "55.00", "445.00"),
     ]
     assert data["rows"][0]["paidOn"] == today().isoformat()
+    assert data["rows"][0]["description"] == "Equipe de campo · novembro"
     assert (data["gross"], data["inss"], data["net"]) == ("1500.00", "165.00", "1335.00")
     assert rpa(client, auth, company=world["company"].id)["rows"] != []
 
