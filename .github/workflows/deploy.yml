@@ -1,10 +1,11 @@
 name: Deploy (servidor local)
 
-# Roda o deploy do servidor local de ponta a ponta num Ubuntu, como no servidor do escritório:
-# make verificar, configurar e subir (que confere pelo Caddy local), o nginx da frente com o arquivo
-# do make nginx (ADR 0027), administrador e login, backup,
-# voltar a uma versão com o banco dela, restaurar os arquivos, subir o projeto com o banco de outra
-# máquina (make subir-projeto) e desligar a atualização automática. Só quando algo do deploy muda.
+# Roda o deploy do servidor local de ponta a ponta num Ubuntu, como no servidor do escritório, nos
+# dois modos (ADR 0027): pelo IP, com o HTTPS do Caddy, e por nome, atrás do nginx com o arquivo do
+# make nginx. Em cada um: make verificar, configurar e subir (que confere), administrador e login,
+# backup, voltar a uma versão com o banco dela, restaurar os arquivos, subir o projeto com o banco de
+# outra máquina (make subir-projeto), trocar para o outro modo e voltar (make trocar-endereco) e
+# desligar a atualização automática. Só quando algo do deploy muda.
 # DEPLOY.md
 on:
   push:
@@ -41,35 +42,68 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # ip: o Caddy com o HTTPS e o certificado da máquina; nginx: atrás do nginx (ADR 0027)
+        modo: [ip, nginx]
+    name: deploy (${{ matrix.modo }})
     steps:
       - uses: actions/checkout@v4
 
-      # o nginx fica na frente do Financeiro, como no servidor
+      - name: Endereço do modo
+        run: |
+          if [ "${{ matrix.modo }}" = ip ]; then
+            ip=$(hostname -I | awk '{print $1}')
+            echo "IP_CI=$ip" >> "$GITHUB_ENV"
+            echo "ENDERECO=IP=$ip" >> "$GITHUB_ENV"
+          else
+            echo "ENDERECO=DOMINIO=financeiro.ci.test" >> "$GITHUB_ENV"
+          fi
+
+      # por nome, o nginx fica na frente do Financeiro, como no servidor
       - name: nginx do servidor
+        if: matrix.modo == 'nginx'
         run: command -v nginx || { sudo apt-get update && sudo apt-get install -y nginx; }
 
       - name: Verificar o servidor
-        run: make verificar DOMINIO=financeiro.ci.test
+        run: make verificar "$ENDERECO"
 
-      - name: O HOST de antes e um IP como DOMINIO são recusados
+      - name: Endereços inválidos são recusados
         run: |
           if make verificar HOST=192.168.0.50; then echo "Aceitou HOST"; exit 1; fi
           if make configurar DOMINIO=192.168.0.50; then echo "Aceitou um IP como DOMINIO"; exit 1; fi
+          if make configurar IP=financeiro.ci.test; then echo "Aceitou um nome como IP"; exit 1; fi
+          if make configurar IP=10.0.0.1 PORTA_TELAS=443; then echo "Aceitou a porta 443 do nginx"; exit 1; fi
+          if make configurar IP=10.0.0.1 DOMINIO=financeiro.ci.test; then echo "Aceitou IP e DOMINIO juntos"; exit 1; fi
           test ! -f deploy/.env
 
-      - name: Primeira instalação (configurar e subir, que confere pelo Caddy local)
+      - name: Primeira instalação (configurar e subir, que confere)
         run: |
-          make configurar DOMINIO=financeiro.ci.test
-          grep -qx "DOMINIO_API=api.financeiro.ci.test" deploy/.env
+          make configurar "$ENDERECO"
           make subir
-          # o Caddy só escuta na própria máquina, e o Financeiro não publica outra porta
-          ss -Hltn "sport = :8089" | grep -q "127.0.0.1:8089"
-          if docker ps --filter label=com.docker.compose.project=financeiro --format '{{.Ports}}' | grep -E '0\.0\.0\.0|\[::\]'; then
-            echo "O Financeiro publicou uma porta para fora da máquina"; exit 1
+          if [ "${{ matrix.modo }}" = ip ]; then
+            grep -qx "MODO=ip" deploy/.env
+            # as portas do Financeiro, para a rede; a 80 e a 443 ficam livres para o nginx
+            ss -Hltn "sport = :8444" | grep -q .
+            ss -Hltn "sport = :8443" | grep -q .
+            if docker ps --filter label=com.docker.compose.project=financeiro --format '{{.Ports}}' | grep -E ':(80|443)->'; then
+              echo "O Financeiro publicou a porta 80 ou 443"; exit 1
+            fi
+            if make nginx; then echo "O make nginx rodou pelo IP"; exit 1; fi
+          else
+            grep -qx "MODO=nginx" deploy/.env
+            grep -qx "DOMINIO_API=api.financeiro.ci.test" deploy/.env
+            # o Caddy só escuta na própria máquina, e o Financeiro não publica outra porta
+            ss -Hltn "sport = :8089" | grep -q "127.0.0.1:8089"
+            if docker ps --filter label=com.docker.compose.project=financeiro --format '{{.Ports}}' | grep -E '0\.0\.0\.0|\[::\]'; then
+              echo "O Financeiro publicou uma porta para fora da máquina"; exit 1
+            fi
           fi
 
       - name: O nginx na frente, com o arquivo do make nginx
+        if: matrix.modo == 'nginx'
         run: |
           make nginx
           sudo cp financeiro.nginx.conf /etc/nginx/sites-available/financeiro.conf
@@ -83,10 +117,15 @@ jobs:
       - name: Administrador e login pela rede
         run: |
           senha="$(openssl rand -hex 8)Aa1!"
-          docker compose --env-file deploy/.env -f deploy/compose.yml exec -T -e CREATE_USER_PASSWORD="$senha" \
+          bash deploy/compose.sh exec -T -e CREATE_USER_PASSWORD="$senha" \
             api python scripts/create_user.py --email ci.deploy@pesquisemais.invalid --name "CI do deploy" --role admin
-          curl -fsS --resolve api.financeiro.ci.test:80:127.0.0.1 -X POST http://api.financeiro.ci.test/auth/token \
-            -H "Origin: https://financeiro.ci.test" \
+          if [ "${{ matrix.modo }}" = ip ]; then
+            make certificado
+            onde=(--cacert financeiro-certificado-raiz.crt "https://$IP_CI:8443/auth/token" -H "Origin: https://$IP_CI:8444")
+          else
+            onde=(--resolve api.financeiro.ci.test:80:127.0.0.1 http://api.financeiro.ci.test/auth/token -H "Origin: https://financeiro.ci.test")
+          fi
+          curl -fsS -X POST "${onde[@]}" \
             --data-urlencode "username=ci.deploy@pesquisemais.invalid" --data-urlencode "password=$senha" \
             | python3 -c "import json, sys; assert json.load(sys.stdin)['mfa_token']; print('login ok')"
 
@@ -113,12 +152,35 @@ jobs:
           } > backups/local-ci-chaves.env
           # pacote incompleto: recusa sem mexer em nada
           if make conferir-pacote ARQUIVO=backups/local-falta-banco.dump; then echo "Aceitou um pacote que não existe"; exit 1; fi
+          rm -f financeiro-certificado-raiz.crt financeiro.nginx.conf
           make subir-projeto PACOTE=backups/local-ci-banco.dump CONFIRMAR=sim
           # as chaves do pacote entraram no deploy/.env, e o de antes ficou guardado
           for chave in ENCRYPTION_KEY PIX_SECRET_KEY FILES_MASTER_KEY; do
             grep -qxF "$(grep "^$chave=" backups/local-ci-chaves.env)" deploy/.env
           done
-          ls backups/env-antes-do-local-*.env financeiro.nginx.conf
+          ls backups/env-antes-do-local-*.env
+          if [ "${{ matrix.modo }}" = ip ]; then ls financeiro-certificado-raiz.crt; else ls financeiro.nginx.conf; fi
+
+      - name: Trocar o endereço para o outro modo e voltar, sem perder as chaves
+        run: |
+          chave_antes=$(grep '^ENCRYPTION_KEY=' deploy/.env)
+          if [ "${{ matrix.modo }}" = ip ]; then
+            command -v nginx || { sudo apt-get update && sudo apt-get install -y nginx; }
+            make trocar-endereco DOMINIO=financeiro.ci.test
+            grep -qx "MODO=nginx" deploy/.env
+            ss -Hltn "sport = :8089" | grep -q "127.0.0.1:8089"
+            if ss -Hltn "sport = :8444" | grep -q .; then echo "A porta das telas do modo ip continuou aberta"; exit 1; fi
+            make trocar-endereco "$ENDERECO"
+            grep -qx "MODO=ip" deploy/.env
+          else
+            make trocar-endereco IP="$(hostname -I | awk '{print $1}')"
+            grep -qx "MODO=ip" deploy/.env
+            make trocar-endereco "$ENDERECO"
+            grep -qx "MODO=nginx" deploy/.env
+          fi
+          grep -qxF "$chave_antes" deploy/.env
+          ls backups/env-antes-do-endereco-*.env
+          make conferir
 
       - name: A atualização automática ligada pelo subir-projeto, e desligar
         run: |
@@ -132,5 +194,5 @@ jobs:
       - name: O que deu errado
         if: failure()
         run: |
-          docker compose --env-file deploy/.env -f deploy/compose.yml ps --all || true
-          docker compose --env-file deploy/.env -f deploy/compose.yml logs --tail=150 || true
+          bash deploy/compose.sh ps --all || true
+          bash deploy/compose.sh logs --tail=150 || true
