@@ -23,6 +23,7 @@ export interface RpaRow {
   payableId: number;
   name: string;
   project: string;
+  description: string;
   paidOn: string;
   gross: string;
   inss: string;

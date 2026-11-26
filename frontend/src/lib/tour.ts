@@ -242,14 +242,14 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
       text: "Acompanha os documentos fiscais das pessoas da folha de campo. Nada é pago aqui: a baixa e os anexos ficam no lançamento, em Contas a pagar.",
     },
     {
-      target: "abas",
-      title: "NF pendente e RPA do mês",
-      text: "NF pendente lista quem recebe por NF e ainda não mandou a nota; é só aviso, o pagamento continua liberado. RPA do mês lista quem recebe por RPA e foi paga no mês, para a contabilidade.",
+      target: "rpa",
+      title: "Lista de RPA",
+      text: "Quem recebe por RPA e foi paga no mês, com bruto, INSS e líquido. As setas trocam o mês, e Exportar leva a lista para a contabilidade emitir os recibos.",
     },
     {
-      target: "filtros",
-      title: "Registrar a NF",
-      text: "Quando a nota chegar, Registrar NF pede o número e a data de emissão, e a pessoa sai da lista. Fica no histórico do lançamento quem registrou.",
+      target: "nf",
+      title: "NF pendente",
+      text: "Quem recebe por NF e ainda não mandou a nota. É só aviso: o pagamento continua liberado. Quando a nota chegar, Registrar NF pede o número e a data de emissão, e fica no histórico do lançamento quem registrou.",
     },
   ],
   "/relatorios/fluxo-mensal": [

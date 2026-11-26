@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CARD, ErrorBox, NUM, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
+import { CardTitle, ICON_COLORS, Kpi } from "@/components/Kpi";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,14 +25,6 @@ import { useAuth } from "@/lib/auth-context";
 import { brl, formatDate, greeting, plural, weekday, type AttentionItem, type HomeSummary } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
-const ICON_COLORS = {
-  azul: "bg-brand-azul-deep/10 text-brand-azul-deep",
-  verde: "bg-brand-verde/15 text-[#047857]",
-  ambar: "bg-[#fef3c7] text-[#b45309]",
-  vermelho: "bg-[#fee2e2] text-[#b91c1c]",
-  roxo: "bg-brand-roxo/10 text-brand-roxo",
-};
-
 const ATTENTION_ICONS: Record<AttentionItem["kind"], [LucideIcon, keyof typeof ICON_COLORS]> = {
   vencidas: [TriangleAlert, "vermelho"],
   hoje: [CalendarClock, "ambar"],
@@ -39,42 +32,6 @@ const ATTENTION_ICONS: Record<AttentionItem["kind"], [LucideIcon, keyof typeof I
   connect: [Link2, "azul"],
   provisoes: [PiggyBank, "ambar"],
 };
-
-function Kpi({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  color,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  icon: LucideIcon;
-  color: keyof typeof ICON_COLORS;
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
-      <span className={cn("grid size-9 flex-shrink-0 place-items-center rounded-[10px]", ICON_COLORS[color])}>
-        <Icon size={16} />
-      </span>
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-[.05em] text-muted-foreground">{label}</div>
-        <div className="mt-0.5 text-xl font-bold tabular-nums">{value}</div>
-        <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>
-      </div>
-    </div>
-  );
-}
-
-function CardTitle({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="border-b border-border px-5 py-4">
-      <h2 className="text-sm font-bold text-brand-cinza-escuro">{title}</h2>
-      <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
-    </div>
-  );
-}
 
 function Content({ home }: { home: HomeSummary }) {
   const { user } = useAuth();
