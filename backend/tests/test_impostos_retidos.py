@@ -30,8 +30,15 @@ def test_without_any_change_the_system_defaults_apply(
         ("cofins", "COFINS"),
         ("csll", "CSLL"),
         ("ir", "IR"),
+        ("inss", "INSS do RPA"),
     ]
-    assert _rates(response) == {"pis": "0.65", "cofins": "3.00", "csll": "1.00", "ir": "1.50"}
+    assert _rates(response) == {
+        "pis": "0.65",
+        "cofins": "3.00",
+        "csll": "1.00",
+        "ir": "1.50",
+        "inss": "11.00",
+    }
 
 
 def test_the_new_account_form_receives_the_rates(

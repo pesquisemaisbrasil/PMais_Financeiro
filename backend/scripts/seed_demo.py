@@ -165,6 +165,10 @@ def seed(db) -> int:  # type: ignore[no-untyped-def]
                     name=name,
                     documentType=document,
                     amount=Decimal(amount),
+                    # RPA: o valor da linha é o líquido; o bruto é o que dá esse líquido com 11%
+                    grossAmount=(Decimal(amount) / Decimal("0.89")).quantize(Decimal("0.01"))
+                    if document == "RPA"
+                    else None,
                     invoiceStatus=status,
                     # só incentivo tem chave Pix (mascarada e fictícia, como no protótipo)
                     pix_masked=f"419***{(number * 19) % 100:02d}"

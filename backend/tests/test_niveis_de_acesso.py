@@ -65,6 +65,7 @@ def test_the_people_list_says_the_level_and_who_each_one_may_change(
     assert [screen["id"] for screen in data["screens"]] == [
         "contas-a-pagar",
         "contas-a-receber",
+        "notas-e-rpa",
         "conferencia-bancaria",
         "divergencias",
         "relatorio-projeto",
@@ -137,6 +138,7 @@ def test_a_blocked_screen_is_refused_even_calling_the_api_directly(
         ("dre", "get", "/reports/dre?start=2026-11-01&end=2026-11-30"),
         ("fluxo-mensal", "get", "/reports/monthly-flow?start=2026-11-01&end=2026-11-30"),
         ("recebimentos-projetos", "get", "/reports/project-receipts?year=2026"),
+        ("notas-e-rpa", "get", "/fiscal/pending-invoices"),
     ],
 )
 def test_each_screen_guards_its_own_routes(

@@ -116,6 +116,8 @@ WITH_MFA = [
     "fluxo-mensal@e2e.invalid",
     "recebimentos@e2e.invalid",
     "favoritos@e2e.invalid",
+    # Notas e RPA (frontend/e2e/notas-e-rpa.spec.ts, PF-60)
+    "notas@e2e.invalid",
     # testes com o financeiro de 16/11 (frontend/e2e/testes-16-11.spec.ts)
     "pedidos-projeto@e2e.invalid",
     "pedidos-lista@e2e.invalid",
