@@ -9,6 +9,11 @@ receita e despesa: o grupo que tem as duas aparece uma vez em cada bloco.
   ficam para quando a Vivi definir o DRE completo).
 - Fora: cancelado, substituído, excluído e as provisões (são estimativa, não fato).
 - Projeto: a conta repartida entre projetos entra só com a parte do projeto filtrado.
+
+O **fluxo mensal** (`basis="caixa"`) é o mesmo quadro pelo regime de caixa: em vez da competência,
+o mês em que o dinheiro saiu ou entrou, com o valor das baixas e dos recebimentos que valem (sem
+estornados nem Pix devolvidos), só nas contas bancárias que entram no fluxo de caixa, como o
+realizado do fluxo de caixa.
 """
 
 from collections import defaultdict
@@ -17,13 +22,15 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from core.text import format_date_br
 from core.xlsx import build_xlsx
-from models.payable import Payable
-from models.receivable import Receivable
+from models.payable import Payable, PayablePayment
+from models.receivable import Receivable, ReceivablePayment
 from models.reference import (
+    BankAccount,
     BusinessUnit,
     Company,
     CostCenter,
@@ -38,6 +45,9 @@ ZERO = Decimal("0")
 MAX_MONTHS = 24
 NO_GROUP = "Sem grupo"
 KINDS = (("receita", "Receitas"), ("despesa", "Despesas"))
+CENT = Decimal("0.01")
+# o título de cada quadro, na planilha
+BASES = {"competencia": "DRE por competência", "caixa": "Fluxo mensal pelo pagamento"}
 
 
 @dataclass(frozen=True)
@@ -62,6 +72,87 @@ def months(start: date, end: date) -> list[str]:
     return result
 
 
+def _by_title(query: Any, model: Any, filters: Filters, project: bool) -> Any:
+    """Empresa, unidade e centro de custo (e o projeto, se o título tem um só) do título."""
+    pairs = [
+        (model.company_id, filters.company),
+        (model.unit_id, filters.unit),
+        (model.cost_center_id, filters.cost_center),
+    ]
+    if project:
+        pairs.append((model.project_id, filters.project))
+    for field, value in pairs:
+        if value is not None:
+            query = query.filter(field == value)
+    return query
+
+
+def month_bounds(columns: list[str]) -> tuple[date, date]:
+    """O primeiro dia do primeiro mês e o primeiro dia depois do último."""
+    year, month = (int(part) for part in columns[-1].split("-"))
+    after = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    return date.fromisoformat(f"{columns[0]}-01"), after
+
+
+def valid_payments(db: Session, start: date, before: date) -> Any:
+    """As baixas que valem de `start` até antes de `before`, com a conta a pagar de cada uma."""
+    undone = select(PayablePayment.reverses_id).where(PayablePayment.reverses_id.isnot(None))
+    in_flow = select(BankAccount.id).where(BankAccount.impactsCashFlow.is_(True))
+    return (
+        db.query(PayablePayment, Payable)
+        .join(Payable, PayablePayment.payable_id == Payable.id)
+        .options(selectinload(Payable.allocations))
+        .filter(
+            Payable.deletedAt.is_(None),
+            PayablePayment.kind == "pagamento",
+            PayablePayment.id.not_in(undone),
+            PayablePayment.bank_account_id.in_(in_flow),
+            PayablePayment.paidOn >= start,
+            PayablePayment.paidOn < before,
+        )
+    )
+
+
+def valid_receipts(db: Session, start: date, before: date) -> Any:
+    """Os recebimentos que valem de `start` até antes de `before`, com o título de cada um."""
+    undone = select(ReceivablePayment.reverses_id).where(ReceivablePayment.reverses_id.isnot(None))
+    in_flow = select(BankAccount.id).where(BankAccount.impactsCashFlow.is_(True))
+    return (
+        db.query(ReceivablePayment, Receivable)
+        .join(Receivable, ReceivablePayment.receivable_id == Receivable.id)
+        .filter(
+            Receivable.deletedAt.is_(None),
+            ReceivablePayment.kind == "recebimento",
+            ReceivablePayment.id.not_in(undone),
+            ReceivablePayment.bank_account_id.in_(in_flow),
+            ReceivablePayment.receivedOn >= start,
+            ReceivablePayment.receivedOn < before,
+        )
+    )
+
+
+def _cash_amounts(
+    db: Session, columns: list[str], filters: Filters
+) -> dict[int, dict[str, Decimal]]:
+    """Por conta analítica e por mês do pagamento, o dinheiro que saiu e entrou."""
+    totals: dict[int, dict[str, Decimal]] = defaultdict(lambda: defaultdict(lambda: ZERO))
+    start, before = month_bounds(columns)
+    for payment, title in _by_title(valid_payments(db, start, before), Payable, filters, False):
+        amount = payment.amount
+        if filters.project is not None:
+            share = sum(
+                (a.amount for a in title.allocations if a.project_id == filters.project), ZERO
+            )
+            if not share or not title.amount:
+                continue
+            # a baixa entra na proporção da parte do projeto no título
+            amount = (payment.amount * share / title.amount).quantize(CENT)
+        totals[title.category_id][payment.paidOn.strftime("%Y-%m")] += amount
+    for receipt, title in _by_title(valid_receipts(db, start, before), Receivable, filters, True):
+        totals[title.category_id][receipt.receivedOn.strftime("%Y-%m")] += receipt.amount
+    return totals
+
+
 def _amounts(db: Session, wanted: set[str], filters: Filters) -> dict[int, dict[str, Decimal]]:
     """Por conta analítica e por mês, o que entrou no DRE."""
     totals: dict[int, dict[str, Decimal]] = defaultdict(lambda: defaultdict(lambda: ZERO))
@@ -76,14 +167,7 @@ def _amounts(db: Session, wanted: set[str], filters: Filters) -> dict[int, dict[
             Payable.type == "real",
         )
     )
-    for field, value in (
-        (Payable.company_id, filters.company),
-        (Payable.unit_id, filters.unit),
-        (Payable.cost_center_id, filters.cost_center),
-    ):
-        if value is not None:
-            payables = payables.filter(field == value)
-    for p in payables:
+    for p in _by_title(payables, Payable, filters, False):
         month = p.competence or p.issueDate.strftime("%Y-%m")
         if month not in wanted:
             continue
@@ -99,15 +183,7 @@ def _amounts(db: Session, wanted: set[str], filters: Filters) -> dict[int, dict[
         Receivable.canceledAt.is_(None),
         Receivable.competence.in_(wanted),
     )
-    for field, value in (
-        (Receivable.company_id, filters.company),
-        (Receivable.unit_id, filters.unit),
-        (Receivable.project_id, filters.project),
-        (Receivable.cost_center_id, filters.cost_center),
-    ):
-        if value is not None:
-            receivables = receivables.filter(field == value)
-    for r in receivables:
+    for r in _by_title(receivables, Receivable, filters, True):
         totals[r.category_id][r.competence] += r.amount
     return totals
 
@@ -119,9 +195,14 @@ def _row(
     return {"label": label, "values": by_month, "total": sum(by_month, ZERO), **extra}
 
 
-def report(db: Session, start: date, end: date, filters: Filters) -> dict[str, Any]:
+def report(
+    db: Session, start: date, end: date, filters: Filters, basis: str = "competencia"
+) -> dict[str, Any]:
     columns = months(start, end)
-    totals = _amounts(db, set(columns), filters)
+    if basis == "caixa":
+        totals = _cash_amounts(db, columns, filters)
+    else:
+        totals = _amounts(db, set(columns), filters)
     categories = {
         c.id: c for c in db.query(ExpenseCategory).filter(ExpenseCategory.id.in_(totals or [0]))
     }
@@ -184,9 +265,11 @@ def filter_names(db: Session, filters: Filters) -> list[str]:
     return names
 
 
-def export_xlsx(db: Session, start: date, end: date, filters: Filters) -> bytes:
+def export_xlsx(
+    db: Session, start: date, end: date, filters: Filters, basis: str = "competencia"
+) -> bytes:
     names = filter_names(db, filters)
-    data = report(db, start, end, filters)
+    data = report(db, start, end, filters, basis)
     headers = ["Linha", *(m["label"] for m in data["months"]), "Total"]
     rows: list[list[Any]] = []
     for block in data["blocks"]:
@@ -198,8 +281,9 @@ def export_xlsx(db: Session, start: date, end: date, filters: Filters) -> bytes:
     rows.append(
         [data["result"]["label"].upper(), *data["result"]["values"], data["result"]["total"]]
     )
-    title = f"DRE por competência · {format_date_br(start)} a {format_date_br(end)} · " + (
+    title = f"{BASES[basis]} · {format_date_br(start)} a {format_date_br(end)} · " + (
         "filtros: " + ", ".join(names) if names else "filtros: nenhum"
     )
     # sem linha de total: as linhas já são subtotais umas das outras
-    return build_xlsx(sheet="DRE", title=title, headers=headers, rows=rows)
+    sheet = "DRE" if basis == "competencia" else "Fluxo mensal"
+    return build_xlsx(sheet=sheet, title=title, headers=headers, rows=rows)

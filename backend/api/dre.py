@@ -74,11 +74,64 @@ def export_dre(
 ) -> Response:
     filters = _filters(company, unit, project, costCenter)
     content = _handle(lambda: dre.export_xlsx(db, start, end, filters))
+    return _xlsx(content, "dre.xlsx")
+
+
+def _xlsx(content: bytes, filename: str) -> Response:
     return Response(
         content,
         media_type=xlsx.MEDIA_TYPE,
         headers={
-            "Content-Disposition": 'attachment; filename="dre.xlsx"',
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-store",
         },
     )
+
+
+# O fluxo mensal é o mesmo quadro pelo mês do pagamento, numa tela que se bloqueia à parte
+monthly_router = APIRouter(tags=["relatórios"], dependencies=[require_screen("fluxo-mensal")])
+
+
+@monthly_router.get(
+    "/reports/monthly-flow",
+    response_model=DreReport,
+    description="Fluxo mensal: entradas e saídas por mês do pagamento e por plano de contas (as "
+    "linhas do DRE), com as baixas e os recebimentos que valem nas contas do fluxo de caixa. "
+    "Filtra por empresa, unidade, projeto e centro de custo. Não altera nada",
+)
+@limiter.limit(READ_LIMIT)
+def get_monthly_flow(
+    request: Request,
+    db: DbSession,
+    _: FinanceUser,
+    start: Annotated[date, Query()],
+    end: Annotated[date, Query()],
+    company: Id = None,
+    unit: Id = None,
+    project: Id = None,
+    costCenter: Id = None,  # noqa: N803
+) -> dict[str, Any]:
+    filters = _filters(company, unit, project, costCenter)
+    return _handle(lambda: dre.report(db, start, end, filters, "caixa"))
+
+
+@monthly_router.get(
+    "/reports/monthly-flow/export",
+    response_class=Response,
+    description="O fluxo mensal em Excel (.xlsx), com o período e os filtros na primeira linha",
+)
+@limiter.limit(READ_LIMIT)
+def export_monthly_flow(
+    request: Request,
+    db: DbSession,
+    _: FinanceUser,
+    start: Annotated[date, Query()],
+    end: Annotated[date, Query()],
+    company: Id = None,
+    unit: Id = None,
+    project: Id = None,
+    costCenter: Id = None,  # noqa: N803
+) -> Response:
+    filters = _filters(company, unit, project, costCenter)
+    content = _handle(lambda: dre.export_xlsx(db, start, end, filters, "caixa"))
+    return _xlsx(content, "fluxo-mensal.xlsx")

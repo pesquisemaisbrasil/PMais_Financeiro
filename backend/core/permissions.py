@@ -26,6 +26,8 @@ SCREENS = {
     "relatorio-projeto": "Relatório do projeto",
     "fluxo-de-caixa": "Fluxo de caixa",
     "dre": "DRE",
+    "fluxo-mensal": "Fluxo mensal",
+    "recebimentos-projetos": "Recebimentos × ano",
     "cadastros": "Cadastros",
 }
 SCREEN_BLOCKED = "Esta tela não está liberada para você. Fale com o administrador."
