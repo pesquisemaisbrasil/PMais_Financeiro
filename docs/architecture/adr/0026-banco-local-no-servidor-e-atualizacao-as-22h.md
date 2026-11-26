@@ -45,13 +45,13 @@ O `make restaurar-local ARQUIVO=backups/local-<data>-banco.dump CONFIRMAR=sim` f
 
 ### Tudo de uma vez na primeira instalação
 
-O `make subir-projeto DOMINIO=<nome> CONFIRMAR=sim` (era `HOST=<IP>` até o [ADR 0027](0027-nginx-do-servidor-na-frente-do-caddy.md)) junta tudo, para a primeira instalação com o pacote em `backups/` (pedido do Bruno, 25/11: "Ligue tudo isso a um make subir projeto"):
+O `make subir-projeto IP=<IP> CONFIRMAR=sim` (ou `DOMINIO=<nome>`; era `HOST=<IP>` até o [ADR 0027](0027-nginx-do-servidor-na-frente-do-caddy.md)) junta tudo, para a primeira instalação com o pacote em `backups/` (pedido do Bruno, 25/11: "Ligue tudo isso a um make subir projeto"):
 
 1. confere o pacote (`make conferir-pacote`) antes de mexer em qualquer coisa. A versão do banco é lida por um Postgres de passagem, da mesma imagem do banco;
 2. roda o `make configurar`, se o `deploy/.env` ainda não existe;
 3. roda o `make subir`;
 4. roda o `make restaurar-local`;
-5. roda o `make agendar` e o `make nginx` (era o `make certificado` até o ADR 0027).
+5. roda o `make agendar` e, pelo IP, o `make certificado`; por nome, o `make nginx` (ADR 0027).
 
 Sem `PACOTE=`, usa o pacote mais novo de `backups/`.
 
