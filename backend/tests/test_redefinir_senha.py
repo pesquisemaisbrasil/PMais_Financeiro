@@ -72,6 +72,23 @@ def test_the_new_password_cannot_be_the_temporary_one(
     assert same.json()["detail"] == "A senha nova precisa ser diferente da senha inicial"
 
 
+def test_a_partial_login_from_before_the_reset_cannot_set_the_password(
+    client: TestClient, make_user: Callable[..., User], db_session: Session
+) -> None:
+    """Quem entrou com a senha esquecida pouco antes (token parcial de 5 minutos) não troca a
+    provisória pela dele: o token leva a marca da senha com que foi emitido."""
+    user = make_user()
+    stale = login(client).json()["mfa_token"]
+    reset_password(db_session, user, TEMPORARY)
+
+    assert change(client, stale, OWN).status_code == 401
+    code = client.post("/auth/token/mfa", json={"code": current_code()}, headers=bearer(stale))
+    assert code.status_code == 401
+    db_session.refresh(user)
+    assert user.mustChangePassword is True
+    assert verify_password(TEMPORARY, user.passwordHash)
+
+
 def test_open_sessions_are_closed(
     client: TestClient, make_user: Callable[..., User], db_session: Session
 ) -> None:

@@ -111,8 +111,11 @@ def test_the_change_happens_once(
     first_access_user(make_user, db_session)
     token = login(client).json()["mfa_token"]
     assert change(client, token).status_code == 200
-    # o token parcial de antes da troca não troca de novo
-    repeated = change(client, token, "Outra!Senha7")
+    # o token parcial de antes da troca leva a marca da senha inicial: não vale mais para nada
+    assert change(client, token, "Outra!Senha7").status_code == 401
+    # com um login novo, a troca da senha inicial já feita é recusada com o aviso
+    fresh = login(client, password=NEW_PASSWORD).json()["mfa_token"]
+    repeated = change(client, fresh, "Outra!Senha7")
     assert (repeated.status_code, repeated.json()["detail"]) == (
         409,
         "A senha inicial já foi trocada. Entre de novo.",

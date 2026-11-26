@@ -151,7 +151,7 @@ def test_same_mfa_code_sent_twice_at_once_passes_only_once(
     postgres_users: Callable[[], User], per_request_db: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user = postgres_users()
-    mfa_token = auth_service.create_mfa_token(user.id)
+    mfa_token = auth_service.create_mfa_token(user)
     code = pyotp.TOTP(TOTP_SECRET).now()
 
     real_accept = mfa_service._accept_totp
