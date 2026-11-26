@@ -12,7 +12,7 @@
 | Comprovantes e baixa | Entregue com o Connect simulado. Pagar de verdade depende das entregas 1 e 2 do Connect |
 | Conferência bancária | Entregue (importar extrato, conciliar, extrato × sistema exportável, saldo do mês, fechamento). Fica "Em breve" no menu, a pedido do Bruno, até a Vivi validar |
 | Relatórios | Relatório do projeto, Fluxo de caixa e DRE (25/11); **Fluxo mensal**, **Recebimentos × ano** e os **favoritos** nas listas e nos relatórios (26/11). Os quatro relatórios novos ficam "Em breve" no menu, a pedido do Bruno, e abrem pelo endereço. Faltam o Resultado por projeto e o previsto × realizado, que esperam o Connect |
-| Notas e RPA | Não começou: depende do Connect (status da NF) e da contabilidade (INSS, Q15) |
+| Notas e RPA | **NF pendente** (com Registrar NF) e **RPA do mês** (26/11), com o INSS em Cadastros. Faltam a conferência das notas do portal (arquivo de exemplo), o status da NF vindo do Connect e o CPF/PIS para o RPA (Q15) |
 | Servidor local | Pronto para o João instalar com `make subir-projeto` e o pacote do banco local ([DEPLOY.md](../../DEPLOY.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)) |
 | Dados reais | Importados do SGE4B só na máquina do Bruno; vão para o servidor no pacote do banco |
 
@@ -31,7 +31,7 @@
 
 ## O que dá para fazer sem esperar ninguém
 
-1. **Notas e RPA, a parte que não depende do Connect:** a conferência das notas do portal (PF-68) importando o arquivo exportado, quando houver um arquivo de exemplo sem dado real.
+1. **Notas e RPA, a conferência das notas do portal** (PF-68): importar o arquivo exportado do portal, quando o Bruno mandar um (fica em `importar/`, fora do git; os testes usam dados inventados).
 2. **Débitos pequenos:** a API da Conferência bancária ainda importa extrato de outra conta sem a confirmação que a tela exige; os anexos ainda não têm antivírus nem a rotina de troca da `FILES_MASTER_KEY`.
 
 ## Riscos e limites que precisam ficar à vista

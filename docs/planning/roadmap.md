@@ -160,9 +160,30 @@ Da PF-76 falta o previsto × realizado, que espera o orçamento do Connect.
 
 Fluxo de caixa, DRE, Fluxo mensal e Recebimentos × ano ficam **"Em breve" no menu** (pedido do Bruno, 26/11) e abrem pelo endereço, como a Conferência bancária. As quatro telas também ganham a margem das outras: a tabela por mês não empurra mais a página, e a coluna da linha fica parada ao rolar os meses.
 
+## Notas e RPA (26/11/2026)
+
+A tela **Financeiro → Notas e RPA** (tarefas PF-66 e PF-67, [documentos-fiscais, Ajustes de 26/11](../specs/documentos-fiscais.md)) acompanha os documentos fiscais da folha de campo, sem pagar nada. Decisões do Bruno no [registro](../transcricoes/2026-11-26-notas-e-rpa.md).
+
+- **NF pendente:** quem recebe por NF e ainda não mandou a nota. Registrar NF grava o número e a emissão, e a pessoa sai da lista.
+- **RPA do mês:** quem recebe por RPA e foi paga no mês, com bruto, INSS e líquido, e Exportar Excel para a contabilidade.
+- **INSS:** o percentual vai para Cadastros → Impostos retidos (11% hoje) e vale para as próximas folhas importadas.
+
+A conferência das notas do portal (PF-68) espera um arquivo exportado do portal.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
+
+### Notas e RPA (26/11)
+
+1. Importe em Contas a pagar uma folha de campo com uma pessoa NF sem número, uma NF com número e uma RPA de R$ 1.000.
+2. Em Financeiro → Notas e RPA, aba NF pendente: só a pessoa NF sem número aparece, com o projeto, o lançamento (o link abre a conta), a situação e o valor. A tela não tem baixa nem importação.
+3. Registrar NF sem o número: "Informe o número e a data de emissão da nota.". Com o número e a data, a pessoa sai da lista, e o histórico do lançamento diz quem registrou.
+4. Dê baixa no lançamento inteiro. Na aba RPA do mês, a pessoa RPA aparece no mês de hoje, com bruto de R$ 1.000,00, INSS de R$ 110,00 e líquido de R$ 890,00. Exportar Excel baixa a lista com o total. O mês anterior fica vazio.
+5. Em Cadastros → Impostos retidos, mude o INSS do RPA para 10% e importe outra folha: a pessoa RPA de R$ 1.000 fica com R$ 900. Uma conta a pagar nova continua com PIS, COFINS, CSLL e IR, sem INSS.
+6. Os testes:
+   - em `backend/`: `pytest tests/test_notas_e_rpa.py tests/test_impostos_retidos.py`;
+   - em `frontend/`: `npx playwright test e2e/notas-e-rpa.spec.ts`.
 
 ### Fluxo mensal, recebimentos × ano e favoritos (26/11)
 

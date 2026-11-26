@@ -73,11 +73,16 @@ Ninguém paga nessa tela: a baixa, a importação de planilha e os anexos de cad
 | Apagar nota antes do prazo de guarda | 409 | Essa nota precisa ser guardada até dd/mm/aaaa |
 | Arquivo de nota fora dos tipos aceitos | 422 | Envie PDF ou XML da nota |
 | Usuário sem permissão baixa a NF de um entrevistador | 403 | Seu perfil não permite essa ação |
+| Registrar NF de quem não recebe por NF | 422 | Essa pessoa não recebe por NF |
+| Registrar NF com emissão depois de hoje | 422 | A data de emissão não pode ser depois de hoje |
+| Registrar NF num lançamento cancelado | 409 | Esse lançamento foi cancelado |
+| Registrar NF de uma pessoa que não existe | 404 | Pessoa não encontrada |
+| Lista de RPA com o mês fora do formato | 422 | Escolha o mês no formato AAAA-MM |
 
 ## Critérios de aceite
 
 - [ ] Um entrevistador cadastrado como NF com R$ 600 a pagar e sem nota entra na planilha com o aviso "NF pendente". Depois de enviada, o aviso some.
-- [ ] Um entrevistador RPA com R$ 1.000 brutos aparece na lista de RPA e é pago pelo líquido (R$ 890 com 11%).
+- [x] Um entrevistador RPA com R$ 1.000 brutos aparece na lista de RPA e é pago pelo líquido (R$ 890 com 11%).
 - [ ] Um lançamento agrupado de 10 pessoas mostra, por item: 5 NF, 2 RPA, 2 incentivos e 1 "NF pendente" (que também entra no pagamento).
 - [ ] A conferência do mês lista uma NFS-e emitida contra o CNPJ que não está anexada a nenhum título.
 - [ ] Uma nota cancelada na prefeitura gera alerta no título pago com ela.
@@ -87,7 +92,9 @@ Ninguém paga nessa tela: a baixa, a importação de planilha e os anexos de cad
 
 ## Onde está no código
 
-- A criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md). O cadastro do modelo fiscal e o envio da NF ficam no Connect (pendência N4).
+- Tela Notas e RPA (26/11): `backend/services/fiscal_documents.py`, `backend/api/fiscal_documents.py` (`GET /fiscal/pending-invoices`, `PUT /fiscal/items/{id}/invoice`, `GET /fiscal/rpa` e `/fiscal/rpa/export`), `backend/schemas/fiscal_documents.py`; tela `frontend/src/app/(app)/notas-e-rpa/page.tsx` e `frontend/src/lib/fiscal.ts`. O dia do pagamento de cada pessoa é `item_paid_on` em `backend/services/payable.py`. Testes: `backend/tests/test_notas_e_rpa.py`, `frontend/e2e/notas-e-rpa.spec.ts`.
+- O INSS do RPA: percentual em `backend/services/tax_rates.py` (`inss`, fora das retenções da conta), aplicado na importação da folha em `backend/services/payable_import.py`.
+- O cadastro do modelo fiscal e o envio da NF ficam no Connect (pendência N4). A conferência das notas do portal ainda não existe (PF-68).
 
 Origem do requisito:
 
@@ -100,3 +107,17 @@ Origem do requisito:
 - 2026-10-21: NF do entrevistador passa a ficar 6 meses no Connect, por projeto, e 5 anos na rede da empresa; o Financeiro só recebe o status. Dados do RPA: CPF e PIS/NIT. [decisões do PO após a reunião de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md).
 - 2026-10-28: **a NF do entrevistador/prestador continua subindo no Connect, mas não é mais obrigatória para pagar.** "NF pendente" é só aviso, e quem está com NF pendente entra na planilha e no pagamento. Muda a regra 2 e o comportamento acima, e some o caso negado 409 "pessoas recebem por NF e ainda não enviaram a nota". Decisão do PO em 28/10/2026 (nota na D8 das [decisões de 21/10](../transcricoes/2026-10-21-decisoes-pos-reuniao.md)).
 - 2026-11-03: **notas e RPA ficam numa tela própria ("Notas e RPA")**, só para acompanhar o que é fiscal; o pagamento, a importação de planilha e os anexos de cada pagamento ficam em Contas a pagar ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K10, B7).
+- 2026-11-26 (**tela Notas e RPA**, PF-66 e PF-67; decisões do Bruno no [registro de 26/11](../transcricoes/2026-11-26-notas-e-rpa.md)). Fica em Financeiro → Notas e RPA, bloqueável por pessoa (`notas-e-rpa`). Não tem baixa nem importação: o link de cada linha leva ao lançamento em Contas a pagar.
+  - **NF pendente:**
+    - **Quem aparece:** quem recebe por NF e ainda não tem o número da nota, nos lançamentos que valem (sem excluídos, cancelados e substituídos), do vencimento mais antigo ao mais novo.
+    - **Colunas:** pessoa, projeto, lançamento, vencimento, situação e valor. Os filtros são projeto e busca (pessoa ou lançamento).
+    - **Registrar NF:** pede o número e a data de emissão (as duas obrigatórias; a emissão não pode ser depois de hoje). A pessoa passa a "NF recebida" e sai da lista, e o registro fica no histórico do lançamento, com o nome da pessoa.
+    - **O Connect:** quando ele mandar o status da NF (N4), preenche os mesmos campos.
+  - **RPA do mês:**
+    - **Quem aparece:** quem recebe por RPA e **foi paga no mês** escolhido. O dia vale o do comprovante da pessoa ou, se não houver, o da última baixa quando o lançamento inteiro está pago. Com baixa parcial, sem comprovante, a pessoa não entra, porque não dá para saber quem recebeu.
+    - **Colunas:** bruto, INSS e líquido, com o total. Exportar Excel leva a mesma lista para a contabilidade. O filtro é a empresa.
+    - **O INSS:** é o bruto menos o líquido guardados na importação, nunca digitado. Lançamento antigo sem o bruto guardado mostra o líquido como bruto e o INSS zerado.
+  - **INSS configurável:** o percentual do INSS do RPA vai para Cadastros → Impostos retidos (11% hoje) e vale para as folhas importadas daqui para frente; o já importado não muda. Ele não entra nas retenções das contas a pagar. O teto do INSS continua de fora (N3).
+  - **Fora desta entrega:**
+    - a conferência das notas do portal (PF-68), que espera um arquivo exportado do portal;
+    - o CPF e o PIS na lista de RPA, que dependem da Q15 com o DPO. A contabilidade completa esses dados no recibo.

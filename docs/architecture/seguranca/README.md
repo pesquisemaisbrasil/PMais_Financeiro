@@ -11,7 +11,7 @@ O inventário completo e o ROPA são a PF-55. Enquanto eles não existem, cada d
 | Dado | Origem | Onde fica | Por quê | Retenção |
 |---|---|---|---|---|
 | Nome da pessoa e valor a pagar (entrevistador, respondente de incentivo) | Planilha importada em Contas a pagar | `payable_items` | Saber quem recebe cada valor do lançamento | A definir com o DPO (Q5) |
-| Número e data da NF, valor bruto do RPA | Planilha de folha de campo | `payable_items` | Acompanhar o documento fiscal e o desconto de INSS | A definir com o DPO (Q5) |
+| Número e data da NF, valor bruto do RPA | Planilha de folha de campo; o número e a emissão da NF também pela tela Notas e RPA (Registrar NF, 26/11), que deixa no histórico do lançamento (`payable_events`) quem registrou e o nome da pessoa | `payable_items`, `payable_events` | Acompanhar o documento fiscal e o desconto de INSS | A definir com o DPO (Q5) |
 | **Chave Pix mascarada** do respondente (3 primeiros e 2 últimos caracteres, como o Connect mostra; **a chave completa nunca é guardada**, nem vai para a prévia ou para o log). Provisório, pedido do Bruno em 12/11/2026, a confirmar com o DPO (Q22) | Planilha de incentivos (coluna "Chave Pix") | `payable_items.pix_masked` | Mostrar, na tela Incentivos, qual chave cada pessoa tem, sem expor a chave | A definir com o DPO (Q5) |
 | Data da pesquisa de cada respondente, ligada ao nome | Planilha de incentivos | `payable_items` | Calcular a data de pagamento e devolver o cronograma ao projeto | A definir com o DPO (Q5) |
 | Contato do fornecedor: nome, telefone e e-mail | Tela de cadastros | `suppliers` | Falar com o fornecedor | A definir com o DPO (Q5) |
