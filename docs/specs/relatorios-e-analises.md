@@ -51,11 +51,15 @@ Contrato das consultas, das análises gerenciais e da exportação. Primeiro: co
 - [ ] O resultado por projeto de um projeto fechado bate com o fechamento financeiro dele.
 - [x] O DRE do mês bate com a soma das contas analíticas vinculadas a cada linha.
 - [x] O fluxo de caixa previsto da próxima semana lista os títulos em aberto por vencimento, e o realizado as baixas.
-- [ ] Um favorito salvo reabre com os mesmos filtros e colunas.
+- [x] Um favorito salvo reabre com os mesmos filtros e colunas.
 
 ## Onde está no código
 
 - Relatório do projeto: `backend/services/project_report.py`, `backend/api/project_reports.py` (`GET /reports/projects` e `GET /reports/projects/{código}`), `backend/schemas/project_report.py`, tela em `frontend/src/app/(app)/relatorios/projeto/page.tsx` (`/relatorios/projeto`, e `?codigo=` para um projeto). Testes: `backend/tests/test_project_report.py`, `frontend/e2e/relatorio-do-projeto.spec.ts`.
+- Fluxo de caixa: `backend/services/cash_flow.py`, `backend/api/cash_flow.py`, tela `frontend/src/app/(app)/relatorios/fluxo-de-caixa/page.tsx`. Testes: `backend/tests/test_fluxo_de_caixa.py`, `frontend/e2e/fluxo-de-caixa.spec.ts`.
+- DRE e fluxo mensal: `backend/services/dre.py` (`basis` competência ou caixa), `backend/api/dre.py` (`/reports/dre` e `/reports/monthly-flow`), a tela das duas em `frontend/src/components/DreScreen.tsx`. Testes: `backend/tests/test_dre.py`, `backend/tests/test_fluxo_mensal.py`, `frontend/e2e/dre.spec.ts`, `frontend/e2e/relatorios-fase-2.spec.ts`.
+- Recebimentos de projetos × ano: `backend/services/project_receipts.py`, `backend/api/project_receipts.py` (`/reports/project-receipts`), tela `frontend/src/app/(app)/relatorios/recebimentos-projetos/page.tsx`. Testes: `backend/tests/test_recebimentos_projetos.py`, `frontend/e2e/relatorios-fase-2.spec.ts`.
+- Favoritos: `frontend/src/lib/favorites.ts` (com `favorites.test.ts`) e `frontend/src/components/SavedFilters.tsx`.
 - Os demais relatórios: a criar na implementação do módulo, na estrutura de [handoff/02](../handoff/02-arquitetura-e-stack.md).
 
 Origem do requisito:
@@ -94,3 +98,25 @@ Origem do requisito:
   - **Exportar Excel** (`/reports/dre/export`): as linhas, as contas e o resultado, com o período e os filtros na primeira linha e sem linha de total, porque as linhas já são subtotais umas das outras.
 
   A tela é bloqueável por pessoa (`dre`). **Falta da PF-76:** o fluxo mensal por plano de contas, os recebimentos de projetos × ano, o previsto × realizado (depende do orçamento) e o filtro favorito salvo.
+- 2026-11-26 (**fluxo mensal, recebimentos de projetos × ano e favoritos**, PF-76; decisões do Bruno sobre o favorito no [registro de 26/11](../transcricoes/2026-11-26-favoritos-dos-relatorios.md)):
+  - **Fluxo mensal** (Relatórios → Fluxo mensal, `/reports/monthly-flow`): o mesmo quadro do DRE (blocos, linhas por grupo do plano de contas, contas embaixo, Resultado), mas pelo **mês do pagamento**. Os filtros e a exportação são os mesmos do DRE.
+    - **O que conta:** as baixas e os recebimentos que valem (sem estornados nem Pix devolvidos), só nas contas bancárias que entram no fluxo de caixa, como o realizado do fluxo de caixa. A conta bancária desativada continua contando o que pagou quando estava ativa.
+    - **O valor:** o da baixa. Acréscimo e desconto já estão nele.
+    - **Com projeto:** a baixa entra na proporção da parte do projeto no título.
+    - **Por que o mesmo quadro:** o pedido é "entradas e saídas por mês e por plano de contas, comparando meses". Com as mesmas linhas, o DRE e o fluxo mensal podem ser comparados lado a lado (competência × caixa).
+  - **Recebimentos de projetos × ano** (Relatórios → Recebimentos × ano, `/reports/project-receipts`):
+    - **As linhas e as colunas:** uma linha por projeto, uma coluna por mês do ano escolhido e a linha de total. O título sem projeto vai para "Sem projeto", no fim.
+    - **O que conta:** a mesma regra do fluxo mensal, pelo dia do recebimento.
+    - **Filtros:** ano (de 2000 a 2100; a tela oferece do próximo a cinco para trás) e empresa.
+    - **Exportar Excel:** a mesma tabela, com a linha de total.
+  - **Filtro favorito** (botão **Favoritos**):
+    - **O que guarda:** os filtros, as colunas e as opções da tela com um nome. O mesmo nome troca o que estava. São até 20 por tela.
+    - **Onde fica:** **só no navegador**, por pessoa e por tela (decisão do Bruno).
+    - **Onde aparece:** Contas a pagar (filtros, aba, indicador, busca, ordenação, colunas e densidade), Contas a receber (filtros, indicador, busca e ordenação), Fluxo de caixa (Agrupar por), DRE e Fluxo mensal (empresa, unidade, projeto, centro de custo e Mostrar as contas) e Recebimentos × ano (empresa).
+    - **As datas não entram:** o favorito vale para o período que estiver na tela, para "Despesas da Matriz" servir em qualquer mês.
+    - **Favorito antigo ou mexido à mão:** é conferido contra o formato da tela, e o que não reconhece fica de fora.
+  - As duas telas novas são bloqueáveis por pessoa (`fluxo-mensal` e `recebimentos-projetos`). **Falta da PF-76:** o previsto × realizado, que depende do orçamento do Connect.
+- 2026-11-26 (**"Em breve" no menu e a largura dos relatórios**, pedidos do Bruno):
+  - Fluxo de caixa, DRE, Fluxo mensal e Recebimentos × ano ficam "Em breve" no menu, como a Conferência bancária, e abrem pelo endereço (`/relatorios/fluxo-de-caixa`, `/relatorios/dre`, `/relatorios/fluxo-mensal` e `/relatorios/recebimentos-projetos`). O bloqueio por pessoa continua valendo.
+  - As quatro telas ganham a moldura das outras (margem e largura máxima). Antes, a tabela por mês empurrava a página e cortava o Exportar Excel e as últimas colunas.
+  - No DRE, no Fluxo mensal e nos Recebimentos, a coluna da linha fica parada ao rolar os meses para o lado, e o mês aparece curto ("jan/26"; o nome inteiro aparece ao passar o mouse).

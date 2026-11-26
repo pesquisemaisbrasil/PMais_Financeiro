@@ -148,9 +148,33 @@ Tarefas do Jira PF-74, PF-76 (o DRE) e PF-73 ([relatorios-e-analises, Ajustes de
 
 A aba **Extrato × sistema** da Conferência bancária também exporta para o Excel. As planilhas de Contas a pagar e a receber ganham o **número da conta** na última coluna. **Relatórios → DRE** mostra receitas, despesas e resultado por mês, pela competência: cada grupo do plano de contas é uma linha, com as contas dele, e dá para filtrar por empresa, unidade, projeto e centro de custo e exportar. O Resultado por projeto espera o Connect (decisões do Bruno, [registro](../transcricoes/2026-11-25-decisoes-dos-relatorios.md)).
 
+## Fluxo mensal, recebimentos × ano e favoritos (26/11/2026)
+
+O resto da tarefa PF-76 que não depende do Connect ([relatorios-e-analises, Ajustes de 26/11](../specs/relatorios-e-analises.md)).
+
+- **Relatórios → Fluxo mensal:** as mesmas linhas do DRE, pelo mês em que o dinheiro saiu ou entrou.
+- **Relatórios → Recebimentos × ano:** o que entrou de cada projeto em cada mês do ano.
+- **Botão Favoritos:** guarda os filtros, e nas listas também as colunas, com um nome, só no navegador (decisão do Bruno, [registro](../transcricoes/2026-11-26-favoritos-dos-relatorios.md)). Está nas listas de Contas a pagar e a receber e nos relatórios.
+
+Da PF-76 falta o previsto × realizado, que espera o orçamento do Connect.
+
+Fluxo de caixa, DRE, Fluxo mensal e Recebimentos × ano ficam **"Em breve" no menu** (pedido do Bruno, 26/11) e abrem pelo endereço, como a Conferência bancária. As quatro telas também ganham a margem das outras: a tabela por mês não empurra mais a página, e a coluna da linha fica parada ao rolar os meses.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
+
+### Fluxo mensal, recebimentos × ano e favoritos (26/11)
+
+1. No menu, Relatórios mostra Fluxo de caixa, DRE, Fluxo mensal e Recebimentos × ano como "Em breve", sem link. Dê baixa hoje numa conta com competência de um mês passado. Em `/relatorios/fluxo-mensal`, ela aparece no mês de hoje, na linha do grupo dela. No DRE, ela fica no mês da competência.
+2. Estorne a baixa, ou pague pelo cartão: ela sai do fluxo mensal.
+3. Filtre por um projeto. A baixa parcial de uma conta dividida entre projetos entra na proporção da parte dele: 500 pagos de 1.000, com 600 do projeto, dá 300.
+4. Receba um título de um projeto. Em `/relatorios/recebimentos-projetos`, o projeto aparece com o valor no mês, e o total do mês embaixo. Troque o ano e a empresa, e use Exportar Excel.
+5. Em `/relatorios/dre`, com um ano inteiro, os meses e o Total cabem na tela e a coluna da linha fica parada ao rolar para o lado. Escolha um projeto e Mostrar as contas. Em Favoritos, salve como "Projeto X". Mude os filtros e recarregue a página. Em Favoritos → "Projeto X", os filtros voltam. O X ao lado do nome apaga o favorito.
+6. Em Contas a pagar, digite uma busca, troque as colunas e salve um favorito. Limpe tudo e abra o favorito: a busca e as colunas voltam, e o período continua o da tela.
+7. Os testes:
+   - em `backend/`: `pytest tests/test_fluxo_mensal.py tests/test_recebimentos_projetos.py`;
+   - em `frontend/`: `npx vitest run src/lib/favorites.test.ts src/lib/projectReceipts.test.ts` e `npx playwright test e2e/relatorios-fase-2.spec.ts`.
 
 ### Fluxo de caixa, DRE e o número na exportação (25/11)
 

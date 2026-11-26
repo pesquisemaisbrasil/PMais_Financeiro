@@ -1,6 +1,6 @@
 # Próximos passos
 
-**Posição em 25/11/2026.** O trabalho novo vai na `homolog` por enquanto (pedido do Bruno, 25/11). A `development` é a versão do servidor local, que se atualiza sozinha às 22h, e a `homolog` chega a ela por um PR que o Bruno abre. Merge na `main` só com o João. A fonte do que está aberto é o Jira (projeto PF); este documento explica a ordem e o porquê. Decisões de produto continuam em [perguntas-abertas](perguntas-abertas.md), e o que foi construído e como testar está no [roadmap](roadmap.md).
+**Posição em 26/11/2026.** O trabalho novo vai na `homolog` por enquanto (pedido do Bruno, 25/11). A `development` é a versão do servidor local, que se atualiza sozinha às 22h, e a `homolog` chega a ela por um PR que o Bruno abre. Merge na `main` só com o João. A fonte do que está aberto é o Jira (projeto PF); este documento explica a ordem e o porquê. Decisões de produto continuam em [perguntas-abertas](perguntas-abertas.md), e o que foi construído e como testar está no [roadmap](roadmap.md).
 
 ## Onde estamos
 
@@ -11,7 +11,7 @@
 | Cadastros | Entregue, com as listas e os campos do SGE4B |
 | Comprovantes e baixa | Entregue com o Connect simulado. Pagar de verdade depende das entregas 1 e 2 do Connect |
 | Conferência bancária | Entregue (importar extrato, conciliar, extrato × sistema exportável, saldo do mês, fechamento). Fica "Em breve" no menu, a pedido do Bruno, até a Vivi validar |
-| Relatórios | Relatório do projeto, **Fluxo de caixa** e **DRE** (25/11). Faltam o Resultado por projeto, o fluxo mensal, os recebimentos × ano, o previsto × realizado e os favoritos |
+| Relatórios | Relatório do projeto, Fluxo de caixa e DRE (25/11); **Fluxo mensal**, **Recebimentos × ano** e os **favoritos** nas listas e nos relatórios (26/11). Os quatro relatórios novos ficam "Em breve" no menu, a pedido do Bruno, e abrem pelo endereço. Faltam o Resultado por projeto e o previsto × realizado, que esperam o Connect |
 | Notas e RPA | Não começou: depende do Connect (status da NF) e da contabilidade (INSS, Q15) |
 | Servidor local | Pronto para o João instalar com `make subir-projeto` e o pacote do banco local ([DEPLOY.md](../../DEPLOY.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)) |
 | Dados reais | Importados do SGE4B só na máquina do Bruno; vão para o servidor no pacote do banco |
@@ -31,9 +31,8 @@
 
 ## O que dá para fazer sem esperar ninguém
 
-1. **PF-76, o resto:** o fluxo mensal por plano de contas (o DRE pelo regime de caixa), os recebimentos de projetos × ano e o filtro favorito salvo (precisa decidir se fica no servidor, por pessoa, ou no navegador). O previsto × realizado espera o orçamento do Connect.
-2. **Notas e RPA, a parte que não depende do Connect:** a conferência das notas do portal (PF-68) importando o arquivo exportado, quando houver um arquivo de exemplo sem dado real.
-3. **Débitos pequenos:** a API da Conferência bancária ainda importa extrato de outra conta sem a confirmação que a tela exige; os anexos ainda não têm antivírus nem a rotina de troca da `FILES_MASTER_KEY`.
+1. **Notas e RPA, a parte que não depende do Connect:** a conferência das notas do portal (PF-68) importando o arquivo exportado, quando houver um arquivo de exemplo sem dado real.
+2. **Débitos pequenos:** a API da Conferência bancária ainda importa extrato de outra conta sem a confirmação que a tela exige; os anexos ainda não têm antivírus nem a rotina de troca da `FILES_MASTER_KEY`.
 
 ## Riscos e limites que precisam ficar à vista
 
