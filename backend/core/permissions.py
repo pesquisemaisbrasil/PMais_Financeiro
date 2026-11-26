@@ -21,6 +21,7 @@ ROLE_LABELS = {SUPERADMIN: "Super admin", "admin": "Admin", "financeiro": "Usuá
 SCREENS = {
     "contas-a-pagar": "Contas a pagar",
     "contas-a-receber": "Contas a receber",
+    "notas-e-rpa": "Notas e RPA",
     "conferencia-bancaria": "Conferência bancária",
     "divergencias": "Divergências",
     "relatorio-projeto": "Relatório do projeto",

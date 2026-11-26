@@ -697,19 +697,31 @@ def _item_note(item: PayableItem) -> str:
     return str(item.documentType)
 
 
+def item_paid_on(payable: Payable, item: PayableItem) -> date | None:
+    """O dia em que a pessoa foi paga: o do comprovante dela, ou o da última baixa quando o
+    lançamento inteiro já foi pago. Com baixa parcial, não dá para saber quem recebeu."""
+    if payable.canceledAt is not None:
+        return None
+    if item.paidOn:
+        return item.paidOn
+    if paid_amount(payable) == 0 or pending_amount(payable) > 0:
+        return None
+    return max((p.paidOn for p in _active_payments(payable)), default=None)
+
+
 def _item_status(payable: Payable, item: PayableItem) -> str:
     """Como a pessoa está de pagamento (o mesmo texto da tela): vale o do lançamento inteiro, e a
     pessoa paga pelo comprovante sabe o próprio dia."""
     if payable.canceledAt is not None:
         return "Cancelada"
-    if item.paidOn:
-        return f"Paga em {format_date_br(item.paidOn)}"
+    paid_on = item_paid_on(payable, item)
+    if paid_on:
+        return f"Paga em {format_date_br(paid_on)}"
     if paid_amount(payable) == 0:
         return "A pagar"
     if pending_amount(payable) > 0:
         return "Baixa parcial do lançamento"
-    days = sorted(p.paidOn for p in _active_payments(payable) if p.kind == "pagamento")
-    return f"Paga em {format_date_br(days[-1])}" if days else "Paga"
+    return "Paga"
 
 
 def export_items_xlsx(db: Session, payable_id: int, user: User) -> tuple[bytes, str]:
@@ -1714,7 +1726,7 @@ def _tax_rates(db: Session) -> list[dict[str, Any]]:
     # tax_rates usa as exceções deste módulo: importar no topo faria um ciclo
     from services import tax_rates
 
-    return tax_rates.list_rates(db)
+    return [row for row in tax_rates.list_rates(db) if row["code"] not in tax_rates.RPA_ONLY]
 
 
 # ---- Início ----

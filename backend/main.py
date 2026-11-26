@@ -20,6 +20,7 @@ from api.browsers import router as browsers_router
 from api.cash_flow import router as cash_flow_router
 from api.dre import monthly_router
 from api.dre import router as dre_router
+from api.fiscal_documents import router as fiscal_documents_router
 from api.health import router as health_router
 from api.holidays import router as holidays_router
 from api.incentives import router as incentives_router
@@ -151,4 +152,5 @@ app.include_router(cash_flow_router)
 app.include_router(dre_router)
 app.include_router(monthly_router)
 app.include_router(project_receipts_router)
+app.include_router(fiscal_documents_router)
 app.include_router(search_router)

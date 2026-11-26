@@ -22,8 +22,13 @@ DEFAULTS: tuple[tuple[str, str, Decimal], ...] = (
     ("cofins", "COFINS", Decimal("3.00")),
     ("csll", "CSLL", Decimal("1.00")),
     ("ir", "IR", Decimal("1.50")),
+    # Não é retenção da conta a pagar: é o desconto da pessoa que recebe por RPA na folha de campo
+    # importada (PF-67). Vale para as importações daqui para frente; o já importado não muda.
+    ("inss", "INSS do RPA", Decimal("11.00")),
 )
 NAMES = {code: name for code, name, _ in DEFAULTS}
+# Os que só valem para o RPA da folha de campo, fora dos impostos da conta a pagar.
+RPA_ONLY = frozenset({"inss"})
 INVALID_RATE = "Use um percentual entre 0 e 100, com até 2 casas, como 1,5"
 
 
@@ -38,6 +43,11 @@ def list_rates(db: Session) -> list[dict[str, Any]]:
         {"code": code, "name": name, "rate": stored.get(code, default)}
         for code, name, default in DEFAULTS
     ]
+
+
+def rate_of(db: Session, code: str) -> Decimal:
+    """O percentual de um imposto (11 = 11%): o gravado em Cadastros ou o padrão."""
+    return next(row["rate"] for row in list_rates(db) if row["code"] == code)
 
 
 def _check(items: list[TaxRateIn]) -> None:

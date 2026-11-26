@@ -40,7 +40,7 @@ from models.reference import (
 from models.user import User
 from schemas.payable import ImportFields
 from services import payable as payable_service
-from services import period_lock
+from services import period_lock, tax_rates
 from services.holidays import holiday_names
 from services.payable import PayableConflict, PayableInvalid, _active, inactive_project, today
 
@@ -49,8 +49,8 @@ MAX_UNZIPPED_BYTES = 50 * 1024 * 1024
 MAX_ROWS = 5000
 # Com 5.000 linhas, este teto mantém o total dentro do que a coluna de valor aceita.
 MAX_LINE_AMOUNT = Decimal("1000000")
-# shortcut: 11% fixos, sem o teto do INSS; trocar quando a contabilidade responder a N3.
-INSS_RATE = Decimal("0.11")
+# shortcut: o INSS do RPA é um percentual só (Cadastros → Impostos retidos, 11% hoje), sem o teto
+# do INSS; trocar quando a contabilidade responder a N3.
 CENTS = Decimal("0.01")
 
 
@@ -399,7 +399,7 @@ def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
     return lines
 
 
-def _payroll_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
+def _payroll_lines(rows: list[tuple[Any, ...]], inss_rate: Decimal) -> list[Line]:
     lines = []
     for number, cells in _table(rows, PAYROLL_COLUMNS):
         line = _base_line(number, cells)
@@ -410,7 +410,7 @@ def _payroll_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
             line.documentType = document
         if document == "RPA" and line.amount is not None:
             line.gross = line.amount
-            discount = (line.gross * INSS_RATE).quantize(CENTS, rounding=ROUND_HALF_UP)
+            discount = (line.gross * inss_rate).quantize(CENTS, rounding=ROUND_HALF_UP)
             line.amount = line.gross - discount
         if document == "NF":
             line.invoiceNumber = _text(cells.get("invoiceNumber"))[:50] or None
@@ -484,11 +484,14 @@ def _project(db: Session, project_id: int) -> Project:
     return project
 
 
-def _read(kind: str, filename: str, content: bytes) -> tuple[list[Line], set[str]]:
+def _read(db: Session, kind: str, filename: str, content: bytes) -> tuple[list[Line], set[str]]:
     """As linhas da planilha e quais campos de classificação ela traz em coluna."""
     rows = _rows(filename, content)
     titles = {_title(title) for title in rows[0]} if rows else set()
-    lines = _incentive_lines(rows) if kind == "incentivos" else _payroll_lines(rows)
+    if kind == "incentivos":
+        lines = _incentive_lines(rows)
+    else:
+        lines = _payroll_lines(rows, tax_rates.rate_of(db, "inss") / 100)
     return lines, {DIM_COLUMNS[title] for title in titles if title in DIM_COLUMNS}
 
 
@@ -739,7 +742,7 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
     """Confere a planilha sem gravar nada."""
     kind = fields.kind
     selected = _selected(db, fields)
-    lines, columns = _read(kind, filename, content)
+    lines, columns = _read(db, kind, filename, content)
     _resolve(db, lines, selected, columns, incentives=kind == "incentivos")
     good = [line for line in lines if _enters(line)]
     incentives = kind == "incentivos"
@@ -891,7 +894,7 @@ def confirm(
 ) -> dict[str, Any]:
     """Cria os lançamentos, todos ou nenhum. A planilha é lida de novo e não fica guardada."""
     selected = _selected(db, fields)
-    lines, columns = _read(fields.kind, filename, content)
+    lines, columns = _read(db, fields.kind, filename, content)
     _resolve(db, lines, selected, columns, incentives=fields.kind == "incentivos")
     good = [line for line in lines if _enters(line)]
     if not good:
