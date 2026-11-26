@@ -8,6 +8,9 @@
 	skip_install_trust
 	# a porta 80 da máquina não é do Financeiro: sem o redirecionamento de http para https
 	auto_https disable_redirects
+	# Pelo IP o navegador não diz o nome que quer (sem SNI), e o Caddy procuraria o certificado do
+	# IP do container, não o do servidor: sem isto, a conexão cai com "tlsv1 alert internal error"
+	default_sni {$IP}
 }
 
 https://{$IP}:{$PORTA_TELAS} {
