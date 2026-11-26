@@ -70,6 +70,8 @@ def test_the_people_list_says_the_level_and_who_each_one_may_change(
         "relatorio-projeto",
         "fluxo-de-caixa",
         "dre",
+        "fluxo-mensal",
+        "recebimentos-projetos",
         "cadastros",
     ]
     rows = {row["email"]: row for row in data["people"]}
@@ -133,6 +135,8 @@ def test_a_blocked_screen_is_refused_even_calling_the_api_directly(
         ("relatorio-projeto", "get", "/reports/projects"),
         ("fluxo-de-caixa", "get", "/reports/cash-flow?start=2026-11-01&end=2026-11-30"),
         ("dre", "get", "/reports/dre?start=2026-11-01&end=2026-11-30"),
+        ("fluxo-mensal", "get", "/reports/monthly-flow?start=2026-11-01&end=2026-11-30"),
+        ("recebimentos-projetos", "get", "/reports/project-receipts?year=2026"),
     ],
 )
 def test_each_screen_guards_its_own_routes(

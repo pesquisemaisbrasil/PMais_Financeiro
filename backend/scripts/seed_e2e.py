@@ -112,6 +112,10 @@ WITH_MFA = [
     "fluxo@e2e.invalid",
     # DRE (frontend/e2e/dre.spec.ts, PF-76)
     "dre@e2e.invalid",
+    # fluxo mensal, recebimentos × ano e favoritos (frontend/e2e/relatorios-fase-2.spec.ts, PF-76)
+    "fluxo-mensal@e2e.invalid",
+    "recebimentos@e2e.invalid",
+    "favoritos@e2e.invalid",
     # testes com o financeiro de 16/11 (frontend/e2e/testes-16-11.spec.ts)
     "pedidos-projeto@e2e.invalid",
     "pedidos-lista@e2e.invalid",

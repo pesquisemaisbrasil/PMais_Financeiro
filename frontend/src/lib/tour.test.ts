@@ -61,7 +61,9 @@ describe("passeio de cada tela", () => {
       "/divergencias",
       "/relatorios/dre",
       "/relatorios/fluxo-de-caixa",
+      "/relatorios/fluxo-mensal",
       "/relatorios/projeto",
+      "/relatorios/recebimentos-projetos",
     ]);
   });
 

@@ -14,9 +14,12 @@ test("fluxo de caixa: o previsto da semana lista os títulos em aberto, por mês
   page,
 }) => {
   await signIn(page, "fluxo@e2e.invalid");
+  // "Em breve" no menu (26/11): sem link, a tela abre pelo endereço
   const menu = page.getByRole("navigation", { name: "Menu principal" });
   await menu.getByRole("button", { name: "Relatórios" }).click();
-  await menu.getByRole("link", { name: "Fluxo de caixa" }).click();
+  await expect(menu.getByText("Fluxo de caixa")).toBeVisible();
+  await expect(menu.getByRole("link", { name: "Fluxo de caixa" })).toHaveCount(0);
+  await page.goto("/relatorios/fluxo-de-caixa");
   await expect(page.getByRole("heading", { name: "Relatórios - Fluxo de caixa" })).toBeVisible();
   await expect(page.getByText(/^Saldo em /)).toBeVisible();
 

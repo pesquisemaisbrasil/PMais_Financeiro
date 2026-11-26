@@ -5,9 +5,8 @@ import { signIn } from "./fixtures";
 
 test("DRE: as linhas e as contas, o filtro de projeto, exportar e a data trocada", async ({ page }) => {
   await signIn(page, "dre@e2e.invalid");
-  const menu = page.getByRole("navigation", { name: "Menu principal" });
-  await menu.getByRole("button", { name: "Relatórios" }).click();
-  await menu.getByRole("link", { name: "DRE" }).click();
+  // "Em breve" no menu (26/11): a tela abre pelo endereço
+  await page.goto("/relatorios/dre");
   await expect(page.getByRole("heading", { name: "Relatórios - DRE" })).toBeVisible();
 
   // As contas do seed foram emitidas há 20 dias: o período começa dois meses atrás
