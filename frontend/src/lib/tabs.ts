@@ -19,6 +19,8 @@ export const SCREENS = [
   "/relatorios/projeto",
   "/relatorios/fluxo-de-caixa",
   "/relatorios/dre",
+  "/relatorios/fluxo-mensal",
+  "/relatorios/recebimentos-projetos",
   "/cadastros",
   "/incentivos",
   "/acessos",
@@ -83,6 +85,10 @@ const OFF_MENU: Record<string, string> = {
   "/incentivos": "Incentivos",
   "/conferencia-bancaria": "Conferência bancária",
   "/divergencias": "Divergências",
+  "/relatorios/fluxo-de-caixa": "Fluxo de caixa",
+  "/relatorios/dre": "DRE",
+  "/relatorios/fluxo-mensal": "Fluxo mensal",
+  "/relatorios/recebimentos-projetos": "Recebimentos × ano",
 };
 
 export function tabLabel(tab: ScreenTab): string {
