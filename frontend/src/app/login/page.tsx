@@ -28,7 +28,8 @@ import { MfaSetupStep, MfaVerifyStep, RecoveryCodesStep, WaitingStep } from "./M
 
 type Step =
   | { name: "credentials" }
-  | { name: "password"; mfaToken: string }
+  // setupRequired: primeiro acesso (sem autenticador) ou senha redefinida (com autenticador)
+  | { name: "password"; mfaToken: string; setupRequired: boolean }
   | { name: "verify"; mfaToken: string }
   | { name: "setup"; mfaToken: string; secret: string; otpauthUri: string }
   | { name: "recovery"; codes: string[]; then?: Waiting }
@@ -132,9 +133,14 @@ function CredentialsStep({
         return;
       }
       const challenge = await login(email, password);
-      // Senha inicial de primeiro acesso: a senha nova vem antes do autenticador (Bruno, 25/11/2026)
+      // Senha inicial de primeiro acesso, ou provisória depois do make redefinir-senha: a senha nova
+      // vem antes do autenticador (Bruno, 25/11/2026)
       if (challenge.password_change_required) {
-        onStep({ name: "password", mfaToken: challenge.mfa_token });
+        onStep({
+          name: "password",
+          mfaToken: challenge.mfa_token,
+          setupRequired: challenge.setup_required,
+        });
         return;
       }
       onStep(await mfaStep(challenge));
@@ -277,6 +283,7 @@ function LoginContent() {
         {step.name === "password" && (
           <InitialPasswordStep
             mfaToken={step.mfaToken}
+            firstAccess={step.setupRequired}
             onChanged={async (challenge) => setStep(await mfaStep(challenge))}
             onBack={restart}
           />

@@ -13,15 +13,19 @@ import { useFormAction } from "@/lib/use-form-action";
 const MISMATCH = "As duas senhas não são iguais. Digite de novo.";
 
 /**
- * Primeiro acesso com a senha inicial: a pessoa cria a senha dela antes do autenticador (pedido do
- * Bruno, 25/11/2026; spec acesso-e-auditoria). A regra de força é a do servidor, que diz o que falta.
+ * Primeiro acesso com a senha inicial, ou senha provisória depois do `make redefinir-senha`: a pessoa
+ * cria a senha dela antes do autenticador (pedido do Bruno, 25/11/2026; spec acesso-e-auditoria). A
+ * regra de força é a do servidor, que diz o que falta.
  */
 export function InitialPasswordStep({
   mfaToken,
+  firstAccess,
   onChanged,
   onBack,
 }: {
   mfaToken: string;
+  /** Primeiro acesso: o autenticador ainda vai ser cadastrado. Senão, a senha foi redefinida. */
+  firstAccess: boolean;
   /** A senha nova foi salva: segue para o autenticador com o token parcial novo. */
   onChanged: (challenge: MfaChallenge) => Promise<void>;
   onBack: () => void;
@@ -47,11 +51,15 @@ export function InitialPasswordStep({
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <CardContent className="space-y-4">
         <p className="text-center text-sm text-muted-foreground">
-          Este é o seu primeiro acesso. Troque a senha inicial por uma senha só sua.
+          {firstAccess
+            ? "Este é o seu primeiro acesso. Troque a senha inicial por uma senha só sua."
+            : "Sua senha foi redefinida. Troque a senha provisória por uma senha só sua."}
         </p>
         <Alert>
           <AlertDescription>
-            Anote a senha nova num lugar seguro. Depois dela, você cadastra o app autenticador.
+            {firstAccess
+              ? "Anote a senha nova num lugar seguro. Depois dela, você cadastra o app autenticador."
+              : "Anote a senha nova num lugar seguro. Depois dela, digite o código do app autenticador, como sempre."}
           </AlertDescription>
         </Alert>
         <div className="grid gap-2">
