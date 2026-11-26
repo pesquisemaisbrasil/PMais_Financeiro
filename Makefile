@@ -38,7 +38,7 @@ ENDERECO_VARS = IP="$(IP)" PORTA_TELAS="$(PORTA_TELAS)" PORTA_API="$(PORTA_API)"
 .PHONY: ajuda verificar configurar banco infra backend frontend proxy subir conferir parar status logs \
 	atualizar voltar backup restaurar-banco restaurar-arquivos restaurar-local conferir-pacote subir-projeto \
 	agendar desagendar admin conta \
-	definir-nivel liberar-navegador certificado nginx trocar-endereco
+	definir-nivel liberar-navegador redefinir-senha certificado nginx trocar-endereco
 
 ajuda: ## Lista os comandos
 	@echo "Financeiro no servidor local (branch $(BRANCH)). Guia: DEPLOY.md"
@@ -351,3 +351,7 @@ definir-nivel: $(ENV_FILE) ## Troca o nível de uma conta: financeiro, admin ou 
 liberar-navegador: $(ENV_FILE) ## Libera o computador que a pessoa pediu por último, sem outro admin (EMAIL=...)
 	@test -n "$(EMAIL)" || { echo 'Use: make liberar-navegador EMAIL=pessoa@pesquisemais.com.br'; exit 1; }
 	$(COMPOSE) exec api python scripts/liberar_navegador.py --email "$(EMAIL)"
+
+redefinir-senha: $(ENV_FILE) ## Esqueceu a senha: pede uma senha provisória no terminal, que a pessoa troca no próximo login (EMAIL=...)
+	@test -n "$(EMAIL)" || { echo 'Use: make redefinir-senha EMAIL=pessoa@pesquisemais.com.br'; exit 1; }
+	$(COMPOSE) exec api python scripts/redefinir_senha.py --email "$(EMAIL)"
