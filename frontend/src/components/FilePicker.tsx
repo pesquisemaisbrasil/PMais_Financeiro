@@ -33,7 +33,7 @@ export function FilePicker({
         ref={input}
         id={id}
         type="file"
-        className="sr-only"
+        className="sr-only h-px w-px"
         tabIndex={-1}
         accept={accept}
         multiple={multiple}

@@ -1576,8 +1576,8 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
                           {project.title}
                         </TableCell>
                         <TableCell className={cn(TD, "whitespace-normal")}>{parts.customer || "—"}</TableCell>
-                        <TableCell className={TD}>{parts.company || "—"}</TableCell>
-                        <TableCell className={TD}>{parts.unit || "—"}</TableCell>
+                        <TableCell className={cn(TD, "whitespace-normal")}>{parts.company || "—"}</TableCell>
+                        <TableCell className={cn(TD, "whitespace-normal")}>{parts.unit || "—"}</TableCell>
                         <TableCell className={cn(TD, "whitespace-normal")}>{parts.center || "—"}</TableCell>
                         <TableCell className={TD}>
                           <Tag color={projectSituation(project) === "Em andamento" ? "verde" : "cinza"}>

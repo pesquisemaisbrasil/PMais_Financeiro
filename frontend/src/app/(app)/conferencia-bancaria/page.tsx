@@ -151,7 +151,7 @@ export default function BankReconciliationPage() {
 
       <div data-tour="abas" className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Tabs value={view} onValueChange={(next) => setView(next as View)}>
-          <TabsList>
+          <TabsList className="h-auto flex-wrap justify-start">
             <TabsTrigger value="conciliacao">
               Conferência{data && data.counts.pending ? ` ${data.counts.pending}` : ""}
             </TabsTrigger>
@@ -264,7 +264,7 @@ export default function BankReconciliationPage() {
                 }}
                 className="px-4 pb-3"
               >
-                <TabsList>
+                <TabsList className="h-auto flex-wrap justify-start">
                   <TabsTrigger value="todas">
                     Todas {data.counts.pending + data.counts.reconciled + data.counts.exceptions}
                   </TabsTrigger>

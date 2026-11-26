@@ -1047,7 +1047,7 @@ export function DelinquencyDialog({ onClose, onOpenTitle }: { onClose: () => voi
   const bands = bandTotals(rows ?? []);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[760px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[860px]">
         <DialogHeader>
           <DialogTitle>Inadimplência</DialogTitle>
           <DialogDescription>
@@ -1096,7 +1096,7 @@ export function DelinquencyDialog({ onClose, onOpenTitle }: { onClose: () => voi
               <TableBody>
                 {customer.titles.map((title) => (
                   <TableRow key={title.id}>
-                    <TableCell className={TD}>{title.description}</TableCell>
+                    <TableCell className={`${TD} min-w-[220px] whitespace-normal`}>{title.description}</TableCell>
                     <TableCell className={TD}>{formatDate(title.dueDate)}</TableCell>
                     <TableCell className={TD}>{daysLateText(title.daysLate)}</TableCell>
                     <TableCell className={`${TD} text-xs text-muted-foreground`}>{bandLabel(title.band)}</TableCell>

@@ -361,8 +361,8 @@ function Lines({
             {lines.map((line) => (
               <TableRow key={`${line.kind}-${line.titleId}-${line.date}-${line.amount}`}>
                 <TableCell className={TD}>{formatDate(line.date)}</TableCell>
-                <TableCell className={TD}>{line.name}</TableCell>
-                <TableCell className={TD}>
+                <TableCell className={cn(TD, "min-w-[140px] whitespace-normal")}>{line.name}</TableCell>
+                <TableCell className={cn(TD, "min-w-[200px] whitespace-normal")}>
                   <Link href={titleHref(line)} className="underline-offset-2 hover:underline">
                     {line.description}
                   </Link>

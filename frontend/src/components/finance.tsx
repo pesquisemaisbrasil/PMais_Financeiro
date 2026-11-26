@@ -186,7 +186,7 @@ export function Field({
     );
   }
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 max-w-full flex-col gap-1.5">
       <Label htmlFor={id} className="text-[13px] font-semibold">
         <RedStars text={label} />
       </Label>

@@ -153,8 +153,10 @@ function Content({ home }: { home: HomeSummary }) {
                   <TableCell className={TD}>
                     {entry.type === "provisao" ? <ProvisionTag /> : <Tag color="ambar">Pagar</Tag>}
                   </TableCell>
-                  <TableCell className={cn(TD, "font-semibold text-brand-cinza-escuro")}>{entry.payee}</TableCell>
-                  <TableCell className={TD}>
+                  <TableCell className={cn(TD, "min-w-[140px] whitespace-normal font-semibold text-brand-cinza-escuro")}>
+                    {entry.payee}
+                  </TableCell>
+                  <TableCell className={cn(TD, "min-w-[200px] whitespace-normal")}>
                     <Link className="hover:underline" href={`/contas-a-pagar?conta=${entry.id}`}>
                       {entry.description}
                     </Link>
