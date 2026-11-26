@@ -126,7 +126,11 @@ Pedido do Bruno ([acesso-e-auditoria, Ajustes de 25/11](../specs/acesso-e-audito
 
 ## Banco local no servidor e atualização às 22h (25/11/2026)
 
-Pedido do Bruno ([registro de 24/11](../transcricoes/2026-11-24-cadastros-iguais-ao-sistema-antigo.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)): o `scripts/gerar-dump-local.sh` gera, na pasta `backups/` (fora do git), o pacote do banco local inteiro (o banco, os arquivos do cofre e as três chaves que os abrem), e o `make restaurar-local` do servidor põe esse pacote no ar. Na primeira instalação, o `make subir-projeto HOST=<IP> CONFIRMAR=sim` faz tudo de uma vez: confere o pacote, configura, sobe, põe o banco do pacote, liga as 22h e gera o certificado. O `make agendar` liga a atualização automática da `development` todo dia às 22h: sem versão nova, só o backup; com versão nova que não sobe, volta sozinho à de antes com o banco do backup. O `make verificar` avisa quando o fuso do servidor não é o de São Paulo.
+Pedido do Bruno ([registro de 24/11](../transcricoes/2026-11-24-cadastros-iguais-ao-sistema-antigo.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)): o `scripts/gerar-dump-local.sh` gera, na pasta `backups/` (fora do git), o pacote do banco local inteiro (o banco, os arquivos do cofre e as três chaves que os abrem), e o `make restaurar-local` do servidor põe esse pacote no ar. Na primeira instalação, o `make subir-projeto DOMINIO=<nome> CONFIRMAR=sim` faz tudo de uma vez: confere o pacote, configura, sobe, põe o banco do pacote, liga as 22h e gera o arquivo do nginx (até 26/11 era `HOST=<IP>` e o certificado: ADR 0027). O `make agendar` liga a atualização automática da `development` todo dia às 22h: sem versão nova, só o backup; com versão nova que não sobe, volta sozinho à de antes com o banco do backup. O `make verificar` avisa quando o fuso do servidor não é o de São Paulo.
+
+## nginx do servidor na frente, como no Connect (26/11/2026)
+
+No primeiro deploy, o servidor já tinha o nginx nas portas 80 e 443, atendendo outros sistemas, e o `make verificar` parou nelas. O deploy agora segue o do P+ Connect ([ADR 0027](../architecture/adr/0027-nginx-do-servidor-na-frente-do-caddy.md)): o nginx cuida do HTTPS (certbot) e repassa a um Caddy do Financeiro que só escuta em `127.0.0.1:8089`. Os endereços são por nome (`make configurar DOMINIO=financeiro.pesquisemais.com.br`, com a API em `api.` do mesmo nome), o `make nginx` gera o arquivo do nginx e mostra como ligá-lo, e só a rede do escritório abre o Financeiro (Q64). Sai o `make certificado`: os computadores da equipe não instalam mais nada. `make atualizar`, `make agendar` e `make voltar` seguem iguais.
 
 ## Como testar
 
@@ -148,10 +152,19 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 4. Saia e entre com a senha inicial: "E-mail ou senha incorretos". Com a nova, vai direto ao código do app.
 5. Os testes: `pytest tests/test_senha_inicial.py` em `backend/` e `npx playwright test e2e/login.spec.ts` em `frontend/`.
 
+### nginx do servidor na frente (26/11)
+
+1. No servidor, com o nginx instalado: `make verificar DOMINIO=financeiro.pesquisemais.com.br` não reclama mais das portas 80 e 443; reclama só se a porta local 8089 estiver em uso por outro programa (aí, `PORTA_LOCAL=8090`).
+2. `make verificar HOST=192.168.30.15` e `make configurar DOMINIO=192.168.30.15` recusam: o nginx separa os sistemas pelo nome.
+3. `make configurar DOMINIO=...` e `make subir`: o `make conferir` do fim mostra `[ok]` nas telas e na API pelo Caddy local, e `[aviso]` no HTTPS até o nginx ser ligado.
+4. `make nginx` e os comandos que ele mostra (`cp`, `ln`, `nginx -t`, `reload` e `certbot`): `https://<DOMINIO>` abre o login num computador do escritório sem instalar certificado, e `make conferir` passa a dar `[ok]` também no HTTPS.
+5. De fora da rede do escritório, o nginx responde 403.
+6. A CI do deploy (`.github/workflows/deploy.yml`) liga o nginx com o arquivo do `make nginx` e testa as telas, o `/readyz` e o login através dele.
+
 ### Banco local no servidor e atualização às 22h (25/11)
 
 1. Na máquina do desenvolvimento, com o `docker compose` no ar: `bash scripts/gerar-dump-local.sh` gera os 3 arquivos em `backups/` e diz quantas contas de acesso, contas a pagar e a receber levam.
-2. Num servidor novo, depois do `git clone`: os 3 arquivos em `backups/` e `make subir-projeto HOST=<IP> CONFIRMAR=sim`. Sem `CONFIRMAR=sim`, sem `HOST` ou sem um dos 3 arquivos, ele recusa sem mexer em nada. Num servidor já instalado: `make atualizar` e `make restaurar-local ARQUIVO=backups/local-<data>-banco.dump CONFIRMAR=sim`.
+2. Num servidor novo, depois do `git clone`: os 3 arquivos em `backups/` e `make subir-projeto DOMINIO=<nome> CONFIRMAR=sim`. Sem `CONFIRMAR=sim`, sem `DOMINIO` ou sem um dos 3 arquivos, ele recusa sem mexer em nada. Num servidor já instalado: `make atualizar` e `make restaurar-local ARQUIVO=backups/local-<data>-banco.dump CONFIRMAR=sim`.
 3. Entre com uma conta da máquina do desenvolvimento: Contas a pagar e Cadastros mostram o mesmo que lá.
 4. `make status`: "Atualização automática: ligada, às 22h" (o `make subir-projeto` liga; à mão, `make agendar`). No dia seguinte, `backups/logs/` tem o log da noite. `make desagendar` desliga.
 5. A CI do deploy (`.github/workflows/deploy.yml`) roda o `make subir-projeto` (com o `restaurar-local` e o `agendar` dentro) e o `make desagendar` num Ubuntu.

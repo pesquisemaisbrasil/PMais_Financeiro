@@ -1,6 +1,17 @@
 # Deploy do Financeiro no servidor local
 
-Como instalar e manter o Financeiro inteiro numa máquina do escritório (**Ubuntu**), aberto pela rede com HTTPS, a partir da branch `development`. Tudo é feito pelo `Makefile` da raiz, com os arquivos de `deploy/`. Decisões do Bruno em 17/11/2026: acesso pela rede, HTTPS com certificado da própria máquina, banco vazio para dados reais. Por que é assim: [ADR 0020](docs/architecture/adr/0020-servidor-local-com-docker-compose-e-caddy.md).
+Como instalar e manter o Financeiro inteiro numa máquina do escritório (**Ubuntu**), aberto pela rede com HTTPS, a partir da branch `development`. Tudo é feito pelo `Makefile` da raiz, com os arquivos de `deploy/`. Decisões do Bruno em 17/11/2026: acesso pela rede, HTTPS e banco vazio para dados reais ([ADR 0020](docs/architecture/adr/0020-servidor-local-com-docker-compose-e-caddy.md)). Desde 26/11/2026, o Financeiro fica **atrás do nginx do servidor**, como o P+ Connect: o nginx tem as portas 80 e 443 e o HTTPS, e atende também os outros sistemas da máquina ([ADR 0027](docs/architecture/adr/0027-nginx-do-servidor-na-frente-do-caddy.md)).
+
+```
+rede do escritório (portas 80 e 443)
+        │
+      nginx  ← já existe no servidor; cuida do HTTPS (certbot) e atende os outros sistemas
+        │    127.0.0.1:8089
+      Caddy  ← do Financeiro; só escuta na própria máquina; escolhe telas ou API pelo nome
+        │
+   https://financeiro...      → telas
+   https://api.financeiro...  → API     (banco, cofre e feriados: só na rede interna do Docker)
+```
 
 > **Dado real:** o servidor recebe os dados reais pelo **dump do banco da máquina do desenvolvimento** (seção 8), na primeira instalação (`make subir-projeto`, seção 2). O dump traz os cadastros e os relatórios do sistema antigo e as contas da equipe, e daí em diante a equipe lança no próprio servidor (decisões do Bruno, 23/11 e 25/11/2026). Sem o dump, o servidor sobe com o banco vazio. O inventário de dados vale para este servidor. **Antes do primeiro lançamento real:** guarde uma cópia do `deploy/.env` num cofre fora da máquina (sem ela, anexos, chaves Pix e autenticadores não abrem mais) e leve as cópias de backup para fora do servidor. Para onde e por quanto tempo, o DPO responde (Q51 em [perguntas-abertas](docs/planning/perguntas-abertas.md)).
 
@@ -10,9 +21,10 @@ Como instalar e manter o Financeiro inteiro numa máquina do escritório (**Ubun
 |---|---|---|
 | Banco | Postgres 16 | não é exposto |
 | Cofre de arquivos | MinIO (anexos cifrados), com TLS | não é exposto |
-| API | o backend, em modo produção; as migrations rodam quando ela sobe | `https://<IP do servidor>:8443` |
-| Telas | o frontend | `https://<IP do servidor>` |
-| HTTPS | Caddy, com certificado da própria máquina | portas 80 (redireciona), 443 e 8443 |
+| API | o backend, em modo produção; as migrations rodam quando ela sobe | `https://<DOMINIO_API>` (padrão: `api.<DOMINIO>`) |
+| Telas | o frontend | `https://<DOMINIO>` |
+| Caddy | escolhe telas ou API pelo nome | só em `127.0.0.1:8089`, onde o nginx chega |
+| HTTPS | o **nginx do servidor** (fora do Docker, não é do Financeiro), com o certificado do certbot | portas 80 (redireciona) e 443 |
 | Feriados | feriados.dev com o banco dele: os feriados estaduais e municipais das 27 capitais, buscados pela API a cada 6 horas ([ADR 0024](docs/architecture/adr/0024-feriados-das-capitais-pelo-feriados-dev.md)) | não é exposto |
 
 ## 1. Preparar o servidor (uma vez)
@@ -28,11 +40,14 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo systemctl enable --now docker          # o Docker (e o Financeiro) sobe sozinho quando a máquina liga
 sudo usermod -aG docker "$USER"              # saia e entre de novo para valer
-sudo ufw allow OpenSSH && sudo ufw allow 80,443,8443/tcp && sudo ufw enable
+# nginx e certbot: se o servidor já tem (como o do Connect), não instala de novo
+sudo apt install -y nginx certbot python3-certbot-nginx
+sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 ```
 
-- **Endereço fixo** na rede: IP reservado no roteador, ou um nome que os computadores achem. Trocar o endereço depois pede `make configurar` de novo (veja "Troquei o IP" em [Solução de problemas](#solução-de-problemas)).
-- **Portas:** 80 (só redireciona para o https), 443 (telas) e 8443 (API). Nada mais do Financeiro fica exposto: banco e MinIO não publicam porta.
+- **Dois nomes no DNS**, pedidos à TI, apontando para o servidor: um para as telas (ex.: `financeiro.pesquisemais.com.br`) e um para a API (ex.: `api.financeiro.pesquisemais.com.br`). O nginx separa os sistemas da máquina pelo nome, por isso não dá para usar o IP. Para o certbot, os nomes precisam ser públicos e a porta 80 alcançar o servidor pela internet, como no Connect; se forem só da rede interna, o certificado é outro, da empresa (seção 3).
+- **Portas:** 80 (só redireciona para o https) e 443, do nginx. O Financeiro só abre a `127.0.0.1:8089` (`PORTA_LOCAL`), na própria máquina, onde o nginx chega. Banco, MinIO, API e telas não publicam porta.
+- **Quem abre:** só a rede do escritório (faixas privadas, como `192.168.x.x`). O resto recebe 403 do nginx. Abrir pela internet fica com a Q64 ([perguntas-abertas](docs/planning/perguntas-abertas.md)).
 - **Compose** 2.20 ou mais novo: confira com `docker compose version`.
 - **Internet** só para baixar as imagens, o `npm ci` e o `pip` no build, e para a consulta de CNPJ e de feriados (BrasilAPI). O Connect, se configurado, também.
 - **Disco:** pelo menos 10 GB livres.
@@ -50,56 +65,71 @@ git checkout development
 **Com o pacote do banco da máquina do desenvolvimento** (seção 8), tudo de uma vez: copie os 3 arquivos do pacote para `backups/` e rode
 
 ```bash
-make subir-projeto HOST=192.168.0.50 CONFIRMAR=sim
+make subir-projeto DOMINIO=financeiro.pesquisemais.com.br CONFIRMAR=sim
 ```
 
 Ele faz, em ordem, e para no primeiro erro:
 
 1. confere o pacote (`make conferir-pacote`): os 3 arquivos, as chaves e a versão do banco;
 2. gera o `deploy/.env` (`make configurar`), se ainda não existe;
-3. sobe tudo e confere pelo HTTPS (`make subir`);
+3. sobe tudo e confere pelo Caddy local (`make subir`);
 4. põe o banco, os arquivos e as chaves do pacote (`make restaurar-local`);
-5. liga a atualização automática às 22h (`make agendar`) e gera o certificado da equipe (`make certificado`).
+5. liga a atualização automática às 22h (`make agendar`) e gera o arquivo do nginx (`make nginx`), com os comandos para ligá-lo.
 
-Sem `PACOTE=`, ele usa o pacote mais novo de `backups/`. As contas de acesso são as do pacote, com as senhas e os autenticadores de lá: não precisa do `make admin`. Depois, siga a lista "Depois", abaixo; a atualização automática já fica ligada.
+Sem `PACOTE=`, ele usa o pacote mais novo de `backups/`. As contas de acesso são as do pacote, com as senhas e os autenticadores de lá: não precisa do `make admin`. Depois, ligue o nginx e o HTTPS (seção 3) e siga a lista "Depois", abaixo; a atualização automática já fica ligada.
 
 **Sem o pacote**, por partes:
 
 ```bash
-make verificar HOST=192.168.0.50     # confere se o servidor está pronto; não muda nada
-make configurar HOST=192.168.0.50    # gera deploy/.env com chaves novas (só se a verificação passar)
-make subir                           # sobe tudo e termina testando pelo HTTPS (o primeiro build leva alguns minutos)
+make verificar DOMINIO=financeiro.pesquisemais.com.br    # confere se o servidor está pronto; não muda nada
+make configurar DOMINIO=financeiro.pesquisemais.com.br   # gera deploy/.env com chaves novas (só se a verificação passar)
+make subir     # sobe tudo e termina testando pelo Caddy local (o primeiro build leva alguns minutos)
+make nginx     # gera o arquivo do nginx e mostra como ligá-lo com HTTPS (seção 3)
 make admin EMAIL=voce@pesquisemais.com.br NOME="Seu nome"    # primeiro administrador; pede a senha no terminal
 make definir-nivel EMAIL=voce@pesquisemais.com.br NIVEL=superadmin   # quem desenvolve vira super admin (vê Demandas)
-make certificado                     # gera financeiro-certificado-raiz.crt para os computadores
 ```
 
-Troque `192.168.0.50` pelo IP (ou nome) do servidor, sem `http://` nem porta.
+Troque `financeiro.pesquisemais.com.br` pelo nome das telas, sem `https://` nem porta. A API fica em `api.` do mesmo nome; para outro, acrescente `DOMINIO_API=...`. Se a porta 8089 já estiver em uso na máquina, acrescente `PORTA_LOCAL=8090` (ou outra livre). O `HOST=<IP>` de antes é recusado.
 
 O que cada passo faz:
 
-- **`make verificar`** (`deploy/verificar.sh`) confere, sem mudar nada. **Erros** impedem o deploy: falta git, make ou openssl; Docker parado ou só com `sudo`; Compose antes da 2.20; portas 80, 443 ou 8443 ocupadas. **Avisos** não impedem: o `ufw` sem as portas, menos de 10 GB livres, o `HOST` não ser um IP desta máquina (ou um nome que a rede acha), não estar na branch `development`. Cada linha com problema traz o comando para resolver. O `make configurar` roda a verificação antes e não gera nada se houver erro; o `make subir` também roda, e aceita as portas quando quem as usa é o próprio Financeiro.
-- **`make configurar`** cria o `deploy/.env` (fora do git) com **chaves novas e aleatórias**: senhas do banco e do MinIO, `SECRET_KEY`, `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY`. Ele se recusa a gerar de novo se o arquivo já existe.
+- **`make verificar`** (`deploy/verificar.sh`) confere, sem mudar nada. **Erros** impedem o deploy: falta git, make, openssl ou nginx; Docker parado ou só com `sudo`; Compose antes da 2.20; a porta local (8089) em uso por outro programa; um IP no lugar do nome. **Avisos** não impedem: falta o certbot, o `ufw` sem as portas 80 e 443, menos de 10 GB livres, um dos dois nomes ainda não encontrado na rede, não estar na branch `development`. As portas 80 e 443 não são conferidas: são do nginx. Cada linha com problema traz o comando para resolver. O `make configurar` roda a verificação antes e não gera nada se houver erro; o `make subir` também roda, e aceita a porta local quando quem a usa é o próprio Financeiro.
+- **`make configurar`** cria o `deploy/.env` (fora do git) com os endereços (`DOMINIO`, `DOMINIO_API` e `PORTA_LOCAL`) e **chaves novas e aleatórias**: senhas do banco e do MinIO, `SECRET_KEY`, `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY`. Ele se recusa a gerar de novo se o arquivo já existe.
 - **`make admin`** cria um administrador. As outras contas são criadas por um administrador na tela, ou também com `make admin`.
 - **`make definir-nivel`** troca o nível de uma conta que já existe: `financeiro` (usuário), `admin` ou `superadmin` ([ADR 0023](docs/architecture/adr/0023-tres-niveis-de-acesso-e-telas-por-pessoa.md)). Vale no próximo clique da pessoa.
 
 Depois:
 
 1. **Guarde o `deploy/.env` num cofre, fora do servidor.** Sem `ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY`, os dados guardados não abrem. Ele nunca vai para o git.
-2. **Instale o certificado em cada computador da equipe** (seção 3).
-3. **Abra `https://<IP do servidor>`** num computador da rede e entre com o administrador. O primeiro acesso de cada pessoa cadastra o autenticador (MFA). O primeiro computador de cada pessoa fica liberado sozinho; os outros viram pedido na tela **Acessos** para um administrador liberar (o super admin não passa por isso).
+2. **Ligue o nginx e o HTTPS** (seção 3).
+3. **Abra `https://<DOMINIO>`** num computador da rede e entre com o administrador. O primeiro acesso de cada pessoa cadastra o autenticador (MFA). O primeiro computador de cada pessoa fica liberado sozinho; os outros viram pedido na tela **Acessos** para um administrador liberar (o super admin não passa por isso).
 4. **Ligue a atualização automática** (`make agendar`, seção 7). Ela faz o backup diário às 22h.
 5. Para ligar o **P+ Connect**: preencha `CONNECT_BASE_URL` (só `https`), `CONNECT_CLIENT_ID` e `CONNECT_CLIENT_SECRET` no `deploy/.env` e rode `make subir`.
 
-## 3. Certificado nos computadores da equipe
+## 3. nginx e HTTPS (uma vez)
 
-O HTTPS usa uma autoridade de certificação **da própria máquina** (a CA local do Caddy). Cada computador precisa confiar nela **uma vez**; sem isso o navegador avisa que a conexão não é segura e as telas não falam com a API. O `make certificado` gera o arquivo `financeiro-certificado-raiz.crt`.
+O nginx do servidor recebe os dois nomes do Financeiro, cuida do HTTPS e repassa ao Caddy em `127.0.0.1:8089`. O Financeiro entra nele como um **arquivo separado**, `financeiro.conf`: os outros sistemas do nginx não mudam. É o mesmo jeito do Connect.
 
-- **Windows:** copie o arquivo para o computador → clique duas vezes → **Instalar Certificado** → **Máquina Local** (ou Usuário Atual) → **Colocar todos os certificados no repositório a seguir** → **Autoridades de Certificação Raiz Confiáveis** → Concluir. Feche e abra o navegador.
-- **macOS:** clique duas vezes; ele vai para o Acesso às Chaves. Abra o certificado e marque **Confiar sempre**.
-- **Linux:** `sudo cp financeiro-certificado-raiz.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates`. O Firefox tem a lista própria: Configurações → Certificados → Importar.
+```bash
+make nginx
+```
 
-O certificado raiz fica no volume `financeiro_caddydata`. Se esse volume for apagado, nasce outro, e todos os computadores precisam instalar de novo.
+Ele gera o `financeiro.nginx.conf` na raiz do repositório (fora do git), a partir do modelo `deploy/nginx/financeiro.conf`, com os nomes e a porta do `deploy/.env`, e mostra os comandos para ligar, que pedem `sudo`:
+
+```bash
+sudo cp financeiro.nginx.conf /etc/nginx/sites-available/financeiro.conf
+sudo ln -sf /etc/nginx/sites-available/financeiro.conf /etc/nginx/sites-enabled/financeiro.conf
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx --redirect -d financeiro.pesquisemais.com.br -d api.financeiro.pesquisemais.com.br
+```
+
+- O `nginx -t` confere tudo antes: se der erro, o `reload` não roda e nada muda. O `reload` não derruba quem está conectado nos outros sistemas.
+- O **certbot** pega o certificado dos dois nomes, acrescenta o HTTPS só no `financeiro.conf` e renova sozinho. Os computadores da equipe não instalam nada.
+- **Nomes só da rede interna** (o certbot não alcança): no lugar do `certbot`, ponha no `/etc/nginx/sites-available/financeiro.conf` um bloco `listen 443 ssl` com o certificado da empresa para os dois nomes, como os outros sistemas do nginx fazem.
+- **Copiar o arquivo de novo** (o modelo mudou, ou outro nome) apaga o HTTPS que o certbot tinha acrescentado: depois de copiar, rode o `certbot` outra vez.
+- O arquivo só deixa entrar a **rede do escritório** (faixas privadas) e não grava log de acesso (IP é dado pessoal). Envio de até 30 MB, para os PDFs de comprovantes.
+
+Depois, `make conferir` mostra `[ok]` também em `https://<DOMINIO>/login` e `https://<DOMINIO_API>/readyz`.
 
 ## 4. Backup
 
@@ -123,7 +153,7 @@ Quando a `development` tiver uma versão nova:
 make atualizar
 ```
 
-Ele faz backup, baixa a `development` (`git merge --ff-only`), gera as imagens novas, aplica as migrations (quando a API sobe) e confere pelo HTTPS. Recusa se alguém tiver mudado arquivos do repositório no servidor. Se a versão nova não subir, ele mostra o `make voltar` pronto para copiar.
+Ele faz backup, baixa a `development` (`git merge --ff-only`), gera as imagens novas, aplica as migrations (quando a API sobe) e confere. O nginx não é tocado: ele continua repassando para a mesma porta local. Recusa se alguém tiver mudado arquivos do repositório no servidor. Se a versão nova não subir, ele mostra o `make voltar` pronto para copiar.
 
 ## 6. Se a versão nova der problema
 
@@ -131,7 +161,7 @@ Ele faz backup, baixa a `development` (`git merge --ff-only`), gera as imagens n
 make voltar ARQUIVO=backups/banco-<data do atualizar>.dump CONFIRMAR=sim
 ```
 
-Ele volta o código para a versão desse backup, **apaga o banco atual e põe o do backup** (o que foi lançado depois do backup se perde), gera a API e as telas dessa versão e confere pelo HTTPS. Os arquivos anexados ficam como estão. O servidor fica numa versão "solta" (fora da `development`) até a correção sair; aí o `make atualizar` volta para a `development`.
+Ele volta o código para a versão desse backup, **apaga o banco atual e põe o do backup** (o que foi lançado depois do backup se perde), gera a API e as telas dessa versão e confere. Os arquivos anexados ficam como estão. O servidor fica numa versão "solta" (fora da `development`) até a correção sair; aí o `make atualizar` volta para a `development`.
 
 Se o problema não for no banco (a versão nova só tem um defeito de tela, por exemplo), prefira esperar a correção e rodar `make atualizar` de novo: assim nada lançado se perde.
 
@@ -189,7 +219,7 @@ O dump leva **tudo**:
    Ele avisa se o banco está numa versão que ainda não foi para a `development`: nesse caso, envie o código antes.
 2. **Leve os 3 arquivos para a pasta `backups/` do servidor** por um meio seguro: pendrive ou pasta protegida, nunca pelo git nem por e-mail aberto. Eles têm dado real, o hash das senhas e as chaves.
 3. **No servidor:**
-   - **primeira instalação:** `make subir-projeto HOST=<IP> CONFIRMAR=sim` (seção 2), que faz tudo, inclusive o passo abaixo;
+   - **primeira instalação:** `make subir-projeto DOMINIO=<nome> CONFIRMAR=sim` (seção 2), que faz tudo, inclusive o passo abaixo;
    - **servidor já instalado:**
 
      ```bash
@@ -204,7 +234,7 @@ O dump leva **tudo**:
    2. faz o backup do que está no servidor;
    3. troca as três chaves no `deploy/.env` e guarda o de antes em `backups/env-antes-do-local-<data>.env`;
    4. restaura o banco e os arquivos;
-   5. sobe tudo e confere pelo HTTPS.
+   5. sobe tudo e confere.
 4. **Entre com uma conta da máquina do desenvolvimento.** A conta criada antes no servidor (`make admin`) some: crie de novo se precisar. As contas já têm navegadores liberados, então o primeiro computador de cada uma no servidor vira pedido em **Acessos**, e o super admin libera.
 5. **Guarde o `deploy/.env` novo num cofre** (as chaves dele mudaram) e **apague o `local-<data>-chaves.env`** das duas máquinas.
 
@@ -213,11 +243,11 @@ O dump leva **tudo**:
 | Comando | O que faz |
 |---|---|
 | `make` | Lista os comandos |
-| `make verificar` | Confere programas, Docker, portas, firewall, disco, endereço e branch, sem mudar nada |
-| `make subir-projeto HOST=... CONFIRMAR=sim` | Primeira vez, com o pacote do banco local em `backups/`: configura, sobe, põe o banco do pacote, liga as 22h e gera o certificado (seção 2) |
-| `make configurar HOST=...` | Primeira vez: verifica e gera o `deploy/.env` com chaves novas |
-| `make subir` | Verifica o servidor, sobe tudo (e refaz o build do que mudou) e termina com o `make conferir`. Por partes: `make banco`, `make infra` (banco + cofre), `make backend`, `make frontend`, `make proxy` |
-| `make conferir` | Abre as telas e a API pelo HTTPS, com o certificado raiz, como um computador da equipe faria; a API só responde se o banco estiver no ar |
+| `make verificar` | Confere programas, Docker, nginx, porta local, firewall, disco, endereços e branch, sem mudar nada |
+| `make subir-projeto DOMINIO=... CONFIRMAR=sim` | Primeira vez, com o pacote do banco local em `backups/`: configura, sobe, põe o banco do pacote, liga as 22h e gera o arquivo do nginx (seção 2) |
+| `make configurar DOMINIO=...` | Primeira vez: verifica e gera o `deploy/.env` com os endereços e chaves novas (`DOMINIO_API=` e `PORTA_LOCAL=` opcionais) |
+| `make subir` | Verifica o servidor, sobe tudo (e refaz o build do que mudou) e termina com o `make conferir`. Por partes: `make banco`, `make infra` (banco + cofre), `make backend`, `make frontend`, `make proxy` (o Caddy) |
+| `make conferir` | Abre as telas e a API (que só responde com o banco no ar) pelo Caddy local, e depois pelo HTTPS do nginx, como um computador da equipe; o HTTPS só avisa |
 | `make status` | A versão no ar (commit, data e branch), se a atualização automática está ligada e cada parte, se está saudável |
 | `make logs` / `make logs SERVICO=api` | Acompanha os logs (nunca têm dado pessoal: veja o inventário de dados) |
 | `make parar` | Para tudo sem apagar nada; `make subir` volta |
@@ -233,7 +263,7 @@ O dump leva **tudo**:
 | `make conta EMAIL=... NOME="..." NIVEL=financeiro` | Cria uma conta da equipe (`financeiro`, o Usuário, ou `admin`) com senha inicial: pede a senha inicial no terminal, e a pessoa troca por uma só dela no primeiro acesso, antes do autenticador |
 | `make definir-nivel EMAIL=... NIVEL=...` | Troca o nível de uma conta: `financeiro` (usuário), `admin` ou `superadmin` |
 | `make liberar-navegador EMAIL=...` | Libera o computador que a pessoa pediu por último, quando não há outro administrador para liberar na tela Acessos |
-| `make certificado` | Copia o certificado raiz do HTTPS, para instalar nos computadores da equipe |
+| `make nginx` | Gera o `financeiro.nginx.conf` com os endereços do `deploy/.env` e mostra como ligá-lo no nginx, com o certbot (seção 3) |
 
 Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopped`), desde que o Docker suba com a máquina. Os logs têm tamanho limitado (5 arquivos de 10 MB por parte), então não enchem o disco.
 
@@ -242,28 +272,31 @@ Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopp
 | Sintoma | O que fazer |
 |---|---|
 | `make verificar` mostra `[ERRO]` | Cada linha traz o comando para resolver; rode `make verificar` de novo depois |
-| Porta 80, 443 ou 8443 em uso | Outro programa usa a porta (Apache, nginx): `sudo ss -ltnp \| grep -E ':(80\|443\|8443) '` mostra quem. Se ninguém precisa dele, `sudo systemctl disable --now <nome>`; se precisa continuar, as portas do Financeiro ainda são fixas: fale com o desenvolvimento |
+| `make verificar` diz que a porta local 8089 está em uso | Outro programa usa a porta: `sudo ss -ltnp \| grep ':8089 '` mostra quem. Use outra: `PORTA_LOCAL=8090` no `make configurar` (já configurado: mude no `deploy/.env`, rode `make subir` e `make nginx`, e copie e rode o certbot de novo, seção 3) |
 | `permission denied ... docker.sock` | O usuário não está no grupo `docker`: `sudo usermod -aG docker "$USER"` e entre de novo |
 | `make subir` para com uma parte "unhealthy" | `make logs SERVICO=api` (ou `db`, `proxy`). Senha do banco: rode `make banco` (acerta as senhas das roles pelo `deploy/.env`) |
-| O navegador avisa que a conexão não é segura | O certificado raiz não está instalado nesse computador (seção 3), ou o `HOST` é outro endereço |
-| A tela abre, mas o login diz "Sem conexão com o servidor" | A porta 8443 está fechada no firewall do servidor, ou o certificado não foi instalado e o navegador bloqueia a API |
+| O navegador avisa que a conexão não é segura | O certificado não foi tirado para esse nome: rode o `certbot` da seção 3 (depois de cada cópia do arquivo) |
+| A tela abre, mas o login diz "Sem conexão com o servidor" | O nome da API (`DOMINIO_API`) não está no DNS, ou ficou fora do certificado: o `certbot` leva os dois `-d` |
 | "Os anexos não estão disponíveis agora" | O MinIO não subiu ou o certificado dele sumiu: `make status`; apagar `deploy/certs/` e rodar `make infra` gera outro |
-| `make conferir` falha, mas `make status` mostra tudo saudável | O `SERVER_HOST` não chega até esta máquina (IP errado ou nome que não resolve): `make verificar` mostra o aviso |
-| Troquei o IP do servidor | No `deploy/.env`, mude o `SERVER_HOST` e rode `make subir` (refaz o build das telas e gera o certificado do endereço novo). O certificado raiz continua o mesmo, então os computadores não precisam reinstalar |
+| `make conferir` dá `[aviso]` no HTTPS | O nginx ainda não foi ligado ou não tem o certificado (seção 3), ou o nome não chega nesta máquina (`make verificar` mostra) |
+| 403 Forbidden do nginx | O computador não está na rede do escritório. Se está, o DNS leva o nome ao IP público e o roteador não devolve o IP interno: peça à TI que o DNS interno aponte os dois nomes para o IP do servidor na rede |
+| `make` diz "HOST não é mais usado" | O Financeiro fica atrás do nginx, que separa os sistemas pelo nome: use `DOMINIO=financeiro.pesquisemais.com.br` |
+| Troquei o nome do Financeiro | No `deploy/.env`, mude o `DOMINIO` (e o `DOMINIO_API`), rode `make subir` (refaz o build das telas) e `make nginx`, e copie e rode o certbot de novo (seção 3). Trocar só o IP do servidor não mexe no Financeiro: basta a TI atualizar o DNS |
 | Alguém vê "Computador ainda não liberado" depois da senha e do código | É um computador (ou navegador) novo, ou a pessoa limpou os dados do navegador. Outro admin libera em **Acessos**. Sem outro admin: `make liberar-navegador EMAIL=pessoa@pesquisemais.com.br` libera o pedido mais recente dela ([ADR 0022](docs/architecture/adr/0022-navegador-liberado-por-cookie.md)) |
 | A atualização das 22h não rodou | `crontab -l` mostra a linha do Financeiro? Se não, `make agendar`. Se mostra, o log da noite em `backups/logs/` diz o motivo: sem acesso ao GitHub, mudança local nos arquivos ou outra atualização rodando |
 | O log da noite diz "A versão nova não subiu. Voltando..." | No ar ficou a versão de antes, com o banco do backup daquela noite. O erro está no log, acima dessa linha. Corrija na `development`: a próxima noite tenta de novo, ou rode `make atualizar` à mão |
 | `make restaurar-local` diz "que este código ainda não tem" | O banco do pacote é de uma versão mais nova que o código do servidor: envie o código para a `development` e rode `make atualizar` antes |
-| `curl` no Windows falha com `CERT_TRUST_REVOCATION_STATUS_UNKNOWN` | O `curl` do Windows checa revogação, que a CA local não tem: use `--ssl-no-revoke`. Os navegadores não exigem isso |
+| Erro 413 ao enviar um arquivo | O nginx barra envios maiores que o `client_max_body_size` do `financeiro.conf` (30 MB). O arquivo veio de outro modelo? Rode `make nginx` e copie de novo (seção 3) |
 
 ## Como está montado
 
-- `deploy/compose.yml`, projeto `financeiro`. Só o Caddy publica portas; banco, MinIO, API, telas e feriados ficam na rede interna do Docker. Volumes: `financeiro_pgdata`, `financeiro_miniodata`, `financeiro_caddydata`, `financeiro_caddyconfig` e `financeiro_feriadosdata`.
+- **nginx do servidor** (fora do Docker): portas 80 e 443, o HTTPS e o arquivo `financeiro.conf` (modelo em `deploy/nginx/`). Ele repassa ao Caddy pelo HTTP em `127.0.0.1:8089`, com o `X-Forwarded-For` e o `X-Forwarded-Proto`, e o Caddy e a API confiam neles.
+- `deploy/compose.yml`, projeto `financeiro`. Só o Caddy publica porta, e só na própria máquina; banco, MinIO, API, telas e feriados ficam na rede interna do Docker. Volumes: `financeiro_pgdata`, `financeiro_miniodata`, `financeiro_caddydata`, `financeiro_caddyconfig` e `financeiro_feriadosdata`.
 - A API roda em **modo produção** (`ENVIRONMENT=production`): sem `/docs`, cookie de sessão seguro, Connect só por `https`, sem dados de exemplo nem Connect simulado. O MinIO fala `https` com um certificado gerado pelo `make configurar` em `deploy/certs/` (fora do git), e a API confia nele por `AWS_CA_BUNDLE`.
 - O banco nasce com as roles do `docker/postgres/roles.sql`; o `make banco` troca as senhas delas pelas do `deploy/.env` a cada subida. As migrations rodam com a role `financeiro_migrator`, e a API usa a `financeiro_app`.
 - **Feriados das capitais:** os containers `feriados` (o feriados.dev, construído do GitHub numa versão fixa) e `feriados-db` (o banco dele) ficam na rede interna. O primeiro build precisa de internet e leva alguns minutos. A API busca os feriados sozinha a cada 6 horas (`HOLIDAYS_SYNC_HOURS`). Para usar outras cidades, ponha os códigos do feriados.dev em `HOLIDAYS_LOCATIONS` no `deploy/.env` (ex.: `SP-sao-paulo,SP-campinas`) e rode `make subir`. O volume do feriados.dev não entra no backup: tudo nele é recarregado na subida. Os dados dele vão até 2027; para os anos seguintes, troque o commit do `feriados` no `deploy/compose.yml` por uma versão nova.
 - O `docker-compose.yml` da raiz continua sendo só o do desenvolvimento.
-- A CI testa este deploy num Ubuntu sempre que algo dele muda (`.github/workflows/deploy.yml`): verificar, configurar, subir com a conferência, administrador e login, backup, voltar, restaurar os arquivos, subir o projeto com um pacote como o da máquina do desenvolvimento (`make subir-projeto`, com chaves novas, que também liga a atualização automática) e desligar a atualização automática.
+- A CI testa este deploy num Ubuntu sempre que algo dele muda (`.github/workflows/deploy.yml`): verificar, configurar, subir com a conferência, o nginx na frente com o arquivo do `make nginx`, administrador e login pelo nginx, backup, voltar, restaurar os arquivos, subir o projeto com um pacote como o da máquina do desenvolvimento (`make subir-projeto`, com chaves novas, que também liga a atualização automática) e desligar a atualização automática.
 
 ## Onde está cada coisa
 
@@ -271,11 +304,13 @@ Os containers voltam sozinhos quando o servidor reinicia (`restart: unless-stopp
 |---|---|
 | `Makefile` (raiz) | Todos os comandos acima |
 | `deploy/compose.yml` | As partes e como se ligam |
-| `deploy/Caddyfile` | O HTTPS |
+| `deploy/Caddyfile` | O Caddy: qual nome vai para as telas e qual vai para a API |
+| `deploy/nginx/financeiro.conf` | O modelo do arquivo do nginx (o `make nginx` preenche) |
 | `deploy/verificar.sh` | A verificação do `make verificar` |
 | `deploy/atualizar-agendado.sh` | A atualização das 22h (`make agendar`) |
 | `scripts/gerar-dump-local.sh` | Na máquina do desenvolvimento: o pacote do banco local para o `make restaurar-local` |
 | `deploy/feriados/` | O preparo do banco do feriados.dev |
-| `deploy/.env` | Chaves e endereço, gerado pelo `make configurar` (**fora do git**) |
+| `deploy/.env` | Chaves e endereços, gerado pelo `make configurar` (**fora do git**) |
+| `financeiro.nginx.conf` | O arquivo do nginx preenchido pelo `make nginx` (**fora do git**) |
 | `deploy/certs/`, `backups/` | Certificado interno do cofre, backups, logs da atualização automática (`backups/logs/`) e o pacote do banco local (**fora do git**) |
 | `.github/workflows/deploy.yml` | A CI roda este deploy inteiro num Ubuntu sempre que algo dele muda |
