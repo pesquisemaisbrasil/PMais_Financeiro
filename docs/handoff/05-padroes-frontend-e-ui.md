@@ -303,6 +303,16 @@ Props: `path`, `fallbackPrefix`, `disabled?`, `className?`, `label?` (padrão "E
 
 **`NotificationBell`** — sino com contador e lista em `Popover`, já dentro da `Sidebar`; depende de `NotificationsProvider` (`src/lib/notifications-context.tsx`).
 
+### 4.3 Largura das telas, tabelas e janelas (revisão de 26/11/2026)
+
+Os dados reais têm descrições longas ("PC 004010 NF 1568 Bruto 25.500,00 Liq 23.931,75…") e nomes de empresa longos. O `TableCell` do shadcn não quebra a linha (`whitespace-nowrap`), então uma coluna de texto sem cuidado estica a tabela inteira. O que vale:
+
+- **Coluna de texto longo** (descrição, quem, nome, cliente, empresa): use `whitespace-normal` e, se a coluna ficar estreita demais, um `min-w-[...]`. Dinheiro, data e situação continuam sem quebrar.
+- **Janela (`DialogContent`):** ela é uma grade, e o componente já traz `[&>*]:min-w-0`. Com isso, a tabela larga rola dentro da janela em vez de esticá-la, e não precisa de nada em cada tela.
+- **Tela:** toda página fica dentro de `<main className="mx-auto w-full max-w-[1280px] px-6 pb-16 pt-8">`. Use `max-w-[1920px]` e `lg:px-8` nas listas e nos relatórios largos. Sem o `<main>`, a tela perde a margem e a tabela empurra os botões para fora.
+- **Abas e campos no celular:** `TabsList` com muitas abas leva `h-auto flex-wrap justify-start`. O `Field` já não passa da largura da linha.
+- **Campo escondido:** com `sr-only` num `Input`, ponha também `h-px w-px`, senão o `w-full` do `Input` vence e o campo invisível estica a janela (foi o caso do `FilePicker`).
+
 ---
 
 ## 5. Regra do `check:ui`
