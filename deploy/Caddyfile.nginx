@@ -1,4 +1,4 @@
-# Caddy do Financeiro: fica atrás do nginx do servidor, que tem as portas 80 e 443 e cuida do
+# Modo nginx (ADR 0027): o Caddy do Financeiro fica atrás do nginx do servidor, que tem as portas 80 e 443 e cuida do
 # HTTPS (deploy/nginx/financeiro.conf, ADR 0027), como no P+ Connect. Escuta só em
 # 127.0.0.1:PORTA_LOCAL (de fora não se alcança) e manda cada endereço para a parte certa. Por isso
 # os endereços abaixo começam com http://.

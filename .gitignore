@@ -14,6 +14,7 @@ importar/
 deploy/certs/
 backups/
 financeiro.nginx.conf
+financeiro-certificado-raiz.crt
 .env
 .env.*
 !.env.example

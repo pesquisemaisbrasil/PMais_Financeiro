@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
-# Confere se o servidor está pronto para o Financeiro: programas, Docker, nginx, porta local,
-# firewall, disco, endereços e branch. Roda com `make verificar`, e também antes do
-# `make configurar` (primeira instalação) e do `make subir`. Sai com erro se algo impede o
-# deploy; aviso não impede. Guia: DEPLOY.md
+# Confere se o servidor está pronto para o Financeiro: programas, Docker, portas, firewall, disco,
+# endereço e branch. Roda com `make verificar`, e também antes do `make configurar` (primeira
+# instalação), do `make trocar-endereco` e do `make subir`. Sai com erro se algo impede o deploy;
+# aviso não impede. Guia: DEPLOY.md
 #
-# O Financeiro fica atrás do nginx do servidor, como o P+ Connect (ADR 0027): o nginx tem as
-# portas 80 e 443 e o HTTPS, e o Caddy do Financeiro escuta só em 127.0.0.1:PORTA_LOCAL.
+# Dois modos (ADR 0027), pelo MODO (do make ou do deploy/.env):
+# - ip: o Caddy do Financeiro publica PORTA_TELAS e PORTA_API (8444 e 8443), com o HTTPS dele;
+# - nginx: o nginx do servidor tem as portas 80 e 443 e o HTTPS, e o Caddy escuta só em
+#   127.0.0.1:PORTA_LOCAL (8089).
+# As portas 80 e 443 não são conferidas: são do nginx do servidor nos dois modos.
 set -u
 
 # lê uma variável do deploy/.env sem executar o arquivo
 env_get() { [ -f deploy/.env ] && sed -n "s/^$1=//p" deploy/.env | tail -n 1 | tr -d '\r'; }
 
+# o que veio do make (o endereço novo) vale mais que o deploy/.env
+MODO=${MODO:-$(env_get MODO)}
+IP=${IP:-$(env_get IP)}
+PORTA_TELAS=${PORTA_TELAS:-$(env_get PORTA_TELAS)}
+PORTA_API=${PORTA_API:-$(env_get PORTA_API)}
 DOMINIO=${DOMINIO:-$(env_get DOMINIO)}
 DOMINIO_API=${DOMINIO_API:-$(env_get DOMINIO_API)}
-if [ -z "$DOMINIO_API" ] && [ -n "$DOMINIO" ]; then DOMINIO_API="api.$DOMINIO"; fi
 PORTA_LOCAL=${PORTA_LOCAL:-$(env_get PORTA_LOCAL)}
-PORTA_LOCAL=${PORTA_LOCAL:-8089}
 erros=0
 avisos=0
 
@@ -23,7 +29,11 @@ ok() { printf '  [ok]    %s\n' "$1"; }
 aviso() { printf '  [aviso] %s\n' "$1"; avisos=$((avisos + 1)); }
 erro() { printf '  [ERRO]  %s\n' "$1"; erros=$((erros + 1)); }
 
-echo "Verificando o servidor para o Financeiro..."
+case "$MODO" in
+  ip) echo "Verificando o servidor para o Financeiro, pelo IP ($IP)..." ;;
+  nginx) echo "Verificando o servidor para o Financeiro, por nome atrás do nginx ($DOMINIO)..." ;;
+  *) echo "Verificando o servidor para o Financeiro..." ;;
+esac
 
 # ---- Programas ----
 for programa in git make openssl curl; do
@@ -58,19 +68,21 @@ if command -v docker >/dev/null 2>&1; then
   fi
 fi
 
-# ---- nginx (o servidor da frente, com as portas 80 e 443 e o HTTPS) ----
-if command -v nginx >/dev/null 2>&1 || [ -x /usr/sbin/nginx ]; then
-  ok "nginx instalado (ele fica com as portas 80 e 443 e o HTTPS)"
-else
-  erro "Falta o nginx, que fica na frente do Financeiro: sudo apt install -y nginx"
-fi
-if command -v certbot >/dev/null 2>&1; then
-  ok "certbot instalado (certificado do HTTPS)"
-else
-  aviso "Falta o certbot, que tira o certificado do HTTPS: sudo apt install -y certbot python3-certbot-nginx"
+# ---- nginx (só por nome: o servidor da frente, com as portas 80 e 443 e o HTTPS) ----
+if [ "$MODO" = nginx ]; then
+  if command -v nginx >/dev/null 2>&1 || [ -x /usr/sbin/nginx ]; then
+    ok "nginx instalado (ele fica com as portas 80 e 443 e o HTTPS)"
+  else
+    erro "Falta o nginx, que fica na frente do Financeiro: sudo apt install -y nginx (ou use IP=..., sem o nginx)"
+  fi
+  if command -v certbot >/dev/null 2>&1; then
+    ok "certbot instalado (certificado do HTTPS)"
+  else
+    aviso "Falta o certbot, que tira o certificado do HTTPS: sudo apt install -y certbot python3-certbot-nginx"
+  fi
 fi
 
-# ---- Porta local do Caddy (onde o nginx repassa) ----
+# ---- Portas do Financeiro ----
 nosso_proxy=""
 if [ "$docker_ok" = 1 ]; then
   nosso_proxy=$(docker ps -q --filter label=com.docker.compose.project=financeiro --filter label=com.docker.compose.service=proxy 2>/dev/null)
@@ -84,35 +96,48 @@ porta_ocupada() {
   fi
 }
 
-case "$PORTA_LOCAL" in
-  '' | *[!0-9]*) erro "PORTA_LOCAL tem de ser um número: $PORTA_LOCAL" ;;
-  *)
-    if ! porta_ocupada "$PORTA_LOCAL"; then
-      ok "Porta local $PORTA_LOCAL livre (o nginx repassa para ela)"
-    elif [ -n "$nosso_proxy" ]; then
-      ok "Porta local $PORTA_LOCAL em uso pelo próprio Financeiro (já instalado)"
-    else
-      erro "A porta local $PORTA_LOCAL está em uso por outro programa. Veja quem: sudo ss -ltnp | grep ':$PORTA_LOCAL '"
-      printf '          Use outra: make configurar DOMINIO=... PORTA_LOCAL=8090 (já configurado: mude PORTA_LOCAL no deploy/.env).\n'
-    fi
+conferir_porta() { # porta, o que ela é
+  case "$1" in
+    '' | *[!0-9]*) erro "Porta inválida para $2: ${1:-vazia}"; return ;;
+  esac
+  if ! porta_ocupada "$1"; then
+    ok "Porta $1 livre ($2)"
+  elif [ -n "$nosso_proxy" ]; then
+    ok "Porta $1 em uso pelo próprio Financeiro ($2)"
+  else
+    erro "A porta $1 ($2) está em uso por outro programa. Veja quem: sudo ss -ltnp | grep ':$1 '"
+    printf '          Escolha outra no make configurar (ou no make trocar-endereco): %s\n' "$3"
+  fi
+}
+
+portas_abertas=""
+case "$MODO" in
+  ip)
+    conferir_porta "$PORTA_TELAS" "telas" "PORTA_TELAS=8445"
+    conferir_porta "$PORTA_API" "API" "PORTA_API=8442"
+    portas_abertas="$PORTA_TELAS $PORTA_API"
+    ;;
+  nginx)
+    conferir_porta "$PORTA_LOCAL" "local, onde o nginx repassa" "PORTA_LOCAL=8090"
+    portas_abertas="80 443"
     ;;
 esac
 
 # ---- Firewall (ufw) ----
-if command -v ufw >/dev/null 2>&1; then
+if [ -n "$portas_abertas" ] && command -v ufw >/dev/null 2>&1; then
   if estado=$(sudo -n ufw status 2>/dev/null); then
     if printf '%s' "$estado" | grep -q "Status: active"; then
       faltam=""
-      for porta in 80 443; do
+      for porta in $portas_abertas; do
         printf '%s\n' "$estado" | grep -E "ALLOW" | grep -qE "(^|[ ,])$porta(/tcp)?([ ,]|$)|Nginx (Full|HTTP|HTTPS)" || faltam="$faltam $porta"
       done
-      if [ -z "$faltam" ]; then ok "Firewall (ufw) libera as portas 80 e 443 do nginx"
-      else aviso "O firewall (ufw) pode não liberar a(s) porta(s)$faltam do nginx: confira com sudo ufw status"; fi
+      if [ -z "$faltam" ]; then ok "Firewall (ufw) libera as portas $portas_abertas"
+      else aviso "O firewall (ufw) pode não liberar a(s) porta(s)$faltam: a equipe não vai alcançar. sudo ufw allow <porta>/tcp, para cada uma"; fi
     else
       ok "Firewall (ufw) desligado: não bloqueia as portas"
     fi
   else
-    aviso "Não deu para ler o firewall sem senha: confira com sudo ufw status (o nginx precisa das portas 80 e 443)"
+    aviso "Não deu para ler o firewall sem senha: confira com sudo ufw status (precisa liberar $portas_abertas)"
   fi
 fi
 
@@ -124,18 +149,26 @@ if [ -z "$livre" ]; then aviso "Não deu para medir o espaço em disco"
 elif [ "$livre" -ge 10 ]; then ok "Disco: ${livre} GB livres"
 else aviso "Disco com só ${livre} GB livres: as imagens, o banco, os arquivos e os backups pedem pelo menos 10 GB"; fi
 
-# ---- Endereços ----
-# telas em https://DOMINIO e API em https://DOMINIO_API: o nginx separa os sistemas pelo nome
-if [ -z "$DOMINIO" ]; then
-  aviso "Endereço ainda não definido (make configurar DOMINIO=financeiro.pesquisemais.com.br)"
-elif printf '%s' "$DOMINIO" | grep -Eq '^[0-9]+(\.[0-9]+){3}$'; then
-  erro "DOMINIO é um nome, não um IP ($DOMINIO): o nginx separa os sistemas pelo nome. Ex.: financeiro.pesquisemais.com.br"
-elif command -v getent >/dev/null 2>&1; then
-  for nome in "$DOMINIO" "$DOMINIO_API"; do
-    if getent hosts "$nome" >/dev/null; then ok "O nome $nome é encontrado na rede"
-    else aviso "O nome $nome ainda não é encontrado: peça à TI o registro no DNS, apontando para esta máquina"; fi
-  done
-fi
+# ---- Endereço ----
+case "$MODO" in
+  ip)
+    if ips=$(hostname -I 2>/dev/null) && [ -n "$ips" ]; then
+      if printf ' %s ' "$ips" | grep -q " $IP "; then ok "Endereço $IP é desta máquina"
+      else aviso "O IP $IP não é desta máquina (os IPs dela: $ips). Confira o IP"; fi
+    fi
+    ;;
+  nginx)
+    # telas em https://DOMINIO e API em https://DOMINIO_API: o nginx separa os sistemas pelo nome
+    if command -v getent >/dev/null 2>&1; then
+      for nome in "$DOMINIO" "$DOMINIO_API"; do
+        if getent hosts "$nome" >/dev/null; then ok "O nome $nome é encontrado na rede"
+        else aviso "O nome $nome ainda não é encontrado: peça à TI o registro no DNS, apontando para esta máquina"; fi
+      done
+    fi
+    ;;
+  *) aviso "Endereço ainda não definido (make configurar IP=<IP do servidor>, ou DOMINIO=<nome> atrás do nginx)" ;;
+esac
+
 
 # ---- Fuso ----
 # o cron da atualização automática (make agendar) e o nome dos backups usam a hora da máquina
