@@ -24,6 +24,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
   - **o autenticador continua:** depois da senha nova vem o código do app de sempre, sem cadastrar de novo. Perdeu também o celular? `reset_mfa.py`, à parte;
   - os computadores liberados continuam; as sessões abertas da conta caem (os tokens de renovação são revogados);
   - fica em `login_events` como `password_reset`, sem e-mail nem IP, então não conta como tentativa errada de login. Confirme quem pediu antes de rodar.
+  - o token parcial do login leva uma marca da senha com que foi emitido (HMAC com a chave do servidor): quem entrou com a senha esquecida nos 5 minutos antes da redefinição não consegue trocar a provisória pela dele.
 - **MFA (TOTP) obrigatório** para quem entra por e-mail e senha, em todos os papéis (`admin` e `financeiro`):
   - no primeiro login, a pessoa cadastra o MFA antes de qualquer outra tela: `POST /auth/mfa/setup` devolve uma chave nova a cada pedido e o QR code, e `POST /auth/mfa/setup/confirm` prova o cadastro com o primeiro código e abre a sessão;
   - `POST /auth/token` devolve um token parcial (`mfa_pending`, 5 min);
@@ -99,6 +100,7 @@ Contrato de login, sessão, MFA, papéis, permissões finas e trilha de auditori
 | Senha nova igual à inicial | 422 | A senha nova precisa ser diferente da senha inicial |
 | Senha nova fraca | 422 | Senha precisa ter... (o que falta, numa frase) |
 | Trocar a senha inicial que já foi trocada, ou numa conta sem senha inicial | 409 | A senha inicial já foi trocada. Entre de novo. |
+| Usar um token parcial do login emitido antes de a senha mudar (redefinida, ou a inicial já trocada) | 401 | Código de verificação inválido |
 | Senha nova e a repetição diferentes (só na tela) | — | As duas senhas não são iguais. Digite de novo. |
 | SSO sem as chaves do provedor | 303 para `/login?erro=sso_indisponivel` | Esse login ainda não está disponível. Use e-mail e senha. |
 | SSO de quem não tem conta ativa no Financeiro | 303 para `/login?erro=sso_conta` | Essa conta não tem acesso ao Financeiro. Fale com o administrador. |
