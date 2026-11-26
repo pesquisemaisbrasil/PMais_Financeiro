@@ -235,6 +235,18 @@ class SameAsInitialPassword(Exception):
     """A senha nova é igual à inicial."""
 
 
+def reset_password(db: Session, user: User, temporary_password: str) -> None:
+    """Esqueceu a senha: põe uma senha provisória, que só vale até a pessoa criar a dela no próximo
+    login (o mesmo passo da senha inicial), e derruba as sessões abertas. A força da senha já foi
+    conferida. O autenticador e os navegadores liberados ficam como estão."""
+    user.passwordHash = hash_password(temporary_password)
+    user.mustChangePassword = True
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == user.id, RefreshToken.revoked.is_(False)
+    ).update({RefreshToken.revoked: True}, synchronize_session=False)
+    db.commit()
+
+
 def change_initial_password(db: Session, user: User, new_password: str) -> None:
     """Troca a senha inicial de primeiro acesso pela da pessoa. A força da senha nova já foi
     conferida. Derruba qualquer sessão que a conta tivesse (não deveria haver)."""
