@@ -133,7 +133,7 @@ O time do Connect preenche **data** e **responsável** de cada entrega em [entre
 
 ### A7. Instalar o servidor local
 
-- O Bruno entrega por um canal seguro o pacote do banco local (`backups/local-<data>-banco.dump`, `-arquivos.tgz` e `-chaves.env`). No servidor: `git clone`, `git checkout development`, os três arquivos em `backups/` e `make subir-projeto HOST=<IP do servidor> CONFIRMAR=sim` ([DEPLOY.md](../../DEPLOY.md)). Daí em diante, o servidor se atualiza sozinho às 22h com a `development`.
+- O Bruno entrega por um canal seguro o pacote do banco local (`backups/local-<data>-banco.dump`, `-arquivos.tgz` e `-chaves.env`). No servidor: `git clone`, `git checkout development`, os três arquivos em `backups/` e `make subir-projeto DOMINIO=<nome das telas> CONFIRMAR=sim`, depois o nginx e o HTTPS com o `make nginx` ([ADR 0027](../architecture/adr/0027-nginx-do-servidor-na-frente-do-caddy.md)) ([DEPLOY.md](../../DEPLOY.md)). Daí em diante, o servidor se atualiza sozinho às 22h com a `development`.
 - As 5 contas da equipe já estão no pacote, com a senha inicial de primeiro acesso: cada pessoa troca pela dela no primeiro login.
 
 ## Para levar ao DPO, à Vivi e à contabilidade

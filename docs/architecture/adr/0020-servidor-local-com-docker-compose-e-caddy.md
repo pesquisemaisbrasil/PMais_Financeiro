@@ -3,6 +3,8 @@
 **Status:** Aceito, provisório (dado real liberado pelo Bruno em 23/11/2026; onde ficam os backups e a cópia das chaves, com o DPO: Q51)
 **Data:** 17/11/2026
 
+> **26/11/2026:** a parte do HTTPS (Caddy nas portas 80, 443 e 8443 com a CA local, `make certificado` e endereço por IP) foi substituída pelo [ADR 0027](0027-nginx-do-servidor-na-frente-do-caddy.md): o nginx do servidor fica na frente, como no P+ Connect. O resto continua valendo.
+
 ## Contexto
 
 O Bruno quer o Financeiro rodando num **servidor local** do escritório, com a versão da nova branch `development`, por um `Makefile` que suba o banco, a infraestrutura, a API e as telas. Escolhas dele em 17/11/2026: a equipe abre **pela rede**, com **HTTPS de certificado local**, e o banco nasce **vazio, para dados reais**. O servidor é **Ubuntu**.
