@@ -13,7 +13,7 @@ importar/
 # Servidor local (Makefile): chaves em deploy/.env (já coberto por .env), certificados e backups
 deploy/certs/
 backups/
-financeiro-certificado-raiz.crt
+financeiro.nginx.conf
 .env
 .env.*
 !.env.example
