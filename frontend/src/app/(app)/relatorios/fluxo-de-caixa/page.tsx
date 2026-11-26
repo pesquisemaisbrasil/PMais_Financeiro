@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DateInput } from "@/components/DateInput";
+import { SavedFilters } from "@/components/SavedFilters";
 import { CARD, ErrorBox, Field, NUM, PageHeader, ProvisionTag, TD, TH } from "@/components/finance";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +35,6 @@ import {
   type CashFlowReport,
 } from "@/lib/cashFlow";
 import { saveBlob } from "@/lib/documents";
-import { place } from "@/lib/nav";
 import { brl, formatDate } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 
@@ -98,16 +98,26 @@ export default function CashFlowPage() {
   const late = data ? Number(data.lateIn) || Number(data.lateOut) : 0;
 
   return (
-    <>
+    <main className="mx-auto w-full max-w-[1920px] px-6 pb-16 pt-8 lg:px-8">
       <PageHeader
-        {...place("/relatorios/fluxo-de-caixa")}
+        section="Relatórios"
+        title="Fluxo de caixa"
         icon={Landmark}
         subtitle="Quanto entra e quanto sai em cada data. Previsto é o que está em aberto em Contas a pagar e a receber, pelo vencimento; realizado são as baixas e os recebimentos, pela data do dinheiro."
         actions={
-          <Button variant="outline" onClick={handleExport} disabled={exporting || !data}>
-            <FileSpreadsheet aria-hidden="true" />
-            {exporting ? "Exportando…" : "Exportar Excel"}
-          </Button>
+          <>
+            <SavedFilters
+              screen="fluxo-de-caixa"
+              value={{ group: query.group }}
+              onApply={({ group }) => {
+                if (GROUPS.some((option) => option.id === group)) setQuery((current) => ({ ...current, group }));
+              }}
+            />
+            <Button variant="outline" onClick={handleExport} disabled={exporting || !data}>
+              <FileSpreadsheet aria-hidden="true" />
+              {exporting ? "Exportando…" : "Exportar Excel"}
+            </Button>
+          </>
         }
       />
 
@@ -261,7 +271,7 @@ export default function CashFlowPage() {
       )}
 
       {opened && <PeriodDetail period={opened} onClose={() => setOpened(null)} />}
-    </>
+    </main>
   );
 }
 

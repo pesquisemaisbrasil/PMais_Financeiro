@@ -1,4 +1,7 @@
-/** DRE (PF-76): cada grupo do plano de contas é uma linha, por competência (Bruno, 25/11/2026). */
+/**
+ * DRE (PF-76): cada grupo do plano de contas é uma linha, por competência (Bruno, 25/11/2026).
+ * O fluxo mensal é o mesmo quadro pelo mês do pagamento (`caixa`).
+ */
 
 import { fetchBlob, request } from "./api";
 
@@ -36,12 +39,22 @@ function params(query: DreQuery): string {
   return new URLSearchParams(Object.entries(query).filter(([, value]) => value)).toString();
 }
 
-export function getDre(query: DreQuery): Promise<DreReport> {
-  return request<DreReport>(`/reports/dre?${params(query)}`);
+export type DreBasis = "competencia" | "caixa";
+
+const PATHS: Record<DreBasis, string> = { competencia: "/reports/dre", caixa: "/reports/monthly-flow" };
+
+export function getDre(query: DreQuery, basis: DreBasis = "competencia"): Promise<DreReport> {
+  return request<DreReport>(`${PATHS[basis]}?${params(query)}`);
 }
 
-export function exportDre(query: DreQuery): Promise<Blob> {
-  return fetchBlob(`/reports/dre/export?${params(query)}`);
+export function exportDre(query: DreQuery, basis: DreBasis = "competencia"): Promise<Blob> {
+  return fetchBlob(`${PATHS[basis]}/export?${params(query)}`);
+}
+
+/** "janeiro/2026" → "jan/26": cabem mais meses na largura da tela. */
+export function shortMonthYear(label: string): string {
+  const [month, year = ""] = label.split("/");
+  return `${month.slice(0, 3)}/${year.slice(-2)}`;
 }
 
 /** O DRE abre no ano até hoje: de 1º de janeiro ao dia de hoje. */

@@ -21,6 +21,8 @@ export function screenOf(href: string): string | null {
   if (path === "/relatorios/projeto") return "relatorio-projeto";
   if (path === "/relatorios/fluxo-de-caixa") return "fluxo-de-caixa";
   if (path === "/relatorios/dre") return "dre";
+  if (path === "/relatorios/fluxo-mensal") return "fluxo-mensal";
+  if (path === "/relatorios/recebimentos-projetos") return "recebimentos-projetos";
   return SCREENS.find((screen) => path === `/${screen}`) ?? null;
 }
 

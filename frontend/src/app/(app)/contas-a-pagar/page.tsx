@@ -45,6 +45,7 @@ import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { ItemsPanel } from "@/components/ItemsPanel";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { PrintButton } from "@/components/PrintButton";
+import { SavedFilters } from "@/components/SavedFilters";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
 import { Button } from "@/components/ui/button";
@@ -799,6 +800,30 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
               <Columns3 size={16} />
               Colunas
             </Button>
+            <SavedFilters
+              screen="contas-a-pagar"
+              className="h-9 gap-2 bg-card font-normal"
+              value={{ filters, dateField, tab, indicator, search: searchText, sort, columns, density }}
+              onApply={(saved) => {
+                resetPageAnd(() => {
+                  setFilters(saved.filters);
+                  setDateField(saved.dateField);
+                  setTab(saved.tab);
+                  setIndicator(saved.indicator);
+                  setSearchText(saved.search);
+                  setSearch(saved.search);
+                  setSort(saved.sort);
+                });
+                // as colunas fixas ficam sempre; as que não existem mais somem
+                const chosen = COLUMNS.filter((column) => column.fixed || saved.columns.includes(column.id)).map(
+                  (column) => column.id
+                );
+                const nextDensity: Density = saved.density === "compact" ? "compact" : "comfortable";
+                setColumns(chosen);
+                setDensity(nextDensity);
+                savePrefs({ columns: chosen, density: nextDensity });
+              }}
+            />
           </div>
           <div data-tour="busca" className="relative w-full max-w-[300px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />

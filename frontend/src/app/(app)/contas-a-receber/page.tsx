@@ -28,6 +28,7 @@ import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finan
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { PrintButton } from "@/components/PrintButton";
+import { SavedFilters } from "@/components/SavedFilters";
 import { MultiSearchSelect } from "@/components/MultiSearchSelect";
 import { SearchSelect } from "@/components/SearchSelect";
 import { SeriesDialog } from "@/components/SeriesDialog";
@@ -528,6 +529,21 @@ function ReceivablesContent({
               </DropdownMenuContent>
             </DropdownMenu>
             <PrintButton load={() => printReceivables(query)} />
+            <SavedFilters
+              screen="contas-a-receber"
+              className="h-9 gap-2 bg-card font-normal"
+              value={{ filters, dateField, indicator, search: searchText, sort }}
+              onApply={(saved) =>
+                resetPageAnd(() => {
+                  setFilters(saved.filters);
+                  setDateField(saved.dateField);
+                  setIndicator(saved.indicator);
+                  setSearchText(saved.search);
+                  setSearch(saved.search);
+                  setSort(saved.sort);
+                })
+              }
+            />
           </div>
           <div data-tour="busca" className="relative w-full max-w-[300px]">
             <Search size={16} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-brand-cinza-escuro/40" />

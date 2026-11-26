@@ -230,9 +230,43 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
       text: "Escolha o período e, se quiser, a empresa, a unidade, o projeto ou o centro de custo. Com o projeto, a conta dividida entre projetos entra só com a parte dele. Mostrar as contas abre as contas de cada grupo.",
     },
     {
-      target: "dre",
+      target: "quadro",
       title: "O DRE",
       text: "Cada grupo soma as contas dele, e o Resultado é receitas menos despesas. O grupo de cada conta muda em Cadastros, Plano de contas. Exportar Excel leva a tabela, com os filtros, para a planilha.",
+    },
+  ],
+  "/relatorios/fluxo-mensal": [
+    {
+      target: "tela",
+      title: "Fluxo mensal",
+      text: "Quanto entrou e saiu em cada mês, pela data do pagamento, com as mesmas linhas do DRE. O DRE olha a competência; aqui vale o dia em que o dinheiro se mexeu.",
+    },
+    {
+      target: "filtros",
+      title: "Os filtros",
+      text: "Escolha o período e, se quiser, a empresa, a unidade, o projeto ou o centro de custo. Com o projeto, a baixa de uma conta dividida entra só com a parte dele. Favoritos guarda os filtros com um nome.",
+    },
+    {
+      target: "quadro",
+      title: "O quadro",
+      text: "Contam as baixas e os recebimentos que valem, nas contas que entram no fluxo de caixa: estornos e o cartão ficam de fora. Exportar Excel leva a tabela para a planilha.",
+    },
+  ],
+  "/relatorios/recebimentos-projetos": [
+    {
+      target: "tela",
+      title: "Recebimentos × ano",
+      text: "O que entrou de cada projeto em cada mês do ano, pela data do recebimento.",
+    },
+    {
+      target: "filtros",
+      title: "Os filtros",
+      text: "Escolha o ano e, se quiser, a empresa. Favoritos guarda a empresa com um nome.",
+    },
+    {
+      target: "quadro",
+      title: "O quadro",
+      text: "Uma linha por projeto e o total de cada mês embaixo. O título sem projeto aparece em Sem projeto, no fim. Exportar Excel leva a tabela, com a linha de total, para a planilha.",
     },
   ],
 };
