@@ -30,4 +30,4 @@ Uma decisão por arquivo, curta, no template de [handoff/10 §3](../../handoff/1
 | [0023](0023-tres-niveis-de-acesso-e-telas-por-pessoa.md) | Três níveis de acesso (super admin, admin e usuário) e telas bloqueadas por pessoa, barradas também no servidor | Aceito (super admin provisório) |
 | [0025](0025-abas-de-telas-com-activity.md) | Abas de telas como no VS Code, com o `<Activity>` do React montado no layout: cada aba guarda o estado até fechar | Aceito |
 | [0026](0026-banco-local-no-servidor-e-atualizacao-as-22h.md) | Banco local levado ao servidor num pacote com as chaves, e atualização automática da `development` às 22h, que volta sozinha se a versão nova não subir | Aceito (provisório) |
-| [0027](0027-nginx-do-servidor-na-frente-do-caddy.md) | nginx do servidor na frente do Caddy, como no P+ Connect: HTTPS pelo nginx, Caddy só em `127.0.0.1` e endereços por nome | Aceito (provisório, Q64) |
+| [0027](0027-nginx-do-servidor-na-frente-do-caddy.md) | Dois jeitos de abrir o servidor: pelo IP, com o HTTPS do Caddy e o certificado da máquina (portas 8444 e 8443), ou por nome, atrás do nginx como no P+ Connect | Aceito (provisório, Q64) |

@@ -3,7 +3,7 @@
 **Status:** Aceito, provisório (dado real liberado pelo Bruno em 23/11/2026; onde ficam os backups e a cópia das chaves, com o DPO: Q51)
 **Data:** 17/11/2026
 
-> **26/11/2026:** a parte do HTTPS (Caddy nas portas 80, 443 e 8443 com a CA local, `make certificado` e endereço por IP) foi substituída pelo [ADR 0027](0027-nginx-do-servidor-na-frente-do-caddy.md): o nginx do servidor fica na frente, como no P+ Connect. O resto continua valendo.
+> **26/11/2026:** a parte do HTTPS (Caddy nas portas 80, 443 e 8443, que são do nginx no servidor) foi substituída pelo [ADR 0027](0027-nginx-do-servidor-na-frente-do-caddy.md): pelo IP, o Caddy segue com a CA local e o `make certificado`, mas nas portas 8444 (telas) e 8443 (API); por nome, o nginx do servidor fica na frente, como no P+ Connect. O resto continua valendo.
 
 ## Contexto
 
