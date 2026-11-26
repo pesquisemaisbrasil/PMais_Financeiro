@@ -31,7 +31,7 @@ export const NAV: Entry[] = [
     children: [
       { href: "/contas-a-pagar", label: "Contas a pagar", counted: true },
       { href: "/contas-a-receber", label: "Contas a receber" },
-      { label: "Notas e RPA" },
+      { href: "/notas-e-rpa", label: "Notas e RPA" },
       // Em breve no menu (pedido do Bruno, 24/11); as telas abrem pelo endereço
       { label: "Conferência bancária" },
       { label: "Divergências" },

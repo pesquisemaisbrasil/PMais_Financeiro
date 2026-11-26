@@ -14,6 +14,7 @@ export const SCREENS = [
   "/",
   "/contas-a-pagar",
   "/contas-a-receber",
+  "/notas-e-rpa",
   "/conferencia-bancaria",
   "/divergencias",
   "/relatorios/projeto",

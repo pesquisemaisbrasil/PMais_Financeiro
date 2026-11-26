@@ -235,6 +235,23 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
       text: "Cada grupo soma as contas dele, e o Resultado é receitas menos despesas. O grupo de cada conta muda em Cadastros, Plano de contas. Exportar Excel leva a tabela, com os filtros, para a planilha.",
     },
   ],
+  "/notas-e-rpa": [
+    {
+      target: "tela",
+      title: "Notas e RPA",
+      text: "Acompanha os documentos fiscais das pessoas da folha de campo. Nada é pago aqui: a baixa e os anexos ficam no lançamento, em Contas a pagar.",
+    },
+    {
+      target: "abas",
+      title: "NF pendente e RPA do mês",
+      text: "NF pendente lista quem recebe por NF e ainda não mandou a nota; é só aviso, o pagamento continua liberado. RPA do mês lista quem recebe por RPA e foi paga no mês, para a contabilidade.",
+    },
+    {
+      target: "filtros",
+      title: "Registrar a NF",
+      text: "Quando a nota chegar, Registrar NF pede o número e a data de emissão, e a pessoa sai da lista. Fica no histórico do lançamento quem registrou.",
+    },
+  ],
   "/relatorios/fluxo-mensal": [
     {
       target: "tela",

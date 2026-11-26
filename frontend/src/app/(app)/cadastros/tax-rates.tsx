@@ -66,7 +66,7 @@ export function TaxRatesTab() {
       <PageHeader
         {...place("/cadastros?aba=taxRates")}
         icon={BookUser}
-        subtitle="Os percentuais que toda conta a pagar nova já traz, calculados sobre o valor principal. Na conta, o valor de cada imposto pode ser mudado ou zerado."
+        subtitle="Os percentuais que toda conta a pagar nova já traz, calculados sobre o valor principal. Na conta, o valor de cada imposto pode ser mudado ou zerado. O INSS do RPA não entra na conta: é o desconto de quem recebe por RPA nas folhas de campo importadas daqui para frente."
       />
 
       {loadError && (
