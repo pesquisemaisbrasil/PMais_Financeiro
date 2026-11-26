@@ -164,7 +164,7 @@ def login_for_mfa_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return MfaChallenge(
-        mfa_token=create_mfa_token(user.id),
+        mfa_token=create_mfa_token(user),
         token_type="bearer",
         setup_required=user.mfaEnabledAt is None,
         password_change_required=user.mustChangePassword,
@@ -197,7 +197,7 @@ def set_initial_password(
             detail="A senha nova precisa ser diferente da senha inicial",
         ) from exc
     return MfaChallenge(
-        mfa_token=create_mfa_token(user.id),
+        mfa_token=create_mfa_token(user),
         token_type="bearer",
         setup_required=user.mfaEnabledAt is None,
         password_change_required=False,

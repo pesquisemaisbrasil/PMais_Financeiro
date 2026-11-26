@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import logging
 import secrets
 import uuid
@@ -79,8 +81,25 @@ def create_access_token(user_id: int, via_sso: bool = False) -> str:
     )
 
 
-def create_mfa_token(user_id: int) -> str:
-    return _create_token(user_id, MFA_TOKEN_TYPE, timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES))
+def _password_fingerprint(password_hash: str) -> str:
+    """Marca da senha atual, com a chave do servidor: não revela nada da senha nem do hash."""
+    return hmac.new(SECRET_KEY.encode(), password_hash.encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def create_mfa_token(user: User) -> str:
+    """Token parcial do login (5 minutos). Leva a marca da senha com que foi emitido: se a senha
+    muda (redefinida, ou a inicial trocada), os tokens parciais de antes deixam de valer."""
+    now = datetime.now(UTC)
+    payload = {
+        "sub": str(user.id),
+        "iss": JWT_ISSUER,
+        "aud": JWT_AUDIENCE,
+        "type": MFA_TOKEN_TYPE,
+        "pwd": _password_fingerprint(user.passwordHash),
+        "iat": now,
+        "exp": now + timedelta(minutes=MFA_TOKEN_EXPIRE_MINUTES),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def _decode_token(token: str, token_type: str) -> dict[str, Any] | None:
@@ -213,6 +232,11 @@ def get_password_pending_user(
     # FOR UPDATE: dois envios simultâneos do mesmo código não passam os dois
     user = db.query(User).filter(User.id == int(payload["sub"])).with_for_update().first()
     if user is None or user.status != "active":
+        raise denied
+    # emitido com outra senha: quem entrou com a senha esquecida não troca a provisória
+    if not hmac.compare_digest(
+        str(payload.get("pwd", "")), _password_fingerprint(user.passwordHash)
+    ):
         raise denied
     return user
 
