@@ -109,7 +109,7 @@ Origem do requisito:
 - 2026-11-03: **notas e RPA ficam numa tela própria ("Notas e RPA")**, só para acompanhar o que é fiscal; o pagamento, a importação de planilha e os anexos de cada pagamento ficam em Contas a pagar ([kickoff](../transcricoes/2026-11-03-kickoff-com-o-financeiro.md), K10, B7).
 - 2026-11-26 (**tela Notas e RPA**, PF-66 e PF-67; decisões do Bruno no [registro de 26/11](../transcricoes/2026-11-26-notas-e-rpa.md)). Fica em Financeiro → Notas e RPA, bloqueável por pessoa (`notas-e-rpa`). Não tem baixa nem importação: o link de cada linha leva ao lançamento em Contas a pagar.
   - **NF pendente:**
-    - **Quem aparece:** quem recebe por NF e ainda não tem o número da nota, nos lançamentos que valem (sem excluídos, cancelados e substituídos), do vencimento mais antigo ao mais novo.
+    - **Quem aparece:** quem recebe por NF e ainda não tem a nota (status diferente de "Recebida", que vale mesmo sem o número, como vem da planilha ou do Connect), nos lançamentos que valem (sem excluídos, cancelados e substituídos), do vencimento mais antigo ao mais novo.
     - **Colunas:** pessoa, projeto, lançamento, vencimento, situação e valor. Os filtros são projeto e busca (pessoa ou lançamento).
     - **Registrar NF:** pede o número e a data de emissão (as duas obrigatórias; a emissão não pode ser depois de hoje). A pessoa passa a "NF recebida" e sai da lista, e o registro fica no histórico do lançamento, com o nome da pessoa.
     - **O Connect:** quando ele mandar o status da NF (N4), preenche os mesmos campos.
@@ -121,3 +121,8 @@ Origem do requisito:
   - **Fora desta entrega:**
     - a conferência das notas do portal (PF-68), que espera um arquivo exportado do portal;
     - o CPF e o PIS na lista de RPA, que dependem da Q15 com o DPO. A contabilidade completa esses dados no recibo.
+  - **Layout como no protótipo** (pedido do Bruno, 26/11): uma tela só, sem abas.
+    - **No alto,** três números: NF pendente, RPA no mês (com o INSS) e Notas do portal, este em breve.
+    - **Lado a lado,** a Lista de RPA, com as setas do mês e Exportar, e a NF pendente, com Registrar NF em cada pessoa.
+    - **Embaixo,** a Conferência de notas recebidas, ainda "em breve".
+    - **Embaixo do nome de cada pessoa,** o lançamento (com link), o projeto e o valor ou o dia do pagamento. O projeto não se repete quando a descrição do lançamento já o traz.

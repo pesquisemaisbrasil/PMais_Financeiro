@@ -177,9 +177,9 @@ Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roa
 ### Notas e RPA (26/11)
 
 1. Importe em Contas a pagar uma folha de campo com uma pessoa NF sem número, uma NF com número e uma RPA de R$ 1.000.
-2. Em Financeiro → Notas e RPA, aba NF pendente: só a pessoa NF sem número aparece, com o projeto, o lançamento (o link abre a conta), a situação e o valor. A tela não tem baixa nem importação.
+2. Em Financeiro → Notas e RPA (como no protótipo: os três números no alto, a Lista de RPA e a NF pendente lado a lado e a conferência embaixo), só a pessoa NF sem número aparece na NF pendente, com o lançamento (o link abre a conta), o projeto e o valor. A tela não tem baixa nem importação.
 3. Registrar NF sem o número: "Informe o número e a data de emissão da nota.". Com o número e a data, a pessoa sai da lista, e o histórico do lançamento diz quem registrou.
-4. Dê baixa no lançamento inteiro. Na aba RPA do mês, a pessoa RPA aparece no mês de hoje, com bruto de R$ 1.000,00, INSS de R$ 110,00 e líquido de R$ 890,00. Exportar Excel baixa a lista com o total. O mês anterior fica vazio.
+4. Dê baixa no lançamento inteiro. Na Lista de RPA, a pessoa RPA aparece no mês de hoje, com bruto de R$ 1.000,00, INSS de R$ 110,00 e líquido de R$ 890,00. Exportar Excel baixa a lista com o total. O mês anterior fica vazio.
 5. Em Cadastros → Impostos retidos, mude o INSS do RPA para 10% e importe outra folha: a pessoa RPA de R$ 1.000 fica com R$ 900. Uma conta a pagar nova continua com PIS, COFINS, CSLL e IR, sem INSS.
 6. Os testes:
    - em `backend/`: `pytest tests/test_notas_e_rpa.py tests/test_impostos_retidos.py`;
