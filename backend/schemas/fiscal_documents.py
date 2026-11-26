@@ -40,6 +40,7 @@ class RpaRow(BaseModel):
     payableId: int
     name: str
     project: str
+    description: str
     paidOn: date
     gross: Decimal
     inss: Decimal

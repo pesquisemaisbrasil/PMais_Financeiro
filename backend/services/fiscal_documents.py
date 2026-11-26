@@ -68,7 +68,9 @@ def pending_invoices(
     novo."""
     rows = []
     for item, payable in _items(db, "NF"):
-        if item.invoiceNumber or not _in_project(payable, project):
+        # "Recebida" vale mesmo sem o número: é o status que a planilha (ou o Connect) mandou
+        received = item.invoiceStatus == "Recebida" or item.invoiceNumber
+        if received or not _in_project(payable, project):
             continue
         if search and not matches_words(f"{item.name} {payable.description}", search):
             continue
@@ -137,6 +139,7 @@ def rpa_month(db: Session, month: str, company: int | None = None) -> dict[str, 
                 "payableId": payable.id,
                 "name": item.name,
                 "project": _projects(payable),
+                "description": payable.description,
                 "paidOn": paid_on,
                 "gross": gross,
                 "inss": gross - item.amount,
