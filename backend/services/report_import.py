@@ -21,6 +21,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from core import company_scope
 from core.pix import is_valid_cpf
 from core.security import hash_statement_key
 from core.text import format_brl, format_date_br
@@ -470,7 +471,7 @@ def _lookups(db: Session, fields: ReportFields, positions: dict[str, int]) -> Lo
     project = None
     if fields.projectId is not None:
         project = db.get(Project, fields.projectId)
-        if project is None:
+        if project is None or not company_scope.sees_project(db, project):
             raise PayableInvalid("Projeto não encontrado")
         if project.status == "encerrado":
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
@@ -496,7 +497,10 @@ def _lookups(db: Session, fields: ReportFields, positions: dict[str, int]) -> Lo
         methods=_index(active(PaymentMethod), lambda m: [m.name]),
         suppliers=_index(active(Supplier), lambda s: [s.nickname, s.name, s.code]),
         accounts=active(BankAccount),
-        projects=_index(db.query(Project).all(), lambda p: [p.code, f"PRJ-{p.code}", p.title]),
+        projects=_index(
+            company_scope.visible_projects(db, db.query(Project)).all(),
+            lambda p: [p.code, f"PRJ-{p.code}", p.title],
+        ),
         category=category,
         method=method,
         unit=_active(db, BusinessUnit, fields.unitId, "Unidade") if fields.unitId else None,
@@ -729,7 +733,8 @@ def _mark_already_imported(db: Session, lines: list[Row]) -> None:
     existing: set[str] = set()
     for start in range(0, len(keys), KEY_CHUNK):
         chunk = keys[start : start + KEY_CHUNK]
-        rows = db.query(Payable.importKey).filter(Payable.importKey.in_(chunk)).all()
+        found = db.query(Payable.importKey).filter(Payable.importKey.in_(chunk))
+        rows = company_scope.unscoped(found).all()
         existing.update(key for (key,) in rows)
     for line in lines:
         if line.key in existing and line.skipped is None:

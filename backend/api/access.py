@@ -19,7 +19,7 @@ from api.payables import READ_LIMIT, WRITE_LIMIT, DbSession, FinanceUser, _handl
 from core.limiter import limiter
 from core.permissions import require_admin, require_superadmin
 from models.user import User
-from schemas.access import DemandOut, PeopleOut, PersonOut, ScreensIn
+from schemas.access import CompaniesIn, DemandOut, PeopleOut, PersonOut, ScreensIn
 from services import demands, people
 from services.auth import get_current_user
 
@@ -62,6 +62,26 @@ def set_person_screens(
 ) -> dict[str, Any]:
     try:
         return _in_transaction(db, lambda: people.set_screens(db, person_id, body.blocked, user))
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Pessoa não encontrada") from exc
+        raise
+
+
+@router.put(
+    "/admin/pessoas/{person_id}/empresas",
+    response_model=PersonOut,
+    description="Troca as empresas que a pessoa vê (companyIds nulo = todas). Só quem vê todas, "
+    "com as mesmas regras das telas",
+)
+@limiter.limit(WRITE_LIMIT)
+def set_person_companies(
+    request: Request, person_id: int, body: CompaniesIn, db: DbSession, user: AdminUser
+) -> dict[str, Any]:
+    try:
+        return _in_transaction(
+            db, lambda: people.set_companies(db, person_id, body.companyIds, user)
+        )
     except HTTPException as exc:
         if exc.status_code == status.HTTP_404_NOT_FOUND:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Pessoa não encontrada") from exc

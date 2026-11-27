@@ -20,6 +20,8 @@ class User(Base):
     blockedScreensText = Column(
         "blockedScreens", String(300), nullable=False, default="", server_default=""
     )
+    # as empresas que a pessoa vê, separadas por vírgula; nulo = todas (core/company_scope)
+    companyAccessText = Column("companyAccess", String(1000), nullable=True)
     # active | inactive
     status = Column(String(20), nullable=False, default="active", index=True)
     # AES-256-GCM (core/crypto.py), nunca em claro. Já existe durante o cadastro, mas o
@@ -39,6 +41,13 @@ class User(Base):
     @property
     def mfaEnabled(self) -> bool:
         return self.mfaEnabledAt is not None
+
+    @property
+    def companyIds(self) -> list[int] | None:
+        """As empresas liberadas; None é todas (o super admin sempre vê todas)."""
+        if self.role == "superadmin" or self.companyAccessText is None:
+            return None
+        return [int(part) for part in self.companyAccessText.split(",") if part]
 
     @property
     def blockedScreens(self) -> list[str]:

@@ -20,6 +20,7 @@ from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.worksheet.datavalidation import DataValidation
 from sqlalchemy.orm import Session
 
+from core import company_scope
 from core.xlsx import DATE_FORMAT, MONEY_FORMAT
 from models.reference import ExpenseCategory, PaymentMethod, Project
 from services.payable_import import MAX_ROWS
@@ -241,7 +242,7 @@ def _list_sheet(
 def build(db: Session) -> bytes:
     """O modelo, com os projetos abertos e os cadastros ativos na hora do download."""
     projects = (
-        db.query(Project)
+        company_scope.visible_projects(db, db.query(Project))
         .filter(Project.active.is_(True), Project.status != "encerrado")
         .order_by(Project.code)
         .all()

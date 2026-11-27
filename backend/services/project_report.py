@@ -15,6 +15,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, selectinload
 
+from core import company_scope
 from models.payable import Payable, PayableAllocation, PayableAttachment
 from models.reference import Project
 from services import payable as payables
@@ -109,14 +110,17 @@ def list_projects(db: Session) -> list[dict[str, Any]]:
             "status": project.status,
             **totals.get(project.id, empty),
         }
-        for project in db.query(Project).order_by(Project.id.desc()).all()
+        for project in company_scope.visible_projects(db, db.query(Project))
+        .order_by(Project.id.desc())
+        .all()
     ]
 
 
 def report(db: Session, code: str) -> dict[str, Any]:
     # shortcut: o mesmo número pode estar em duas empresas (24/11); abre o primeiro cadastrado,
     # até o relatório escolher pela empresa
-    project = db.query(Project).filter(Project.code == code).order_by(Project.id).first()
+    same_code = company_scope.visible_projects(db, db.query(Project))
+    project = same_code.filter(Project.code == code).order_by(Project.id).first()
     if project is None:
         raise ProjectNotFound
     on = payables.today()

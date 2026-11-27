@@ -17,11 +17,25 @@ class PersonOut(BaseModel):
     blockedScreens: list[str]
     # admin só muda as telas de usuário; ninguém muda as próprias nem as do super admin
     canEdit: bool
+    # as empresas que a pessoa vê (None é todas) e se quem está olhando pode mudar
+    companyIds: list[int] | None
+    canEditCompanies: bool
+
+
+class CompanyChoice(BaseModel):
+    id: int
+    name: str
 
 
 class PeopleOut(BaseModel):
     screens: list[ScreenOut]
+    companies: list[CompanyChoice]
     people: list[PersonOut]
+
+
+class CompaniesIn(BaseModel):
+    # None é todas as empresas
+    companyIds: list[int] | None = Field(max_length=200)
 
 
 class ScreensIn(BaseModel):

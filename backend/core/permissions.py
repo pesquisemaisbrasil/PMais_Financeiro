@@ -32,6 +32,9 @@ SCREENS = {
     "cadastros": "Cadastros",
 }
 SCREEN_BLOCKED = "Esta tela não está liberada para você. Fale com o administrador."
+ALL_COMPANIES_NEEDED = (
+    "Os comprovantes do Connect precisam de acesso a todas as empresas. Fale com o administrador."
+)
 
 
 def require_admin(current_user: User) -> None:
@@ -49,6 +52,17 @@ def require_finance(current_user: User) -> None:
 def require_superadmin(current_user: User) -> None:
     if current_user.role != SUPERADMIN:
         raise HTTPException(status_code=403, detail="Esta tela é só do super admin")
+
+
+def require_all_companies() -> Any:
+    """Dependência das rotas que juntam empresas sem separar uma da outra (os comprovantes e as
+    divergências do Connect): só quem vê todas (ADR 0029)."""
+
+    def check(user: Annotated[User, Depends(get_current_user)]) -> None:
+        if user.companyIds is not None:
+            raise HTTPException(status_code=403, detail=ALL_COMPANIES_NEEDED)
+
+    return Depends(check)
 
 
 def require_screen(screen: str) -> Any:

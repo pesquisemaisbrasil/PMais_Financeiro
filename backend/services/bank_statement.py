@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
+from core import company_scope
 from core.crypto import decrypt_payload, encrypt_payload
 from core.security import hash_statement_key
 from core.statement import ParsedStatement, StatementLine, parse_statement
@@ -64,12 +65,10 @@ def _existing(db: Session, account_id: int, keys: list[str]) -> set[str]:
     found: set[str] = set()
     for start in range(0, len(keys), _CHUNK):
         chunk = keys[start : start + _CHUNK]
-        found |= {
-            key
-            for (key,) in db.query(BankTransaction.dedupeKey).filter(
-                BankTransaction.bank_account_id == account_id, BankTransaction.dedupeKey.in_(chunk)
-            )
-        }
+        known = db.query(BankTransaction.dedupeKey).filter(
+            BankTransaction.bank_account_id == account_id, BankTransaction.dedupeKey.in_(chunk)
+        )
+        found |= {key for (key,) in company_scope.unscoped(known)}
     return found
 
 

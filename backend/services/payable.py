@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session, selectinload
 
+from core import company_scope
 from core.print_table import build_print
 from core.query_lists import as_list
 from core.text import (
@@ -928,7 +929,7 @@ def _check_allocations(
         raise PayableInvalid("O mesmo projeto aparece mais de uma vez no rateio")
     for allocation in allocations:
         project = db.get(Project, allocation.projectId)
-        if project is None:
+        if project is None or not company_scope.sees_project(db, project):
             raise PayableInvalid(f"Projeto {allocation.projectId} não encontrado")
         if project.status == "encerrado":
             raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
@@ -1305,16 +1306,13 @@ def _transaction_used(db: Session, transaction_id: str) -> bool:
     key = transaction_id.strip().upper()
     lock_transaction_id(db, key)
     undone = db.query(PayablePayment.reverses_id).filter(PayablePayment.reverses_id.isnot(None))
-    return (
-        db.query(PayablePayment.id)
-        .filter(
-            func.upper(func.trim(PayablePayment.transactionId)) == key,
-            PayablePayment.kind == "pagamento",
-            PayablePayment.id.notin_(undone),
-        )
-        .first()
-        is not None
+    # todas as empresas: um Pix só paga uma vez (ADR 0029)
+    used = db.query(PayablePayment.id).filter(
+        func.upper(func.trim(PayablePayment.transactionId)) == key,
+        PayablePayment.kind == "pagamento",
+        PayablePayment.id.notin_(undone),
     )
+    return company_scope.unscoped(used).first() is not None
 
 
 def pay(db: Session, payable_id: int, data: PaymentCreate, user: User) -> Decimal:
@@ -1562,7 +1560,9 @@ def replace_provision(db: Session, payable_id: int, data: ProvisionReplace, user
 
 def _reopen_provisions(db: Session, real: Payable, user: User) -> None:
     """Sem a conta real, a provisão volta a contar: o previsto não pode sumir sem aviso."""
-    for provision in real.replaced_provisions:
+    # de qualquer empresa: a provisão não pode ficar presa numa conta que saiu
+    replaced = db.query(Payable).filter(Payable.replaced_by_id == real.id).order_by(Payable.id)
+    for provision in company_scope.unscoped(replaced).all():
         provision.replaced_by_id = None
         audit(db, provision, user, f'Voltou a valer: a conta real "{real.description}" saiu')
 
@@ -1599,7 +1599,7 @@ def reclassify_batch(db: Session, data: BatchReclassify, user: User) -> int:
     if not (data.projectId or data.categoryId or data.costCenterId or data.dueDate or data.amount):
         raise PayableInvalid("Escolha o que vai mudar")
     project = db.get(Project, data.projectId) if data.projectId else None
-    if data.projectId and project is None:
+    if data.projectId and (project is None or not company_scope.sees_project(db, project)):
         raise PayableInvalid("Projeto não encontrado")
     if project is not None and project.status == "encerrado":
         raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
@@ -1766,7 +1766,9 @@ def reference(db: Session) -> dict[str, Any]:
             {"id": b.id, "name": b.name, "companyId": b.company_id} for b in active(BankAccount)
         ],
         "suppliers": active(Supplier).all(),
-        "projects": db.query(Project).order_by(Project.code).all(),
+        "projects": company_scope.visible_projects(db, db.query(Project))
+        .order_by(Project.code)
+        .all(),
         "taxRates": _tax_rates(db),
     }
 

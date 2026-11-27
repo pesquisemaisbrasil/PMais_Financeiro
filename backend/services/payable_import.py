@@ -25,6 +25,7 @@ from typing import Any
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
+from core import company_scope
 from core.business_days import NO_EXTRA, add_business_days, next_business_day, why_not_business
 from core.pix import hash_pix, mask_pix_key, normalize_pix_key
 from core.text import format_brl, format_date_br
@@ -485,7 +486,7 @@ def _shift_text(group: list[Line], pay_date: date) -> str:
 
 def _project(db: Session, project_id: int) -> Project:
     project = db.get(Project, project_id)
-    if project is None:
+    if project is None or not company_scope.sees_project(db, project):
         raise PayableInvalid("Projeto não encontrado")
     if project.status == "encerrado":
         raise PayableConflict("Projeto fechado — peça a reabertura a um administrador")
@@ -797,13 +798,13 @@ def preview(db: Session, fields: ImportFields, filename: str, content: bytes) ->
         "hasClassificationColumns": bool(columns - {"project"}),
         "projects": projects,
         "missingDeadline": any(project["missingDeadline"] for project in projects),
-        "alreadyImported": db.query(Payable)
-        .filter(
-            Payable.importHash == _file_hash(content),
-            Payable.deletedAt.is_(None),
-            Payable.canceledAt.is_(None),
-        )
-        .first()
+        "alreadyImported": company_scope.unscoped(
+            db.query(Payable.id).filter(
+                Payable.importHash == _file_hash(content),
+                Payable.deletedAt.is_(None),
+                Payable.canceledAt.is_(None),
+            )
+        ).first()
         is not None,
         "total": sum((line.amount for line in good if line.amount), Decimal("0")),
         "goodCount": len(good),

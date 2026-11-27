@@ -12,6 +12,8 @@ class UserPublic(BaseModel):
     mfaEnabled: bool = False
     # o menu esconde e o endereço não abre as telas bloqueadas pelo admin
     blockedScreens: list[str] = []
+    # as empresas liberadas (core/company_scope); None é todas
+    companyIds: list[int] | None = None
 
 
 def validate_password_strength(value: str) -> str:

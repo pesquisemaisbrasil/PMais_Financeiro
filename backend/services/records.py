@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from core import company_scope
 from core.document import clean_cnpj, is_cpf_shaped, valid_cnpj
 from core.pix import is_valid_cpf
 from models.bank_statement import BankStatement, BankTransaction
@@ -146,7 +147,9 @@ CPF_MASKED = re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}")
 def _used_ids(db: Session, kind: str) -> set[int]:
     used: set[int] = set()
     for column in KINDS[kind].usage:
-        used |= {value for (value,) in db.query(column).distinct() if value is not None}
+        # todas as empresas: cadastro em uso por outra não se exclui (ADR 0029)
+        values = company_scope.unscoped(db.query(column).distinct())
+        used |= {value for (value,) in values if value is not None}
     return used
 
 
@@ -204,10 +207,11 @@ def _check_length(model: Any, attribute: str, value: str, label: str) -> None:
 
 
 def _taken(db: Session, kind: str, record_id: int | None, *conditions: Any) -> bool:
-    query = db.query(KINDS[kind].model).filter(*conditions)
+    query = db.query(KINDS[kind].model.id).filter(*conditions)
     if record_id is not None:
         query = query.filter(KINDS[kind].model.id != record_id)
-    return query.first() is not None
+    # todas as empresas: o código e o nome não repetem em nenhuma
+    return company_scope.unscoped(query).first() is not None
 
 
 def _party_document(
@@ -523,6 +527,9 @@ def create(db: Session, kind: str, data: RecordIn, user: User) -> dict[str, Any]
 def add(db: Session, kind: str, data: RecordIn, user: User, origin: str = "") -> Any:
     """Valida e cria o cadastro na transação aberta, sem commit: a importação dos cadastros do
     sistema antigo grava o arquivo todo junto. `origin` vai no histórico, depois do nome."""
+    if kind == "companies" and company_scope.allowed(db) is not None:
+        # a empresa nova não estaria entre as liberadas da pessoa
+        raise PayableConflict("Só quem vê todas as empresas cadastra uma empresa nova")
     fields = _fields(db, kind, None, data)
     if kind in GENERATED_CODE:
         # o código vem do sistema; o que a tela mandar não vale. Depois de criado, nunca muda.
@@ -702,9 +709,7 @@ def _project_text(db: Session, project: Project) -> str:
 def edit_project(db: Session, project_id: int, data: ProjectIn, user: User) -> Project:
     """Número, nome, padrões do lançamento e incentivo. As contas já lançadas não mudam: o padrão
     só vale para as próximas."""
-    project = db.query(Project).filter_by(id=project_id).with_for_update().first()
-    if project is None:
-        raise RecordNotFound
+    project = _visible_project(db, project_id)
     _project_unique(db, data, project_id, _unit_company(db, data.unitId))
     values = _project_defaults(db, data)
     before = _project_text(db, project)
@@ -724,15 +729,24 @@ def edit_project(db: Session, project_id: int, data: ProjectIn, user: User) -> P
 PROJECT_IN_USE = "Esse projeto tem lançamentos — inative em vez de excluir"
 
 
+def _visible_project(db: Session, project_id: int) -> Project:
+    """O projeto travado para alterar; o de uma empresa não liberada não existe para a pessoa."""
+    project = db.query(Project).filter_by(id=project_id).with_for_update().first()
+    if project is None or not company_scope.sees_project(db, project):
+        raise RecordNotFound
+    return project
+
+
 def delete_project(db: Session, project_id: int, user: User) -> None:
     """Só o projeto que nunca recebeu conta a pagar nem título a receber (18/11). Com lançamento, a
     saída é inativar: o histórico fica."""
-    project = db.query(Project).filter_by(id=project_id).with_for_update().first()
-    if project is None:
-        raise RecordNotFound
+    project = _visible_project(db, project_id)
+    unscoped = company_scope.unscoped
     in_use = (
-        db.query(PayableAllocation.id).filter(PayableAllocation.project_id == project_id).first()
-        or db.query(Receivable.id).filter(Receivable.project_id == project_id).first()
+        unscoped(
+            db.query(PayableAllocation.id).filter(PayableAllocation.project_id == project_id)
+        ).first()
+        or unscoped(db.query(Receivable.id).filter(Receivable.project_id == project_id)).first()
     )
     if in_use:
         raise PayableConflict(PROJECT_IN_USE)
@@ -743,9 +757,7 @@ def delete_project(db: Session, project_id: int, user: User) -> None:
 
 def update_project(db: Session, project_id: int, data: ProjectIncentive, user: User) -> Project:
     """Só o tipo e o incentivo, sem tocar no resto do projeto."""
-    project = db.query(Project).filter_by(id=project_id).with_for_update().first()
-    if project is None:
-        raise RecordNotFound
+    project = _visible_project(db, project_id)
     if data.hasIncentive and not data.incentiveDays:
         raise PayableInvalid("Informe o prazo do incentivo em dias úteis (de 1 a 30)")
     before = _incentive_text(project)

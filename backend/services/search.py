@@ -17,6 +17,7 @@ from urllib.parse import quote
 
 from sqlalchemy.orm import Session, selectinload
 
+from core import company_scope
 from core.text import format_brl, format_date_br, matches_words, normalize
 from models.payable import Payable
 from models.receivable import Receivable
@@ -203,7 +204,7 @@ def search(db: Session, term: str) -> list[Group]:
     customers = {c.id: c for c in _records(db, Customer)}
     projects = [
         p
-        for p in _records(db, Project)
+        for p in company_scope.visible_projects(db, db.query(Project)).order_by(Project.id).all()
         if _matches(
             [
                 p.code,

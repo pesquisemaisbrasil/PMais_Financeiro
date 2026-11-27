@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, selectinload
 
+from core import company_scope
 from core.print_table import build_print
 from core.query_lists import as_list
 from core.text import (
@@ -676,7 +677,7 @@ def _check_project(db: Session, project_id: int | None) -> Project | None:
     if project_id is None:
         return None  # receita sem projeto é permitida (Q27)
     project = db.get(Project, project_id)
-    if project is None:
+    if project is None or not company_scope.sees_project(db, project):
         raise PayableInvalid("Projeto não encontrado")
     if project.status == "encerrado":
         raise PayableConflict(PROJECT_CLOSED)
@@ -795,16 +796,13 @@ def _transaction_used(db: Session, transaction_id: str) -> bool:
     undone = db.query(ReceivablePayment.reverses_id).filter(
         ReceivablePayment.reverses_id.isnot(None)
     )
-    return (
-        db.query(ReceivablePayment.id)
-        .filter(
-            func.upper(func.trim(ReceivablePayment.transactionId)) == key,
-            ReceivablePayment.kind == "recebimento",
-            ReceivablePayment.id.notin_(undone),
-        )
-        .first()
-        is not None
+    # todas as empresas: o ID do banco só vale uma vez (ADR 0029)
+    used = db.query(ReceivablePayment.id).filter(
+        func.upper(func.trim(ReceivablePayment.transactionId)) == key,
+        ReceivablePayment.kind == "recebimento",
+        ReceivablePayment.id.notin_(undone),
     )
+    return company_scope.unscoped(used).first() is not None
 
 
 def receive(db: Session, receivable_id: int, data: ReceiptCreate, user: User) -> Decimal:

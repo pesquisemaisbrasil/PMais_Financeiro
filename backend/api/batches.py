@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, 
 from sqlalchemy.orm import Session
 
 from core.limiter import limiter
-from core.permissions import require_finance, require_screen
+from core.permissions import require_all_companies, require_finance, require_screen
 from db.connection import get_db
 from models.notification import Notification
 from models.project_ref import ProjectRef
@@ -31,12 +31,14 @@ from services.auth import get_current_user
 from services.connect_gateway import ConnectGateway, ConnectUnavailable, get_connect
 
 DIVERGENCIAS = require_screen("divergencias")
+# os lotes do Connect juntam pessoas de várias empresas (ADR 0029)
+ALL_COMPANIES = require_all_companies()
 
 # comprovantes e baixa são do Contas a pagar
 router = APIRouter(
     prefix="/projects/{project_id}/finance",
     tags=["comprovantes"],
-    dependencies=[require_screen("contas-a-pagar")],
+    dependencies=[require_screen("contas-a-pagar"), ALL_COMPANIES],
 )
 # Fora de um projeto: escolher o projeto, trazer os do Connect e os avisos de quem está logado.
 shared = APIRouter(tags=["comprovantes"])
@@ -284,7 +286,7 @@ def list_divergences(
 
 @shared.get(
     "/finance/divergences",
-    dependencies=[DIVERGENCIAS],
+    dependencies=[DIVERGENCIAS, ALL_COMPANIES],
     response_model=list[DivergenceItem],
     description="Baixas que o Connect recusou, de todos os projetos, as mais novas primeiro",
 )
@@ -300,6 +302,7 @@ def _projects(db: Session) -> list[dict[str, Any]]:
 
 @shared.get(
     "/finance/projects",
+    dependencies=[ALL_COMPANIES],
     response_model=list[ProjectOut],
     description="Projetos do Connect já espelhados, para escolher onde enviar o PDF",
 )
@@ -310,6 +313,7 @@ def list_projects(request: Request, db: DbSession, _: FinanceUser) -> list[dict[
 
 @shared.post(
     "/finance/connect/sync",
+    dependencies=[ALL_COMPANIES],
     response_model=list[ProjectOut],
     description="Traz os projetos do Connect para o espelho",
 )

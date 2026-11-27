@@ -20,7 +20,8 @@ def notify_finance(
     try:
         users = db.query(User).filter(User.status == "active", User.role.in_(FINANCE_ROLES))
         with db.begin_nested():
-            for user in users:
+            # os avisos do Connect são de todas as empresas: quem vê só algumas não recebe
+            for user in (person for person in users if person.companyIds is None):
                 db.add(
                     Notification(
                         user_id=user.id, type=kind, title=title[:255], body=body, link=link

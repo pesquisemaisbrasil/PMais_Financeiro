@@ -10,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError
 from sqlalchemy.orm import Session
 
+from core import company_scope
 from core.config import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
@@ -196,6 +197,8 @@ def get_current_user(
         or (user.mfaEnabledAt is None and not payload.get("sso"))
     ):
         raise credentials_exception
+    # daqui em diante, o pedido só enxerga as empresas liberadas para a pessoa (ADR 0029)
+    company_scope.apply(db, user.companyIds)
     return user
 
 
