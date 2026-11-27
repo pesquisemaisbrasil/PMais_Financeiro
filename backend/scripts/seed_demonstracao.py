@@ -151,7 +151,12 @@ def _incentive_agenda(db) -> None:  # type: ignore[no-untyped-def]
 
 def _receivables(db) -> None:  # type: ignore[no-untyped-def]
     """Dois clientes e três títulos: dois da Alfa vencidos e um da Beta a vencer."""
-    revenue = ExpenseCategory(code="1.01", name="Receita de pesquisa", kind="receita")
+    # as linhas do DRE, para o relatório da demonstração aparecer montado
+    for category in db.query(ExpenseCategory):
+        category.dreLine = "custos" if category.code.startswith("2.") else "administrativas"
+    revenue = ExpenseCategory(
+        code="1.01", name="Receita de pesquisa", kind="receita", dreLine="receita"
+    )
     alfa = Customer(nickname="Alfa", name="Alfa Pesquisas Ltda", document="11222333000181")
     beta = Customer(nickname="Beta", name="Beta Consultoria")
     gama = Customer(nickname="Gama", name="Gama Mercado Ltda")

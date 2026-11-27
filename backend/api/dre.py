@@ -8,7 +8,7 @@ from api.payables import DbSession, FinanceUser
 from core import xlsx
 from core.limiter import limiter
 from core.permissions import require_screen
-from schemas.dre import DreReport
+from schemas.dre import DreReport, DreStatement
 from services import dre
 from services.payable import PayableInvalid
 
@@ -34,10 +34,11 @@ def _filters(
 
 @router.get(
     "/reports/dre",
-    response_model=DreReport,
-    description="DRE por competência: receitas, despesas e resultado por linha (grupo do plano de "
-    "contas) e por mês, com as contas analíticas de cada linha. Filtra por empresa, unidade, "
-    "projeto e centro de custo. Não altera nada",
+    response_model=DreStatement,
+    description="DRE por competência: as linhas com os subtotais (receita líquida, lucro bruto, "
+    "resultado operacional e resultado do período) por mês, com os grupos e as contas de cada "
+    "linha, e o que fica fora do resultado. Filtra por empresa, unidade, projeto e centro de "
+    "custo. Não altera nada",
 )
 @limiter.limit(READ_LIMIT)
 def get_dre(
@@ -52,7 +53,7 @@ def get_dre(
     costCenter: Id = None,  # noqa: N803 (o nome da API, como nas outras rotas)
 ) -> dict[str, Any]:
     filters = _filters(company, unit, project, costCenter)
-    return _handle(lambda: dre.report(db, start, end, filters))
+    return _handle(lambda: dre.statement(db, start, end, filters))
 
 
 @router.get(
@@ -95,9 +96,9 @@ monthly_router = APIRouter(tags=["relatórios"], dependencies=[require_screen("f
 @monthly_router.get(
     "/reports/monthly-flow",
     response_model=DreReport,
-    description="Fluxo mensal: entradas e saídas por mês do pagamento e por plano de contas (as "
-    "linhas do DRE), com as baixas e os recebimentos que valem nas contas do fluxo de caixa. "
-    "Filtra por empresa, unidade, projeto e centro de custo. Não altera nada",
+    description="Fluxo mensal: entradas e saídas por mês do pagamento e por grupo do plano de "
+    "contas, com as baixas e os recebimentos que valem nas contas do fluxo de caixa. Filtra por "
+    "empresa, unidade, projeto e centro de custo. Não altera nada",
 )
 @limiter.limit(READ_LIMIT)
 def get_monthly_flow(
@@ -112,7 +113,7 @@ def get_monthly_flow(
     costCenter: Id = None,  # noqa: N803
 ) -> dict[str, Any]:
     filters = _filters(company, unit, project, costCenter)
-    return _handle(lambda: dre.report(db, start, end, filters, "caixa"))
+    return _handle(lambda: dre.report(db, start, end, filters))
 
 
 @monthly_router.get(

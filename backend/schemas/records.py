@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from schemas.dre import DreLineKey
+
 RecordKind = Literal[
     "suppliers",
     "customers",
@@ -26,6 +28,8 @@ class RecordIn(BaseModel):
     companyId: int | None = None
     # só na conta do plano de contas: o grupo dela (24/11; vazio = sem grupo)
     groupId: int | None = None
+    # no grupo e na conta do plano de contas: a linha do DRE (na conta, vazio = a do grupo)
+    dreLine: DreLineKey | None = None
     document: str | None = Field(default=None, max_length=30)
     # pessoa física (PF) ou jurídica (PJ); PF não tem documento, porque CPF não é guardado
     personType: Literal["PF", "PJ"] | None = None
@@ -84,6 +88,7 @@ class RecordOut(BaseModel):
     legacyCode: str | None
     companyId: int | None
     groupId: int | None
+    dreLine: str | None
     parentId: int | None
     document: str | None
     personType: str | None

@@ -164,6 +164,7 @@ def _out(record: Any, in_use: bool) -> dict[str, Any]:
         "legacyCode": getattr(record, "legacyCode", None),
         "companyId": getattr(record, "company_id", None),
         "groupId": getattr(record, "group_id", None),
+        "dreLine": getattr(record, "dreLine", None),
         "parentId": getattr(record, "parent_id", None),
         "document": getattr(record, "document", None),
         "personType": getattr(record, "personType", None),
@@ -467,6 +468,7 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         fields["code"] = code
         fields["kind"] = data.kind or "despesa"
         fields["group_id"] = group_id
+        fields["dreLine"] = data.dreLine
     elif kind == "categoryGroups":
         code = (data.code or "").strip()
         if not code:
@@ -475,6 +477,7 @@ def _fields(db: Session, kind: str, record_id: int | None, data: RecordIn) -> di
         if _taken(db, kind, record_id, model.code == code):
             raise PayableConflict("Já existe um grupo com esse código")
         fields["code"] = code
+        fields["dreLine"] = data.dreLine
     elif kind in ("units", "bankAccounts"):
         company_id = _company(db, data.companyId)
         if _taken(db, kind, record_id, same_name, model.company_id == company_id):

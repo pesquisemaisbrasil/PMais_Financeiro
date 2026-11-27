@@ -133,6 +133,8 @@ class ExpenseCategoryGroup(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(20), nullable=False, unique=True)
     name = Column(String(100), nullable=False)
+    # a linha do DRE das contas do grupo (schemas/dre.DreLineKey); a conta pode ter a própria
+    dreLine = Column(String(30), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 
@@ -171,6 +173,8 @@ class ExpenseCategory(Base):
     name = Column(String(100), nullable=False)
     # despesa (Contas a pagar) | receita (Contas a receber): cada tela só vê a sua
     kind = Column(String(10), nullable=False, default="despesa", server_default="despesa")
+    # a linha do DRE só desta conta, quando é outra que a do grupo (nulo = a do grupo)
+    dreLine = Column(String(30), nullable=True)
     active = Column(Boolean, nullable=False, default=True, server_default="true")
 
 

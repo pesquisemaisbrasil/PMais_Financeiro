@@ -1,19 +1,21 @@
-"""DRE (PF-76): receitas, despesas e resultado por linha e por mês, por competência.
+"""DRE (PF-76) e fluxo mensal: o resultado por mês, pelo plano de contas.
 
-Só lê. Cada linha do DRE é um **grupo do plano de contas** (decisão do Bruno, 25/11/2026), com as
-contas analíticas dele embaixo; a conta sem grupo vai para "Sem grupo". Uma linha nunca mistura
-receita e despesa: o grupo que tem as duas aparece uma vez em cada bloco.
+Só lê. O **DRE** (Bruno, 27/11/2026; ADR 0030) tem linhas fixas e subtotais (`LINES`): receita
+operacional, impostos, **receita líquida**, custos, **lucro bruto**, despesas com pessoal e
+administrativas, **resultado operacional**, despesas bancárias, outras receitas e **resultado do
+período**. Cada conta entra na linha dela ou, sem linha própria, na do grupo; "fora" não entra no
+resultado e aparece à parte (ativo, empréstimo, aporte). Conta sem linha nenhuma entra no
+resultado numa linha própria, para o dinheiro não sumir.
 
 - Competência: a do título; a conta a pagar sem competência usa o mês da emissão.
-- Valor: o principal do título, sem os acréscimos, descontos e impostos (as linhas de dedução
-  ficam para quando a Vivi definir o DRE completo).
-- Fora: cancelado, substituído, excluído e as provisões (são estimativa, não fato).
+- Valor: o principal do título, sem os acréscimos, descontos e impostos retidos.
+- Fora do quadro: cancelado, substituído, excluído e as provisões (são estimativa, não fato).
 - Projeto: a conta repartida entre projetos entra só com a parte do projeto filtrado.
 
-O **fluxo mensal** (`basis="caixa"`) é o mesmo quadro pelo regime de caixa: em vez da competência,
-o mês em que o dinheiro saiu ou entrou, com o valor das baixas e dos recebimentos que valem (sem
+O **fluxo mensal** (`basis="caixa"`) mostra o dinheiro, com receitas e despesas por grupo do plano
+de contas: o mês em que saiu ou entrou, com o valor das baixas e dos recebimentos que valem (sem
 estornados nem Pix devolvidos), só nas contas bancárias que entram no fluxo de caixa, como o
-realizado do fluxo de caixa.
+realizado do fluxo de caixa. Nele nada fica de fora: ativo e empréstimo são dinheiro que anda.
 """
 
 from collections import defaultdict
@@ -48,6 +50,25 @@ KINDS = (("receita", "Receitas"), ("despesa", "Despesas"))
 CENT = Decimal("0.01")
 # o título de cada quadro, na planilha
 BASES = {"competencia": "DRE por competência", "caixa": "Fluxo mensal pelo pagamento"}
+# as linhas do DRE, na ordem: (chave, nome, sinal com que entra no resultado)
+LINES = (
+    ("receita", "Receita operacional", "+"),
+    ("impostos", "Impostos", "-"),
+    ("custos", "Custos dos serviços", "-"),
+    ("pessoal", "Despesas com pessoal", "-"),
+    ("administrativas", "Despesas administrativas", "-"),
+    ("bancarias", "Despesas bancárias", "-"),
+    ("outras_receitas", "Outras receitas", "+"),
+)
+# o subtotal que vem depois de cada uma destas linhas
+SUBTOTALS = {
+    "impostos": ("receita_liquida", "Receita líquida"),
+    "custos": ("lucro_bruto", "Lucro bruto"),
+    "administrativas": ("resultado_operacional", "Resultado operacional"),
+}
+OUTSIDE = "fora"
+UNMAPPED = "sem_linha"
+SIGNS = {"+": "(+)", "-": "(−)", "±": "(±)", "=": "(=)"}
 
 
 @dataclass(frozen=True)
@@ -195,14 +216,88 @@ def _row(
     return {"label": label, "values": by_month, "total": sum(by_month, ZERO), **extra}
 
 
-def report(
-    db: Session, start: date, end: date, filters: Filters, basis: str = "competencia"
-) -> dict[str, Any]:
+def _groups(
+    members: list[ExpenseCategory],
+    groups: dict[int, ExpenseCategoryGroup],
+    values: dict[int, dict[str, Decimal]],
+    columns: list[str],
+) -> list[dict[str, Any]]:
+    """Os grupos das contas de uma linha, na ordem do código; as sem grupo no fim."""
+    by_group: dict[tuple[str, str], list[ExpenseCategory]] = defaultdict(list)
+    for category in members:
+        group = groups.get(category.group_id) if category.group_id else None
+        key = (f"0 {group.code}", f"{group.code} {group.name}") if group else ("1", NO_GROUP)
+        by_group[key].append(category)
+    result = []
+    for (_, name), accounts in sorted(by_group.items()):
+        total: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        rows = []
+        for category in sorted(accounts, key=lambda c: (c.code, c.name)):
+            for month, value in values[category.id].items():
+                total[month] += value
+            rows.append(_row(f"{category.code} {category.name}", values[category.id], columns))
+        result.append(_row(name, total, columns, accounts=rows))
+    return result
+
+
+def statement(db: Session, start: date, end: date, filters: Filters) -> dict[str, Any]:
+    """O DRE por competência, com as linhas, os subtotais e o que fica fora do resultado."""
     columns = months(start, end)
-    if basis == "caixa":
-        totals = _cash_amounts(db, columns, filters)
-    else:
-        totals = _amounts(db, set(columns), filters)
+    totals = _amounts(db, set(columns), filters)
+    categories = db.query(ExpenseCategory).filter(ExpenseCategory.id.in_(totals or [0])).all()
+    groups = {g.id: g for g in db.query(ExpenseCategoryGroup)}
+    # receita soma, despesa subtrai
+    signed = {
+        c.id: {m: v if c.kind == "receita" else -v for m, v in totals[c.id].items()}
+        for c in categories
+    }
+    members: dict[str, list[ExpenseCategory]] = defaultdict(list)
+    for category in categories:
+        group = groups.get(category.group_id) if category.group_id else None
+        line = category.dreLine or (group.dreLine if group else None) or UNMAPPED
+        members[line].append(category)
+
+    running: dict[str, Decimal] = defaultdict(lambda: ZERO)
+
+    def line_row(key: str, label: str, sign: str) -> dict[str, Any]:
+        # a linha que subtrai mostra a despesa como número positivo
+        shown = {
+            c.id: {m: -v if sign == "-" else v for m, v in signed[c.id].items()}
+            for c in members[key]
+        }
+        inside = _groups(members[key], groups, shown, columns)
+        total: dict[str, Decimal] = defaultdict(lambda: ZERO)
+        for category in members[key]:
+            for month, value in shown[category.id].items():
+                total[month] += value
+            if key != OUTSIDE:
+                for month, value in signed[category.id].items():
+                    running[month] += value
+        return _row(label, total, columns, key=key, kind="linha", sign=sign, groups=inside)
+
+    def subtotal(key: str, label: str, kind: str = "subtotal") -> dict[str, Any]:
+        return _row(label, dict(running), columns, key=key, kind=kind, sign="=", groups=[])
+
+    rows = []
+    for key, label, sign in LINES:
+        rows.append(line_row(key, label, sign))
+        if key in SUBTOTALS:
+            rows.append(subtotal(*SUBTOTALS[key]))
+    if members[UNMAPPED]:
+        rows.append(line_row(UNMAPPED, "Sem linha do DRE", "±"))
+    rows.append(subtotal("resultado", "Resultado do período", "resultado"))
+    return {
+        "months": [{"month": month, "label": month_name(month)} for month in columns],
+        "rows": rows,
+        "outside": line_row(OUTSIDE, "Fora do resultado", "±") if members[OUTSIDE] else None,
+        "unmapped": len(members[UNMAPPED]),
+    }
+
+
+def report(db: Session, start: date, end: date, filters: Filters) -> dict[str, Any]:
+    """O fluxo mensal: receitas e despesas por grupo do plano de contas, pelo pagamento."""
+    columns = months(start, end)
+    totals = _cash_amounts(db, columns, filters)
     categories = {
         c.id: c for c in db.query(ExpenseCategory).filter(ExpenseCategory.id.in_(totals or [0]))
     }
@@ -265,22 +360,39 @@ def filter_names(db: Session, filters: Filters) -> list[str]:
     return names
 
 
+def _sheet_row(row: dict[str, Any], label: str) -> list[Any]:
+    return [label, *row["values"], row["total"]]
+
+
+def _sheet_groups(groups: list[dict[str, Any]]) -> list[list[Any]]:
+    rows = []
+    for group in groups:
+        rows.append(_sheet_row(group, f"  {group['label']}"))
+        rows += [_sheet_row(a, f"      {a['label']}") for a in group["accounts"]]
+    return rows
+
+
 def export_xlsx(
     db: Session, start: date, end: date, filters: Filters, basis: str = "competencia"
 ) -> bytes:
     names = filter_names(db, filters)
-    data = report(db, start, end, filters, basis)
-    headers = ["Linha", *(m["label"] for m in data["months"]), "Total"]
     rows: list[list[Any]] = []
-    for block in data["blocks"]:
-        rows.append([block["label"].upper(), *block["values"], block["total"]])
-        for line in block["lines"]:
-            rows.append([f"  {line['label']}", *line["values"], line["total"]])
-            for account in line["accounts"]:
-                rows.append([f"      {account['label']}", *account["values"], account["total"]])
-    rows.append(
-        [data["result"]["label"].upper(), *data["result"]["values"], data["result"]["total"]]
-    )
+    if basis == "competencia":
+        data = statement(db, start, end, filters)
+        for row in data["rows"]:
+            rows.append(_sheet_row(row, f"{SIGNS[row['sign']]} {row['label']}"))
+            rows += _sheet_groups(row["groups"])
+        outside = data["outside"]
+        if outside:
+            rows.append(_sheet_row(outside, "FORA DO RESULTADO (não soma)"))
+            rows += _sheet_groups(outside["groups"])
+    else:
+        data = report(db, start, end, filters)
+        for block in data["blocks"]:
+            rows.append(_sheet_row(block, block["label"].upper()))
+            rows += _sheet_groups(block["lines"])
+        rows.append(_sheet_row(data["result"], data["result"]["label"].upper()))
+    headers = ["Linha", *(m["label"] for m in data["months"]), "Total"]
     title = f"{BASES[basis]} · {format_date_br(start)} a {format_date_br(end)} · " + (
         "filtros: " + ", ".join(names) if names else "filtros: nenhum"
     )
