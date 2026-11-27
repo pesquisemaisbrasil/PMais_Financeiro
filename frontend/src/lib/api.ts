@@ -180,6 +180,8 @@ export interface UserPublic {
   mfaEnabled: boolean;
   /** As telas que o admin bloqueou: somem do menu e não abrem (lib/access.ts). */
   blockedScreens?: string[];
+  /** As empresas liberadas pelo admin; nulo é todas. O servidor é quem filtra (27/11). */
+  companyIds?: number[] | null;
 }
 
 export interface MfaChallenge {
@@ -565,10 +567,14 @@ export interface PersonRow {
   roleLabel: string;
   blockedScreens: string[];
   canEdit: boolean;
+  /** As empresas que a pessoa vê; nulo é todas. */
+  companyIds: number[] | null;
+  canEditCompanies: boolean;
 }
 
 export interface PeopleList {
   screens: { id: string; label: string }[];
+  companies: { id: number; name: string }[];
   people: PersonRow[];
 }
 
@@ -594,6 +600,11 @@ export function listPeople(): Promise<PeopleList> {
 
 export function setPersonScreens(id: number, blocked: string[]): Promise<PersonRow> {
   return send<PersonRow>(`/admin/pessoas/${id}/telas`, "PUT", { blocked });
+}
+
+/** As empresas que a pessoa vê (nulo = todas). */
+export function setPersonCompanies(id: number, companyIds: number[] | null): Promise<PersonRow> {
+  return send<PersonRow>(`/admin/pessoas/${id}/empresas`, "PUT", { companyIds });
 }
 
 export function sendDemand(form: FormData): Promise<DemandRow> {

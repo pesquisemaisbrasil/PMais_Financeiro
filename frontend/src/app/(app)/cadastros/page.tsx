@@ -67,6 +67,8 @@ import {
   syncConnectProjects,
   updateRecord,
 } from "@/lib/api";
+import { seesEveryCompany } from "@/lib/access";
+import { useAuth } from "@/lib/auth-context";
 import { ACCOUNT_TYPES, accountTypeLabel, balanceText, parseBalance } from "@/lib/bank";
 import { place } from "@/lib/nav";
 import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
@@ -1252,6 +1254,7 @@ function RecordsByUrl() {
 }
 
 function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
+  const { user } = useAuth();
   const isParty = tab === "suppliers" || tab === "customers";
   const withCnpj = isParty || tab === "companies";
   // Como nas listas do sistema antigo (24/11): Unidades (Empresa | Unidade | Código | Infos | Ações) e
@@ -1447,17 +1450,21 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
         actions={
           tab === "projects" ? (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => void syncProjects()} disabled={syncing}>
-                {syncing ? <Spinner aria-label="Atualizando" className="size-4" /> : <RefreshCw size={16} />}
-                Atualizar do Connect
-              </Button>
+              {seesEveryCompany(user) && (
+                <Button variant="outline" onClick={() => void syncProjects()} disabled={syncing}>
+                  {syncing ? <Spinner aria-label="Atualizando" className="size-4" /> : <RefreshCw size={16} />}
+                  Atualizar do Connect
+                </Button>
+              )}
               <Button onClick={() => setEditingProject({ project: null })} disabled={!reference}>
                 <Plus size={16} />
                 Novo projeto
               </Button>
             </div>
           ) : (
-            current.create && (
+            // empresa nova só quem vê todas cadastra (o servidor recusa as outras pessoas)
+            current.create &&
+            (tab !== "companies" || seesEveryCompany(user)) && (
               <div className="flex flex-wrap gap-2">
                 {tab === "categories" && (
                   <Button variant="outline" onClick={() => setEditing({ record: null, group: true })} disabled={!rows}>

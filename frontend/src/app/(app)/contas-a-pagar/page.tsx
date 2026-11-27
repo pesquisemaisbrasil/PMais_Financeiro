@@ -41,6 +41,7 @@ import {
 import Link from "next/link";
 import { CompanyPicker } from "@/components/CompanyPicker";
 import { useScreenSearchParams, useTabMemoryKey } from "@/components/ScreenTabs";
+import { keepAllowedCompanies, seesEveryCompany } from "@/lib/access";
 import { useAuth } from "@/lib/auth-context";
 import { readPreferredCompany } from "@/lib/preferred-company";
 import { readTabMemory, remembered, rememberedDay, rememberedFilters, writeTabMemory } from "@/lib/tabs";
@@ -449,13 +450,13 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
   // `?projeto=ID` (vindo do relatório do projeto) já abre a lista só com as contas desse projeto
   const [filters, setFilters] = useState<Record<string, string>>(() => {
     const saved = rememberedFilters(memory?.filters);
-    if (saved) return saved;
+    if (saved) return keepAllowedCompanies(saved, user);
     const project = params.get("projeto") ?? "";
     const start: Record<string, string> = {};
     if (/^\d+$/.test(project)) start.project = project;
     const preferred = linked ? "" : readPreferredCompany(user?.id);
     if (preferred) start.company = preferred;
-    return start;
+    return keepAllowedCompanies(start, user);
   });
   const savedSearch = typeof memory?.search === "string" ? memory.search : linkedSearch;
   const [searchText, setSearchText] = useState(savedSearch);
@@ -876,7 +877,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
               value={{ filters, dateField, tab, indicator, search: searchText, sort, columns, density }}
               onApply={(saved) => {
                 resetPageAnd(() => {
-                  setFilters(saved.filters);
+                  setFilters(keepAllowedCompanies(saved.filters, user));
                   setDateField(saved.dateField);
                   setTab(saved.tab);
                   setIndicator(saved.indicator);
@@ -1110,7 +1111,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                               onClick={() => setSeriesAction({ row, mode: "cancel" })}
                             />
                           )}
-                          {row.origin === "connect" && row.type === "real" && Number(row.pending) > 0 && (
+                          {row.origin === "connect" && row.type === "real" && Number(row.pending) > 0 && seesEveryCompany(user) && (
                             <IconButton
                               icon={Receipt}
                               label="Enviar comprovantes"

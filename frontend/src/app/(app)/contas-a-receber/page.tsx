@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { CompanyPicker } from "@/components/CompanyPicker";
 import { useScreenSearchParams, useTabMemoryKey } from "@/components/ScreenTabs";
+import { keepAllowedCompanies } from "@/lib/access";
 import { useAuth } from "@/lib/auth-context";
 import { readPreferredCompany } from "@/lib/preferred-company";
 import { readTabMemory, remembered, rememberedDay, rememberedFilters, writeTabMemory } from "@/lib/tabs";
@@ -295,9 +296,9 @@ function ReceivablesContent({
   // a lista abre na empresa preferida da pessoa (reunião de 26/11/2026: as empresas não se misturam)
   const [filters, setFilters] = useState<Record<string, string>>(() => {
     const saved = rememberedFilters(memory?.filters);
-    if (saved) return saved;
+    if (saved) return keepAllowedCompanies(saved, user);
     const preferred = linked ? "" : readPreferredCompany(user?.id);
-    return preferred ? { company: preferred } : {};
+    return preferred ? keepAllowedCompanies({ company: preferred }, user) : {};
   });
   const savedSearch = typeof memory?.search === "string" ? memory.search : linkedSearch;
   const [searchText, setSearchText] = useState(savedSearch);
@@ -589,7 +590,7 @@ function ReceivablesContent({
               value={{ filters, dateField, indicator, search: searchText, sort }}
               onApply={(saved) =>
                 resetPageAnd(() => {
-                  setFilters(saved.filters);
+                  setFilters(keepAllowedCompanies(saved.filters, user));
                   setDateField(saved.dateField);
                   setIndicator(saved.indicator);
                   setSearchText(saved.search);

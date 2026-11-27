@@ -32,6 +32,23 @@ export function screenAllowed(user: { blockedScreens?: string[] }, href: string)
   return !screen || !(user.blockedScreens ?? []).includes(screen);
 }
 
+type WithCompanies = { companyIds?: number[] | null } | null | undefined;
+
+/** A pessoa vê todas as empresas? Só algumas some com o que junta empresas (comprovantes do Connect, empresa nova). */
+export const seesEveryCompany = (user: WithCompanies) => !user?.companyIds;
+
+/**
+ * Tira do filtro de empresa as que a pessoa não vê mais (a preferida, a lembrada ou a de um favorito antigo): senão a
+ * lista abriria vazia. O servidor filtra de qualquer jeito.
+ */
+export function keepAllowedCompanies(filters: Record<string, string>, user: WithCompanies): Record<string, string> {
+  const ids = user?.companyIds;
+  if (!filters.company || !ids) return filters;
+  const kept = filters.company.split(",").filter((id) => ids.includes(Number(id)));
+  const rest = Object.fromEntries(Object.entries(filters).filter(([key]) => key !== "company"));
+  return kept.length ? { ...rest, company: kept.join(",") } : rest;
+}
+
 export const DEMAND_KINDS = [
   { id: "nova", label: "Abrir nova demanda" },
   { id: "bug", label: "Correção de bugs" },
