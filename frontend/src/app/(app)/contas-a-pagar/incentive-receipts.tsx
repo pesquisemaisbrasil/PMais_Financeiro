@@ -90,7 +90,7 @@ export function IncentiveReceiptsDialog({
 
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[860px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[960px]">
         <DialogHeader>
           <DialogTitle>Baixar pelos comprovantes</DialogTitle>
           <DialogDescription>
@@ -183,15 +183,15 @@ export function IncentiveReceiptsDialog({
                 <TableBody>
                   {match.items.map((item) => (
                     <TableRow key={item.itemId}>
-                      <TableCell className={cn(TD, "min-w-[160px] whitespace-normal")}>{item.name}</TableCell>
+                      <TableCell className={cn(TD, "min-w-[130px] whitespace-normal")}>{item.name}</TableCell>
                       <TableCell className={TD}>{item.pixMasked ?? "—"}</TableCell>
                       <TableCell className={cn(TD, NUM)}>{brl(item.amount)}</TableCell>
-                      <TableCell className={cn(TD, NUM)}>
+                      <TableCell className={cn(TD, NUM, "whitespace-normal")}>
                         {item.receiptAmount ? brl(item.receiptAmount) : "—"}
                         {item.file && (
                           <span className="block text-xs text-muted-foreground">
-                            {item.file}, pág. {item.page}
-                            {item.paidOn && ` · ${formatDate(item.paidOn)}`}
+                            <span className="break-all">{item.file}</span>, pág. {item.page}
+                            {item.paidOn && <span className="whitespace-nowrap"> · {formatDate(item.paidOn)}</span>}
                           </span>
                         )}
                       </TableCell>
@@ -215,13 +215,13 @@ export function IncentiveReceiptsDialog({
                   <TableBody>
                     {match.extras.map((extra) => (
                       <TableRow key={`${extra.file}-${extra.page}`}>
-                        <TableCell className={cn(TD, "whitespace-normal")}>
+                        <TableCell className={cn(TD, "min-w-[160px] whitespace-normal break-all")}>
                           {extra.file}, pág. {extra.page}
                           {extra.payeeName && <span className="block text-xs text-muted-foreground">{extra.payeeName}</span>}
                         </TableCell>
                         <TableCell className={TD}>{extra.pixMasked ?? "—"}</TableCell>
                         <TableCell className={cn(TD, NUM)}>{extra.amount ? brl(extra.amount) : "—"}</TableCell>
-                        <TableCell className={cn(TD, "min-w-[200px] whitespace-normal")}>{extra.message}</TableCell>
+                        <TableCell className={cn(TD, "min-w-[180px] whitespace-normal")}>{extra.message}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

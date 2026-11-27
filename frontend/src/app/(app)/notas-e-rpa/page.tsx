@@ -198,7 +198,7 @@ export default function NotasERpaPage() {
         <Kpi label="Notas do portal" value="—" detail="em breve: importar o arquivo do portal" icon={FileSearch} color="roxo" />
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section data-tour="rpa" className={cn(CARD, "overflow-hidden")}>
           <CardTitle
             title="Lista de RPA"
@@ -246,7 +246,7 @@ export default function NotasERpaPage() {
                 <TableBody>
                   {rpa.rows.map((row) => (
                     <TableRow key={row.itemId}>
-                      <TableCell className={TD}>
+                      <TableCell className={cn(TD, "min-w-[150px] whitespace-normal")}>
                         <span className="block font-medium text-brand-cinza-escuro">{row.name}</span>
                         <span className="block text-xs text-muted-foreground">
                           <PayableLink id={row.payableId} text={row.description} />
