@@ -11,7 +11,7 @@
 | Cadastros | Entregue, com as listas e os campos do SGE4B |
 | Comprovantes e baixa | Entregue com o Connect simulado. Pagar de verdade depende das entregas 1 e 2 do Connect |
 | Conferência bancária | Entregue (importar extrato, conciliar, extrato × sistema exportável, saldo do mês, fechamento). Fica "Em breve" no menu, a pedido do Bruno, até a Vivi validar |
-| Relatórios | Relatório do projeto, Fluxo de caixa e DRE (25/11); **Fluxo mensal**, **Recebimentos × ano** e os **favoritos** nas listas e nos relatórios (26/11). Os quatro relatórios novos ficam "Em breve" no menu, a pedido do Bruno, e abrem pelo endereço. Faltam o Resultado por projeto e o previsto × realizado, que esperam o Connect |
+| Relatórios | Relatório do projeto, Fluxo de caixa e DRE (25/11); **Fluxo mensal**, **Recebimentos × ano** e os **favoritos** nas listas e nos relatórios (26/11). O **DRE** com subtotais está no menu desde 27/11; Fluxo de caixa, Fluxo mensal e Recebimentos × ano ficam "Em breve", a pedido do Bruno, e abrem pelo endereço. Faltam o Resultado por projeto e o previsto × realizado, que esperam o Connect |
 | Notas e RPA | **NF pendente** (com Registrar NF) e **RPA do mês** (26/11), com o INSS em Cadastros. Faltam a conferência das notas do portal (arquivo de exemplo), o status da NF vindo do Connect e o CPF/PIS para o RPA (Q15) |
 | Servidor local | Pronto para o João instalar com `make subir-projeto` e o pacote do banco local ([DEPLOY.md](../../DEPLOY.md), [ADR 0026](../architecture/adr/0026-banco-local-no-servidor-e-atualizacao-as-22h.md)) |
 | Dados reais | Importados do SGE4B só na máquina do Bruno; vão para o servidor no pacote do banco |
@@ -41,5 +41,5 @@
 
 - **Sem o Connect, ninguém é pago de verdade pelo Financeiro.** A tela de comprovantes funciona com o Connect simulado.
 - **As chaves do pacote do banco** (`ENCRYPTION_KEY`, `PIX_SECRET_KEY` e `FILES_MASTER_KEY`) abrem o autenticador, a busca por chave Pix e os anexos. Perdê-las perde esses dados; o pacote vai por canal seguro e a cópia do `deploy/.env` fica num cofre fora do servidor.
-- **O DRE usa os grupos do SGE4B** como linhas e o valor principal dos títulos: é provisório até a Vivi definir o DRE completo (F3).
+- **O DRE** tem linhas fixas com subtotais, ligadas pelo plano de contas (rascunho de 27/11), e usa o valor principal dos títulos: a Vivi confere o vínculo (F3).
 - **Dado pessoal:** nada de PDF, planilha, dump ou `.env` reais no repositório; chave Pix nunca copiada do Connect; CPF nunca guardado.

@@ -222,6 +222,16 @@ Pedido do Bruno ([registro](../transcricoes/2026-11-27-acesso-por-empresa.md), [
 3. Abra pelo endereço uma conta de outra empresa (`/contas-a-pagar?conta=...`): "Conta não encontrada".
 4. Volte para **Todas as empresas** em Acessos: a pessoa vê tudo de novo ao recarregar.
 
+## DRE com subtotais (27/11/2026)
+
+Pedido do Bruno ([registro](../transcricoes/2026-11-27-dre-com-subtotais.md), [ADR 0030](../architecture/adr/0030-dre-com-linhas-fixas-ligadas-pelo-plano-de-contas.md)): o DRE passa a ter receita líquida, lucro bruto, resultado operacional e resultado do período; ativo, adiantamento de sócios, empréstimos e aportes ficam fora do resultado. Está no menu, em **Relatórios → DRE** (pedido do Bruno no mesmo dia); o vínculo das contas ainda é um rascunho até a Vivi conferir.
+
+**Como testar** (http://localhost:3010, **Relatórios → DRE**):
+
+1. Confira as linhas e os subtotais; o grupo aparece embaixo da linha, e **Mostrar as contas** abre as contas.
+2. Embaixo, **Fora do resultado** lista o que não soma.
+3. Em **Cadastros → Plano de contas**, mude a **Linha do DRE** de um grupo ou de uma conta e volte ao DRE.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).

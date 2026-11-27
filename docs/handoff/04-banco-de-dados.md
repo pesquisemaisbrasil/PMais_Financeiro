@@ -345,6 +345,8 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **Senha inicial de primeiro acesso** (migration `a7d3e5f9c2b4`, 25/11, [acesso-e-auditoria](../specs/acesso-e-auditoria.md)): `users.mustChangePassword` (Boolean, padrão falso): a conta nasceu com uma senha inicial, e o login pede a senha nova antes do autenticador. As contas que já existiam ficam com falso.
 
+**Linha do DRE** (migration `e5c9a1b7d2f4`, 27/11, [ADR 0030](../architecture/adr/0030-dre-com-linhas-fixas-ligadas-pelo-plano-de-contas.md)): `expense_category_groups.dreLine` e `expense_categories.dreLine` (String(30), nulos; na conta, nulo = a do grupo). A migration preenche os grupos e contas vindos do sistema antigo.
+
 **Acesso por empresa** (migration `d4b8f2c6a9e3`, 27/11, [ADR 0029](../architecture/adr/0029-acesso-por-empresa-com-filtro-central.md)): `users.companyAccess` (String(1000), nulo = todas as empresas; senão os ids separados por vírgula). Ninguém perde acesso na atualização.
 
 **Baixa de incentivos pelos comprovantes** (migration `c9f2a7d4e1b6`, 27/11, [ADR 0028](../architecture/adr/0028-baixa-de-incentivos-pelos-comprovantes-casados-pela-chave.md)): `payable_items.pix_hash` (String(64), índice, o HMAC da chave normalizada), `payables.paidByReceipts` (Boolean, padrão falso: a baixa só sai pelos comprovantes), `payable_payments.item_id` e `payable_attachments.item_id` (FK para `payable_items`, SET NULL, índice: o Pix e o comprovante de cada pessoa).
