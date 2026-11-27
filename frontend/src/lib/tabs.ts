@@ -121,7 +121,6 @@ const OFF_MENU: Record<string, string> = {
   "/conferencia-bancaria": "Conferência bancária",
   "/divergencias": "Divergências",
   "/relatorios/fluxo-de-caixa": "Fluxo de caixa",
-  "/relatorios/dre": "DRE",
   "/relatorios/fluxo-mensal": "Fluxo mensal",
   "/relatorios/recebimentos-projetos": "Recebimentos × ano",
 };

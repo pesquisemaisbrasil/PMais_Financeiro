@@ -934,6 +934,8 @@ export interface RecordRow {
   companyId: number | null;
   /** Só na conta do plano de contas: o grupo dela (24/11; nulo = sem grupo). */
   groupId: number | null;
+  /** No grupo e na conta do plano de contas: a linha do DRE (na conta, nulo = a do grupo). */
+  dreLine: string | null;
   /** Só no centro de custo: o principal em que ele fica embaixo (nulo = é um principal). */
   parentId: number | null;
   document: string | null;

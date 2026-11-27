@@ -43,9 +43,9 @@ export const NAV: Entry[] = [
     icon: ChartColumn,
     children: [
       { href: "/relatorios/projeto", label: "Relatório do projeto" },
+      { href: "/relatorios/dre", label: "DRE" },
       // Em breve no menu (pedido do Bruno, 26/11); as telas abrem pelo endereço
       { label: "Fluxo de caixa" },
-      { label: "DRE" },
       { label: "Fluxo mensal" },
       { label: "Recebimentos × ano" },
       { label: "Resultado por projeto" },

@@ -222,7 +222,7 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
     {
       target: "tela",
       title: "DRE",
-      text: "Receitas, despesas e resultado de cada mês, pela competência. Cada linha é um grupo do plano de contas. Provisões e títulos cancelados ficam de fora.",
+      text: "Receita líquida, lucro bruto e resultado de cada mês, pela competência. O plano de contas diz em que linha cada grupo ou conta entra. Provisões e títulos cancelados ficam de fora.",
     },
     {
       target: "filtros",
@@ -232,7 +232,7 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
     {
       target: "quadro",
       title: "O DRE",
-      text: "Cada grupo soma as contas dele, e o Resultado é receitas menos despesas. O grupo de cada conta muda em Cadastros, Plano de contas. Exportar Excel leva a tabela, com os filtros, para a planilha.",
+      text: "Os subtotais saem das linhas de cima. Ativo, empréstimos e aportes aparecem em Fora do resultado e não somam. A linha de cada grupo ou conta muda em Cadastros, Plano de contas. Exportar Excel leva a tabela para a planilha.",
     },
   ],
   "/notas-e-rpa": [
@@ -256,7 +256,7 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
     {
       target: "tela",
       title: "Fluxo mensal",
-      text: "Quanto entrou e saiu em cada mês, pela data do pagamento, com as mesmas linhas do DRE. O DRE olha a competência; aqui vale o dia em que o dinheiro se mexeu.",
+      text: "Quanto entrou e saiu em cada mês, pela data do pagamento, por grupo do plano de contas. O DRE olha a competência; aqui vale o dia em que o dinheiro se mexeu.",
     },
     {
       target: "filtros",

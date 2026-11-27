@@ -70,6 +70,7 @@ import {
 import { seesEveryCompany } from "@/lib/access";
 import { useAuth } from "@/lib/auth-context";
 import { ACCOUNT_TYPES, accountTypeLabel, balanceText, parseBalance } from "@/lib/bank";
+import { DRE_LINES, dreLineLabel } from "@/lib/dre";
 import { place } from "@/lib/nav";
 import { UFS, formatZip, joinPhone, splitPhone, zipDigits, type PhoneParts } from "@/lib/customers";
 import {
@@ -267,6 +268,7 @@ function RecordDialog({
     legacyCode: record?.legacyCode ?? "",
     companyId: record?.companyId ? String(record.companyId) : "",
     groupId: record?.groupId ? String(record.groupId) : "",
+    dreLine: record?.dreLine ?? "",
     parentId: record?.parentId ? String(record.parentId) : "",
     document: record?.document ? formatCnpj(record.document) : "",
     // cadastro novo começa como pessoa jurídica (o caminho do CNPJ); o antigo sem tipo fica em branco
@@ -425,6 +427,7 @@ function RecordDialog({
         ...bank,
         companyId: form.companyId ? Number(form.companyId) : null,
         groupId: form.groupId ? Number(form.groupId) : null,
+        dreLine: form.dreLine || null,
         parentId: subCenter && form.parentId ? Number(form.parentId) : null,
         personType: form.personType || null,
         ...(wizard && {
@@ -759,6 +762,16 @@ function RecordDialog({
                 </Field>
               </div>
             )}
+            {kind === "categoryGroups" && (
+              <Field label="Linha do DRE" id="c-dre" hint="Onde as contas do grupo entram no DRE.">
+                <SearchSelect
+                  id="c-dre"
+                  value={form.dreLine}
+                  onChange={(value) => setForm((current) => ({ ...current, dreLine: value }))}
+                  options={[{ id: "", label: "Sem linha" }, ...DRE_LINES]}
+                />
+              </Field>
+            )}
             {kind === "categories" && (
               <>
                 <Field label="Grupo" id="c-grupo" hint="Como no sistema antigo: o grupo junta as contas, e só a conta recebe lançamento.">
@@ -773,6 +786,14 @@ function RecordDialog({
                         .filter((group) => group.active || String(group.id) === form.groupId)
                         .map((group) => ({ id: group.id, label: `${group.code} ${group.name}` })),
                     ]}
+                  />
+                </Field>
+                <Field label="Linha do DRE" id="c-dre" hint="Só preencha se a conta entra numa linha diferente da do grupo.">
+                  <SearchSelect
+                    id="c-dre"
+                    value={form.dreLine}
+                    onChange={(value) => setForm((current) => ({ ...current, dreLine: value }))}
+                    options={[{ id: "", label: inheritedDreLine(groups, form.groupId) }, ...DRE_LINES]}
                   />
                 </Field>
                 <Field label="Tipo *" id="c-tipo" hint="Despesa vai para Contas a pagar; receita, para Contas a receber. Com lançamentos, o tipo não muda.">
@@ -1232,6 +1253,25 @@ function projectCode(project: Project): string {
 }
 
 /** O tipo de cadastro vem do endereço (?aba=), escolhido no menu lateral. Trocar de tipo recria a tela. */
+/** A opção vazia da conta: a linha que ela herda do grupo, se o grupo tiver uma. */
+function inheritedDreLine(groups: RecordRow[], groupId: string): string {
+  const line = dreLineLabel(groups.find((group) => String(group.id) === groupId)?.dreLine);
+  return line ? `A do grupo (${line})` : "Sem linha";
+}
+
+/** A linha do DRE na lista: a da conta, a herdada do grupo (esmaecida) ou o aviso de que falta. */
+function DreLineCell({ row, groups }: { row: PlanRow; groups: RecordRow[] }) {
+  const own = dreLineLabel(row.dreLine);
+  if (own) return own;
+  if (row.planGroup) return "—";
+  const inherited = dreLineLabel(groups.find((group) => group.id === row.groupId)?.dreLine);
+  return inherited ? (
+    <span className="text-muted-foreground">{inherited}</span>
+  ) : (
+    <Tag color="ambar">Sem linha</Tag>
+  );
+}
+
 export default function RecordsPage() {
   return (
     <Suspense>
@@ -1636,6 +1676,7 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
                     />
                   )}
                   {(oldLayout || tab === "categories") && <SortHead label="Código" column="code" sort={sort} onSort={changeSort} />}
+                  {tab === "categories" && <TableHead className={TH}>Linha do DRE</TableHead>}
                   {bankLayout && (
                     <>
                       <TableHead className={TH}>Tipo</TableHead>
@@ -1730,6 +1771,11 @@ function Records({ tab, linkedSearch }: { tab: TabId; linkedSearch: string }) {
                     )}
                     {(oldLayout || tab === "categories") && (
                       <TableCell className={cn(TD, "font-mono text-xs")}>{listCode(row) ?? "—"}</TableCell>
+                    )}
+                    {tab === "categories" && (
+                      <TableCell className={cn(TD, "whitespace-normal")}>
+                        <DreLineCell row={row} groups={groups} />
+                      </TableCell>
                     )}
                     {bankLayout && (
                       <>

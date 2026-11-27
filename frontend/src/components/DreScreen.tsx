@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarRange, FileSpreadsheet, Scale } from "lucide-react";
+import Link from "next/link";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DateInput } from "@/components/DateInput";
@@ -14,14 +15,18 @@ import { ApiError, getReference } from "@/lib/api";
 import { todayInSaoPaulo } from "@/lib/cashFlow";
 import { saveBlob } from "@/lib/documents";
 import {
+  SIGNS,
   exportDre,
   getDre,
+  isEmpty,
   shortMonthYear,
   yearToDate,
   type DreAccount,
   type DreBasis,
+  type DreLine,
   type DreQuery,
   type DreReport,
+  type DreStatement,
 } from "@/lib/dre";
 import { brl, type Reference } from "@/lib/payables";
 import { cn } from "@/lib/utils";
@@ -42,7 +47,7 @@ const SCREENS = {
     name: "o DRE",
     file: "dre",
     subtitle:
-      "Receitas, despesas e resultado por mês, pela competência. Cada linha é um grupo do plano de contas, com as contas dele. Provisões e títulos cancelados ficam de fora.",
+      "Receita líquida, lucro bruto e resultado por mês, pela competência. O plano de contas diz em que linha cada grupo ou conta entra. Provisões e títulos cancelados ficam de fora.",
   },
   caixa: {
     title: "Fluxo mensal",
@@ -51,7 +56,7 @@ const SCREENS = {
     name: "o fluxo mensal",
     file: "fluxo-mensal",
     subtitle:
-      "Entradas e saídas por mês, pela data do pagamento. As linhas são as do DRE: cada grupo do plano de contas, com as contas dele. Contam as baixas e os recebimentos que valem, nas contas do fluxo de caixa.",
+      "Entradas e saídas por mês, pela data do pagamento, com cada grupo do plano de contas e as contas dele. Contam as baixas e os recebimentos que valem, nas contas do fluxo de caixa.",
   },
 } as const;
 
@@ -78,6 +83,90 @@ function Values({ row, strong, className }: { row: DreAccount; strong?: boolean;
   );
 }
 
+/** Os grupos de uma linha, com as contas quando a pessoa pede. */
+function Groups({ groups, showAccounts, strong }: { groups: DreLine[]; showAccounts: boolean; strong?: boolean }) {
+  return groups.map((group) => (
+    <Fragment key={group.label}>
+      <TableRow>
+        <TableCell className={cn(TD, STICKY, "pl-8 text-brand-cinza-escuro", strong && "font-semibold")}>
+          {group.label}
+        </TableCell>
+        <Values row={group} />
+      </TableRow>
+      {showAccounts &&
+        group.accounts.map((account) => (
+          <TableRow key={account.label}>
+            <TableCell className={cn(TD, STICKY, "pl-14 text-muted-foreground")}>{account.label}</TableCell>
+            <Values row={account} className="text-muted-foreground" />
+          </TableRow>
+        ))}
+    </Fragment>
+  ));
+}
+
+/** A faixa de um bloco ou de um subtotal. */
+function Band({ label, row }: { label: string; row: DreAccount }) {
+  return (
+    <TableRow className="bg-muted hover:bg-muted">
+      <TableCell className={cn(TD, STICKY, "bg-muted font-semibold uppercase text-brand-cinza-escuro")}>
+        {label}
+      </TableCell>
+      <Values row={row} strong />
+    </TableRow>
+  );
+}
+
+/** O DRE: as linhas com o sinal, os subtotais e, à parte, o que fica fora do resultado. */
+function Statement({ data, showAccounts }: { data: DreStatement; showAccounts: boolean }) {
+  return (
+    <>
+      {data.rows.map((row) =>
+        row.kind === "linha" ? (
+          <Fragment key={row.key}>
+            <TableRow>
+              <TableCell className={cn(TD, STICKY, "font-semibold text-brand-cinza-escuro")}>
+                <span className="text-muted-foreground">{SIGNS[row.sign]} </span>
+                {row.label}
+              </TableCell>
+              <Values row={row} strong />
+            </TableRow>
+            <Groups groups={row.groups} showAccounts={showAccounts} />
+          </Fragment>
+        ) : (
+          <Band key={row.key} label={`${SIGNS[row.sign]} ${row.label}`} row={row} />
+        )
+      )}
+      {data.outside && (
+        <>
+          <TableRow>
+            <TableCell className={cn(TD, STICKY, "pt-8 font-semibold text-brand-cinza-escuro")}>
+              {data.outside.label}
+              <span className="block text-xs font-normal text-muted-foreground">Não soma no resultado</span>
+            </TableCell>
+            <Values row={data.outside} className="pt-8" />
+          </TableRow>
+          <Groups groups={data.outside.groups} showAccounts={showAccounts} />
+        </>
+      )}
+    </>
+  );
+}
+
+/** O fluxo mensal: receitas, despesas e o resultado. */
+function Blocks({ data, showAccounts }: { data: DreReport; showAccounts: boolean }) {
+  return (
+    <>
+      {data.blocks.map((block) => (
+        <Fragment key={block.kind}>
+          <Band label={block.label} row={block} />
+          <Groups groups={block.lines} showAccounts={showAccounts} strong />
+        </Fragment>
+      ))}
+      <Band label="Resultado" row={data.result} />
+    </>
+  );
+}
+
 export function DreScreen({ basis }: { basis: DreBasis }) {
   const screen = SCREENS[basis];
   const [query, setQuery] = useState<DreQuery>(() => ({
@@ -88,7 +177,7 @@ export function DreScreen({ basis }: { basis: DreBasis }) {
     costCenter: "",
   }));
   const [reference, setReference] = useState<Reference | null>(null);
-  const [data, setData] = useState<DreReport | null>(null);
+  const [data, setData] = useState<DreStatement | DreReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAccounts, setShowAccounts] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -139,7 +228,8 @@ export function DreScreen({ basis }: { basis: DreBasis }) {
   }
 
   const units = (reference?.units ?? []).filter((unit) => !query.company || String(unit.companyId) === query.company);
-  const empty = data && data.blocks.every((block) => !block.lines.length);
+  const empty = data && isEmpty(data);
+  const unmapped = data && "rows" in data ? data.unmapped : 0;
   const { company, unit, project, costCenter } = query;
 
   return (
@@ -240,6 +330,17 @@ export function DreScreen({ basis }: { basis: DreBasis }) {
         </div>
       )}
 
+      {data && !empty && unmapped > 0 && (
+        <p className="mb-4 rounded-lg border border-[#f5c56b] bg-[#fef6e7] px-4 py-3 text-sm text-[#8a5200]">
+          {unmapped === 1 ? "1 conta com lançamento está" : `${unmapped} contas com lançamento estão`} sem linha do DRE.
+          Escolha a linha do grupo ou da conta em{" "}
+          <Link href="/cadastros?aba=categories" className="font-semibold underline">
+            Cadastros → Plano de contas
+          </Link>
+          .
+        </p>
+      )}
+
       {data && !empty && (
         <div data-tour="quadro" className={cn(CARD, "overflow-x-auto")}>
           <Table>
@@ -255,39 +356,11 @@ export function DreScreen({ basis }: { basis: DreBasis }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.blocks.map((block) => (
-                <Fragment key={block.kind}>
-                  <TableRow className="bg-muted hover:bg-muted">
-                    <TableCell className={cn(TD, STICKY, "bg-muted font-semibold uppercase text-brand-cinza-escuro")}>
-                      {block.label}
-                    </TableCell>
-                    <Values row={block} strong />
-                  </TableRow>
-                  {block.lines.map((line) => (
-                    <Fragment key={`${block.kind}-${line.label}`}>
-                      <TableRow>
-                        <TableCell className={cn(TD, STICKY, "pl-8 font-semibold text-brand-cinza-escuro")}>
-                          {line.label}
-                        </TableCell>
-                        <Values row={line} />
-                      </TableRow>
-                      {showAccounts &&
-                        line.accounts.map((account) => (
-                          <TableRow key={`${block.kind}-${line.label}-${account.label}`}>
-                            <TableCell className={cn(TD, STICKY, "pl-14 text-muted-foreground")}>{account.label}</TableCell>
-                            <Values row={account} className="text-muted-foreground" />
-                          </TableRow>
-                        ))}
-                    </Fragment>
-                  ))}
-                </Fragment>
-              ))}
-              <TableRow className="bg-muted hover:bg-muted">
-                <TableCell className={cn(TD, STICKY, "bg-muted font-semibold uppercase text-brand-cinza-escuro")}>
-                  Resultado
-                </TableCell>
-                <Values row={data.result} strong />
-              </TableRow>
+              {"rows" in data ? (
+                <Statement data={data} showAccounts={showAccounts} />
+              ) : (
+                <Blocks data={data} showAccounts={showAccounts} />
+              )}
             </TableBody>
           </Table>
         </div>
