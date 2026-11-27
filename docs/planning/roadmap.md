@@ -183,7 +183,7 @@ Na reunião de 26/11 com a Bruna e a Camila, já com os dados reais ([registro](
 - **Feriados:** só os **nacionais** contam. O feriado de Alagoas em 30/11 levava o sábado 28/11 para 01/12.
 - **Carregar incentivos:** a data é lida em mais formatos (27/11/26, 27-11-2026…).
 - **Formas de pagamento** da baixa do sistema antigo cadastradas: Agendamento de Pagamento, Boleto, Cartão de Crédito (à vista), Cartão de Crédito (parcelado), Cartão de Débito, Carteira Digital, Cheque, Crédito em Conta, Débito Automático, Débito em Conta, Dinheiro (espécie), DOC, PIX, PIX QR Code, TED e Transferência entre Contas.
-- **Coluna Ações** fixa à direita da lista, com título, e os títulos de valor alinhados com os números.
+- **Coluna Ações** com título, e os títulos de valor alinhados com os números. Em **Colunas**, **Limpar seleção** volta à disposição normal.
 - **Baixa em lote com comprovante:** cada conta leva o seu comprovante, e a baixa só sai com todos.
 
 **Como testar** (http://localhost:3010):
@@ -195,6 +195,21 @@ Na reunião de 26/11 com a Bruna e a Camila, já com os dados reais ([registro](
 5. Em **Carregar incentivos**, uma data de pagamento escrita como texto "27/11/26" é lida. Um sábado vai para a segunda seguinte, e não para a terça.
 6. Selecione duas contas e clique em **Dar baixa**: cada conta pede o seu comprovante, e o botão só libera com os dois. Depois da baixa, o clipe das duas fica azul.
 7. Deixe o sistema parado por mais de 2 horas e clique: volta ao login. Mexendo na tela, ele não cai.
+
+## Incentivos: a planilha da equipe e a baixa pelos comprovantes (27/11/2026)
+
+Pedido do Bruno ([registro](../transcricoes/2026-11-27-incentivos-planilha-e-baixa-pelos-comprovantes.md), [ADR 0028](../architecture/adr/0028-baixa-de-incentivos-pelos-comprovantes-casados-pela-chave.md)):
+
+- **Planilha modelo nova**, no estilo da que a equipe usa, sem CPF e dados de banco, com Projeto, Plano de contas e Forma de pagamento no fim. Uma planilha traz vários projetos: cada projeto e cada data em PAGAR vira um lançamento, com as pessoas dentro. A chave Pix de cada pessoa é obrigatória.
+- **Baixar pelos comprovantes:** envie os PDFs de comprovantes Pix do Itaú. Cada comprovante é casado com a pessoa pela chave, e a baixa só libera quando todas batem e a soma fecha com a conta. Confirmar dá um Pix por pessoa e anexa o comprovante de cada uma nela.
+
+**Como testar** (http://localhost:3010):
+
+1. Em **Carregar incentivos**, baixe a planilha modelo e preencha pessoas de dois projetos, com a chave Pix, o valor, a data em PAGAR, o projeto, o plano de contas e a forma: entram dois lançamentos.
+2. Deixe uma pessoa sem chave Pix: a conferência diz o motivo e ela fica de fora.
+3. Na linha de um lançamento, clique em **Baixar pelos comprovantes**, envie o PDF com o comprovante de uma só pessoa e confira: aparece quem está sem comprovante.
+4. Envie também o das outras e confira: "Tudo bate". Escolha a conta e confirme a baixa: a conta fica paga, e no drill down cada pessoa tem o botão do comprovante dela.
+5. Abra a conta, aba **Baixas**: marque só uma pessoa (ou **Selecionar todas**), clique em **Estornar selecionadas**, escreva o motivo e confirme. Quem foi estornado volta a ficar a pagar, e **Baixar pelos comprovantes** aparece de novo. Mande o PDF de todos: os de quem continua pago ficam de fora, e a baixa sai só para os estornados.
 
 ## Como testar
 

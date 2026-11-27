@@ -1,6 +1,6 @@
 # 0003 — PDF de comprovante não é armazenado
 
-- **Status:** proposto. O kickoff de 03/11 (K2) pede os comprovantes no lançamento, o que reabre esta decisão (Q19)
+- **Status:** proposto. O kickoff de 03/11 (K2) pede os comprovantes no lançamento, o que reabre esta decisão (Q19). Desde 27/11/2026, a baixa do lançamento de incentivos pelos comprovantes guarda a página de cada pessoa nos documentos da conta, a pedido do Bruno ([ADR 0028](0028-baixa-de-incentivos-pelos-comprovantes-casados-pela-chave.md)); o lote do Connect segue sem guardar o PDF
 - **Data:** 2026-11-03 (registro; a regra vem do ADR 0002 do Connect)
 - **Quem decidiu:** PO, na decisão 10 do [handoff/01](../../handoff/01-visao-escopo-e-decisoes.md)
 
