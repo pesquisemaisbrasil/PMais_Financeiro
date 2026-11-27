@@ -22,7 +22,7 @@ ReceivableIndicator = Literal[
 ]
 ReceivableSituation = Literal["recebido", "parcial", "vencido", "hoje", "a_vencer", "cancelado"]
 ReceivableSort = Literal[
-    "vencimento", "cliente", "categoria", "situacao", "valor", "recebido", "pendente"
+    "vencimento", "cliente", "projeto", "categoria", "situacao", "valor", "recebido", "pendente"
 ]
 Competence = Annotated[str, StringConstraints(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
 Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]

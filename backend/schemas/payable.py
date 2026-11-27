@@ -17,7 +17,18 @@ Indicator = Literal[
 ]
 Tab = Literal["todas", "agrupados", "provisoes", "connect", "relatorio"]
 SortColumn = Literal[
-    "vencimento", "fornecedor", "documento", "categoria", "situacao", "valor", "pago", "pendente"
+    "vencimento",
+    "fornecedor",
+    "documento",
+    "projeto",
+    "categoria",
+    "centro",
+    "forma",
+    "empresa",
+    "situacao",
+    "valor",
+    "pago",
+    "pendente",
 ]
 DocumentType = Literal["Sem documento", "NF", "Boleto", "Fatura", "Recibo", "Contrato"]
 DateField = Literal["vencimento", "competencia", "baixa"]

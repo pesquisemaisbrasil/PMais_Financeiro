@@ -12,6 +12,9 @@ if len(SECRET_KEY) < 32:
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+# Sessão parada (sem renovar) por mais que isso cai e pede login de novo: 2 horas (Bruna e João,
+# reunião de 26/11/2026). Enquanto a pessoa mexe na tela, ela renova a cada 10 minutos.
+SESSION_IDLE_MINUTES = int(os.getenv("SESSION_IDLE_MINUTES", "120"))
 # Validados em todo token de usuário (handoff/06 §1).
 JWT_ISSUER = "pmais-financeiro"
 JWT_AUDIENCE = "pmais-financeiro-web"
@@ -55,15 +58,9 @@ HOLIDAYS_LOOKUP_MODE = os.getenv("HOLIDAYS_LOOKUP_MODE", "brasilapi")
 # (testes, demonstração) = não busca.
 FERIADOS_DEV_URL = os.getenv("FERIADOS_DEV_URL", "").rstrip("/")
 # As cidades cujos feriados estaduais e municipais contam como dia não útil, no código do
-# feriados.dev. Padrão: as 27 capitais (Bruno, 19/11/2026).
-CAPITALS = (
-    "AC-rio-branco,AL-maceio,AP-macapa,AM-manaus,BA-salvador,CE-fortaleza,DF-brasilia,"
-    "ES-vitoria,GO-goiania,MA-sao-luis,MT-cuiaba,MS-campo-grande,MG-belo-horizonte,PA-belem,"
-    "PB-joao-pessoa,PR-curitiba,PE-recife,PI-teresina,RJ-rio-de-janeiro,RN-natal,"
-    "RS-porto-alegre,RO-porto-velho,RR-boa-vista,SC-florianopolis,SP-sao-paulo,SE-aracaju,"
-    "TO-palmas"
-)
-_LOCATIONS = os.getenv("HOLIDAYS_LOCATIONS") or CAPITALS  # vazio também cai nas capitais
+# feriados.dev (ex.: SP-sao-paulo). Padrão: nenhuma, só os nacionais contam (Bruno, 27/11/2026:
+# com as 27 capitais, 28/11 ia para 01/12 por um feriado de Alagoas).
+_LOCATIONS = os.getenv("HOLIDAYS_LOCATIONS", "")
 HOLIDAYS_LOCATIONS = [code.strip() for code in _LOCATIONS.split(",") if code.strip()]
 # De quantas em quantas horas a API busca sozinha os feriados do ano e do próximo. 0 = não busca
 # (testes); o servidor usa 6.

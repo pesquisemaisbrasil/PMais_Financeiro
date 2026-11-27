@@ -1,5 +1,6 @@
 """Busca dos feriados do ano: os nacionais na BrasilAPI (dados públicos, sem chave) e os estaduais e
-municipais das capitais no feriados.dev, que roda no nosso servidor (ADR 0024, Bruno 19/11/2026).
+municipais das cidades configuradas no feriados.dev, que roda no nosso servidor (ADR 0024). Desde
+27/11/2026 nenhuma cidade é configurada por padrão: só os nacionais contam.
 
 Só o ano (e o código da cidade, que vem da configuração) sai daqui. Os endereços são fixos e o ano
 é conferido (número entre 2000 e 2100) antes de entrar na URL, então nada que a pessoa digita
@@ -185,8 +186,8 @@ def fetch_national(year: int) -> list[NationalHoliday]:
 
 
 def fetch_local(year: int) -> list[LocalHoliday]:
-    """Os estaduais e municipais das cidades configuradas (todas as capitais), no feriados.dev.
-    Sem `FERIADOS_DEV_URL` (testes, demonstração), não busca nada."""
+    """Os estaduais e municipais das cidades configuradas (`HOLIDAYS_LOCATIONS`), no feriados.dev.
+    Sem cidade ou sem `FERIADOS_DEV_URL` (testes, demonstração), não busca nada."""
     if not MIN_YEAR <= year <= MAX_YEAR:
         raise PayableInvalid(f"Informe um ano entre {MIN_YEAR} e {MAX_YEAR}")
     if not config.FERIADOS_DEV_URL:

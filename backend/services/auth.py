@@ -17,6 +17,7 @@ from core.config import (
     JWT_ISSUER,
     REFRESH_TOKEN_EXPIRE_DAYS,
     SECRET_KEY,
+    SESSION_IDLE_MINUTES,
 )
 from core.security import dummy_verify_password, hash_password, hash_token, verify_password
 from db.connection import get_db
@@ -147,6 +148,11 @@ def rotate_refresh_token(db: Session, token: str) -> tuple[str, str] | None:
         _revoke_family(db, db_token.familyId)
         return None
     if as_utc(db_token.expiresAt) < datetime.now(UTC):
+        return None
+    # Cada renovação cria um token novo: a idade dele é o tempo sem uso. Parada há mais de 2 horas,
+    # a sessão cai inteira (reunião de 26/11/2026).
+    if as_utc(db_token.createdAt) < datetime.now(UTC) - timedelta(minutes=SESSION_IDLE_MINUTES):
+        _revoke_family(db, db_token.familyId)
         return None
 
     # Conta desativada não renova sessão (mesmo 401 genérico do login). Sem MFA, só quem

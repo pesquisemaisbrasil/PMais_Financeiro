@@ -1,5 +1,6 @@
-"""Cadastro de feriados: os nacionais vêm da BrasilAPI, os estaduais e municipais das capitais do
-feriados.dev (ADR 0024) e o financeiro ainda pode cadastrar à mão.
+"""Cadastro de feriados: os nacionais vêm da BrasilAPI, os estaduais e municipais das cidades
+configuradas do feriados.dev (ADR 0024; desde 27/11/2026, nenhuma por padrão) e o financeiro ainda
+pode cadastrar à mão.
 
 Todos contam como dia não útil, além dos nacionais fixos e da Páscoa que já estão em
 `core/business_days.py`. Vale para o sistema todo: ainda não há feriado por unidade ou cidade (Q42).
@@ -148,12 +149,26 @@ def _count(db: Session, year: int, nacional: bool) -> int:
 
 
 def sync(db: Session, year: int, user: User | None = None) -> dict[str, int]:
-    """Traz os nacionais (BrasilAPI) e os estaduais e municipais das capitais (feriados.dev) do ano.
-    Busca os dois antes de gravar: se um falha, nada entra. Só acrescenta: o que já existe (mesma
-    data e nome) fica, inclusive o cadastrado à mão. Sem `user`, é a busca automática."""
+    """Traz os nacionais (BrasilAPI) e os estaduais e municipais das cidades configuradas
+    (feriados.dev) do ano. Busca os dois antes de gravar: se um falha, nada muda. O que já existe
+    (mesma data e nome) fica, inclusive o cadastrado à mão; só sai o do feriados.dev de uma cidade
+    que deixou a lista (Bruno, 27/11/2026). Sem `user`, é a busca automática."""
     found = holiday_sync.fetch_national(year)
     local = holiday_sync.fetch_local(year)
     added = added_local = 0
+    wanted = {(spot.day, spot.name) for spot in local}
+    stale = [
+        holiday
+        for holiday in db.query(Holiday).filter(
+            Holiday.source == "feriados.dev",
+            Holiday.day >= date(year, 1, 1),
+            Holiday.day <= date(year, 12, 31),
+        )
+        if (holiday.day, holiday.name) not in wanted
+    ]
+    for holiday in stale:
+        db.delete(holiday)
+    db.flush()
     for item in found:
         if _exists(db, item.day, item.name):
             continue
@@ -172,9 +187,11 @@ def sync(db: Session, year: int, user: User | None = None) -> dict[str, int]:
                 source="feriados.dev",
             )
         )
-        db.flush()  # o mesmo feriado em duas capitais (mesma data e nome) entra uma vez só
+        db.flush()  # o mesmo feriado em duas cidades (mesma data e nome) entra uma vez só
         added_local += 1
-    text = f"Feriados de {year} buscados: {added} nacional(is) e {added_local} das capitais novo(s)"
+    text = f"Feriados de {year} buscados: {added} nacional(is) e {added_local} local(is) novo(s)"
+    if stale:
+        text += f"; {len(stale)} de cidades fora da lista removido(s)"
     if user is not None:
         _log(db, year, user, text)
     db.commit()

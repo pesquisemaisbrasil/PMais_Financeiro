@@ -182,6 +182,8 @@ def _sort_key(column: str, on: date) -> Callable[[Receivable], Any]:
     keys: dict[str, Callable[[Receivable], Any]] = {
         "vencimento": lambda r: r.dueDate,
         "cliente": lambda r: r.customer.name.casefold(),
+        # na ordem dos códigos (999 antes de 1804); sem projeto, no fim (reunião de 26/11/2026)
+        "projeto": lambda r: (0, len(r.project.code), r.project.code) if r.project else (1, 0, ""),
         "categoria": lambda r: r.category.name.casefold(),
         "situacao": lambda r: situation(r, on),
         "valor": net_amount,

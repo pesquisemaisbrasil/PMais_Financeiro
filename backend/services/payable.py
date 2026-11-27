@@ -280,8 +280,17 @@ def _sort_key(column: str, on: date) -> Callable[[Payable], Any]:
     keys: dict[str, Callable[[Payable], Any]] = {
         "vencimento": lambda p: p.dueDate,
         "fornecedor": lambda p: payee_name(p).casefold(),
-        "documento": lambda p: p.documentType,
+        "documento": lambda p: (p.documentNumber or "").casefold(),
+        # o primeiro projeto da conta, na ordem dos códigos (999 antes de 1804); sem projeto, no fim
+        "projeto": lambda p: (
+            (0, len(p.allocations[0].project.code), p.allocations[0].project.code)
+            if p.allocations
+            else (1, 0, "")
+        ),
         "categoria": lambda p: p.category.name.casefold(),
+        "centro": lambda p: p.cost_center.path.casefold(),
+        "forma": lambda p: p.payment_method.name.casefold(),
+        "empresa": lambda p: p.company.label.casefold(),
         "situacao": lambda p: situation(p, on),
         "valor": net_amount,
         "pago": paid_amount,
@@ -599,9 +608,8 @@ def _export_table(
     ]
     rows: list[list[Any]] = []
     for p in selected:
-        document = (
-            f"NF {p.documentNumber or ''}".strip() if p.documentType == "NF" else p.documentType
-        )
+        # só o número, como na lista: o do sistema antigo já vem como "NF 68" (Bruno, 27/11/2026)
+        document = p.documentNumber or ""
         rows.append(
             [
                 p.dueDate,

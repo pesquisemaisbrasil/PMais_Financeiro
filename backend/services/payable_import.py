@@ -274,9 +274,12 @@ def _date(value: Any) -> tuple[date | None, bool]:
     elif isinstance(value, date):
         parsed = value
     else:
-        for pattern in ("%d/%m/%Y", "%Y-%m-%d"):
+        # a data escrita como texto: 27/11/2026, 27/11/26, 27-11-2026, 27.11.2026 ou 2026-11-27,
+        # com ou sem a hora depois (reunião de 26/11/2026: a planilha não vinha no formato único)
+        text = str(value).strip().split()[0]
+        for pattern in ("%d/%m/%Y", "%d/%m/%y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d"):
             try:
-                parsed = datetime.strptime(str(value).strip(), pattern).date()
+                parsed = datetime.strptime(text, pattern).date()
                 break
             except ValueError:
                 continue
@@ -384,9 +387,9 @@ def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
         line.surveyDate, survey_ok = _date(cells.get("surveyDate"))
         line.givenPayDate, pay_ok = _date(cells.get("payDate"))
         if not pay_ok:
-            line.errors.append("Data de pagamento inválida")
+            line.errors.append("Data de pagamento inválida: use dia/mês/ano, como 27/11/2026")
         elif not survey_ok:
-            line.errors.append("Data da pesquisa inválida")
+            line.errors.append("Data da pesquisa inválida: use dia/mês/ano, como 27/11/2026")
         elif not line.givenPayDate and not line.surveyDate:
             line.errors.append("Sem data de pagamento e sem data da pesquisa")
         elif line.givenPayDate and line.surveyDate and line.givenPayDate < line.surveyDate:
@@ -416,7 +419,7 @@ def _payroll_lines(rows: list[tuple[Any, ...]], inss_rate: Decimal) -> list[Line
             line.invoiceNumber = _text(cells.get("invoiceNumber"))[:50] or None
             line.invoiceDate, invoice_ok = _date(cells.get("invoiceDate"))
             if not invoice_ok:
-                line.errors.append("Data de emissão inválida")
+                line.errors.append("Data de emissão inválida: use dia/mês/ano, como 27/11/2026")
         lines.append(line)
     return lines
 
