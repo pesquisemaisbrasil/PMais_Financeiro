@@ -194,6 +194,14 @@ class PaymentReverse(BaseModel):
     on: date | None = None
 
 
+class PaymentBatchReverse(BaseModel):
+    """Estorno de várias baixas de uma conta de uma vez, todas ou nenhuma, com a data de hoje
+    (Bruno, 27/11/2026)."""
+
+    paymentIds: list[int] = Field(min_length=1, max_length=5000)
+    reason: Reason
+
+
 class AllocationOut(BaseModel):
     projectId: int
     code: str
@@ -232,6 +240,8 @@ class PayableRow(BaseModel):
     barcode: str | None
     itemCount: int
     canPayDirectly: bool
+    # lançamento de incentivos baixado só pelos comprovantes Pix (27/11/2026)
+    paidByReceipts: bool = False
     canReplace: bool
     replaces: Decimal | None
     # nulo em conta avulsa
@@ -293,6 +303,8 @@ class PaymentOut(BaseModel):
     paymentMethodName: str
     transactionId: str | None
     note: str | None
+    # a pessoa que este Pix pagou, na baixa pelos comprovantes (27/11/2026)
+    itemName: str | None = None
 
 
 class EventOut(BaseModel):
@@ -309,6 +321,8 @@ class AttachmentOut(BaseModel):
     contentType: str
     uploadedBy: str
     createdAt: datetime
+    # o comprovante Pix de uma pessoa do lançamento (27/11/2026); nulo no documento da conta
+    itemId: int | None = None
 
 
 class AttachmentUpdate(BaseModel):
@@ -684,3 +698,52 @@ class SeriesOccurrence(BaseModel):
     # o valor líquido: o que de fato se paga ou se recebe
     amount: Decimal
     situation: str
+
+
+# ---- Baixa do lançamento de incentivos pelos comprovantes Pix (27/11/2026) ----
+
+
+class ReceiptMatchItem(BaseModel):
+    itemId: int
+    name: str
+    amount: Decimal
+    pixMasked: str | None
+    # bate | valor_diferente | sem_comprovante | sem_chave
+    status: str
+    statusText: str
+    receiptAmount: Decimal | None
+    paidOn: date | None
+    file: str | None
+    page: int | None
+
+
+class ReceiptExtra(BaseModel):
+    """Comprovante que não entra na baixa. O nome lido só vem quando a chave não é de ninguém."""
+
+    file: str
+    page: int
+    amount: Decimal | None
+    pixMasked: str | None
+    payeeName: str | None
+    # erro_leitura | repetido | ja_usado | outra_chave | a_mais
+    status: str
+    message: str
+
+
+class ReceiptMatch(BaseModel):
+    payableId: int
+    pending: Decimal
+    receiptsTotal: Decimal
+    count: int
+    matched: int
+    ready: bool
+    # comprovantes de quem já foi pago nesta conta: não entram na conferência nem travam a baixa
+    ignored: int = 0
+    blockers: list[str]
+    items: list[ReceiptMatchItem]
+    extras: list[ReceiptExtra]
+
+
+class ReceiptPaymentResult(BaseModel):
+    count: int
+    total: Decimal

@@ -26,7 +26,7 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from core.business_days import NO_EXTRA, add_business_days, next_business_day, why_not_business
-from core.pix import mask_pix_key, normalize_pix_key
+from core.pix import hash_pix, mask_pix_key, normalize_pix_key
 from core.text import format_brl, format_date_br
 from models.payable import Payable, PayableAllocation, PayableItem
 from models.reference import (
@@ -163,8 +163,10 @@ class Line:
     surveyDate: date | None = None
     givenPayDate: date | None = None
     payDate: date | None = None
-    # A chave Pix da planilha, já mascarada: a completa nunca fica na linha (nem em `typed`)
+    # A chave Pix da planilha, já mascarada, e o HMAC dela para casar o comprovante: a completa
+    # nunca fica na linha (nem em `typed`)
     pixMasked: str | None = None
+    pixHash: str | None = None
     # A data da planilha caía em dia não útil: de que dia veio e por quê (sábado, feriado...)
     shiftedFrom: date | None = None
     shiftReason: str | None = None
@@ -292,14 +294,16 @@ def _text(value: Any) -> str:
     return "" if value is None else str(value).strip()
 
 
-def _masked_pix(value: Any) -> str | None:
-    """A chave Pix da célula já mascarada, ou None sem chave. A completa não sai daqui."""
+def _pix(value: Any) -> tuple[str | None, str | None]:
+    """A chave Pix da célula mascarada e o HMAC dela, ou (None, None) sem chave. A completa não sai
+    daqui."""
     if isinstance(value, float) and value.is_integer():
         value = int(value)  # CPF digitado como número no Excel: sem o ".0" no fim
     key = _text(value)
     if not key:
-        return None
-    return mask_pix_key(normalize_pix_key(key))[:255]
+        return None, None
+    normalized = normalize_pix_key(key)
+    return mask_pix_key(normalized)[:255], hash_pix(normalized)
 
 
 def _pix_cell(cells: Mapping[str, Any]) -> Any:
@@ -383,7 +387,10 @@ def _incentive_lines(rows: list[tuple[Any, ...]]) -> list[Line]:
     lines = []
     for number, cells in table:
         line = _base_line(number, cells)
-        line.pixMasked = _masked_pix(_pix_cell(cells))
+        line.pixMasked, line.pixHash = _pix(_pix_cell(cells))
+        if not line.pixHash:
+            # a baixa sai pelos comprovantes, casados pela chave (27/11/2026)
+            line.errors.append("Sem chave Pix: a baixa casa o comprovante com a pessoa pela chave")
         line.surveyDate, survey_ok = _date(cells.get("surveyDate"))
         line.givenPayDate, pay_ok = _date(cells.get("payDate"))
         if not pay_ok:
@@ -847,6 +854,7 @@ def _items(lines: list[Line]) -> list[PayableItem]:
                 surveyDate=line.surveyDate,
                 invoiceStatus=status,
                 pix_masked=line.pixMasked,
+                pix_hash=line.pixHash,
             )
         )
     return items
@@ -886,6 +894,8 @@ def _create(
         created_by_user_id=user.id,
         allocations=[PayableAllocation(project_id=project.id, amount=total)],
         items=_items(lines),
+        # incentivo com a chave de todas as pessoas: a baixa só sai pelos comprovantes (27/11/2026)
+        paidByReceipts=origin == "incentivo" and all(line.pixHash for line in lines),
     )
     db.add(payable)
     db.flush()
@@ -926,34 +936,38 @@ def confirm(
                 f"{where} prazo de incentivo marcado"
             )
         extra = holiday_names(db)
-        for refs, bucket_lines in buckets:
+        planned = [
+            (refs, pay_date, group)
+            for refs, bucket_lines in buckets
+            for pay_date, group in _groups(bucket_lines, _deadline(refs["project"]), extra).items()
+        ]
+        for refs, pay_date, group in planned:
             project = refs["project"]
-            for pay_date, group in _groups(bucket_lines, _deadline(project), extra).items():
-                surveys = sorted({line.surveyDate for line in group if line.surveyDate})
-                payable = _create(
-                    db,
-                    refs,
-                    user,
-                    origin="incentivo",
-                    payee=f"Incentivos ({_people(len(group))})",
-                    description=f"Incentivos · PRJ-{project.code} · pagar {pay_date:%d/%m}",
-                    due=pay_date,
-                    competence=(surveys[0] if surveys else pay_date).strftime("%Y-%m"),
-                    file_hash=file_hash,
-                    lines=group,
-                )
-                days_text = " e ".join(format_date_br(day)[:5] for day in surveys)
-                origin_text = f" das pesquisas de {days_text}" if surveys else ""
-                payable_service.audit(
-                    db,
-                    payable,
-                    user,
-                    f"Criado pela planilha {shown_name}: "
-                    f"{_count(len(group), 'incentivo', 'incentivos')}{origin_text}, "
-                    f"{format_brl(payable.amount)}, vence {format_date_br(pay_date)} "
-                    f"(data {_source(group)}){_shift_text(group, pay_date)}",
-                )
-                created.append(payable)
+            surveys = sorted({line.surveyDate for line in group if line.surveyDate})
+            payable = _create(
+                db,
+                refs,
+                user,
+                origin="incentivo",
+                payee=f"Incentivos ({_people(len(group))})",
+                description=f"Incentivos · PRJ-{project.code} · pagar {pay_date:%d/%m}",
+                due=pay_date,
+                competence=(surveys[0] if surveys else pay_date).strftime("%Y-%m"),
+                file_hash=file_hash,
+                lines=group,
+            )
+            days_text = " e ".join(format_date_br(day)[:5] for day in surveys)
+            origin_text = f" das pesquisas de {days_text}" if surveys else ""
+            payable_service.audit(
+                db,
+                payable,
+                user,
+                f"Criado pela planilha {shown_name}: "
+                f"{_count(len(group), 'incentivo', 'incentivos')}{origin_text}, "
+                f"{format_brl(payable.amount)}, vence {format_date_br(pay_date)} "
+                f"(data {_source(group)}){_shift_text(group, pay_date)}",
+            )
+            created.append(payable)
     else:
         description = (fields.description or "").strip()
         if not description:

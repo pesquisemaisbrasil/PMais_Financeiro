@@ -296,7 +296,10 @@ def _store(
     user: User,
 ) -> None:
     """Guarda no cofre e registra, sem commit: quem chama fecha a transação."""
-    current = [a for a in owner.attachments if a.deletedAt is None]
+    # o comprovante de cada pessoa (ligado a ela) não conta no limite da conta (27/11/2026)
+    current = [
+        a for a in owner.attachments if a.deletedAt is None and getattr(a, "item_id", None) is None
+    ]
     if len(current) >= MAX_PER_OWNER:
         raise PayableConflict(f"{target.this} já tem {MAX_PER_OWNER} documentos")
     # shortcut: a conta fica travada durante o envio ao cofre (até ~30 s com o MinIO lento) e um
@@ -315,6 +318,28 @@ def _store(
         )
     )
     target.audit(db, owner, user, f"Documento incluído: {name} ({_size_text(stored.size)})")
+
+
+def store_item_receipt(
+    db: Session, payable: Any, item_id: int, name: str, data: bytes, user: User
+) -> None:
+    """O comprovante Pix de uma pessoa do lançamento, ligado a ela (baixa pelos comprovantes,
+    27/11/2026). Fica nos documentos da conta, cifrado como os outros, sem commit: a baixa fecha a
+    transação, e o histórico dela diz quantos comprovantes entraram."""
+    stored = file_vault.store_file(PAYABLE.vault_kind, payable.id, data)
+    db.add(
+        PAYABLE.model(
+            payable_id=payable.id,
+            item_id=item_id,
+            name=name,
+            kind="comprovante",
+            contentType="application/pdf",
+            size=stored.size,
+            fileKey=stored.key,
+            fileSha256=stored.sha256,
+            uploaded_by_user_id=user.id,
+        )
+    )
 
 
 def download(

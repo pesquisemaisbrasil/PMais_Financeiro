@@ -45,12 +45,15 @@ from schemas.payable import (
     PayableDetail,
     PayableList,
     PayableUpdate,
+    PaymentBatchReverse,
     PaymentCreate,
     PaymentReverse,
     PeriodMode,
     PrintTable,
     ProvisionReplace,
     ReasonIn,
+    ReceiptMatch,
+    ReceiptPaymentResult,
     RecurringCreate,
     Reference,
     ReplacementCandidate,
@@ -67,7 +70,14 @@ from schemas.payable import (
     SortColumn,
     Tab,
 )
-from services import attachments, incentive_template, payable_import, recurrence, report_import
+from services import (
+    attachments,
+    incentive_receipts,
+    incentive_template,
+    payable_import,
+    recurrence,
+    report_import,
+)
 from services import payable as payable_service
 from services.auth import get_current_user
 from services.holidays import holiday_names
@@ -554,6 +564,76 @@ def remove_attachment(
     return _handle(lambda: payable_service.detail(db, payable_id))
 
 
+# Os comprovantes Pix chegam juntos (a baixa é tudo ou nada); o nginx do servidor aceita 30 MB.
+RECEIPTS_TOTAL_BYTES = 25 * 1024 * 1024
+
+
+def _receipt_files(files: list[UploadFile]) -> list[tuple[str, bytes]]:
+    """Os PDFs de comprovantes, lidos sem passar do limite. Nada fica guardado aqui."""
+    if len(files) > incentive_receipts.MAX_FILES:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Envie até {incentive_receipts.MAX_FILES} arquivos de uma vez",
+        )
+    read: list[tuple[str, bytes]] = []
+    total = 0
+    for file in files:
+        name = file.filename or ""
+        content = file.file.read(RECEIPTS_TOTAL_BYTES + 1)
+        total += len(content)
+        if not content:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, f"{name}: o arquivo está vazio"
+            )
+        if total > RECEIPTS_TOTAL_BYTES:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "Os comprovantes passam de 25 MB juntos"
+            )
+        read.append((name, content))
+    return read
+
+
+@router.post(
+    "/payables/{payable_id}/receipts/preview",
+    response_model=ReceiptMatch,
+    description="Confere os comprovantes Pix do lançamento de incentivos contra as pessoas, pela "
+    "chave e pelo valor, sem gravar nada (o PDF é lido em memória)",
+)
+@limiter.limit("30/minute")
+def preview_receipts(
+    request: Request,
+    payable_id: int,
+    files: list[UploadFile],
+    db: DbSession,
+    _: FinanceUser,
+) -> dict[str, Any]:
+    return _handle(lambda: incentive_receipts.preview(db, payable_id, _receipt_files(files)))
+
+
+@router.post(
+    "/payables/{payable_id}/receipts/confirm",
+    response_model=ReceiptPaymentResult,
+    status_code=status.HTTP_201_CREATED,
+    description="Dá a baixa do lançamento de incentivos pelos comprovantes Pix: um Pix por pessoa, "
+    "e o comprovante de cada uma nos documentos da conta. Só com todos batendo",
+)
+@limiter.limit("20/minute")
+def confirm_receipts(
+    request: Request,
+    payable_id: int,
+    files: list[UploadFile],
+    bankAccountId: Annotated[int, Form(gt=0)],
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    return _in_transaction(
+        db,
+        lambda: incentive_receipts.confirm(
+            db, payable_id, _receipt_files(files), bankAccountId, user
+        ),
+    )
+
+
 @router.post(
     "/payables/batch/reclassify",
     response_model=BatchCount,
@@ -766,6 +846,23 @@ def pay_payable(
     request: Request, payable_id: int, data: PaymentCreate, db: DbSession, user: FinanceUser
 ) -> dict[str, Any]:
     _in_transaction(db, lambda: payable_service.pay(db, payable_id, data, user))
+    return payable_service.detail(db, payable_id)
+
+
+@router.post(
+    "/payables/{payable_id}/payments/reverse",
+    response_model=PayableDetail,
+    description="Estorna várias baixas da conta de uma vez, todas ou nenhuma",
+)
+@limiter.limit(WRITE_LIMIT)
+def reverse_payments(
+    request: Request,
+    payable_id: int,
+    data: PaymentBatchReverse,
+    db: DbSession,
+    user: FinanceUser,
+) -> dict[str, Any]:
+    _in_transaction(db, lambda: payable_service.reverse_payments(db, payable_id, data, user))
     return payable_service.detail(db, payable_id)
 
 

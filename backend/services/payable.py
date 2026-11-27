@@ -49,6 +49,7 @@ from schemas.payable import (
     BatchReclassify,
     PayableCreate,
     PayableUpdate,
+    PaymentBatchReverse,
     PaymentCreate,
     PaymentReverse,
     ProvisionReplace,
@@ -156,11 +157,15 @@ def can_pay_directly(payable: Payable) -> bool:
         pending_amount(payable) > 0
         and payable.type == "real"
         and payable.origin != "connect"
+        and not payable.paidByReceipts
         and payable.canceledAt is None
     )
 
 
 REPLACED_DETAIL = "Essa provisão já foi substituída — ela fica só no histórico"
+RECEIPTS_DETAIL = (
+    "Este lançamento de incentivos é baixado pelos comprovantes Pix: use Baixar pelos comprovantes"
+)
 PROJECT_REQUIRED = "Escolha o projeto. Toda conta tem projeto, até a administrativa"
 CLOSED_PROJECT = "Projeto fechado — peça a reabertura a um administrador"
 
@@ -331,6 +336,7 @@ def row(payable: Payable, on: date, item_count: int, attachment_count: int = 0) 
         "competence": payable.competence,
         "notes": payable.notes,
         "canPayDirectly": can_pay_directly(payable),
+        "paidByReceipts": payable.paidByReceipts,
         "canReplace": can_replace(payable),
         "replaces": (
             payable.replaced_provisions[0].amount if payable.replaced_provisions else None
@@ -710,11 +716,24 @@ def item_paid_on(payable: Payable, item: PayableItem) -> date | None:
     lançamento inteiro já foi pago. Com baixa parcial, não dá para saber quem recebeu."""
     if payable.canceledAt is not None:
         return None
-    if item.paidOn:
-        return item.paidOn
+    own = own_paid_on(payable, item)
+    if own:
+        return own
+    # baixa pessoa por pessoa (comprovantes, 27/11): quem não tem a sua não foi paga
+    if any(p.item_id is not None for p in payable.payments):
+        return None
     if paid_amount(payable) == 0 or pending_amount(payable) > 0:
         return None
     return max((p.paidOn for p in _active_payments(payable)), default=None)
+
+
+def own_paid_on(payable: Payable, item: PayableItem) -> date | None:
+    """O dia do pagamento da própria pessoa: o do comprovante (Connect) ou o do Pix dela na baixa
+    pelos comprovantes. Pix estornado não conta."""
+    if item.paidOn:
+        return item.paidOn
+    days = [p.paidOn for p in _active_payments(payable) if p.item_id == item.id]
+    return max(days, default=None)
 
 
 def _item_status(payable: Payable, item: PayableItem) -> str:
@@ -725,7 +744,8 @@ def _item_status(payable: Payable, item: PayableItem) -> str:
     paid_on = item_paid_on(payable, item)
     if paid_on:
         return f"Paga em {format_date_br(paid_on)}"
-    if paid_amount(payable) == 0:
+    # na baixa pessoa por pessoa (comprovantes), quem não tem o seu Pix está a pagar
+    if paid_amount(payable) == 0 or any(p.item_id is not None for p in payable.payments):
         return "A pagar"
     if pending_amount(payable) > 0:
         return "Baixa parcial do lançamento"
@@ -789,6 +809,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
     # Baixar um documento não muda a conta: fica só no histórico.
     changes = [e for e in payable.events if not e.text.startswith("Documento baixado")]
     last = changes[-1] if changes else None
+    names = {item.id: item.name for item in payable.items}
     return {
         **row(
             payable,
@@ -825,7 +846,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "invoiceDate": i.invoiceDate,
                 "grossAmount": i.grossAmount,
                 "surveyDate": i.surveyDate,
-                "paidOn": i.paidOn,
+                "paidOn": own_paid_on(payable, i),
                 "pixMasked": i.pix_masked,
             }
             for i in payable.items
@@ -844,6 +865,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "paymentMethodName": p.payment_method.name,
                 "transactionId": p.transactionId,
                 "note": p.note,
+                "itemName": names.get(p.item_id),
             }
             for p in payable.payments
         ],
@@ -864,6 +886,7 @@ def detail(db: Session, payable_id: int) -> dict[str, Any]:
                 "contentType": a.contentType,
                 "uploadedBy": a.uploaded_by.name,
                 "createdAt": a.createdAt,
+                "itemId": a.item_id,
             }
             for a in payable.attachments
             if a.deletedAt is None
@@ -1247,6 +1270,8 @@ def _check_payable(payable: Payable) -> None:
         raise PayableConflict("Provisão não é paga — substitua pelo lançamento real")
     if payable.origin == "connect":
         raise PayableConflict(CONNECT_PAYMENT_DETAIL)
+    if payable.paidByReceipts:
+        raise PayableConflict(RECEIPTS_DETAIL)
     if payable.canceledAt is not None:
         raise PayableConflict("Conta cancelada não recebe baixa")
 
@@ -1370,7 +1395,23 @@ def pay_batch(db: Session, data: BatchPaymentCreate, user: User) -> Decimal:
 def reverse_payment(
     db: Session, payable_id: int, payment_id: int, data: PaymentReverse, user: User
 ) -> None:
+    _reverse(db, _get(db, payable_id, lock=True), payment_id, data, user)
+    db.commit()
+
+
+def reverse_payments(db: Session, payable_id: int, data: PaymentBatchReverse, user: User) -> None:
+    """Estorna as baixas escolhidas da conta, todas ou nenhuma."""
     payable = _get(db, payable_id, lock=True)
+    each = PaymentReverse(kind="estorno", reason=data.reason)
+    for payment_id in sorted(set(data.paymentIds)):
+        _reverse(db, payable, payment_id, each, user)
+    db.commit()
+
+
+def _reverse(
+    db: Session, payable: Payable, payment_id: int, data: PaymentReverse, user: User
+) -> None:
+    """Anula uma baixa na transação aberta, sem commit."""
     original = next((p for p in payable.payments if p.id == payment_id), None)
     if original is None or original.kind != "pagamento":
         raise PayableNotFound
@@ -1392,6 +1433,7 @@ def reverse_payment(
             bank_account_id=original.bank_account_id,
             payment_method_id=original.payment_method_id,
             note=data.reason,
+            item_id=original.item_id,
             created_by_user_id=user.id,
         )
     )
@@ -1403,7 +1445,6 @@ def reverse_payment(
         f"{label} da baixa de {format_date_br(original.paidOn)} "
         f"({format_brl(original.amount)}): {data.reason}",
     )
-    db.commit()
 
 
 def cancel(db: Session, payable_id: int, reason: str, user: User) -> None:

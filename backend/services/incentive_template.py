@@ -1,5 +1,11 @@
 """A planilha modelo do Carregar incentivos (.xlsx), montada na hora do download.
 
+Desde 27/11/2026 o modelo segue a planilha que a equipe já usa (print do Bruno): as mesmas colunas,
+na mesma ordem, para colar as linhas dos supervisores sem mexer, sem as de CPF e de banco (o sistema
+não as lê, e a baixa é pelo Pix), e com Projeto, Plano de contas e Forma de pagamento no fim. Uma
+planilha traz vários projetos: cada pessoa vai para o lançamento do seu projeto e da data em "PAGAR
+(PREENCHIDO PELO FINANCEIRO)". A chave Pix de cada pessoa é o que casa o comprovante na baixa.
+
 A primeira aba é a que o importador lê: o cabeçalho fica na linha 1 e ela vem sem nenhuma pessoa,
 nem de exemplo, para ninguém lançar um nome fictício sem querer. O exemplo fica em "Como preencher".
 """
@@ -31,82 +37,106 @@ _HEADER_FILL = PatternFill("solid", fgColor="E8EDF5")
 # 01/01/2000, no número de série que o Excel usa para datas.
 _FIRST_DATE = "36526"
 
-# Título, largura e formato de cada coluna. O que é código fica como texto: digitado como número,
-# o Excel corta o zero da frente de um celular ou de um CPF, e o "2.10" do plano de contas vira 2,1.
+# Título, largura e formato de cada coluna, na ordem da planilha da equipe. O que é código fica como
+# texto: digitado como número, o Excel corta o zero da frente de um celular, e o "2.10" do plano de
+# contas vira 2,1.
 COLUMNS: tuple[tuple[str, int, str | None], ...] = (
+    ("Equipe", 14, None),
+    ("ID LINK", 12, _TEXT_FORMAT),
+    ("Nome Completo:", 34, None),
+    ("Beneficiário:", 34, None),
+    ("PAGO A", 14, None),
+    ("Chave Pix:", 16, _TEXT_FORMAT),
+    ("PIX:", 34, _TEXT_FORMAT),
+    ("VALOR TOTAL", 14, MONEY_FORMAT),
+    ("STATUS", 14, None),
+    ("PEDIDO EM", 14, DATE_FORMAT),
+    ("DATA DE REALIZAÇÃO DA PESQUISA", 18, DATE_FORMAT),
+    ("PAGAR (PREENCHIDO PELO FINANCEIRO)", 18, DATE_FORMAT),
+    ("COMPROVANTES SALVOS NA REDE", 16, None),
+    ("OBS", 30, None),
     ("Projeto", 14, _TEXT_FORMAT),
     ("Plano de contas", 32, _TEXT_FORMAT),
     ("Forma de pagamento", 22, _TEXT_FORMAT),
-    ("Beneficiário", 38, None),
-    ("Chave Pix", 34, _TEXT_FORMAT),
-    ("Valor", 14, MONEY_FORMAT),
-    ("Data da pesquisa", 18, DATE_FORMAT),
-    ("Data de pagamento", 18, DATE_FORMAT),
 )
-_VALUE_COLUMN = 6
-_DATE_COLUMNS = (7, 8)
+_COLUMN = {title: index for index, (title, _, _) in enumerate(COLUMNS, start=1)}
 _GUIDE_TITLES = ("Coluna", "É obrigatória?", "Como preencher", "Exemplo")
-_GUIDE_WIDTHS = (22, 30, 76, 26)
+_GUIDE_WIDTHS = (34, 22, 76, 28)
 _GUIDE = (
+    (
+        "Beneficiário:",
+        "Sim",
+        "O nome de quem vai receber. Vazio, vale o Nome Completo.",
+        "Maria Exemplo",
+    ),
+    ("Nome Completo:", "Não", "O nome completo, se o beneficiário vier vazio.", "Maria Exemplo"),
+    (
+        "Chave Pix: / PIX:",
+        "Sim",
+        "A chave Pix de quem vai receber, numa das duas colunas (a outra pode dizer só o tipo, "
+        "como E-mail ou Celular). Na baixa, cada comprovante é casado com a pessoa por ela. O "
+        "sistema guarda só uma parte da chave.",
+        "maria@exemplo.invalid",
+    ),
+    ("VALOR TOTAL", "Sim", "O valor a pagar, em reais, com até 2 casas.", "150,00"),
+    (
+        "STATUS",
+        "Não",
+        'Escreva "Pago" em quem já recebeu: a linha fica de fora, para ninguém receber duas vezes.',
+        "Pendente",
+    ),
+    (
+        "DATA DE REALIZAÇÃO DA PESQUISA",
+        "Quando o PAGAR vier vazio",
+        "O dia da pesquisa, em dd/mm/aaaa. Sem o PAGAR, o sistema calcula o pagamento pelo prazo "
+        "do projeto.",
+        "10/11/2026",
+    ),
+    (
+        "PAGAR (PREENCHIDO PELO FINANCEIRO)",
+        "Sim, quando o projeto não tem prazo",
+        "O dia programado para o pagamento, em dd/mm/aaaa. É ele que vale. Se cair em fim de "
+        "semana ou feriado, vai para o próximo dia útil.",
+        "30/11/2026",
+    ),
     (
         "Projeto",
         "Sim",
-        "O código do projeto. Escolha na lista da célula; os projetos abertos estão na aba "
-        "Projetos.",
+        "O código do projeto de cada pessoa. Escolha na lista da célula; os projetos abertos estão "
+        "na aba Projetos.",
         "1790",
     ),
     (
         "Plano de contas",
         "Sim",
-        "A conta do plano de contas. Escolha na lista da célula; as contas estão na aba Plano de "
-        "contas.",
+        "A conta do plano de contas. Escolha na lista; as contas estão na aba Plano de contas.",
         "2.02 Incentivos",
     ),
     (
         "Forma de pagamento",
         "Sim",
-        "Como o incentivo será pago. Escolha na lista da célula; as formas estão na aba Formas de "
-        "pagamento.",
-        "Pix",
+        "Como o incentivo será pago. Escolha na lista; as formas estão na aba Formas de pagamento.",
+        "PIX",
     ),
-    ("Beneficiário", "Sim", "O nome completo de quem vai receber.", "Maria Exemplo"),
     (
-        "Chave Pix",
+        "Equipe, ID LINK, PAGO A, PEDIDO EM, COMPROVANTES SALVOS NA REDE e OBS",
         "Não",
-        "A chave Pix de quem vai receber. O sistema guarda só uma parte dela.",
-        "maria@exemplo.invalid",
-    ),
-    (
-        "Valor",
-        "Sim",
-        "O valor a pagar, em reais, com até 2 casas depois da vírgula.",
-        "150,00",
-    ),
-    (
-        "Data da pesquisa",
-        "Quando não houver data de pagamento",
-        "O dia da pesquisa, em dd/mm/aaaa. Com ela, o sistema calcula o pagamento pelo prazo do "
-        "projeto.",
-        "10/11/2026",
-    ),
-    (
-        "Data de pagamento",
-        "Quando o projeto não tiver prazo de incentivo",
-        "O dia de pagar, em dd/mm/aaaa. Se cair em fim de semana ou feriado, vai para o próximo "
-        "dia útil.",
-        "24/11/2026",
+        "Ficam para a equipe, como na planilha de hoje: o sistema não lê essas colunas.",
+        "",
     ),
 )
 _NOTES = (
     "Preencha uma linha por pessoa, na aba Incentivos, e não mude os títulos da primeira linha.",
-    "Linha sem projeto, plano de contas ou forma de pagamento fica de fora, com o motivo na "
-    "conferência.",
-    "Empresa, unidade e centro de custo vêm do cadastro de cada projeto.",
-    "Cada combinação de projeto, plano de contas, forma de pagamento e data de pagamento vira um "
+    "As colunas são as da planilha da equipe, na mesma ordem: dá para colar as linhas dos "
+    "supervisores e preencher Projeto, Plano de contas e Forma de pagamento no fim.",
+    "Uma planilha pode trazer vários projetos: cada projeto e cada data de pagamento vira um "
     "lançamento no Contas a pagar, com as pessoas dentro.",
+    "Empresa, unidade e centro de custo vêm do cadastro de cada projeto.",
+    "Para dar baixa, envie os comprovantes Pix no lançamento: a baixa só sai quando cada pessoa "
+    "tem o seu comprovante, com o valor dela.",
     "Antes de criar qualquer lançamento, o sistema mostra a conferência, com os erros de cada "
     "linha.",
-    "Não inclua coluna de CPF: o sistema não lê esse dado.",
+    "Não inclua CPF nem dados de banco: o sistema não lê esses dados.",
 )
 
 
@@ -162,25 +192,26 @@ def _fill_sheet(sheet: Any, projects: int, categories: int, methods: int) -> Non
     for column, (_, _, number_format) in enumerate(COLUMNS, start=1):
         if number_format:
             sheet.column_dimensions[get_column_letter(column)].number_format = number_format
-    _list_rule(sheet, 1, PROJECTS_SHEET, projects)
-    _list_rule(sheet, 2, CATEGORIES_SHEET, categories)
-    _list_rule(sheet, 3, METHODS_SHEET, methods)
+    _list_rule(sheet, _COLUMN["Projeto"], PROJECTS_SHEET, projects)
+    _list_rule(sheet, _COLUMN["Plano de contas"], CATEGORIES_SHEET, categories)
+    _list_rule(sheet, _COLUMN["Forma de pagamento"], METHODS_SHEET, methods)
     _rule(
         sheet,
-        _VALUE_COLUMN,
+        _COLUMN["VALOR TOTAL"],
         "decimal",
         "Valor inválido",
         "Use só números, com até 2 casas. Exemplo: 150,00",
         operator="greaterThan",
         formula1="0",
     )
-    for column in _DATE_COLUMNS:
+    dates = ("PEDIDO EM", "DATA DE REALIZAÇÃO DA PESQUISA", "PAGAR (PREENCHIDO PELO FINANCEIRO)")
+    for title in dates:
         _rule(
             sheet,
-            column,
+            _COLUMN[title],
             "date",
             "Data inválida",
-            "Use o formato dd/mm/aaaa. Exemplo: 24/11/2026",
+            "Use o formato dd/mm/aaaa. Exemplo: 30/11/2026",
             operator="greaterThan",
             formula1=_FIRST_DATE,
         )

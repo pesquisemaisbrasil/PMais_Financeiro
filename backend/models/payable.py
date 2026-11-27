@@ -106,6 +106,10 @@ class Payable(Base):
     # HMAC da linha do relatório do sistema antigo (origem "relatorio"): reenviar o relatório, ou um
     # mais novo, só cria as contas que ainda não existem. Nulo nas contas de outra origem.
     importKey = Column(String(64), nullable=True)
+    # Lançamento de incentivos da planilha nova (27/11/2026): toda pessoa tem a chave Pix, e a
+    # baixa só sai pelos comprovantes, cada um casado com a pessoa pela chave
+    # (services/incentive_receipts).
+    paidByReceipts = Column(Boolean, nullable=False, default=False, server_default="false")
     replaced_by_id = Column(
         Integer, ForeignKey("payables.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -206,6 +210,9 @@ class PayableItem(Base):
     # Incentivo: a chave Pix do respondente já mascarada (3 primeiros e 2 últimos caracteres, como o
     # Connect mostra). A chave completa nunca é guardada nem volta para a tela (Q22).
     pix_masked = Column(String(255), nullable=True)
+    # HMAC da chave normalizada (core/pix.hash_pix): casa o comprovante com a pessoa sem guardar a
+    # chave (27/11/2026).
+    pix_hash = Column(String(64), nullable=True, index=True)
 
 
 class PayablePayment(Base):
@@ -236,6 +243,10 @@ class PayablePayment(Base):
     )
     transactionId = Column(String(100), nullable=True)
     note = Column(String(500), nullable=True)
+    # A pessoa que este Pix pagou, na baixa pelos comprovantes (27/11/2026). Nulo na baixa da conta.
+    item_id = Column(
+        Integer, ForeignKey("payable_items.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_by_user_id = Column(
         Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
     )
@@ -288,5 +299,9 @@ class PayableAttachment(Base):
     deletedAt = Column(DateTime(timezone=True), nullable=True)
     deleted_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     deletedReason = Column(String(500), nullable=True)
+    # O comprovante Pix de uma pessoa do lançamento (27/11/2026). Nulo no documento da conta.
+    item_id = Column(
+        Integer, ForeignKey("payable_items.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     uploaded_by = relationship("User", foreign_keys=[uploaded_by_user_id])
