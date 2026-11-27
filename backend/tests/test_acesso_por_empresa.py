@@ -349,11 +349,19 @@ def test_a_restricted_person_cannot_change_anything_of_another_company(
             {"json": {"number": "1", "issueDate": day}},
         ),
         ("post", f"/period-closings/{hidden['company_id']}/{today():%Y-%m}/close", {}),
-        ("put", f"/records/companies/{hidden['company_id']}", {"json": {"name": "Mudada"}}),
+        ("patch", f"/records/companies/{hidden['company_id']}", {"json": {"name": "Mudada"}}),
+        ("delete", f"/records/companies/{hidden['company_id']}", {}),
+        (
+            "post",
+            f"/records/bankAccounts/{hidden['account_id']}/active",
+            {"json": {"active": False}},
+        ),
+        ("delete", f"/records/bankAccounts/{hidden['account_id']}", {}),
     ]
     for method, path, kwargs in attempts:
         response = getattr(client, method)(path, headers=headers, **kwargs)
-        assert response.status_code in (404, 405), (
+        # só 404: um método errado (405) não testaria a recusa
+        assert response.status_code == 404, (
             f"{method} {path}: {response.status_code} {response.text}"
         )
     send_ = send(
