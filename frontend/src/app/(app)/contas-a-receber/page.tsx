@@ -29,7 +29,7 @@ import { readPreferredCompany } from "@/lib/preferred-company";
 import { readTabMemory, remembered, rememberedDay, rememberedFilters, writeTabMemory } from "@/lib/tabs";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ACTIONS_TH, actionsTd, CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
+import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { PrintButton } from "@/components/PrintButton";
@@ -679,7 +679,7 @@ function ReceivablesContent({
                       </TableHead>
                     );
                   })}
-                  <TableHead className={cn(TH, "px-2", ACTIONS_TH)}>Ações</TableHead>
+                  <TableHead className={cn(TH, "px-2")}>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="[&_tr]:border-border/50">
@@ -687,12 +687,12 @@ function ReceivablesContent({
                   <TableRow
                     key={row.id}
                     // Linhas alternadas em cinza, como no Contas a pagar.
-                    className={cn("group", index % 2 === 1 && "bg-[#f1f5f9]", "hover:bg-[#e6ecf4]")}
+                    className={cn(index % 2 === 1 && "bg-[#f1f5f9]", "hover:bg-[#e6ecf4]")}
                   >
                     {COLUMNS.map((column) => (
                       <Cell key={column.id} row={row} column={column.id} />
                     ))}
-                    <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left", actionsTd(index % 2 === 1))}>
+                    <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
                       <IconButton icon={Eye} label="Ver detalhes" onClick={() => setViewing(row.id)} />
                       {row.series && (
                         <IconButton

@@ -1,8 +1,10 @@
 "use client";
 
-import { Info, Search } from "lucide-react";
+import { Download, Info, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { NUM, TD, TH, Tag } from "@/components/finance";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +22,9 @@ import {
 } from "@/lib/payables";
 import { cn } from "@/lib/utils";
 import { matchesSearch } from "@/lib/search";
+import { ApiError, downloadDocument } from "@/lib/api";
+import { saveBlob } from "@/lib/documents";
+import type { Attachment } from "@/lib/payables";
 
 type Filter = "todos" | "abertos" | "pagos";
 
@@ -49,6 +54,17 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
   const withPix = payable.origin === "incentivo" || payable.items.some((item) => item.pixMasked);
   const total = payable.items.length;
   const counts: Record<Filter, number> = { todos: total, abertos: total - paid.size, pagos: paid.size };
+  // O comprovante Pix de cada pessoa, da baixa pelos comprovantes (27/11/2026)
+  const receipts = new Map(
+    (payable.attachments ?? []).filter((a) => a.itemId).map((a) => [a.itemId as number, a] as const)
+  );
+  async function download(attachment: Attachment) {
+    try {
+      saveBlob(await downloadDocument(payable.id, attachment.id), attachment.name);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível baixar o comprovante");
+    }
+  }
   const notes = originNotes(payable.origin);
   return (
     <div>
@@ -108,6 +124,7 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
                 <TableHead className={TH}>Nota</TableHead>
                 <TableHead className={cn(TH, NUM)}>Valor</TableHead>
                 <TableHead className={TH}>Situação</TableHead>
+                {receipts.size > 0 && <TableHead className={TH}>Comprovante</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -137,6 +154,23 @@ export function ItemsPanel({ payable }: { payable: PayableDetail }) {
                     )}
                   </TableCell>
                   <TableCell className={cn(TD, "text-muted-foreground")}>{itemPaymentLabel(payable, item)}</TableCell>
+                  {receipts.size > 0 && (
+                    <TableCell className={TD}>
+                      {paid.has(item.id) && receipts.get(item.id) ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Baixar o comprovante de ${item.name}`}
+                          onClick={() => download(receipts.get(item.id) as Attachment)}
+                        >
+                          <Download size={14} />
+                          PDF
+                        </Button>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

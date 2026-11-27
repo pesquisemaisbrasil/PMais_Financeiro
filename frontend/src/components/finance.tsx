@@ -143,14 +143,6 @@ export const TH = "px-4 py-3 text-xs font-medium text-muted-foreground";
 export const TD = "px-4 py-3.5 text-[13px]";
 export const NUM = "text-right tabular-nums";
 
-// A coluna Ações fica presa à direita da lista, com o fundo da linha por baixo: com todas as colunas ligadas, as
-// ações sumiam no fim da rolagem (Bruno, 27/11/2026). A linha precisa da classe `group`.
-const ACTIONS = "sticky right-0 z-[1] shadow-[inset_1px_0_0_var(--border)]";
-export const ACTIONS_TH = `${ACTIONS} bg-[color-mix(in_srgb,var(--brand-azul-deep)_3.5%,var(--card))]`;
-export function actionsTd(odd: boolean): string {
-  return `${ACTIONS} ${odd ? "bg-[#f1f5f9]" : "bg-card"} group-hover:bg-[#e6ecf4] group-data-[state=selected]:bg-accent`;
-}
-
 /** O texto com cada "*" (campo obrigatório) em vermelho. */
 export function RedStars({ text }: { text: string }) {
   return text.split("*").map((part, index) =>

@@ -230,7 +230,9 @@ export function ImportDialog({
               {incentives && (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-3.5 py-3">
                   <p className="min-w-0 flex-1 text-sm text-muted-foreground">
-                    A planilha modelo mostra como preencher cada coluna.
+                    Uma linha por pessoa, como na planilha da equipe, com o projeto, o plano de contas e a forma no
+                    fim. Cada projeto e data em &quot;PAGAR&quot; vira um lançamento. A chave Pix de cada pessoa é obrigatória: a
+                    baixa casa o comprovante por ela. A planilha modelo mostra como preencher.
                   </p>
                   <Button
                     type="button"

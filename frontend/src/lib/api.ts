@@ -2,6 +2,7 @@ import type {
   HomeSummary,
   Indicator,
   PayableDetail,
+  ReceiptMatch,
   PayableList,
   PeriodMode,
   Reference,
@@ -438,6 +439,33 @@ export function payPayable(id: number, body: unknown): Promise<PayableDetail> {
 
 export function reversePayment(id: number, paymentId: number, body: unknown): Promise<PayableDetail> {
   return send<PayableDetail>(`/payables/${id}/payments/${paymentId}/reverse`, "POST", body);
+}
+
+/** Estorna as baixas escolhidas de uma conta, todas ou nenhuma. */
+export function reversePayments(id: number, paymentIds: number[], reason: string): Promise<PayableDetail> {
+  return send<PayableDetail>(`/payables/${id}/payments/reverse`, "POST", { paymentIds, reason });
+}
+
+function receiptsForm(files: File[]): FormData {
+  const form = new FormData();
+  for (const file of files) form.append("files", file);
+  return form;
+}
+
+/** Confere os comprovantes Pix do lançamento de incentivos contra as pessoas, sem gravar nada. */
+export function previewIncentiveReceipts(id: number, files: File[]): Promise<ReceiptMatch> {
+  return upload<ReceiptMatch>(`/payables/${id}/receipts/preview`, "POST", receiptsForm(files));
+}
+
+/** Dá a baixa do lançamento pelos comprovantes: um Pix por pessoa, e o comprovante anexado nela. */
+export function confirmIncentiveReceipts(
+  id: number,
+  files: File[],
+  bankAccountId: number
+): Promise<{ count: number; total: string }> {
+  const form = receiptsForm(files);
+  form.append("bankAccountId", String(bankAccountId));
+  return upload<{ count: number; total: string }>(`/payables/${id}/receipts/confirm`, "POST", form);
 }
 
 export function payBatch(body: unknown): Promise<{ total: string; count: number }> {

@@ -170,6 +170,8 @@ export interface PayableRow {
   /** Documentos anexados: o clipe da lista fica verde quando há algum. */
   attachmentCount: number;
   canPayDirectly: boolean;
+  /** Lançamento de incentivos da planilha nova: a baixa só sai pelos comprovantes Pix (27/11/2026). */
+  paidByReceipts?: boolean;
   canReplace: boolean;
   replaces: string | null;
   series: SeriesInfo | null;
@@ -231,6 +233,8 @@ export interface Payment {
   paymentMethodName: string;
   transactionId: string | null;
   note: string | null;
+  /** A pessoa que este Pix pagou, na baixa pelos comprovantes (27/11/2026). */
+  itemName?: string | null;
 }
 
 export interface PayableEvent {
@@ -250,6 +254,47 @@ export interface Attachment {
   contentType: string;
   uploadedBy: string;
   createdAt: string;
+  /** O comprovante Pix de uma pessoa do lançamento (27/11/2026); nulo no documento da conta. */
+  itemId?: number | null;
+}
+
+/** A conferência dos comprovantes Pix contra as pessoas do lançamento de incentivos (27/11/2026). */
+export interface ReceiptMatchItem {
+  itemId: number;
+  name: string;
+  amount: string;
+  pixMasked: string | null;
+  status: "bate" | "valor_diferente" | "sem_comprovante" | "sem_chave";
+  statusText: string;
+  receiptAmount: string | null;
+  paidOn: string | null;
+  file: string | null;
+  page: number | null;
+}
+
+export interface ReceiptExtra {
+  file: string;
+  page: number;
+  amount: string | null;
+  pixMasked: string | null;
+  /** O nome lido do comprovante: só quando a chave não é de ninguém do lançamento. */
+  payeeName: string | null;
+  status: "erro_leitura" | "repetido" | "ja_usado" | "outra_chave" | "a_mais" | "ja_paga";
+  message: string;
+}
+
+export interface ReceiptMatch {
+  payableId: number;
+  pending: string;
+  receiptsTotal: string;
+  count: number;
+  matched: number;
+  ready: boolean;
+  /** Comprovantes de quem já foi pago neste lançamento: não entram nem travam a baixa. */
+  ignored?: number;
+  blockers: string[];
+  items: ReceiptMatchItem[];
+  extras: ReceiptExtra[];
 }
 
 export interface PayableDetail extends PayableRow {
@@ -971,6 +1016,8 @@ export function itemPaymentLabel(
   if (payable.situation === "cancelado") return "Cancelada";
   // a pessoa paga pelo comprovante sabe o próprio dia, mesmo com o lançamento em baixa parcial
   if (item?.paidOn) return `Paga em ${formatDate(item.paidOn)}`;
+  // na baixa pessoa por pessoa (comprovantes), quem não tem o seu Pix está a pagar
+  if (payable.payments.some((payment) => payment.itemName)) return "A pagar";
   const paid = toCents(payable.paid);
   if (paid === 0) return "A pagar";
   if (toCents(payable.pending) > 0) return "Baixa parcial do lançamento";

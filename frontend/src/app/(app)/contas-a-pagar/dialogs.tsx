@@ -86,6 +86,7 @@ import {
   renameDocument,
   replaceProvision,
   reversePayment,
+  reversePayments,
   updatePayable,
 } from "@/lib/api";
 import {
@@ -1298,12 +1299,15 @@ export function ReplaceProvisionDialog({
 
 export function ColumnsDialog({
   columns,
+  defaults,
   selected,
   density,
   onClose,
   onApply,
 }: {
   columns: { id: string; label: string; fixed?: boolean }[];
+  /** A disposição normal da lista: "Limpar seleção" volta a ela (Bruno, 27/11/2026). */
+  defaults: string[];
   selected: string[];
   density: "comfortable" | "compact";
   onClose: () => void;
@@ -1361,13 +1365,24 @@ export function ColumnsDialog({
             </div>
           </RadioGroup>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
+        <DialogFooter className="sm:justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setCurrent(new Set(defaults));
+              setChosenDensity("comfortable");
+            }}
+          >
+            Limpar seleção
           </Button>
-          <Button onClick={() => onApply(columns.filter((c) => current.has(c.id)).map((c) => c.id), chosenDensity)}>
-            Aplicar
-          </Button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button onClick={() => onApply(columns.filter((c) => current.has(c.id)).map((c) => c.id), chosenDensity)}>
+              Aplicar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1451,10 +1466,12 @@ export function DetailDialog({
   // Sobe quando a série muda (valor, cancelamento): recarrega a conta e a lista da aba Repetir.
   const [version, setVersion] = useState(0);
   const [tab, setTab] = useState(initialTab);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
   const [action, setAction] = useState<
     | { kind: "pay" }
     | { kind: "series"; mode: "edit" | "cancel" }
     | { kind: "reverse"; payment: Payment; type: "estorno" | "devolucao" }
+    | { kind: "reverse-many" }
     | { kind: "remove-document"; attachment: Attachment }
     | null
   >(null);
@@ -1477,6 +1494,11 @@ export function DetailDialog({
 
   // Enquanto a outra ocorrência carrega, a anterior não aparece no lugar dela.
   const payable = loaded?.id === currentId ? loaded : null;
+  // As baixas que ainda podem ser estornadas, e as que a pessoa marcou (algumas ou todas, 27/11/2026).
+  const reversible = payable?.payments.filter((p) => p.kind === "pagamento" && !p.reversed) ?? [];
+  const chosen = reversible.filter((p) => picked.has(p.id));
+  const chosenTotal = (chosen.reduce((sum, p) => sum + toCents(p.amount), 0) / 100).toFixed(2);
+  const choosing = reversible.length > 1;
   const failure = loadError?.id === currentId ? loadError.message : null;
   // Editar e cancelar só existem enquanto a conta aceita: cancelada, substituída e do Connect não têm.
   const canEdit =
@@ -1592,6 +1614,12 @@ export function DetailDialog({
                 <DetailFields payable={payable} />
               </TabsContent>
               <TabsContent value="baixas" className="flex flex-col gap-3 pt-3">
+                {payable.paidByReceipts && Number(payable.pending) > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Este lançamento de incentivos é baixado pelos comprovantes Pix: na lista, use Baixar pelos
+                    comprovantes. Cada comprovante é casado com a pessoa pela chave e fica anexado nela.
+                  </p>
+                )}
                 {payable.canPayDirectly && (
                   <div className="flex">
                     <Button size="sm" onClick={() => setAction({ kind: "pay" })}>
@@ -1600,15 +1628,55 @@ export function DetailDialog({
                     </Button>
                   </div>
                 )}
+                {choosing && (
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 px-3">
+                      <Checkbox
+                        id="baixas-todas"
+                        checked={chosen.length === reversible.length}
+                        onCheckedChange={(checked) =>
+                          setPicked(checked === true ? new Set(reversible.map((p) => p.id)) : new Set())
+                        }
+                      />
+                      <Label htmlFor="baixas-todas" className="text-[13px] font-normal">
+                        Selecionar todas
+                      </Label>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!chosen.length}
+                      onClick={() => setAction({ kind: "reverse-many" })}
+                    >
+                      <Undo2 size={14} />
+                      Estornar selecionadas ({chosen.length})
+                    </Button>
+                  </div>
+                )}
                 {payable.payments.length ? (
                   <ul className="flex flex-col gap-2">
                     {payable.payments.map((payment) => (
                       <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-[13px]">
-                        <div className={cn(payment.reversed && "text-muted-foreground line-through")}>
+                        {choosing && payment.kind === "pagamento" && !payment.reversed && (
+                          <Checkbox
+                            aria-label={`Selecionar a baixa de ${brl(payment.amount)}${payment.itemName ? ` de ${payment.itemName}` : ""}`}
+                            checked={picked.has(payment.id)}
+                            onCheckedChange={(checked) =>
+                              setPicked((current) => {
+                                const next = new Set(current);
+                                if (checked === true) next.add(payment.id);
+                                else next.delete(payment.id);
+                                return next;
+                              })
+                            }
+                          />
+                        )}
+                        <div className={cn("min-w-0 flex-1", payment.reversed && "text-muted-foreground line-through")}>
                           <strong>
                             {PAYMENT_KINDS[payment.kind]} de {brl(payment.amount)}
                           </strong>{" "}
                           em {formatDate(payment.paidOn)}
+                          {payment.itemName && ` · ${payment.itemName}`}
                           <span className="block text-xs">
                             {payment.bankAccountName} · {payment.paymentMethodName}
                             {Number(payment.surcharge) > 0 && ` · ${brl(payment.surcharge)} de juros/multa`}
@@ -1783,6 +1851,28 @@ export function DetailDialog({
                   toast.success(message);
                   onChanged();
                   setVersion((value) => value + 1);
+                }}
+              />
+            )}
+            {action?.kind === "reverse-many" && chosen.length > 0 && (
+              <ReasonForm
+                title={`Estornar ${plural(chosen.length, "baixa", "baixas")} (${brl(chosenTotal)})`}
+                hint="Todas ou nenhuma. As baixas originais continuam visíveis, e o valor volta a pendente."
+                confirm={`Estornar ${plural(chosen.length, "baixa", "baixas")}`}
+                onClose={() => setAction(null)}
+                submit={(reason) =>
+                  reversePayments(
+                    payable.id,
+                    chosen.map((p) => p.id),
+                    reason
+                  )
+                }
+                onDone={(next) => {
+                  setPicked(new Set());
+                  updated(
+                    next,
+                    `${plural(chosen.length, "baixa estornada", "baixas estornadas")}. Pendente agora: ${brl(next.pending)}.`
+                  );
                 }}
               />
             )}
@@ -2093,6 +2183,8 @@ function ReasonForm({
       <Field label="Motivo" id="r-motivo">
         <Textarea
           id="r-motivo"
+          // o formulário abre embaixo da lista: o cursor no motivo leva a pessoa até ele
+          autoFocus
           placeholder="Fica registrado no histórico"
           value={reason}
           onChange={(event) => setReason(event.target.value)}

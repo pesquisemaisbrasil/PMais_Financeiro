@@ -19,6 +19,7 @@ import {
   Copy,
   Download,
   Eye,
+  FileCheck2,
   FileUp,
   HandCoins,
   Hourglass,
@@ -46,8 +47,6 @@ import { readTabMemory, remembered, rememberedDay, rememberedFilters, writeTabMe
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
-  ACTIONS_TH,
-  actionsTd,
   CARD,
   ErrorBox,
   NUM,
@@ -132,6 +131,7 @@ import {
   ReplaceProvisionDialog,
 } from "./dialogs";
 import { ImportDialog } from "./import-dialog";
+import { IncentiveReceiptsDialog } from "./incentive-receipts";
 import { ReceiptsDialog } from "./receipts-dialog";
 import { SeriesDialog } from "@/components/SeriesDialog";
 
@@ -478,6 +478,8 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
   const [creating, setCreating] = useState(false);
   const [paying, setPaying] = useState<PayableRow | null>(null);
   const [sendingReceipts, setSendingReceipts] = useState<PayableRow | null>(null);
+  // lançamento de incentivos da planilha nova: a baixa pelos comprovantes Pix (27/11/2026)
+  const [payingByReceipts, setPayingByReceipts] = useState<PayableRow | null>(null);
   const [seriesAction, setSeriesAction] = useState<{ row: PayableRow; mode: "edit" | "cancel" } | null>(null);
   const [batchPaying, setBatchPaying] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -1032,7 +1034,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                       </TableHead>
                     );
                   })}
-                  <TableHead className={cn(TH, "px-2", ACTIONS_TH)}>Ações</TableHead>
+                  <TableHead className={cn(TH, "px-2")}>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="[&_tr]:border-border/50">
@@ -1050,7 +1052,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                         }}
                         // Linhas alternadas em cinza: o índice vale só para as contas, e o painel de itens aberto não entra na conta.
                         className={cn(
-                          "group cursor-pointer",
+                          "cursor-pointer",
                           index % 2 === 1 && "bg-[#f1f5f9]",
                           "hover:bg-[#e6ecf4] data-[state=selected]:bg-accent"
                         )}
@@ -1071,7 +1073,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                             onToggle={() => toggleItems(row)}
                           />
                         ))}
-                        <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left", actionsTd(index % 2 === 1))}>
+                        <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
                           <IconButton icon={Eye} label="Ver detalhes" onClick={() => openDetail(row.id)} />
                           {/* O clipe fica sempre: verde com documento, cinza sem (aí abre para anexar). */}
                           <IconButton
@@ -1086,6 +1088,13 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                           />
                           {row.canPayDirectly && (
                             <IconButton icon={Check} label="Dar baixa" onClick={() => setPaying(row)} />
+                          )}
+                          {row.paidByReceipts && Number(row.pending) > 0 && (
+                            <IconButton
+                              icon={FileCheck2}
+                              label="Baixar pelos comprovantes"
+                              onClick={() => setPayingByReceipts(row)}
+                            />
                           )}
                           {row.series && (
                             <IconButton
@@ -1219,6 +1228,20 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
           onDone={(message) => {
             setSeriesAction(null);
             toast.success(message);
+            changed();
+          }}
+        />
+      )}
+      {payingByReceipts && reference && (
+        <IncentiveReceiptsDialog
+          row={payingByReceipts}
+          reference={reference}
+          onClose={() => setPayingByReceipts(null)}
+          onDone={(count, total) => {
+            setPayingByReceipts(null);
+            toast.success(
+              `Baixa feita pelos comprovantes: ${plural(count, "pessoa", "pessoas")}, ${brl(total)}. O comprovante de cada uma está nela.`
+            );
             changed();
           }}
         />
@@ -1459,6 +1482,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
       {choosingColumns && (
         <ColumnsDialog
           columns={COLUMNS}
+          defaults={DEFAULT_COLUMNS}
           selected={columns}
           density={density}
           onClose={() => setChoosingColumns(false)}
