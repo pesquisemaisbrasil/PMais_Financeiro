@@ -14,7 +14,15 @@ import {
 
 export type ReceivableSituation = "recebido" | "parcial" | "vencido" | "hoje" | "a_vencer" | "cancelado";
 export type ReceivableIndicator = "total" | "recebidos" | "pendentes" | "vencidos" | "hoje" | "avencer" | "cancelados";
-export type ReceivableSort = "vencimento" | "cliente" | "categoria" | "situacao" | "valor" | "recebido" | "pendente";
+export type ReceivableSort =
+  | "vencimento"
+  | "cliente"
+  | "projeto"
+  | "categoria"
+  | "situacao"
+  | "valor"
+  | "recebido"
+  | "pendente";
 export type ReceivableDateField = "vencimento" | "competencia" | "recebimento";
 export type ReceivableDocument = "Sem documento" | "NF" | "Fatura" | "Invoice";
 

@@ -131,22 +131,13 @@ export function BatchEditForm({
                       )}
                     </TableCell>
                     <TableCell className={CELL}>
-                      {/* um embaixo do outro: a célula da tabela não quebra linha sozinha */}
-                      <div className="flex flex-col gap-1.5">
-                        <Input
-                          aria-label={`Descrição de ${name}`}
-                          maxLength={255}
-                          value={draft.description}
-                          onChange={(event) => change(row.id, { description: event.target.value })}
-                        />
-                        <Input
-                          aria-label={`Observação de ${name}`}
-                          placeholder="Observação"
-                          maxLength={2000}
-                          value={draft.notes}
-                          onChange={(event) => change(row.id, { notes: event.target.value })}
-                        />
-                      </div>
+                      {/* só a descrição: as Observações saíram das telas de conta (Bruno, 27/11/2026) */}
+                      <Input
+                        aria-label={`Descrição de ${name}`}
+                        maxLength={255}
+                        value={draft.description}
+                        onChange={(event) => change(row.id, { description: event.target.value })}
+                      />
                     </TableCell>
                     <TableCell className={CELL}>
                       <MoneyInput

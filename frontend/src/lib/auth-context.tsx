@@ -19,6 +19,8 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const RENEW_EVERY_MS = 10 * 60 * 1000;
+const ACTIVITY = ["pointerdown", "keydown", "wheel"] as const;
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserPublic | null>(null);
@@ -37,6 +39,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     restoreSession();
   }, []);
+
+  // A sessão cai depois de 2 horas sem uso (SESSION_IDLE_MINUTES no backend; reunião de 26/11/2026). Enquanto a
+  // pessoa mexe na tela, ela é renovada a cada 10 minutos, mesmo sem pedido ao servidor; já caída, volta ao login.
+  useEffect(() => {
+    if (!user) return;
+    let renewed = Date.now();
+    function active() {
+      if (Date.now() - renewed < RENEW_EVERY_MS) return;
+      renewed = Date.now();
+      void refreshSession().then((alive) => {
+        if (alive || !navigator.onLine) return;
+        clearAccessToken();
+        setUser(null);
+      });
+    }
+    for (const name of ACTIVITY) window.addEventListener(name, active, { passive: true });
+    return () => {
+      for (const name of ACTIVITY) window.removeEventListener(name, active);
+    };
+  }, [user]);
 
   const loadUser = useCallback(async () => {
     setUser(await getMe());

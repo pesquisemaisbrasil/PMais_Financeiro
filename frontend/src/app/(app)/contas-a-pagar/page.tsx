@@ -3,6 +3,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   ArrowUpRight,
   Ban,
   Barcode,
@@ -37,10 +38,27 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useScreenSearchParams } from "@/components/ScreenTabs";
+import { CompanyPicker } from "@/components/CompanyPicker";
+import { useScreenSearchParams, useTabMemoryKey } from "@/components/ScreenTabs";
+import { useAuth } from "@/lib/auth-context";
+import { readPreferredCompany } from "@/lib/preferred-company";
+import { readTabMemory, remembered, rememberedDay, rememberedFilters, writeTabMemory } from "@/lib/tabs";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CARD, ErrorBox, NUM, OriginTag, PageHeader, ProvisionTag, SituationTag, TD, TH, Tag } from "@/components/finance";
+import {
+  ACTIONS_TH,
+  actionsTd,
+  CARD,
+  ErrorBox,
+  NUM,
+  OriginTag,
+  PageHeader,
+  ProvisionTag,
+  SituationTag,
+  TD,
+  TH,
+  Tag,
+} from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { ItemsPanel } from "@/components/ItemsPanel";
 import { PeriodPicker } from "@/components/PeriodPicker";
@@ -121,11 +139,11 @@ const COLUMNS: { id: string; label: string; sort?: SortColumn; numeric?: boolean
   { id: "vencimento", label: "Vencimento", sort: "vencimento", fixed: true },
   { id: "fornecedor", label: "Fornecedor", sort: "fornecedor", fixed: true },
   { id: "documento", label: "Documento", sort: "documento" },
-  { id: "projeto", label: "Projeto" },
+  { id: "projeto", label: "Projeto", sort: "projeto" },
   { id: "categoria", label: "Plano de contas", sort: "categoria" },
-  { id: "centro", label: "Centro de custo" },
-  { id: "forma", label: "Forma" },
-  { id: "empresa", label: "Empresa" },
+  { id: "centro", label: "Centro de custo", sort: "centro" },
+  { id: "forma", label: "Forma", sort: "forma" },
+  { id: "empresa", label: "Empresa", sort: "empresa" },
   { id: "situacao", label: "Situação", sort: "situacao" },
   { id: "valor", label: "Valor", sort: "valor", numeric: true },
   { id: "pago", label: "Pago", sort: "pago", numeric: true },
@@ -287,8 +305,9 @@ function PayeeCell({
           {seriesLabel(row.series)}
         </Tag>
       )}
-      <span className="block text-xs font-normal text-muted-foreground">
+      <span className="block whitespace-pre-line text-xs font-normal text-muted-foreground">
         {row.description}
+        {row.documentNumber && ` · ${row.documentNumber}`}
         {row.itemCount > 0 && ` · ${plural(row.itemCount, "pessoa", "pessoas")}`}
         {row.replaces && ` · ${replacesNote(row.amount, row.replaces)}`}
         {row.docsLate && <span className="font-semibold text-[#b45309]"> · documentação atrasada</span>}
@@ -342,8 +361,9 @@ function ProjectCell({ row }: { row: PayableRow }) {
   );
 }
 
+/** Só o número do documento: o do sistema antigo já vem como "NF 68", e o tipo repetia (Bruno, 27/11/2026). */
 function DocumentCell({ row }: { row: PayableRow }) {
-  return <>{row.documentType === "NF" ? `NF ${row.documentNumber ?? ""}` : row.documentType}</>;
+  return <>{row.documentNumber || "—"}</>;
 }
 
 function Cell({ row, column, open, onToggle }: { row: PayableRow; column: string; open: boolean; onToggle: () => void }) {
@@ -395,30 +415,55 @@ function Cell({ row, column, open, onToggle }: { row: PayableRow; column: string
   }
 }
 
+/** A ordem lembrada, se a coluna ainda ordenar. */
+function rememberedSort(value: unknown): { column: SortColumn; descending: boolean } | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { column, descending } = value as { column?: unknown; descending?: unknown };
+  const known = COLUMNS.find((option) => option.sort && option.sort === column)?.sort;
+  return known ? { column: known, descending: descending === true } : undefined;
+}
+
 function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
   const params = useScreenSearchParams();
   const linkedId = Number(params.get("conta")) || null;
+  const { user } = useAuth();
+  const memoryKey = useTabMemoryKey();
+  // O endereço manda (link do Início, da busca, do relatório do projeto). Sem ele, a aba volta como estava antes do
+  // F5, e a lista abre na empresa preferida da pessoa (reunião de 26/11/2026).
+  const linked = [...params.keys()].some((key) => key !== "copia");
+  const [memory] = useState(() => (linked ? null : readTabMemory(memoryKey)));
 
-  const [mode, setMode] = useState<PeriodMode>((params.get("modo") as PeriodMode) ?? "dia");
-  const [ref, setRef] = useState<string | null>(null);
-  const [rangeStart, setRangeStart] = useState("");
-  const [rangeEnd, setRangeEnd] = useState("");
+  const [mode, setMode] = useState<PeriodMode>(
+    remembered(memory?.mode, MODES) ?? remembered(params.get("modo"), MODES) ?? "dia"
+  );
+  const [ref, setRef] = useState<string | null>(rememberedDay(memory?.ref) ?? null);
+  const [rangeStart, setRangeStart] = useState(rememberedDay(memory?.rangeStart) ?? "");
+  const [rangeEnd, setRangeEnd] = useState(rememberedDay(memory?.rangeEnd) ?? "");
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [dateField, setDateField] = useState<DateField>("vencimento");
-  const [indicator, setIndicator] = useState<Indicator>((params.get("indicador") as Indicator) ?? "total");
-  const [tab, setTab] = useState<Tab>((params.get("aba") as Tab) ?? "todas");
+  const [dateField, setDateField] = useState<DateField>(remembered(memory?.dateField, DATE_FIELDS) ?? "vencimento");
+  const [indicator, setIndicator] = useState<Indicator>(
+    remembered(memory?.indicator, INDICATORS) ?? remembered(params.get("indicador"), INDICATORS) ?? "total"
+  );
+  const [tab, setTab] = useState<Tab>(remembered(memory?.tab, TABS) ?? remembered(params.get("aba"), TABS) ?? "todas");
   // `?projeto=ID` (vindo do relatório do projeto) já abre a lista só com as contas desse projeto
   const [filters, setFilters] = useState<Record<string, string>>(() => {
+    const saved = rememberedFilters(memory?.filters);
+    if (saved) return saved;
     const project = params.get("projeto") ?? "";
     const start: Record<string, string> = {};
     if (/^\d+$/.test(project)) start.project = project;
+    const preferred = linked ? "" : readPreferredCompany(user?.id);
+    if (preferred) start.company = preferred;
     return start;
   });
-  const [searchText, setSearchText] = useState(linkedSearch);
-  const [search, setSearch] = useState(linkedSearch);
-  const [sort, setSort] = useState<{ column: SortColumn; descending: boolean }>({ column: "vencimento", descending: false });
-  const [page, setPage] = useState(1);
+  const savedSearch = typeof memory?.search === "string" ? memory.search : linkedSearch;
+  const [searchText, setSearchText] = useState(savedSearch);
+  const [search, setSearch] = useState(savedSearch);
+  const [sort, setSort] = useState<{ column: SortColumn; descending: boolean }>(
+    () => rememberedSort(memory?.sort) ?? { column: "vencimento", descending: false }
+  );
+  const [page, setPage] = useState(typeof memory?.page === "number" && memory.page >= 1 ? memory.page : 1);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [density, setDensity] = useState<Density>("comfortable");
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -476,6 +521,22 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
     }),
     [mode, ref, rangeStart, rangeEnd, dateField, indicator, tab, filters, search, sort, page]
   );
+
+  useEffect(() => {
+    writeTabMemory(memoryKey, {
+      mode,
+      ref,
+      rangeStart,
+      rangeEnd,
+      dateField,
+      indicator,
+      tab,
+      filters,
+      search: searchText,
+      sort,
+      page,
+    });
+  }, [memoryKey, mode, ref, rangeStart, rangeEnd, dateField, indicator, tab, filters, searchText, sort, page]);
 
   useEffect(() => {
     const saved = readPrefs();
@@ -659,10 +720,10 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
   }
 
   // Só os filtros da gaveta: busca e indicador ficam à vista e se explicam sozinhos.
-  const drawerFilters =
-    Object.values(filters).filter(Boolean).length + (dateField !== "vencimento" ? 1 : 0) + (tab !== "todas" ? 1 : 0);
+  const chosenFilters = Object.entries(filters).filter(([key, value]) => key !== "company" && value).length;
+  const drawerFilters = chosenFilters + (dateField !== "vencimento" ? 1 : 0) + (tab !== "todas" ? 1 : 0);
   const activeFilters =
-    Object.values(filters).filter(Boolean).length +
+    chosenFilters +
     (dateField !== "vencimento" ? 1 : 0) +
     (search ? 1 : 0) +
     (indicator !== "total" ? 1 : 0) +
@@ -680,6 +741,13 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
         icon={ArrowUpRight}
         actions={
           <div className="flex flex-wrap gap-2">
+            {reference && (
+              <CompanyPicker
+                companies={reference.companies}
+                value={filters.company ?? ""}
+                onChange={(company) => resetPageAnd(() => setFilters((f) => ({ ...f, company })))}
+              />
+            )}
             <Button variant="outline" onClick={() => setImporting("incentivos")} disabled={!reference}>
               <HandCoins size={16} />
               Carregar incentivos
@@ -878,7 +946,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                     className="h-auto p-0 text-xs"
                     onClick={() =>
                       resetPageAnd(() => {
-                        setFilters({});
+                        setFilters((f): Record<string, string> => (f.company ? { company: f.company } : {}));
                         setDateField("vencimento");
                         setSearchText("");
                         setSearch("");
@@ -940,11 +1008,23 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0"
+                            // número alinha à direita: o ícone vai antes do título, que fica em cima do valor
+                            className={cn(
+                              "h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0",
+                              column.numeric && "flex-row-reverse"
+                            )}
                             onClick={() => changeSort(column.sort as SortColumn)}
                           >
                             {column.label}
-                            {sorted && (sort.descending ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+                            {sorted ? (
+                              sort.descending ? (
+                                <ArrowDown size={12} />
+                              ) : (
+                                <ArrowUp size={12} />
+                              )
+                            ) : (
+                              <ArrowUpDown size={12} className="opacity-40" aria-hidden />
+                            )}
                           </Button>
                         ) : (
                           column.label
@@ -952,7 +1032,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                       </TableHead>
                     );
                   })}
-                  <TableHead className={cn(TH, "px-2")} />
+                  <TableHead className={cn(TH, "px-2", ACTIONS_TH)}>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="[&_tr]:border-border/50">
@@ -970,7 +1050,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                         }}
                         // Linhas alternadas em cinza: o índice vale só para as contas, e o painel de itens aberto não entra na conta.
                         className={cn(
-                          "cursor-pointer",
+                          "group cursor-pointer",
                           index % 2 === 1 && "bg-[#f1f5f9]",
                           "hover:bg-[#e6ecf4] data-[state=selected]:bg-accent"
                         )}
@@ -991,7 +1071,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
                             onToggle={() => toggleItems(row)}
                           />
                         ))}
-                        <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
+                        <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left", actionsTd(index % 2 === 1))}>
                           <IconButton icon={Eye} label="Ver detalhes" onClick={() => openDetail(row.id)} />
                           {/* O clipe fica sempre: verde com documento, cinza sem (aí abre para anexar). */}
                           <IconButton
@@ -1160,9 +1240,12 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
           reference={reference}
           today={data.today}
           onClose={() => setBatchPaying(false)}
-          onDone={(total, count) => {
+          onDone={(total, count, notAttached) => {
             setBatchPaying(false);
-            toast.success(`Baixa feita em ${plural(count, "conta", "contas")}: ${brl(total)}.`);
+            toast.success(`Baixa feita em ${plural(count, "conta", "contas")}: ${brl(total)}, com os comprovantes.`);
+            if (notAttached.length) {
+              toast.error(`O comprovante não foi anexado em: ${notAttached.join(", ")}. Anexe pela conta.`);
+            }
             changed();
           }}
         />
@@ -1250,7 +1333,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
           <FilterSelect
             label="Projeto"
             value={filters.project ?? ""}
-            options={(reference?.projects ?? []).map((p) => ({ id: p.id, label: `PRJ-${p.code}` }))}
+            options={(reference?.projects ?? []).map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, project: value })))}
           />
           <FilterSelect
@@ -1258,12 +1341,6 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
             value={filters.category ?? ""}
             options={(reference ? expenseCategories(reference) : []).map((c) => ({ id: c.id, label: `${c.code} ${c.name}` }))}
             onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, category: value })))}
-          />
-          <FilterSelect
-            label="Empresa"
-            value={filters.company ?? ""}
-            options={(reference?.companies ?? []).map((c) => ({ id: c.id, label: c.name }))}
-            onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, company: value })))}
           />
           <FilterSelect
             label="Unidade"
@@ -1312,7 +1389,7 @@ function PayablesContent({ linkedSearch }: { linkedSearch: string }) {
               disabled={drawerFilters === 0}
               onClick={() =>
                 resetPageAnd(() => {
-                  setFilters({});
+                  setFilters((f): Record<string, string> => (f.company ? { company: f.company } : {}));
                   setDateField("vencimento");
                   setTab("todas");
                 })

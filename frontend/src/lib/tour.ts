@@ -63,7 +63,7 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
     {
       target: "tela",
       title: "Contas a pagar",
-      text: "Aqui ficam todas as contas que a empresa tem a pagar. Use Nova conta a pagar para lançar uma (dá para dividir entre projetos e repetir todo mês) e Importar planilha para lançar várias de uma vez (incentivos, folha de campo ou o relatório do sistema antigo).",
+      text: "Aqui ficam todas as contas que a empresa tem a pagar. Use Nova conta a pagar para lançar uma (dá para dividir entre projetos e repetir todo mês) e Importar planilha para lançar várias de uma vez (incentivos, folha de campo ou o relatório do sistema antigo). A empresa, no alto, fica lembrada: a lista abre nela da próxima vez.",
     },
     {
       target: "indicadores",
@@ -90,7 +90,7 @@ export const SCREEN_TOURS: Record<string, TourStep[]> = {
     {
       target: "tela",
       title: "Contas a receber",
-      text: "Aqui ficam os valores que os clientes devem à empresa. Use Nova conta a receber para lançar um título (dá para parcelar e repetir) e Inadimplência para ver o que está vencido, por cliente e por faixa de atraso.",
+      text: "Aqui ficam os valores que os clientes devem à empresa. Use Nova conta a receber para lançar um título (dá para parcelar e repetir) e Inadimplência para ver o que está vencido, por cliente e por faixa de atraso. A empresa, no alto, é a mesma de Contas a pagar.",
     },
     {
       target: "indicadores",

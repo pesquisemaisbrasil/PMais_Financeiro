@@ -124,6 +124,7 @@ import {
   type AdjustmentDraft,
 } from "@/lib/adjustments";
 import {
+  checkDocument,
   DEFAULT_DOCUMENT_KIND,
   DOCUMENT_ACCEPT,
   DOCUMENT_HINT,
@@ -485,9 +486,6 @@ export function NewPayableDialog({
                     Transferência entre empresas do Grupo
                   </Label>
                 </div>
-                <Field label="Observações" id="p-obs">
-                  <Textarea id="p-obs" {...input("notes")} />
-                </Field>
               </div>
             </details>
             <FormError message={localError ?? error} />
@@ -670,10 +668,15 @@ export function BatchPaymentDialog({
   reference: Reference;
   today: string;
   onClose: () => void;
-  onDone: (total: string, count: number) => void;
+  /** `notAttached`: as contas baixadas cujo comprovante não subiu (a pessoa anexa pela conta). */
+  onDone: (total: string, count: number, notAttached: string[]) => void;
 }) {
   const { error, submitting, run } = useFormAction();
   const payable = rows.filter((row) => row.canPayDirectly);
+  // O comprovante de cada conta, anexado nela depois da baixa (Bruno, 27/11/2026: na baixa em lote, cada conta com
+  // o seu comprovante).
+  const [receipts, setReceipts] = useState<Record<number, File>>({});
+  const [fileError, setFileError] = useState<string | null>(null);
   const skipped = rows.length - payable.length;
   const total = payable.reduce((sum, row) => sum + Number(row.pending), 0);
   const companyNames = [...new Set(payable.map((row) => row.companyName))];
@@ -692,10 +695,21 @@ export function BatchPaymentDialog({
       : companyNames.length > 1
         ? "A baixa em lote usa uma conta bancária só: selecione contas de uma empresa de cada vez."
         : null;
-  const ready = form.paidOn && form.bankAccountId && form.paymentMethodId && (form.paidOn >= today || form.note.trim());
+  const missing = payable.filter((row) => !receipts[row.id]).length;
+  const ready =
+    form.paidOn && form.bankAccountId && form.paymentMethodId && (form.paidOn >= today || form.note.trim()) && !missing;
+
+  function pick(row: PayableRow, file: File | undefined) {
+    if (!file) return;
+    const problem = checkDocument(file);
+    setFileError(problem);
+    if (problem) return;
+    setReceipts((current) => ({ ...current, [row.id]: file }));
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (missing) return setFileError("Anexe o comprovante de cada conta.");
     await run(async () => {
       const result = await payBatch({
         ids: payable.map((row) => row.id),
@@ -704,13 +718,22 @@ export function BatchPaymentDialog({
         paymentMethodId: Number(form.paymentMethodId),
         note: form.note.trim() || null,
       });
-      onDone(result.total, result.count);
+      // A baixa já valeu: um comprovante que não sobe não desfaz nada, só fica avisado para anexar pela conta.
+      const notAttached: string[] = [];
+      for (const row of payable) {
+        try {
+          await attachDocument(row.id, receipts[row.id], "comprovante");
+        } catch {
+          notAttached.push(row.payee);
+        }
+      }
+      onDone(result.total, result.count, notAttached);
     });
   }
 
   return (
     <Dialog open onOpenChange={(open) => !open && !submitting && onClose()}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
         <form onSubmit={submit} noValidate>
           <DialogHeader>
             <DialogTitle>Baixa em lote</DialogTitle>
@@ -765,9 +788,37 @@ export function BatchPaymentDialog({
                     />
                   </Field>
                 )}
+                <section aria-label="Comprovantes" className="flex flex-col gap-2">
+                  <p className="text-[13px] font-semibold">
+                    Comprovantes *{" "}
+                    <span className="font-normal text-muted-foreground">
+                      um para cada conta, anexado nela como Comprovante · {DOCUMENT_HINT}
+                    </span>
+                  </p>
+                  <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
+                    {payable.map((row) => (
+                      <li key={row.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                        <span className="min-w-0 text-[13px]">
+                          <span className="font-medium">{row.payee}</span>
+                          <span className="text-muted-foreground"> · {brl(row.pending)}</span>
+                        </span>
+                        <Label htmlFor={`lb-comp-${row.id}`} className="sr-only">
+                          Comprovante de {row.payee}
+                        </Label>
+                        <FilePicker
+                          id={`lb-comp-${row.id}`}
+                          accept={DOCUMENT_ACCEPT}
+                          disabled={submitting}
+                          status={receipts[row.id]?.name ?? "Falta o comprovante"}
+                          onPick={(files) => pick(row, files[0])}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               </>
             )}
-            <FormError message={error} />
+            <FormError message={fileError ?? error} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
@@ -779,7 +830,7 @@ export function BatchPaymentDialog({
               className="bg-brand-verde text-[#053d27] hover:bg-[#00b56b]"
             >
               <CheckCheck size={16} />
-              Baixar {plural(payable.length, "conta", "contas")}
+              {submitting ? "Baixando e anexando…" : `Baixar ${plural(payable.length, "conta", "contas")}`}
             </Button>
           </DialogFooter>
         </form>
@@ -1862,7 +1913,8 @@ function EditForm({
     <form onSubmit={submit} noValidate className="flex flex-col gap-3 rounded-xl border border-border p-4">
       <strong className="text-[13px]">Editar conta</strong>
       <Field label="Descrição" id="e-desc">
-        <Input id="e-desc" maxLength={255} {...input("description")} />
+        {/* duas linhas: é o que aparece na lista, e a equipe escreve ali o que faltou (reunião de 26/11) */}
+        <Textarea id="e-desc" rows={2} className="min-h-0" maxLength={255} {...input("description")} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Vencimento" id="e-venc">
@@ -1980,9 +2032,8 @@ function EditForm({
           <DateInput id="e-docrec" {...input("docsReceivedOn")} />
         </Field>
       </div>
-      <Field label="Observações" id="e-obs">
-        <Textarea id="e-obs" maxLength={2000} {...input("notes")} />
-      </Field>
+      {/* Sem Observações: a equipe escreve tudo na descrição, que aparece na lista (Bruno, 27/11/2026). A que já
+          existe continua nos detalhes e é mandada de volta como está. */}
       <ProjectSplit
         rows={split}
         onChange={setSplit}

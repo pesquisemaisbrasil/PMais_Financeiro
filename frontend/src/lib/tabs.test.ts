@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { closeTab, forgetTabs, hrefOf, openBeside, readTabs, sync, tabLabel, toTab, visit, writeTabs, type TabsState } from "./tabs";
+import {
+  closeTab,
+  forgetTabs,
+  hrefOf,
+  openBeside,
+  readTabs,
+  sync,
+  tabKey,
+  tabLabel,
+  tabMemoryKey,
+  toTab,
+  visit,
+  writeTabs,
+  type TabsState,
+} from "./tabs";
 
 const pagar = { path: "/contas-a-pagar", query: "" };
 const receber = { path: "/contas-a-receber", query: "" };
@@ -23,10 +37,40 @@ describe("abas de telas", () => {
     expect(visit([], null, pagar)).toEqual([pagar]);
   });
 
-  it("duplo clique abre a aba logo depois da atual e não repete tela", () => {
-    expect(openBeside([inicio, pagar], "/", receber)).toEqual([inicio, receber, pagar]);
-    expect(openBeside([inicio, pagar], "/", pagar)).toEqual([inicio, pagar]);
-    expect(openBeside([inicio], null, receber)).toEqual([inicio, receber]);
+  it("duplo clique abre a aba logo depois da atual; tela já aberta ganha outra cópia (reunião de 26/11)", () => {
+    expect(openBeside([inicio, pagar], "/", receber)).toEqual({ tabs: [inicio, receber, pagar], opened: receber });
+    expect(openBeside([inicio], null, receber).tabs).toEqual([inicio, receber]);
+    const second = { path: "/contas-a-pagar", query: "copia=2" };
+    expect(openBeside([inicio, pagar], "/contas-a-pagar", pagar)).toEqual({ tabs: [inicio, pagar, second], opened: second });
+    // a terceira pega o próximo número livre, e o filtro do endereço vai junto
+    const third = openBeside([pagar, second], "/contas-a-pagar#2", { path: "/contas-a-pagar", query: "modo=mes" });
+    expect(third.opened).toEqual({ path: "/contas-a-pagar", query: "modo=mes&copia=3" });
+    expect(tabKey(third.opened)).toBe("/contas-a-pagar#3");
+    expect(tabKey(pagar)).toBe("/contas-a-pagar");
+    expect(tabKey({ path: "/contas-a-pagar", query: "copia=lixo" })).toBe("/contas-a-pagar");
+  });
+
+  it("cada cópia é uma aba: o endereço leva para a dela, e fechar uma não fecha a outra", () => {
+    const second = { path: "/contas-a-pagar", query: "copia=2" };
+    const state: TabsState = { tabs: [pagar, second], active: "/contas-a-pagar", waiting: null };
+    expect(sync(state, second)).toEqual({ tabs: [pagar, second], active: "/contas-a-pagar#2", waiting: null });
+    expect(closeTab(state, "/contas-a-pagar")).toEqual({
+      state: { tabs: [second], active: "/contas-a-pagar#2", waiting: "/contas-a-pagar#2" },
+      next: second,
+    });
+    // o número é a posição entre as abas da mesma tela, e acompanha quando uma fecha
+    expect(tabLabel(pagar, [pagar, second])).toBe("Contas a pagar (1)");
+    expect(tabLabel(second, [pagar, second])).toBe("Contas a pagar (2)");
+    const third = { path: "/contas-a-pagar", query: "copia=3" };
+    expect(tabLabel(third, [inicio, third, second])).toBe("Contas a pagar (1)");
+    expect(tabLabel(second, [inicio, second])).toBe("Contas a pagar");
+    expect(readTabs(writeTabs({ ...state, active: "/contas-a-pagar#2" }))).toEqual({
+      tabs: [pagar, second],
+      active: "/contas-a-pagar#2",
+      waiting: null,
+    });
+    // a memória da tela é por pessoa e por aba, e sai junto com as abas ao sair do sistema
+    expect(tabMemoryKey(7, "/contas-a-pagar#2")).toBe("financeiro:abas:tela:7:/contas-a-pagar#2");
   });
 
   it("fechar a aba da frente passa para a vizinha da direita, ou da esquerda; a última não fecha", () => {

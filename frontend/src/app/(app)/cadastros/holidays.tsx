@@ -179,7 +179,7 @@ function DeleteHolidayDialog({
 }
 
 /**
- * A aba "Feriados" do Cadastros: os nacionais da BrasilAPI, os estaduais e municipais das capitais do
+ * A aba "Feriados" do Cadastros: os nacionais da BrasilAPI, os estaduais e municipais das cidades configuradas do
  * feriados.dev (buscados sozinhos, ADR 0024) e os cadastrados à mão. Fora do menu desde 19/11.
  */
 export function HolidaysTab() {
@@ -286,7 +286,7 @@ export function HolidaysTab() {
         <CountCard
           label="Locais"
           value={rows ? rows.length - national : null}
-          hint="das capitais e cadastrados"
+          hint="do feriados.dev e cadastrados"
           icon={Archive}
           tone="cinza"
         />

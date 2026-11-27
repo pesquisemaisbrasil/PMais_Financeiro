@@ -26,7 +26,7 @@ export interface HolidaySync {
   year: number;
   added: number;
   total: number;
-  /** Os estaduais e municipais das capitais (feriados.dev, 19/11/2026). */
+  /** Os estaduais e municipais das cidades configuradas (feriados.dev); desde 27/11, nenhuma por padrão. */
   addedLocal?: number;
   totalLocal?: number;
 }
@@ -40,7 +40,7 @@ export const SCOPES: { id: HolidayScope; label: string }[] = [
 export const SOURCE_LABELS: Record<Holiday["source"], string> = {
   brasilapi: "BrasilAPI",
   manual: "Cadastrado à mão",
-  "feriados.dev": "feriados.dev (capitais)",
+  "feriados.dev": "feriados.dev",
 };
 
 export function listHolidays(): Promise<Holiday[]> {
@@ -77,8 +77,8 @@ export function syncYears(currentYear: number): number[] {
 export function syncMessage(result: HolidaySync): string {
   const local = result.addedLocal
     ? result.addedLocal === 1
-      ? " Das capitais, 1 feriado estadual ou municipal novo."
-      : ` Das capitais, ${result.addedLocal} feriados estaduais e municipais novos.`
+      ? " Locais: 1 feriado estadual ou municipal novo."
+      : ` Locais: ${result.addedLocal} feriados estaduais e municipais novos.`
     : "";
   if (result.added === 0) return `Os ${result.total} feriados nacionais de ${result.year} já estavam cadastrados.${local}`;
   const added = result.added === 1 ? "1 feriado novo" : `${result.added} feriados novos`;

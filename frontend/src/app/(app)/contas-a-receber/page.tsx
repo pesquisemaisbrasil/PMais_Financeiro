@@ -3,6 +3,7 @@
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   Ban,
   CalendarClock,
   CalendarDays,
@@ -21,10 +22,14 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { useScreenSearchParams } from "@/components/ScreenTabs";
+import { CompanyPicker } from "@/components/CompanyPicker";
+import { useScreenSearchParams, useTabMemoryKey } from "@/components/ScreenTabs";
+import { useAuth } from "@/lib/auth-context";
+import { readPreferredCompany } from "@/lib/preferred-company";
+import { readTabMemory, remembered, rememberedDay, rememberedFilters, writeTabMemory } from "@/lib/tabs";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
+import { ACTIONS_TH, actionsTd, CARD, ErrorBox, NUM, PageHeader, TD, TH, Tag } from "@/components/finance";
 import { IndicatorCard, type IndicatorTone } from "@/components/IndicatorCard";
 import { PeriodPicker } from "@/components/PeriodPicker";
 import { PrintButton } from "@/components/PrintButton";
@@ -87,7 +92,7 @@ import {
 const COLUMNS: { id: string; label: string; sort?: ReceivableSort; numeric?: boolean }[] = [
   { id: "vencimento", label: "Vencimento", sort: "vencimento" },
   { id: "cliente", label: "Cliente", sort: "cliente" },
-  { id: "projeto", label: "Projeto" },
+  { id: "projeto", label: "Projeto", sort: "projeto" },
   { id: "categoria", label: "Conta de receita", sort: "categoria" },
   { id: "situacao", label: "Situação", sort: "situacao" },
   { id: "valor", label: "Líquido", sort: "valor", numeric: true },
@@ -242,41 +247,80 @@ function ReceivablesByUrl() {
   const linkedId = Number(params.get("conta")) || null;
   const linkedSearch = params.get("busca") ?? "";
   const linkedMode = (params.get("modo") as PeriodMode | null) ?? "dia";
+  // O endereço manda (busca geral, link de uma conta). Sem ele, a aba volta como estava antes do F5 (26/11).
+  const linked = [...params.keys()].some((key) => key !== "copia");
   return (
     <ReceivablesContent
       key={`${linkedId}|${linkedSearch}|${linkedMode}`}
       linkedId={linkedId}
       linkedSearch={linkedSearch}
       linkedMode={linkedMode}
+      linked={linked}
     />
   );
+}
+
+/** A ordem lembrada, se a coluna ainda ordenar. */
+function rememberedSort(value: unknown): { column: ReceivableSort; descending: boolean } | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { column, descending } = value as { column?: unknown; descending?: unknown };
+  const known = COLUMNS.find((option) => option.sort && option.sort === column)?.sort;
+  return known ? { column: known, descending: descending === true } : undefined;
 }
 
 function ReceivablesContent({
   linkedId,
   linkedSearch,
   linkedMode,
+  linked,
 }: {
   linkedId: number | null;
   linkedSearch: string;
   linkedMode: PeriodMode;
+  linked: boolean;
 }) {
-  const [mode, setMode] = useState<PeriodMode>(linkedMode);
-  const [ref, setRef] = useState<string | null>(null);
-  const [rangeStart, setRangeStart] = useState("");
-  const [rangeEnd, setRangeEnd] = useState("");
+  const { user } = useAuth();
+  const memoryKey = useTabMemoryKey();
+  const [memory] = useState(() => (linked ? null : readTabMemory(memoryKey)));
+  const [mode, setMode] = useState<PeriodMode>(remembered(memory?.mode, MODES) ?? linkedMode);
+  const [ref, setRef] = useState<string | null>(rememberedDay(memory?.ref) ?? null);
+  const [rangeStart, setRangeStart] = useState(rememberedDay(memory?.rangeStart) ?? "");
+  const [rangeEnd, setRangeEnd] = useState(rememberedDay(memory?.rangeEnd) ?? "");
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [dateField, setDateField] = useState<ReceivableDateField>("vencimento");
-  const [indicator, setIndicator] = useState<ReceivableIndicator>("total");
-  const [filters, setFilters] = useState<Record<string, string>>({});
-  const [searchText, setSearchText] = useState(linkedSearch);
-  const [search, setSearch] = useState(linkedSearch);
-  const [sort, setSort] = useState<{ column: ReceivableSort; descending: boolean }>({
-    column: "vencimento",
-    descending: false,
+  const [dateField, setDateField] = useState<ReceivableDateField>(
+    remembered(memory?.dateField, DATE_FIELDS) ?? "vencimento"
+  );
+  const [indicator, setIndicator] = useState<ReceivableIndicator>(remembered(memory?.indicator, INDICATORS) ?? "total");
+  // a lista abre na empresa preferida da pessoa (reunião de 26/11/2026: as empresas não se misturam)
+  const [filters, setFilters] = useState<Record<string, string>>(() => {
+    const saved = rememberedFilters(memory?.filters);
+    if (saved) return saved;
+    const preferred = linked ? "" : readPreferredCompany(user?.id);
+    return preferred ? { company: preferred } : {};
   });
-  const [page, setPage] = useState(1);
+  const savedSearch = typeof memory?.search === "string" ? memory.search : linkedSearch;
+  const [searchText, setSearchText] = useState(savedSearch);
+  const [search, setSearch] = useState(savedSearch);
+  const [sort, setSort] = useState<{ column: ReceivableSort; descending: boolean }>(
+    () => rememberedSort(memory?.sort) ?? { column: "vencimento", descending: false }
+  );
+  const [page, setPage] = useState(typeof memory?.page === "number" && memory.page >= 1 ? memory.page : 1);
+
+  useEffect(() => {
+    writeTabMemory(memoryKey, {
+      mode,
+      ref,
+      rangeStart,
+      rangeEnd,
+      dateField,
+      indicator,
+      filters,
+      search: searchText,
+      sort,
+      page,
+    });
+  }, [memoryKey, mode, ref, rangeStart, rangeEnd, dateField, indicator, filters, searchText, sort, page]);
 
   const [data, setData] = useState<ReceivableList | null>(null);
   const [reference, setReference] = useState<Reference | null>(null);
@@ -413,7 +457,10 @@ function ReceivablesContent({
     setSort((current) => ({ column, descending: current.column === column ? !current.descending : false }));
   }
 
-  const drawerFilters = Object.values(filters).filter(Boolean).length + (dateField !== "vencimento" ? 1 : 0);
+  // a empresa fica no alto da lista, não na gaveta: não conta como filtro e fica no "Limpar filtros"
+  const drawerFilters =
+    Object.entries(filters).filter(([key, value]) => key !== "company" && value).length +
+    (dateField !== "vencimento" ? 1 : 0);
   const activeFilters = drawerFilters + (search ? 1 : 0) + (indicator !== "total" ? 1 : 0);
   const rows = data?.items ?? [];
   const pageCount = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -425,6 +472,13 @@ function ReceivablesContent({
         icon={Wallet}
         actions={
           <div className="flex flex-wrap gap-2">
+            {reference && (
+              <CompanyPicker
+                companies={reference.companies}
+                value={filters.company ?? ""}
+                onChange={(company) => resetPageAnd(() => setFilters((f) => ({ ...f, company })))}
+              />
+            )}
             <Button variant="outline" onClick={() => setDelinquency(true)}>
               <TriangleAlert size={16} />
               Inadimplência
@@ -565,7 +619,7 @@ function ReceivablesContent({
               className="h-auto p-0 text-xs"
               onClick={() =>
                 resetPageAnd(() => {
-                  setFilters({});
+                  setFilters((f): Record<string, string> => (f.company ? { company: f.company } : {}));
                   setDateField("vencimento");
                   setSearchText("");
                   setSearch("");
@@ -601,11 +655,23 @@ function ReceivablesContent({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0"
+                            // número alinha à direita: o ícone vai antes do título, que fica em cima do valor
+                            className={cn(
+                              "h-auto gap-1 p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-brand-cinza-escuro has-[>svg]:px-0",
+                              column.numeric && "flex-row-reverse"
+                            )}
                             onClick={() => changeSort(column.sort as ReceivableSort)}
                           >
                             {column.label}
-                            {sorted && (sort.descending ? <ArrowDown size={12} /> : <ArrowUp size={12} />)}
+                            {sorted ? (
+                              sort.descending ? (
+                                <ArrowDown size={12} />
+                              ) : (
+                                <ArrowUp size={12} />
+                              )
+                            ) : (
+                              <ArrowUpDown size={12} className="opacity-40" aria-hidden />
+                            )}
                           </Button>
                         ) : (
                           column.label
@@ -613,7 +679,7 @@ function ReceivablesContent({
                       </TableHead>
                     );
                   })}
-                  <TableHead className={cn(TH, "px-2")} />
+                  <TableHead className={cn(TH, "px-2", ACTIONS_TH)}>Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="[&_tr]:border-border/50">
@@ -621,12 +687,12 @@ function ReceivablesContent({
                   <TableRow
                     key={row.id}
                     // Linhas alternadas em cinza, como no Contas a pagar.
-                    className={cn(index % 2 === 1 && "bg-[#f1f5f9]", "hover:bg-[#e6ecf4]")}
+                    className={cn("group", index % 2 === 1 && "bg-[#f1f5f9]", "hover:bg-[#e6ecf4]")}
                   >
                     {COLUMNS.map((column) => (
                       <Cell key={column.id} row={row} column={column.id} />
                     ))}
-                    <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left")}>
+                    <TableCell className={cn(TD, "whitespace-nowrap px-2 text-left", actionsTd(index % 2 === 1))}>
                       <IconButton icon={Eye} label="Ver detalhes" onClick={() => setViewing(row.id)} />
                       {row.series && (
                         <IconButton
@@ -789,7 +855,7 @@ function ReceivablesContent({
             <FilterSelect
               label="Projeto"
               value={filters.project ?? ""}
-              options={(reference?.projects ?? []).map((p) => ({ id: p.id, label: `PRJ-${p.code}` }))}
+              options={(reference?.projects ?? []).map((p) => ({ id: p.id, label: `PRJ-${p.code} · ${p.title}` }))}
               onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, project: value })))}
             />
             <FilterSelect
@@ -800,12 +866,6 @@ function ReceivablesContent({
                 label: `${c.code} ${c.name}`,
               }))}
               onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, category: value })))}
-            />
-            <FilterSelect
-              label="Empresa"
-              value={filters.company ?? ""}
-              options={(reference?.companies ?? []).map((c) => ({ id: c.id, label: c.name }))}
-              onChange={(value) => resetPageAnd(() => setFilters((f) => ({ ...f, company: value })))}
             />
             <FilterSelect
               label="Unidade"
@@ -844,7 +904,7 @@ function ReceivablesContent({
               disabled={drawerFilters === 0}
               onClick={() =>
                 resetPageAnd(() => {
-                  setFilters({});
+                  setFilters((f): Record<string, string> => (f.company ? { company: f.company } : {}));
                   setDateField("vencimento");
                 })
               }

@@ -27,7 +27,9 @@ import {
   openBeside,
   readTabs,
   sync,
+  tabKey,
   tabLabel,
+  tabMemoryKey,
   toTab,
   writeTabs,
   type ScreenPath,
@@ -67,13 +69,15 @@ type TabsApi = {
   current: ScreenTab | null;
   select: (tab: ScreenTab) => void;
   close: (tab: ScreenTab) => void;
-  /** Duplo clique no menu: abre a tela numa aba nova (ou vai para a dela). */
+  /** Duplo clique no menu: abre a tela numa aba nova, mesmo que ela já esteja aberta em outra. */
   openInNewTab: (href: string) => void;
 };
 
 const TabsContext = createContext<TabsApi | null>(null);
 // O endereço (?...) da própria aba. Null fora das abas.
 const OwnQuery = createContext<string | null>(null);
+// A chave da própria aba (tela e cópia), para a memória dela. Null fora das abas.
+const OwnKey = createContext<string | null>(null);
 
 export function useScreenTabs(): TabsApi | null {
   return useContext(TabsContext);
@@ -87,6 +91,16 @@ export function useScreenSearchParams(): URLSearchParams {
   const global = useSearchParams();
   const own = useContext(OwnQuery);
   return useMemo(() => new URLSearchParams(own ?? global.toString()), [own, global]);
+}
+
+/**
+ * Onde a tela da própria aba guarda o que lembra depois do F5 (lib/tabs.ts, tabMemoryKey). Null fora das abas: aí a
+ * tela não lembra nada.
+ */
+export function useTabMemoryKey(): string | null {
+  const own = useContext(OwnKey);
+  const { user } = useAuth();
+  return own && user ? tabMemoryKey(user.id, own) : null;
 }
 
 function storageKey(userId: number) {
@@ -129,8 +143,16 @@ export function ScreenTabsProvider({ children }: { children: React.ReactNode }) 
     router.push(hrefOf(tab), { scroll: false });
   }
   function close(tab: ScreenTab) {
-    const result = closeTab(state, tab.path);
-    scrolls.current.delete(tab.path);
+    const key = tabKey(tab);
+    const result = closeTab(state, key);
+    if (result.state === state) return;
+    scrolls.current.delete(key);
+    // aba fechada esquece o que a tela lembrava: abrir a tela de novo começa do zero
+    try {
+      if (user) sessionStorage.removeItem(tabMemoryKey(user.id, key));
+    } catch {
+      // sem armazenamento não há o que esquecer
+    }
     setState(result.state);
     if (result.next) router.push(hrefOf(result.next), { scroll: false });
   }
@@ -142,8 +164,9 @@ export function ScreenTabsProvider({ children }: { children: React.ReactNode }) 
       return;
     }
     if (state.active) scrolls.current.set(state.active, window.scrollY);
-    setState((prev) => ({ ...prev, tabs: openBeside(prev.tabs, prev.active, tab) }));
-    router.push(hrefOf(tab), { scroll: false });
+    const result = openBeside(state.tabs, state.active, tab);
+    setState((prev) => ({ ...prev, tabs: result.tabs }));
+    router.push(hrefOf(result.opened), { scroll: false });
   }
 
   return (
@@ -203,11 +226,12 @@ export function ScreenTabsBar({ children }: { children: React.ReactNode }) {
         className="flex items-end gap-1 overflow-x-auto overflow-y-hidden"
       >
         {state.tabs.map((tab) => {
-          const front = tab.path === state.active;
-          const label = tabLabel(tab);
+          const key = tabKey(tab);
+          const front = key === state.active;
+          const label = tabLabel(tab, state.tabs);
           return (
             <div
-              key={tab.path}
+              key={key}
               className={cn(
                 "group flex shrink-0 items-center rounded-t-lg border border-b-0",
                 front
@@ -277,13 +301,16 @@ export function ScreenTabsContent({ children }: { children: React.ReactNode }) {
   if (!api?.current) return children;
   return api.state.tabs.map((tab) => {
     const Page = PAGES[tab.path as ScreenPath];
+    const key = tabKey(tab);
     return (
-      <Activity key={tab.path} mode={tab.path === api.state.active ? "visible" : "hidden"}>
-        <OwnQuery.Provider value={tab.query}>
-          <TabScreen>
-            <Suspense>{user && !screenAllowed(user, tab.path) ? <Blocked /> : <Page />}</Suspense>
-          </TabScreen>
-        </OwnQuery.Provider>
+      <Activity key={key} mode={key === api.state.active ? "visible" : "hidden"}>
+        <OwnKey.Provider value={key}>
+          <OwnQuery.Provider value={tab.query}>
+            <TabScreen>
+              <Suspense>{user && !screenAllowed(user, tab.path) ? <Blocked /> : <Page />}</Suspense>
+            </TabScreen>
+          </OwnQuery.Provider>
+        </OwnKey.Provider>
       </Activity>
     );
   });
