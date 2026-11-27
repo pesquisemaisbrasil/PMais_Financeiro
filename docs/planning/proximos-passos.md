@@ -1,6 +1,6 @@
 # Próximos passos
 
-**Posição em 26/11/2026.** O trabalho novo vai na `homolog` por enquanto (pedido do Bruno, 25/11). A `development` é a versão do servidor local, que se atualiza sozinha às 22h, e a `homolog` chega a ela por um PR que o Bruno abre. Merge na `main` só com o João. A fonte do que está aberto é o Jira (projeto PF); este documento explica a ordem e o porquê. Decisões de produto continuam em [perguntas-abertas](perguntas-abertas.md), e o que foi construído e como testar está no [roadmap](roadmap.md).
+**Posição em 27/11/2026** (pedidos da reunião de testes de 26/11 feitos; ver o [roadmap](roadmap.md)). O trabalho novo vai na `homolog` por enquanto (pedido do Bruno, 25/11). A `development` é a versão do servidor local, que se atualiza sozinha às 22h, e a `homolog` chega a ela por um PR que o Bruno abre. Merge na `main` só com o João. A fonte do que está aberto é o Jira (projeto PF); este documento explica a ordem e o porquê. Decisões de produto continuam em [perguntas-abertas](perguntas-abertas.md), e o que foi construído e como testar está no [roadmap](roadmap.md).
 
 ## Onde estamos
 
@@ -28,6 +28,9 @@
 | 6 | **LGPD:** prazos de guarda (Q26, Q36), o PDF do comprovante (Q19), a chave Pix (Q22) | DPO | Ligar a limpeza dos registros de login; guardar ou não o PDF | PF-80 |
 | 7 | **Verificação em duas etapas** obrigatória nas contas da empresa, se o Google e a Microsoft voltarem | João | O login por SSO | PF-51 |
 | 8 | **Validação das telas** de Contas a receber, Fluxo de caixa e DRE, e o vínculo das contas com as linhas do DRE | Vivi | Fechar a PF-65 e a parte do DRE | PF-65, PF-76 |
+| 9 | **Acesso por empresa** (Q65): quem vê quais empresas | Vivi | Limitar cada conta às empresas dela (hoje só a empresa preferida) | — |
+| 10 | **Conferência dos lançamentos do Connect** antes de virar conta a pagar, NF repetida e data de pagamento (Q66) | João e Vivi | O desenho da entrega do Connect | — |
+| 11 | **Começar a usar só o sistema novo** (Q68): zerar e importar de novo, ou completar as baixas | Bruno, João e Marco | Atualizar os dados desde 23/11 e a equipe largar o sistema antigo | — |
 
 ## O que dá para fazer sem esperar ninguém
 

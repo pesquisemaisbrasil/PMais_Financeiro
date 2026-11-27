@@ -1,6 +1,6 @@
 # ADR 0024: Feriados estaduais e municipais das capitais pelo feriados.dev, rodando no nosso servidor
 
-**Status:** Aceito (provisório: os dados do feriados.dev vão até 2027)
+**Status:** Aceito (provisório: os dados do feriados.dev vão até 2027). **Mudou em 27/11/2026:** nenhuma cidade por padrão, só os feriados nacionais contam (Bruno, depois da reunião de 26/11: o feriado de Alagoas em 30/11 empurrou o sábado 28/11 para 01/12). A busca tira os do feriados.dev de cidade fora de `HOLIDAYS_LOCATIONS`. Os containers continuam, para quando uma cidade for configurada
 **Data:** 19/11/2026
 
 ## Contexto

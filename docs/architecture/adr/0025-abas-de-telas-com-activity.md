@@ -4,6 +4,8 @@
 - **Data:** 2026-11-23
 - **Quem decidiu:** técnico, na implementação (o comportamento das abas é do Bruno, [pedido de 23/11](../../transcricoes/2026-11-23-abas-como-no-vs-code.md))
 
+**Atualização de 27/11/2026 (reunião de 26/11):** a mesma tela pode abrir em mais de uma aba (duplo clique numa tela já aberta abre "Contas a pagar (2)", com `?copia=2` no endereço). A aba é identificada por `tabKey` (tela e cópia), não mais só pela tela. Contas a pagar e a receber lembram o estado de cada aba depois do F5, no `sessionStorage` (`tabMemoryKey`).
+
 ## Contexto
 
 O Bruno pediu abas como no VS Code: Contas a pagar e Contas a receber abertas ao mesmo tempo, cada uma guardando o que a pessoa fez (filtros, busca, seleção, o que foi digitado) até a aba fechar. No App Router, trocar de rota desmonta a tela e perde o estado dela. O Next 16 guarda o estado das rotas com `<Activity>`, mas só com `cacheComponents` ligado e só das **3 últimas** rotas: a mais antiga recomeça sozinha, o que não é "até eu fechar". As telas leem o endereço (`?modo=`, `?aba=`, `?busca=`, `?conta=`) e três delas usam esses valores como `key` de reinício.

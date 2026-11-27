@@ -345,6 +345,8 @@ Convenção: colunas camelCase, FKs locais snake `*_id`, ids do Connect `connect
 
 **Senha inicial de primeiro acesso** (migration `a7d3e5f9c2b4`, 25/11, [acesso-e-auditoria](../specs/acesso-e-auditoria.md)): `users.mustChangePassword` (Boolean, padrão falso): a conta nasceu com uma senha inicial, e o login pede a senha nova antes do autenticador. As contas que já existiam ficam com falso.
 
+**Formas de pagamento do sistema antigo** (migration `b8e4f1a2c3d5`, 27/11, [cadastros-e-dimensoes](../specs/cadastros-e-dimensoes.md)): só dados, sem tabela nova. Cadastra em `payment_methods` as 16 formas da baixa do SGE4B (PIX, TED, Boleto, cartões e as outras), quando ainda não existem (sem diferença de maiúscula). O `downgrade` tira só a que nada usa.
+
 **`trusted_browsers`** (migration `f3b5d7e9a1c2`, [ADR 0022](../architecture/adr/0022-navegador-liberado-por-cookie.md)): os navegadores de cada conta. `user_id` (CASCADE), `tokenHash` (SHA-256 do cookie `financeiro_navegador`, único; o valor nunca é guardado), `label` ("Chrome no Windows"), `ipMasked` (como `login_events`), `status` (`pendente`, `liberado`, `recusado` ou `revogado`), `requestedAt`, `decidedAt`, `decided_by_user_id` (RESTRICT; nulo no primeiro navegador, liberado sozinho) e `lastSeenAt`. A role da app não tem `DELETE` nesta tabela.
 
 **`receivable_attachments`**: igual a `payable_attachments`, com `receivable_id` (RESTRICT) no lugar de `payable_id`; o arquivo vai para a chave `receivable/{id}/...` do mesmo bucket. As duas tabelas têm `kind` (`nota`, `boleto`, `contrato`, `comprovante`, `recibo`, `planilha` ou `outro`, padrão `outro`). A role do app não apaga linha de nenhuma delas.

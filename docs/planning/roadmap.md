@@ -170,6 +170,32 @@ A tela **Financeiro → Notas e RPA** (tarefas PF-66 e PF-67, [documentos-fiscai
 
 A conferência das notas do portal (PF-68) espera um arquivo exportado do portal.
 
+## Pedidos da reunião de testes (27/11/2026)
+
+Na reunião de 26/11 com a Bruna e a Camila, já com os dados reais ([registro](../transcricoes/2026-11-26-reuniao-de-testes-com-o-financeiro.md)), saíram estes pedidos:
+
+- **Empresa no topo** de Contas a pagar e a receber, ao lado dos botões, lembrada para cada pessoa: a lista abre na empresa dela e não mistura as outras. Limitar o acesso por conta fica para a Vivi (Q65).
+- **F5 não volta para hoje:** cada aba lembra o dia, os filtros, a busca e a ordem.
+- **A mesma tela em duas abas:** o duplo clique no menu numa tela já aberta abre "Contas a pagar (2)".
+- **Ordenar por mais colunas:** projeto, centro de custo, forma e empresa.
+- **O número do documento** aparece embaixo da descrição e na coluna Documento (só o número). A descrição da conta ganhou 2 linhas, e o campo Observações saiu (fica só a descrição).
+- **Sessão:** cai só depois de **2 horas sem uso**.
+- **Feriados:** só os **nacionais** contam. O feriado de Alagoas em 30/11 levava o sábado 28/11 para 01/12.
+- **Carregar incentivos:** a data é lida em mais formatos (27/11/26, 27-11-2026…).
+- **Formas de pagamento** da baixa do sistema antigo cadastradas: Agendamento de Pagamento, Boleto, Cartão de Crédito (à vista), Cartão de Crédito (parcelado), Cartão de Débito, Carteira Digital, Cheque, Crédito em Conta, Débito Automático, Débito em Conta, Dinheiro (espécie), DOC, PIX, PIX QR Code, TED e Transferência entre Contas.
+- **Coluna Ações** fixa à direita da lista, com título, e os títulos de valor alinhados com os números.
+- **Baixa em lote com comprovante:** cada conta leva o seu comprovante, e a baixa só sai com todos.
+
+**Como testar** (http://localhost:3010):
+
+1. Em **Contas a pagar**, escolha a empresa no topo, ao lado de Importar planilha, volte um dia e aperte **F5**: a empresa e o dia continuam. Abra **Contas a receber**: abre na mesma empresa.
+2. Dê **dois cliques** em Contas a pagar no menu: as abas viram "Contas a pagar (1)" e "(2)". Busque algo diferente em cada aba e aperte F5: cada uma volta como estava. Feche a (1): a outra fica, sem número.
+3. Clique no título **Projeto** da lista: as contas ficam na ordem dos projetos.
+4. Abra uma conta, ponha o número do documento **112** e salve: "112" aparece embaixo da descrição e na coluna Documento.
+5. Em **Carregar incentivos**, uma data de pagamento escrita como texto "27/11/26" é lida. Um sábado vai para a segunda seguinte, e não para a terça.
+6. Selecione duas contas e clique em **Dar baixa**: cada conta pede o seu comprovante, e o botão só libera com os dois. Depois da baixa, o clipe das duas fica azul.
+7. Deixe o sistema parado por mais de 2 horas e clique: volta ao login. Mexendo na tela, ele não cai.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).
