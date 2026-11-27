@@ -64,6 +64,9 @@ test("Notas e RPA: a NF pendente sai da lista quando a nota é registrada, e o R
   await expect(page.getByRole("row", { name: /Paula Dias/ })).toContainText("110,00");
   await expect(page.getByRole("group", { name: "RPA no mês" })).toContainText("110,00 de INSS");
   await expect(page.getByRole("row", { name: /^Total/ })).toContainText("890,00");
+  // a lista de RPA cabe no cartão, sem cortar o líquido (27/11)
+  const rpaTable = page.locator("table", { hasText: "Paula Dias" });
+  expect(await rpaTable.evaluate((el) => el.parentElement!.scrollWidth - el.parentElement!.clientWidth)).toBeLessThanOrEqual(0);
 
   // o mês anterior, pela API de verdade: ninguém pago por RPA
   await page.getByRole("button", { name: "Mês anterior" }).click();

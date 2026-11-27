@@ -61,6 +61,9 @@ test("baixa pelos comprovantes: só sai com cada pessoa batendo, e o comprovante
   await dialog.getByRole("button", { name: "Conferir comprovantes" }).click();
   await expect(dialog.getByText("Tudo bate")).toBeVisible();
   await expect(dialog.getByRole("row", { name: /Bia Baixa/ })).toContainText("comprovante-bia.pdf");
+  // a tabela cabe na janela, sem cortar a situação de cada pessoa
+  const people = dialog.getByRole("table", { name: "Pessoas do lançamento" });
+  expect(await people.evaluate((el) => el.parentElement!.scrollWidth - el.parentElement!.clientWidth)).toBeLessThanOrEqual(0);
   // a chave Pix nunca aparece inteira
   await expect(dialog).not.toContainText(ana.key);
   await dialog.getByRole("button", { name: "Confirmar baixa" }).click();
