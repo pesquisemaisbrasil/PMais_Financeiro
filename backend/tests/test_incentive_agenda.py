@@ -5,7 +5,9 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from models.payable import Payable
 from models.reference import Project
 from models.user import User
 from services.auth import create_access_token
@@ -29,13 +31,17 @@ def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def import_dates(client: TestClient, auth: dict[str, str], world: dict[str, Any]) -> dict[str, int]:
-    """Quatro datas de pagamento (06/11, 09/11, 10/11, 11/11), com 5, 4, 3 e 3 pessoas de R$ 120."""
-    content = _incentives(
-        ("2026-10-22", 5), ("2026-10-23", 4), ("2026-10-26", 3), ("2026-10-27", 3)
-    )
-    assert (
-        _send(client, auth, "/payables/import", _import_fields(world), content).status_code == 201
-    )
+    """Quatro datas de pagamento (06/11, 09/11, 10/11, 11/11), com 5, 4, 3 e 3 pessoas de R$ 120.
+    Uma planilha por data: cada planilha é um lançamento (27/11/2026)."""
+    for survey, people in (
+        ("2026-10-22", 5),
+        ("2026-10-23", 4),
+        ("2026-10-26", 3),
+        ("2026-10-27", 3),
+    ):
+        content = _incentives((survey, people))
+        response = _send(client, auth, "/payables/import", _import_fields(world), content)
+        assert response.status_code == 201, response.text
     rows = client.get("/incentives/agenda?mode=tudo", headers=auth).json()["rows"]
     return {row["dueDate"]: row["id"] for row in rows}
 
@@ -70,9 +76,16 @@ def test_the_agenda_lists_each_payment_date_with_people_total_and_situation(
 
 
 def test_a_paid_date_moves_to_paid_and_leaves_the_overdue(
-    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
 ) -> None:
     ids = import_dates(client, auth, world)
+    # um lançamento de antes da baixa pelos comprovantes (27/11/2026), que se paga direto
+    db_session.get(Payable, ids["2026-11-09"]).paidByReceipts = False  # type: ignore[union-attr]
+    db_session.commit()
     paid = client.post(
         f"/payables/{ids['2026-11-09']}/payments",
         json=payment(world, amount="480.00"),

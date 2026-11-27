@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from models.bank_reconciliation import BankReconciliation, BankReconciliationEvent
+from models.payable import Payable
 from models.reference import Customer, ExpenseCategory, Supplier
 from models.user import User
 from services.auth import create_access_token
@@ -240,6 +241,13 @@ def test_an_incoming_line_is_suggested_a_receivable_not_a_payable(
     assert found["classification"] == "recebimento" and "nome na descrição" in found["reasons"]
 
 
+def legacy(db_session: Session, payable_id: int) -> None:
+    """Um lançamento de incentivos de antes da baixa pelos comprovantes (27/11/2026): a baixa é a
+    comum, e a conciliação acha a pessoa pelo extrato."""
+    db_session.get(Payable, payable_id).paidByReceipts = False  # type: ignore[union-attr]
+    db_session.commit()
+
+
 def test_the_suggestion_of_a_launch_with_people_is_one_per_unpaid_person_with_the_same_value(
     client: TestClient,
     auth: dict[str, str],
@@ -256,6 +264,7 @@ def test_the_suggestion_of_a_launch_with_people_is_one_per_unpaid_person_with_th
     )
     assert imported.status_code == 201, imported.text
     payable_id = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]["id"]
+    legacy(db_session, payable_id)
     people = client.get(f"/payables/{payable_id}", headers=auth).json()["items"]
     assert (
         client.post(
@@ -467,6 +476,7 @@ def test_five_incentives_of_200_match_a_launch_of_1000_one_per_person(
     )
     assert imported.status_code == 201, imported.text
     payable_id = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]["id"]
+    legacy(db_session, payable_id)
     people = client.get(f"/payables/{payable_id}", headers=auth).json()["items"]
     client.post(
         f"/payables/{payable_id}/payments",
@@ -527,6 +537,7 @@ def test_a_launch_with_people_asks_for_the_person_and_the_exact_value(
         _incentives(("2026-10-30", 2), value=200),
     )
     payable_id = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]["id"]
+    legacy(db_session, payable_id)
     people = client.get(f"/payables/{payable_id}", headers=auth).json()["items"]
     client.post(
         f"/payables/{payable_id}/payments",

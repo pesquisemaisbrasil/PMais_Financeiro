@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from openpyxl import Workbook, load_workbook
 from sqlalchemy.orm import Session
 
+from core.pix import hash_pix
 from models.payable import Payable, PayableItem
 from models.reference import (
     BusinessUnit,
@@ -53,6 +54,7 @@ SIMPLE_HEADER = [
     "Plano de contas",
     "Forma de pagamento",
     "Beneficiário",
+    "Chave Pix",
     "Valor",
     "Data de pagamento",
 ]
@@ -72,12 +74,18 @@ def _simple(*lines: list[Any]) -> bytes:
     return _xlsx([SIMPLE_HEADER, *lines])
 
 
+def _key(name: str) -> str:
+    """Uma chave fictícia por pessoa: a baixa casa o comprovante pela chave (27/11/2026)."""
+    return name.lower().replace(" ", ".") + "@exemplo.invalid"
+
+
 def _line(name: str = "Pessoa Um", project: Any = "1804", **over: Any) -> list[Any]:
     return [
         project,
         over.get("category", CATEGORY),
         over.get("method", "Pix"),
         name,
+        over.get("key", _key(name)),
         over.get("value", 100),
         over.get("pay", "24/11/2026"),
     ]
@@ -91,7 +99,9 @@ def _current(*lines: dict[str, Any]) -> bytes:
             [
                 line.get("full", "Pessoa Um"),
                 line.get("beneficiary", "Pessoa Um"),
-                line.get("key"),
+                line["key"]
+                if "key" in line
+                else _key(line.get("beneficiary") or line.get("full") or "Pessoa Um"),
                 line.get("pix"),
                 line.get("value", 100),
                 line.get("status"),
@@ -132,9 +142,11 @@ def _template(client: TestClient, auth: dict[str, str]) -> Any:
     return response
 
 
-def test_template_has_the_sheets_and_no_person_to_launch_by_mistake(
+def test_template_has_the_team_columns_and_no_person_to_launch_by_mistake(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
+    """27/11/2026: as colunas da planilha da equipe, na mesma ordem, sem CPF nem dados de banco, e
+    Projeto, Plano de contas e Forma de pagamento no fim."""
     response = _template(client, auth)
     assert response.headers["content-type"].startswith("application/vnd.openxmlformats")
     assert incentive_template.FILENAME in response.headers["content-disposition"]
@@ -149,21 +161,31 @@ def test_template_has_the_sheets_and_no_person_to_launch_by_mistake(
         "Formas de pagamento",
     ]
     fill = book["Incentivos"]
-    assert [cell.value for cell in fill[1]] == [
+    titles = [cell.value for cell in fill[1]]
+    assert titles == [
+        "Equipe",
+        "ID LINK",
+        "Nome Completo:",
+        "Beneficiário:",
+        "PAGO A",
+        "Chave Pix:",
+        "PIX:",
+        "VALOR TOTAL",
+        "STATUS",
+        "PEDIDO EM",
+        "DATA DE REALIZAÇÃO DA PESQUISA",
+        "PAGAR (PREENCHIDO PELO FINANCEIRO)",
+        "COMPROVANTES SALVOS NA REDE",
+        "OBS",
         "Projeto",
         "Plano de contas",
         "Forma de pagamento",
-        "Beneficiário",
-        "Chave Pix",
-        "Valor",
-        "Data da pesquisa",
-        "Data de pagamento",
     ]
+    assert not any(word in str(titles).upper() for word in ("CPF", "BANCO", "AGÊNCIA", "CONTA:"))
     assert fill.max_row == 1  # só o cabeçalho: o exemplo fica na aba Como preencher
-    guide = [row[0].value for row in book["Como preencher"].iter_rows(min_row=2, max_row=9)]
-    assert guide == [column[0] for column in incentive_template.COLUMNS]
-    required = {row[0].value: row[1].value for row in book["Como preencher"].iter_rows(min_row=2)}
-    assert (required["Projeto"], required["Plano de contas"], required["Forma de pagamento"]) == (
+    guide = {row[0].value: row[1].value for row in book["Como preencher"].iter_rows(min_row=2)}
+    assert guide["Chave Pix: / PIX:"] == "Sim"
+    assert (guide["Projeto"], guide["Plano de contas"], guide["Forma de pagamento"]) == (
         "Sim",
         "Sim",
         "Sim",
@@ -175,14 +197,16 @@ def test_template_keeps_codes_as_text_and_offers_the_lists(
 ) -> None:
     book = load_workbook(io.BytesIO(_template(client, auth).content))
     fill = book["Incentivos"]
-    for letter in ("A", "B", "C", "E"):
+    # a chave Pix (F e G) e os códigos (O, P e Q) como texto; as datas (J, K e L) como data
+    for letter in ("F", "G", "O", "P", "Q"):
         assert fill.column_dimensions[letter].number_format == "@"
-    assert fill.column_dimensions["G"].number_format == "DD/MM/YYYY"
+    assert fill.column_dimensions["L"].number_format == "DD/MM/YYYY"
     rules = {str(rule.sqref): rule for rule in fill.data_validations.dataValidation}
-    assert rules["A2:A5001"].formula1 == "'Projetos'!$A$2:$A$3"
-    assert rules["B2:B5001"].formula1 == "'Plano de contas'!$A$2:$A$2"
-    assert rules["C2:C5001"].formula1 == "'Formas de pagamento'!$A$2:$A$2"
-    assert {rules[cell].type for cell in ("A2:A5001", "B2:B5001", "C2:C5001")} == {"list"}
+    assert rules["O2:O5001"].formula1 == "'Projetos'!$A$2:$A$3"
+    assert rules["P2:P5001"].formula1 == "'Plano de contas'!$A$2:$A$2"
+    assert rules["Q2:Q5001"].formula1 == "'Formas de pagamento'!$A$2:$A$2"
+    assert {rules[cell].type for cell in ("O2:O5001", "P2:P5001", "Q2:Q5001")} == {"list"}
+    assert rules["H2:H5001"].type == "decimal"
 
 
 def test_template_lists_only_what_can_be_used(
@@ -211,22 +235,45 @@ def test_template_lists_only_what_can_be_used(
     assert [row[0].value for row in book["Formas de pagamento"].iter_rows(min_row=2)] == ["Pix"]
 
 
-def test_template_filled_in_is_accepted_and_splits_by_project_and_date(
+def test_template_filled_in_goes_to_each_project_on_the_programmed_date(
     client: TestClient, auth: dict[str, str], registered: dict[str, Any], db_session: Session
 ) -> None:
+    """Vários projetos numa planilha: cada pessoa vai para o lançamento do seu projeto e da data
+    em PAGAR (PREENCHIDO PELO FINANCEIRO), com a chave Pix para casar o comprovante."""
     book = load_workbook(io.BytesIO(_template(client, auth).content))
     fill = book["Incentivos"]
-    details = [CATEGORY, "Pix"]
-    fill.append(["1804", *details, "Pessoa Um", FULL_KEY, 100, None, date(2026, 11, 24)])
-    fill.append(["1804", *details, "Pessoa Dois", None, Decimal("50.50"), None, date(2026, 11, 24)])
-    fill.append(["1804", *details, "Pessoa Três", None, 25, None, date(2026, 11, 25)])
-    fill.append(["1790", *details, "Pessoa Quatro", None, 75, None, date(2026, 11, 25)])
+
+    def person(name: str, key: str | None, value: Any, pay: date, project: str) -> list[Any]:
+        row: list[Any] = [None] * len(incentive_template.COLUMNS)
+        for title, cell in (
+            ("Beneficiário:", name),
+            ("PIX:", key),
+            ("VALOR TOTAL", value),
+            ("DATA DE REALIZAÇÃO DA PESQUISA", date(2026, 11, 10)),
+            ("PAGAR (PREENCHIDO PELO FINANCEIRO)", pay),
+            ("Projeto", project),
+            ("Plano de contas", CATEGORY),
+            ("Forma de pagamento", "Pix"),
+        ):
+            row[[c[0] for c in incentive_template.COLUMNS].index(title)] = cell
+        return row
+
+    fill.append(person("Pessoa Um", FULL_KEY, 100, date(2026, 11, 24), "1804"))
+    fill.append(
+        person("Pessoa Dois", _key("Pessoa Dois"), Decimal("50.50"), date(2026, 11, 24), "1804")
+    )
+    fill.append(person("Pessoa Três", _key("Pessoa Três"), 25, date(2026, 11, 25), "1804"))
+    fill.append(person("Pessoa Quatro", _key("Pessoa Quatro"), 75, date(2026, 11, 25), "1790"))
+    fill.append(person("Sem Chave", None, 10, date(2026, 11, 25), "1790"))
     output = io.BytesIO()
     book.save(output)
 
     preview = _send(client, auth, PREVIEW_URL, output.getvalue()).json()
-    assert (preview["goodCount"], preview["errorCount"], preview["payableCount"]) == (4, 0, 3)
+    assert (preview["goodCount"], preview["errorCount"], preview["payableCount"]) == (4, 1, 3)
     assert preview["total"] == "250.50"
+    assert preview["lines"][-1]["errors"] == [
+        "Sem chave Pix: a baixa casa o comprovante com a pessoa pela chave"
+    ]
 
     created = _send(client, auth, IMPORT_URL, output.getvalue())
     assert created.status_code == 201
@@ -238,7 +285,11 @@ def test_template_filled_in_is_accepted_and_splits_by_project_and_date(
         (25, "25.00"),
         (25, "75.00"),
     ]
-    assert sum((p.amount for p in payables), Decimal("0")) == Decimal("250.50")
+    assert all(p.paidByReceipts for p in payables)
+    # cada pessoa guarda a chave mascarada e o HMAC dela, nunca a chave
+    first = payables[0].items[0]
+    assert first.pix_masked == "pes***@exemplo.invalid"
+    assert first.pix_hash == hash_pix(FULL_KEY)
 
 
 @pytest.mark.parametrize("role", ["sem_acesso", "sem_login"])
@@ -463,8 +514,11 @@ def test_a_cell_with_only_the_key_type_is_not_taken_as_a_key(
     client: TestClient, auth: dict[str, str], registered: dict[str, Any], db_session: Session
 ) -> None:
     content = _current({"key": "CPF", "pix": "Celular"})
-    assert _send(client, auth, IMPORT_URL, content).status_code == 201
-    assert db_session.query(PayableItem).one().pix_masked is None
+    preview = _send(client, auth, PREVIEW_URL, content).json()
+    # o tipo da chave não é chave: a pessoa fica sem chave, e sem chave a baixa não casa (27/11)
+    assert preview["lines"][0]["errors"] == [
+        "Sem chave Pix: a baixa casa o comprovante com a pessoa pela chave"
+    ]
 
 
 @pytest.mark.parametrize("status", ["Pago", "PAGO", "pago em 10/11", "Paga"])

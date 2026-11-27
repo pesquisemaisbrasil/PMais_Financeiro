@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from core import xlsx
-from models.payable import PayableEvent
+from models.payable import Payable, PayableEvent
 from models.reference import Project
 from models.user import User
 from services.auth import create_access_token
@@ -113,9 +113,16 @@ def test_a_name_that_looks_like_a_formula_stays_text(
 
 
 def test_who_was_paid_shows_in_the_situation_column(
-    client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
+    client: TestClient,
+    auth: dict[str, str],
+    world: dict[str, Any],
+    incentive_project: Project,
+    db_session: Session,
 ) -> None:
     payable_id = imported(client, auth, world, _incentives(("2026-10-30", 2), value=100))
+    # um lançamento de antes da baixa pelos comprovantes (27/11/2026), que se paga direto
+    db_session.get(Payable, payable_id).paidByReceipts = False  # type: ignore[union-attr]
+    db_session.commit()
     paid = client.post(
         f"/payables/{payable_id}/payments", json=payment(world, amount="200.00"), headers=auth
     )

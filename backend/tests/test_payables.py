@@ -149,6 +149,7 @@ def create(
         ("post", "/payables/1/cancel"),
         ("post", "/payables/1/payments"),
         ("post", "/payables/1/payments/1/reverse"),
+        ("post", "/payables/1/payments/reverse"),
         ("post", "/payables/1/attachments"),
         ("get", "/payables/1/attachments/1/download"),
         ("patch", "/payables/1/attachments/1"),
@@ -183,6 +184,7 @@ def test_every_route_requires_a_session(client: TestClient, method: str, path: s
         ("post", "/payables/1/cancel"),
         ("post", "/payables/1/payments"),
         ("post", "/payables/1/payments/1/reverse"),
+        ("post", "/payables/1/payments/reverse"),
         ("post", "/payables/1/attachments"),
         ("get", "/payables/1/attachments/1/download"),
         ("patch", "/payables/1/attachments/1"),
@@ -748,6 +750,44 @@ def test_reversal_returns_the_amount_and_keeps_both_lines(
     assert reversed_["payments"][0]["reversed"] is True
     again = client.post(path, json={"kind": "estorno", "reason": "De novo"}, headers=auth)
     assert again.status_code == 409
+
+
+def test_several_payments_are_reversed_at_once_all_or_nothing(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any], db_session: Session
+) -> None:
+    """Bruno, 27/11/2026: escolher quais baixas estornar, algumas ou todas."""
+    created = create(client, auth, world)
+    url = f"/payables/{created['id']}"
+    for amount in ("100.00", "200.00", "300.00"):
+        paid = client.post(f"{url}/payments", json=payment(world, amount=amount), headers=auth)
+        assert paid.status_code == 200, paid.text
+    ids = {p["amount"]: p["id"] for p in paid.json()["payments"]}
+    path = f"{url}/payments/reverse"
+    other = create(client, auth, world)
+
+    def reverse(chosen: list[int], target: str = path) -> Any:
+        return client.post(target, json={"paymentIds": chosen, "reason": "Era teste"}, headers=auth)
+
+    assert reverse([]).status_code == 422
+    assert client.post(path, json={"paymentIds": [ids["100.00"]]}, headers=auth).status_code == 422
+    # a baixa de outra conta, ou uma que não existe, não estorna nada
+    assert reverse([ids["100.00"]], f"/payables/{other['id']}/payments/reverse").status_code == 404
+    assert reverse([ids["100.00"], 99999]).status_code == 404
+    assert db_session.query(PayablePayment).filter_by(kind="estorno").count() == 0
+
+    # duas de uma vez (repetir o número não estorna duas vezes)
+    done = reverse([ids["100.00"], ids["300.00"], ids["100.00"]])
+    assert done.status_code == 200, done.text
+    detail = done.json()
+    assert (detail["paid"], detail["pending"]) == ("200.00", "800.00")
+    assert [p["kind"] for p in detail["payments"]].count("estorno") == 2
+    history = [e["text"] for e in detail["events"] if e["text"].startswith("Estorno")]
+    assert len(history) == 2 and all(text.endswith(": Era teste") for text in history)
+
+    # uma já anulada no meio derruba o lote inteiro
+    refused = reverse([ids["200.00"], ids["300.00"]])
+    assert (refused.status_code, refused.json()["detail"]) == (409, "Essa baixa já foi anulada")
+    assert client.get(url, headers=auth).json()["paid"] == "200.00"
 
 
 def test_returned_pix_marks_as_returned(
@@ -1694,6 +1734,8 @@ INCENTIVE_DEFAULTS = {"Projeto": "1804", "Plano de contas": "2.04", "Forma de pa
 INCENTIVE_DETAILS = list(INCENTIVE_DEFAULTS.values())
 FAKE_CPF = "000.000.000-00"
 FAKE_PIX = "pessoa-ficticia@exemplo.invalid"
+# A chave Pix também, desde 27/11/2026: sem ela a pessoa fica de fora (a baixa casa pela chave)
+SHEET_DEFAULTS = {**INCENTIVE_DEFAULTS, "Chave Pix": FAKE_PIX}
 
 
 def _xlsx(rows: list[list[Any]]) -> bytes:
@@ -1709,12 +1751,16 @@ def _incentive_xlsx(rows: list[list[Any]]) -> bytes:
     """Planilha de incentivos do teste: o projeto, o plano de contas e a forma de pagamento que a
     linha não escreve vêm da fixture `world`. Célula escrita como None continua vazia."""
     header, *lines = rows
-    titles = [*header, *[title for title in INCENTIVE_DEFAULTS if title not in header]]
+    titles = [*header, *[title for title in SHEET_DEFAULTS if title not in header]]
     filled: list[list[Any]] = [titles]
+    key = titles.index("Chave Pix")
     for line in lines:
         cells = [*line, *[None] * (len(titles) - len(line))]
         for index in range(len(line), len(titles)):
-            cells[index] = INCENTIVE_DEFAULTS.get(titles[index])
+            cells[index] = SHEET_DEFAULTS.get(titles[index])
+        # a célula vazia da chave recebe a fictícia (a falta de chave tem teste próprio)
+        if cells[key] is None:
+            cells[key] = FAKE_PIX
         filled.append(cells)
     return _xlsx(filled)
 
@@ -1992,7 +2038,6 @@ def test_each_kind_of_pix_key_is_masked_the_same_way_as_in_the_receipts(
             ["Telefone", 10, "2026-11-16", "(11) 91234-5678"],
             ["E-mail", 10, "2026-11-16", " Maria@Exemplo.COM "],
             ["Curta", 10, "2026-11-16", "12ab"],
-            ["Sem chave", 10, "2026-11-16", None],
         ]
     )
     assert (
@@ -2006,20 +2051,23 @@ def test_each_kind_of_pix_key_is_masked_the_same_way_as_in_the_receipts(
         "Telefone": "+55***78",
         "E-mail": "mar***@exemplo.com",
         "Curta": "***",
-        "Sem chave": None,
     }
 
 
-def test_a_sheet_without_the_pix_column_leaves_the_masked_key_empty(
+def test_a_person_without_a_pix_key_is_an_error_on_the_line(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
-    content = _incentive_xlsx(
-        [["Nome", "Valor", "Data de pagamento"], ["Sem coluna", 10, "2026-11-16"]]
+    """27/11/2026: a baixa casa cada comprovante com a pessoa pela chave."""
+    content = _xlsx(
+        [
+            ["Nome", "Valor", "Data de pagamento", *INCENTIVE_DEFAULTS],
+            ["Sem coluna", 10, "2026-11-16", *INCENTIVE_DETAILS],
+        ]
     )
-    _send(client, auth, "/payables/import", _import_fields(world), content)
-    listed = client.get("/payables?mode=tudo", headers=auth).json()["items"][0]
-    items = client.get(f"/payables/{listed['id']}", headers=auth).json()["items"]
-    assert [item["pixMasked"] for item in items] == [None]
+    response = _send(client, auth, "/payables/import/preview", _import_fields(world), content)
+    assert response.json()["lines"][0]["errors"] == [
+        "Sem chave Pix: a baixa casa o comprovante com a pessoa pela chave"
+    ]
 
 
 def test_the_payroll_sheet_still_does_not_read_the_pix_key(
@@ -2801,8 +2849,8 @@ def test_csv_saved_by_excel_is_accepted(
     client: TestClient, auth: dict[str, str], world: dict[str, Any], incentive_project: Project
 ) -> None:
     text = (
-        "Nome;Valor;Data da pesquisa;Projeto;Plano de contas;Forma de pagamento\r\n"
-        "João;1.200,50;30/10/2026;1804;2.04;Pix\r\n;;;;;\r\n"
+        "Nome;Valor;Data da pesquisa;Projeto;Plano de contas;Forma de pagamento;Chave Pix\r\n"
+        f"João;1.200,50;30/10/2026;1804;2.04;Pix;{FAKE_PIX}\r\n;;;;;;\r\n"
     )
     response = _send(
         client,

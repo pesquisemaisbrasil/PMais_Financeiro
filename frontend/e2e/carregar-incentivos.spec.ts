@@ -136,4 +136,7 @@ test("carregar incentivos: baixa o modelo, confere a planilha e cria um lançame
   const first = page.getByRole("row", { name: /Incentivos · PRJ-1804 · pagar 05\/06/ });
   await expect(first).toHaveCount(1);
   await expect(first).toContainText("R$ 130,00");
+  // a baixa desse lançamento é pelos comprovantes Pix, casados pela chave (27/11/2026)
+  await expect(first.getByRole("button", { name: "Dar baixa" })).toHaveCount(0);
+  await expect(first.getByRole("button", { name: "Baixar pelos comprovantes" })).toBeVisible();
 });

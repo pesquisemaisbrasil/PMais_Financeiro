@@ -485,6 +485,12 @@ test("Importar planilha, colunas, cadastros, projetos e menu lateral", async ({ 
   await page.reload();
   await page.getByRole("button", { name: "Colunas" }).click();
   await expect(page.getByRole("radio", { name: "Compacta" })).toBeChecked();
+  // Limpar seleção volta à disposição normal: as colunas de sempre e a densidade confortável (27/11)
+  await page.getByRole("dialog").getByRole("checkbox", { name: "Documento" }).check();
+  await page.getByRole("dialog").getByRole("button", { name: "Limpar seleção" }).click();
+  await expect(page.getByRole("dialog").getByRole("checkbox", { name: "Documento" })).not.toBeChecked();
+  await expect(page.getByRole("dialog").getByRole("checkbox", { name: "Projeto" })).toBeChecked();
+  await expect(page.getByRole("radio", { name: "Confortável" })).toBeChecked();
   await page.keyboard.press("Escape");
 
   // Cadastros: fornecedor com CNPJ conferido, e cadastro em uso só é inativado
@@ -535,11 +541,11 @@ test("Carregar incentivos de vários projetos na mesma planilha", async ({ page 
   await signIn(page, "importacao@e2e.invalid");
   await page.goto("/contas-a-pagar");
   const sheet = [
-    "Nome;Valor;Data de pagamento;Projeto;Plano de contas;Forma de pagamento;Empresa;Unidade",
-    "Respondente A;100,00;19/11/2026;1804;2.02 Incentivos;Pix;PPlus;Consumo SP",
-    "Respondente B;50,00;19/11/2026;1790;2.02 Incentivos;Pix;MC;Matriz",
-    "Respondente C;70,00;27/11/2026;PRJ-1804;2.02 Incentivos;Pix;PPlus;CATI Curitiba",
-    "Respondente D;30,00;27/11/2026;9999;2.02 Incentivos;Pix;PPlus;Consumo SP",
+    "Nome;Valor;Data de pagamento;Projeto;Plano de contas;Forma de pagamento;Empresa;Unidade;Chave Pix",
+    "Respondente A;100,00;19/11/2026;1804;2.02 Incentivos;Pix;PPlus;Consumo SP;a@exemplo.invalid",
+    "Respondente B;50,00;19/11/2026;1790;2.02 Incentivos;Pix;MC;Matriz;b@exemplo.invalid",
+    "Respondente C;70,00;27/11/2026;PRJ-1804;2.02 Incentivos;Pix;PPlus;CATI Curitiba;c@exemplo.invalid",
+    "Respondente D;30,00;27/11/2026;9999;2.02 Incentivos;Pix;PPlus;Consumo SP;d@exemplo.invalid",
   ].join("\r\n");
   await page.getByRole("button", { name: "Carregar incentivos" }).click();
   const importer = page.getByRole("dialog");
