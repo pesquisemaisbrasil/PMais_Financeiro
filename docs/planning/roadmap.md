@@ -211,6 +211,17 @@ Pedido do Bruno ([registro](../transcricoes/2026-11-27-incentivos-planilha-e-bai
 4. Envie também o das outras e confira: "Tudo bate". Escolha a conta e confirme a baixa: a conta fica paga, e no drill down cada pessoa tem o botão do comprovante dela.
 5. Abra a conta, aba **Baixas**: marque só uma pessoa (ou **Selecionar todas**), clique em **Estornar selecionadas**, escreva o motivo e confirme. Quem foi estornado volta a ficar a pagar, e **Baixar pelos comprovantes** aparece de novo. Mande o PDF de todos: os de quem continua pago ficam de fora, e a baixa sai só para os estornados.
 
+## Acesso por empresa (27/11/2026)
+
+Pedido do Bruno ([registro](../transcricoes/2026-11-27-acesso-por-empresa.md), [ADR 0029](../architecture/adr/0029-acesso-por-empresa-com-filtro-central.md)): o admin escolhe, em **Acessos**, se cada pessoa vê todas as empresas ou só algumas. O servidor esconde as outras em todas as telas, relatórios, planilhas e na busca.
+
+**Como testar** (http://localhost:3010, entrando com um admin):
+
+1. Em **Acessos › Pessoas e telas**, clique em **Empresas** de um usuário, marque **Só algumas** e escolha uma.
+2. Entre com essa pessoa (outro navegador): Contas a pagar, a receber, o Início, a busca e os Cadastros mostram só a empresa escolhida.
+3. Abra pelo endereço uma conta de outra empresa (`/contas-a-pagar?conta=...`): "Conta não encontrada".
+4. Volte para **Todas as empresas** em Acessos: a pessoa vê tudo de novo ao recarregar.
+
 ## Como testar
 
 Cada módulo, ao ser entregue, ganha aqui o roteiro manual de teste (como no roadmap do Connect).

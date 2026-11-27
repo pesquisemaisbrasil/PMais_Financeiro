@@ -12,14 +12,14 @@
 - **Como ler:**
   - é um **resumo** com o minuto (`mm:ss` da transcrição), não a fala bruta;
   - ficaram fora valores, números de projeto e nomes de terceiros;
-  - a transcrição tem muito ruído (frases soltas em inglês e nomes trocados), e os trechos duvidosos estão marcados *(a confirmar)*.
+  - a transcrição tem muito ruído (frases soltas em inglês e nomes trocados; a empresa IHEA saiu como "IRIA" e está corrigida aqui), e os trechos duvidosos estão marcados *(a confirmar)*.
 
 ## Pedidos e decisões
 
 | # | Pedido / decisão | O que foi feito | Minuto |
 |---|---|---|---|
 | R1 | **Sessão:** só cair depois de **2 horas sem uso**. Bruna: "pelo menos umas 2 horas". João: "De ociosidade, então… está tranquilo". No Connect, para administradores, são 15 minutos | Feito em 27/11: a sessão parada há mais de 2 horas cai (`SESSION_IDLE_MINUTES`), e a tela renova enquanto a pessoa mexe. Spec [acesso-e-auditoria](../specs/acesso-e-auditoria.md) | 3:15–4:20 |
-| R2 | **Empresas não se misturam em Contas a pagar.** Bruna: "no contas a pagar ele não pode misturar as contas das empresas". Sugestão: "deixar uma preferencial". Ela também contou que só ela mexe na IRIA, que a Camila só vê a Pesquise+ e que outra pessoa só veria a IRIA | Feito em 27/11: escolha da **empresa** no alto de Contas a pagar e a receber, lembrada para cada pessoa (decisão do Bruno). **Limitar o acesso por conta** fica para a Vivi (Q65) | 14:44–17:40 |
+| R2 | **Empresas não se misturam em Contas a pagar.** Bruna: "no contas a pagar ele não pode misturar as contas das empresas". Sugestão: "deixar uma preferencial". Ela também contou que só ela mexe na IHEA, que a Camila só vê a Pesquise+ e que outra pessoa só veria a IHEA | Feito em 27/11: escolha da **empresa** no alto de Contas a pagar e a receber, lembrada para cada pessoa (decisão do Bruno). **Limitar o acesso por conta** fica para a Vivi (Q65) | 14:44–17:40 |
 | R3 | **Ordenar a lista.** Camila: "Não tem como classificar aqui por ordem?". Bruno: "vou colocar para as outras partes também" | Feito em 27/11: dá para ordenar também por projeto, centro de custo, forma e empresa (no a receber, por projeto). Toda coluna que ordena mostra o ícone | 19:54–20:23 |
 | R4 | **Recarregar a página não volta para hoje.** Bruna: "ele atualiza a página e ele volta para o dia… é bom ele ficar na página que a gente está mexendo e só sair de lá se a gente mandar" | Feito em 27/11: cada aba lembra o dia, o período, os filtros, a busca e a ordem depois do F5. A lembrança fica na aba do navegador e some ao fechar a aba ou sair do sistema | 23:10–23:30 |
 | R5 | **Observação na lista.** Bruna quis ver as observações na lista. A Camila preferiu escrever na **descrição** ("senão são 2 campos para preencher"), e a Bruna pediu "um campinho maior, de 2 linhas" | Feito em 27/11: na janela da conta, a descrição tem 2 linhas, e a quebra de linha aparece na lista. O campo Observações saiu das janelas de conta (o Bruno pediu ao validar) | 23:38–24:49 |

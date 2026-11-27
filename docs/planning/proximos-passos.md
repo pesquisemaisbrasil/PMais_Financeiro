@@ -28,7 +28,7 @@
 | 6 | **LGPD:** prazos de guarda (Q26, Q36), o PDF do comprovante (Q19), a chave Pix (Q22) | DPO | Ligar a limpeza dos registros de login; guardar ou não o PDF | PF-80 |
 | 7 | **Verificação em duas etapas** obrigatória nas contas da empresa, se o Google e a Microsoft voltarem | João | O login por SSO | PF-51 |
 | 8 | **Validação das telas** de Contas a receber, Fluxo de caixa e DRE, e o vínculo das contas com as linhas do DRE | Vivi | Fechar a PF-65 e a parte do DRE | PF-65, PF-76 |
-| 9 | **Acesso por empresa** (Q65): quem vê quais empresas | Vivi | Limitar cada conta às empresas dela (hoje só a empresa preferida) | — |
+| 9 | **Quem vê quais empresas** (Q65): o admin já escolhe em Acessos | Vivi | Configurar o acesso de cada pessoa no servidor | — |
 | 10 | **Conferência dos lançamentos do Connect** antes de virar conta a pagar, NF repetida e data de pagamento (Q66) | João e Vivi | O desenho da entrega do Connect | — |
 | 11 | **Começar a usar só o sistema novo** (Q68): zerar e importar de novo, ou completar as baixas | Bruno, João e Marco | Atualizar os dados desde 23/11 e a equipe largar o sistema antigo | — |
 
