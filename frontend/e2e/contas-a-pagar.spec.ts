@@ -175,14 +175,36 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(page.getByText("1 selecionada")).toHaveCount(0);
   await page.getByRole("button", { name: "Página anterior" }).click();
 
-  // Baixa em lote
+  // Baixa em lote: cada conta leva o seu comprovante, e sem todos eles não baixa (Bruno, 27/11/2026)
   await page.getByRole("checkbox", { name: "Selecionar Honorários contábeis" }).check();
   await page.getByRole("checkbox", { name: "Selecionar Licenças de software" }).check();
   await page.getByRole("button", { name: "Dar baixa" }).first().click();
-  await expect(page.getByRole("dialog")).toContainText("2 contas");
+  const batch = page.getByRole("dialog");
+  await expect(batch).toContainText("2 contas");
   await choose(page, "Forma", "Pix");
-  await page.getByRole("dialog").getByRole("button", { name: "Baixar 2 contas" }).click();
-  await expect(page.getByText(/Baixa feita em 2 contas/)).toBeVisible();
+  const payBoth = batch.getByRole("button", { name: "Baixar 2 contas" });
+  await expect(payBoth).toBeDisabled();
+  const receipt = (name: string) => ({
+    name,
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%comprovante fictício do teste\n"),
+  });
+  await batch
+    .getByLabel("Comprovante de Contabilidade Exata")
+    .setInputFiles({ name: "comprovante.txt", mimeType: "text/plain", buffer: Buffer.from("texto") });
+  await expect(batch.getByText("comprovante.txt: envie PDF, imagem, planilha, documento ou XML de até 20 MB")).toBeVisible();
+  await batch.getByLabel("Comprovante de Contabilidade Exata").setInputFiles(receipt("pix-contabilidade.pdf"));
+  await expect(payBoth).toBeDisabled();
+  await batch.getByLabel("Comprovante de Software Nuvem Ltda").setInputFiles(receipt("pix-software.pdf"));
+  await expect(batch).toContainText("pix-software.pdf");
+  await payBoth.click();
+  await expect(page.getByText(/Baixa feita em 2 contas: .*, com os comprovantes\./)).toBeVisible();
+  // o clipe das duas acende: o comprovante foi para a conta certa
+  for (const description of ["Honorários contábeis", "Licenças de software"]) {
+    await expect(
+      page.getByRole("row", { name: new RegExp(description) }).getByRole("button", { name: /^Ver documentos/ })
+    ).toBeVisible();
+  }
 
   // Excluir conta com baixa é recusado
   await page.getByRole("checkbox", { name: "Selecionar Honorários contábeis" }).check();
@@ -283,7 +305,8 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   const editDocument = await box(opened.getByRole("combobox", { name: "Documento", exact: true }));
   expect(editGross.y).toBeGreaterThan(editPayment.y);
   expect(editDocument.y).toBeGreaterThan(editGross.y);
-  await opened.getByLabel("Observações").fill("Combinado por telefone");
+  // as Observações saíram (Bruno, 27/11/2026): fica só a descrição, em 2 linhas
+  await expect(opened.getByLabel("Observações")).toHaveCount(0);
   // Documentação que chegou menos de 3 dias antes do vencimento (a conta vence hoje) vira aviso na conta
   await opened.getByLabel("Documentação recebida em").fill(today);
   // "Pagar em": a data prevista de pagamento, só para informar
@@ -293,7 +316,6 @@ test("do Início ao Contas a pagar: abrir itens, dar baixa e lançar conta", asy
   await expect(opened.getByText("Documentação atrasada")).toBeVisible();
   await expect(opened.getByText("Pagar em:")).toBeVisible();
   await opened.getByRole("tab", { name: "Histórico" }).click();
-  await expect(opened.getByText(/observações alteradas/)).toBeVisible();
   await expect(opened.getByText(/pagar em — → \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
 
   // Documentos: anexar, baixar o mesmo arquivo, recusar o que não é permitido e tirar com motivo

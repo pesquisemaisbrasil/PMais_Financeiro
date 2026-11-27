@@ -988,6 +988,26 @@ def test_list_paginates_and_sorts(
     assert [i["amount"] for i in second["items"]] == ["2.00", "1.00"]
 
 
+def test_list_sorts_by_project_and_the_other_columns(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    """Reunião de 26/11/2026: ordenar por projeto junta as contas do mesmo projeto."""
+    other = [{"projectId": world["other_project"].id, "amount": "1000.00"}]
+    create(client, auth, world, allocations=other, description="Do outro projeto")
+    allocations = [{"projectId": world["project"].id, "amount": "1000.00"}]
+    create(client, auth, world, allocations=allocations, description="Com projeto")
+    codes = sorted(
+        [world["project"].code, world["other_project"].code], key=lambda code: (len(code), code)
+    )
+    items = client.get("/payables?sort=projeto&mode=tudo", headers=auth).json()["items"]
+    assert [i["allocations"][0]["code"] for i in items] == codes
+    desc = client.get("/payables?sort=projeto&descending=true&mode=tudo", headers=auth).json()
+    assert [i["allocations"][0]["code"] for i in desc["items"]] == codes[::-1]
+    for column in ("centro", "forma", "empresa", "documento"):
+        assert client.get(f"/payables?sort={column}&mode=tudo", headers=auth).status_code == 200
+    assert client.get("/payables?sort=nada", headers=auth).status_code == 422
+
+
 def test_docs_late_when_less_than_three_days_before_due(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
@@ -2044,7 +2064,7 @@ def test_bad_lines_stay_out_and_say_why(
         ["Nome vazio"],
         ["Use só números no valor"],
         ["Sem data de pagamento e sem data da pesquisa"],
-        ["Data da pesquisa inválida"],
+        ["Data da pesquisa inválida: use dia/mês/ano, como 27/11/2026"],
         ["Pagamento antes da data da pesquisa"],
         ["Valor inválido"],
         ["Valor inválido"],

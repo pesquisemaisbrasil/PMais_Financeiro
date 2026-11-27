@@ -146,6 +146,32 @@ def test_the_same_holiday_in_two_capitals_enters_once(
     assert result["addedLocal"] == 2
 
 
+def test_without_cities_only_the_national_ones_count_and_the_old_capitals_leave(
+    online: list[Any], monkeypatch: pytest.MonkeyPatch, db_session: Session
+) -> None:
+    """Bruno, 27/11/2026: com as 27 capitais, o sábado 28/11 ia para 01/12 por um feriado de
+    Alagoas em 30/11. Sem cidade na lista, saem os das capitais e fica o cadastrado à mão."""
+    db_session.add_all(
+        [
+            Holiday(
+                day=date(2026, 11, 30),
+                name="Dia do Evangélico",
+                scope="estadual",
+                uf="AL",
+                source="feriados.dev",
+            ),
+            Holiday(day=date(2026, 12, 8), name="Da cidade", scope="municipal", source="manual"),
+        ]
+    )
+    db_session.commit()
+    monkeypatch.setattr(config, "HOLIDAYS_LOCATIONS", [])
+    result = holidays.sync(db_session, 2026)
+    assert result["addedLocal"] == 0
+    assert {h.name for h in db_session.query(Holiday)} == {"Confraternização mundial", "Da cidade"}
+    assert is_business_day(date(2026, 11, 30), holiday_names(db_session))
+    assert not any(url.startswith(FERIADOS) for url, _ in online)
+
+
 @pytest.mark.parametrize(
     "answer",
     [

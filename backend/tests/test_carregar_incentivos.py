@@ -24,6 +24,7 @@ from models.reference import (
 from models.user import User
 from services import incentive_template
 from services.auth import create_access_token
+from services.payable_import import _date
 from tests.test_payables import auth, world  # noqa: F401
 
 TEMPLATE_URL = "/payables/import/incentives-template"
@@ -501,7 +502,23 @@ def test_a_pay_cell_that_is_not_a_date_is_an_error_on_the_line(
     client: TestClient, auth: dict[str, str], registered: dict[str, Any]
 ) -> None:
     preview = _send(client, auth, PREVIEW_URL, _current({"pay": "assim que der"})).json()
-    assert preview["lines"][0]["errors"] == ["Data de pagamento inválida"]
+    assert preview["lines"][0]["errors"] == [
+        "Data de pagamento inválida: use dia/mês/ano, como 27/11/2026"
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["27/11/2026", "27/11/26", "27-11-2026", "27.11.2026", "2026-11-27", "27/11/2026 00:00:00"],
+)
+def test_the_date_written_as_text_is_read_in_the_usual_formats(text: str) -> None:
+    """Reunião de 26/11/2026: a planilha da equipe não vinha no formato único."""
+    assert _date(text) == (date(2026, 11, 27), True)
+
+
+@pytest.mark.parametrize("text", ["27/11", "31/02/2026", "27/11/1999", "amanhã"])
+def test_a_date_without_year_or_impossible_is_not_read(text: str) -> None:
+    assert _date(text) == (None, False)
 
 
 def test_sheet_without_any_date_column_is_refused(

@@ -250,7 +250,8 @@ test("lista: setas da data, calendário na tela, busca sem acento e por valor, c
   const batch = page.getByRole("dialog");
   await batch.getByRole("tab", { name: "Conta por conta" }).click();
   await batch.getByLabel("Descrição de Lote A dos pedidos").fill("Lote A dos pedidos · revisado");
-  await batch.getByLabel("Observação de Lote A dos pedidos").fill("Conferido com a nota");
+  // as Observações saíram das telas de conta (Bruno, 27/11/2026): fica só a descrição
+  await expect(batch.getByLabel("Observação de Lote A dos pedidos")).toHaveCount(0);
   await batch.getByLabel("Competência de Lote A dos pedidos").fill("12/2031");
   await expect(batch.getByRole("checkbox", { name: "Salvar Lote A dos pedidos" })).toBeChecked();
   await expect(batch.getByRole("checkbox", { name: "Salvar Lote B dos pedidos" })).not.toBeChecked();

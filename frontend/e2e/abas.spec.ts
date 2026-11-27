@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { signIn } from "./fixtures";
 
 // Abas de telas, como no VS Code (pedido do Bruno, 23/11/2026; regra em src/lib/tabs.ts): clique simples no menu
-// troca a tela da aba atual, duplo clique abre outra aba, e cada aba guarda o que a pessoa fez até ser fechada.
+// troca a tela da aba atual, duplo clique abre outra aba (mesmo de uma tela já aberta, 26/11), e cada aba guarda o
+// que a pessoa fez até ser fechada, também depois do F5 (reunião de 26/11/2026).
 
 test("abas: dois cliques abrem outra aba, cada uma guarda a busca e o F5 reabre as abas", async ({ page }) => {
   await signIn(page, "abas@e2e.invalid");
@@ -74,11 +75,34 @@ test("abas: dois cliques abrem outra aba, cada uma guarda a busca e o F5 reabre 
   await expect(payablesSearch).toHaveValue("grafica");
   await expect(tabs.getByRole("button", { name: /^(Contas a pagar|Contas a receber)$/ })).toHaveCount(2);
 
-  // F5: as abas voltam, mas cada tela recomeça do zero
+  // Duplo clique numa tela já aberta abre outra aba dela, que começa do zero (reunião de 26/11: outubro numa aba e
+  // novembro na outra). Com duas, cada uma mostra a posição: (1) e (2)
+  await menu.getByRole("link", { name: /^Contas a pagar/ }).dblclick();
+  await expect(tab("Contas a pagar (2)")).toHaveAttribute("aria-current", "page");
+  await expect(tab("Contas a pagar (1)")).toBeVisible();
+  await expect(page).toHaveURL(/\/contas-a-pagar\?copia=2$/);
+  const shownSearch = page.getByLabel("Buscar conta, fornecedor, NF, projeto ou valor").filter({ visible: true });
+  await expect(shownSearch).toHaveValue("");
+  await shownSearch.fill("aluguel");
+  await tab("Contas a pagar (1)").click();
+  await expect(shownSearch).toHaveValue("grafica");
+
+  // F5: as abas voltam, e cada tela volta como a pessoa deixou (reunião de 26/11: recarregar não volta para hoje)
   await page.reload();
   await expect(page.getByRole("heading", { name: "Financeiro - Contas a pagar" })).toBeVisible();
   await expect(tab("Contas a receber")).toBeVisible();
-  await expect(payablesSearch).toHaveValue("");
+  await expect(shownSearch).toHaveValue("grafica");
+  await tab("Contas a pagar (2)").click();
+  await expect(shownSearch).toHaveValue("aluguel");
+  await tab("Contas a receber").click();
+  await expect(receivablesSearch).toHaveValue("satisfacao");
+
+  // A pessoa escolhe qual fechar: fechada a (1), a outra fica e perde o número (Bruno, 27/11)
+  await tabs.getByRole("button", { name: "Fechar a aba Contas a pagar (1)" }).click();
+  await expect(tab("Contas a pagar (2)")).toHaveCount(0);
+  await tab("Contas a pagar").click();
+  await expect(tab("Contas a pagar")).toHaveAttribute("aria-current", "page");
+  await expect(shownSearch).toHaveValue("aluguel");
 
   // Fechar a aba da frente: a vizinha vem para a frente; sobrando uma, a fileira some
   await tabs.getByRole("button", { name: "Fechar a aba Contas a pagar" }).click();

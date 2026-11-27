@@ -365,6 +365,26 @@ def test_expired_refresh_is_refused(
     assert client.post("/auth/token/refresh").status_code == 401
 
 
+@pytest.mark.parametrize(("idle_minutes", "status"), [(119, 200), (121, 401)])
+def test_a_session_idle_for_two_hours_falls(
+    client: TestClient,
+    db_session: Session,
+    make_user: Callable[..., User],
+    idle_minutes: int,
+    status: int,
+) -> None:
+    """Reunião de 26/11/2026: a sessão só cai depois de 2 horas sem uso."""
+    make_user()
+    sign_in(client)
+    db_session.query(RefreshToken).update(
+        {RefreshToken.createdAt: datetime.now(UTC) - timedelta(minutes=idle_minutes)}
+    )
+    db_session.commit()
+    assert client.post("/auth/token/refresh").status_code == status
+    if status == 401:
+        assert db_session.query(RefreshToken).filter(RefreshToken.revoked.is_(False)).count() == 0
+
+
 def test_deactivated_account_loses_session_on_next_refresh(
     client: TestClient, db_session: Session, make_user: Callable[..., User]
 ) -> None:

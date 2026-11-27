@@ -200,6 +200,20 @@ def test_a_title_without_a_project_is_created_listed_exported_and_edited(
     assert Decimal(edited.json()["net"]) == Decimal("1200.00")
 
 
+def test_sorting_by_project_puts_the_codes_in_order_and_no_project_last(
+    client: TestClient, auth: dict[str, str], world: dict[str, Any]
+) -> None:
+    """Reunião de 26/11/2026: ordenar por projeto junta os títulos do mesmo projeto."""
+    create(client, auth, world, projectId=None, description="Sem projeto")
+    create(client, auth, world, projectId=world["other_project"].id)
+    create(client, auth, world)
+    codes = sorted(
+        [world["project"].code, world["other_project"].code], key=lambda code: (len(code), code)
+    )
+    items = listing(client, auth, sort="projeto", mode="tudo")["items"]
+    assert [item["projectCode"] for item in items] == [*codes, None]
+
+
 def test_a_title_without_a_unit_is_created_and_shown_without_one(
     client: TestClient, auth: dict[str, str], world: dict[str, Any]
 ) -> None:
