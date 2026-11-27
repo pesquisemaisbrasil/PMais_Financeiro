@@ -125,6 +125,9 @@ WITH_MFA = [
     # testes com o financeiro de 16/11 (frontend/e2e/testes-16-11.spec.ts)
     "pedidos-projeto@e2e.invalid",
     "pedidos-lista@e2e.invalid",
+    # acesso por empresa (frontend/e2e/acesso-por-empresa.spec.ts): o admin e quem ele limita
+    "empresas-admin@e2e.invalid",
+    "empresas-pessoa@e2e.invalid",
     # navegador liberado (frontend/e2e/navegador-liberado.spec.ts): a pessoa e o admin que libera
     "acessos@e2e.invalid",
     "acessos-admin@e2e.invalid",
@@ -144,7 +147,12 @@ WITH_MFA = [
     "abas@e2e.invalid",
 ]
 # Só quem é administrador reabre um mês fechado e libera os navegadores.
-ADMINS = ["fechamento@e2e.invalid", "acessos-admin@e2e.invalid", "niveis-admin@e2e.invalid"]
+ADMINS = [
+    "fechamento@e2e.invalid",
+    "acessos-admin@e2e.invalid",
+    "niveis-admin@e2e.invalid",
+    "empresas-admin@e2e.invalid",
+]
 SUPERADMINS = ["niveis-super@e2e.invalid"]
 
 
