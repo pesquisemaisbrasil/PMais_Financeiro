@@ -307,12 +307,14 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   // Plano de contas em árvore, como no sistema antigo (24/11): o grupo em destaque, com as contas dele
   // embaixo; o grupo não recebe lançamento
   await page.goto("/cadastros?aba=categories");
-  await expect(page.getByRole("columnheader")).toHaveText(["Tipo", "Plano de contas", "Código", "Infos", "Ações"]);
+  await expect(page.getByRole("columnheader")).toHaveText(["Tipo", "Plano de contas", "Código", "Linha do DRE", "Infos", "Ações"]);
   await page.getByRole("button", { name: "Novo grupo" }).click();
   const group = page.getByRole("dialog");
   await expect(group.getByRole("heading", { name: "Cadastrar grupo" })).toBeVisible();
   await group.getByLabel("Código *").fill("900");
   await group.getByLabel("Nome *").fill("Grupo do teste de cadastros");
+  await group.getByRole("combobox", { name: "Linha do DRE" }).click();
+  await page.getByRole("option", { name: "Custos dos serviços" }).click();
   await group.getByRole("button", { name: "Cadastrar" }).click();
   await page.getByRole("button", { name: "Nova conta", exact: true }).click();
   const account = page.getByRole("dialog");
@@ -327,4 +329,7 @@ test("cadastros: o CNPJ preenche nome e apelido pela Receita, e tudo continua ed
   await expect(planRows.nth(0)).toContainText("Grupo do teste de cadastros");
   await expect(planRows.nth(1)).toContainText("Conta do teste no grupo");
   await expect(planRows.nth(1)).toContainText("900.001");
+  // sem linha própria, a conta mostra a do grupo
+  await expect(planRows.nth(0)).toContainText("Custos dos serviços");
+  await expect(planRows.nth(1)).toContainText("Custos dos serviços");
 });

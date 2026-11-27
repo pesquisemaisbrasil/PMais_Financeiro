@@ -62,8 +62,9 @@ def test_the_month_is_the_payment_month_not_the_competence(
     assert data["result"]["total"] == "-600.00"
     # o DRE do mesmo período não vê o aluguel: a competência é setembro
     dre = client.get("/reports/dre", params=THIS_MONTH, headers=auth).json()
-    assert [row["label"] for row in dre["blocks"][1]["lines"]] == ["Despesas administrativas"]
-    assert dre["blocks"][1]["total"] == "150.00"
+    admin_row = next(r for r in dre["rows"] if r["key"] == "administrativas")
+    assert [group["label"] for group in admin_row["groups"]] == ["003 Despesas administrativas"]
+    assert admin_row["total"] == "150.00"
 
 
 def test_reversed_payments_and_accounts_out_of_the_cash_flow_do_not_count(

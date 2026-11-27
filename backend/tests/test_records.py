@@ -408,6 +408,20 @@ def test_a_group_company_keeps_nickname_and_cnpj_and_the_old_ones_still_work(
     assert (other.json()["nickname"], other.json()["code"]) == (None, "0002")
 
 
+def test_the_plan_of_accounts_keeps_the_dre_line(client: TestClient, auth: dict[str, str]) -> None:
+    group = _post(client, auth, "categoryGroups", name="Custos", code="006", dreLine="custos")
+    assert (group.status_code, group.json()["dreLine"]) == (201, "custos")
+    account = {"name": "Parcela", "code": "6.99", "groupId": group.json()["id"]}
+    created = _post(client, auth, "categories", dreLine="fora", **account)
+    assert (created.status_code, created.json()["dreLine"]) == (201, "fora")
+    # sem a linha própria, a conta volta a ser a do grupo
+    back = client.patch(f"/records/categories/{created.json()['id']}", json=account, headers=auth)
+    assert back.status_code == 200, back.text
+    assert back.json()["dreLine"] is None
+    wrong = _post(client, auth, "categoryGroups", name="Outro", code="007", dreLine="inventada")
+    assert wrong.status_code == 422
+
+
 def test_a_group_company_name_can_be_as_long_as_a_legal_name(
     client: TestClient, auth: dict[str, str]
 ) -> None:

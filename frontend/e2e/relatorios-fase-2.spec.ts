@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { todayInSaoPaulo } from "../src/lib/cashFlow";
 import { signIn } from "./fixtures";
 
-// "Em breve" no menu (26/11): as telas abrem pelo endereço
+// Pelo endereço: Fluxo mensal e Recebimentos × ano ficam "Em breve" no menu (26/11)
 async function openReport(page: Page, name: string, path: string) {
   await page.goto(path);
   await expect(page.getByRole("heading", { name: `Relatórios - ${name}` })).toBeVisible();

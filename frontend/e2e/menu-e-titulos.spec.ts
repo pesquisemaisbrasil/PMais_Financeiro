@@ -44,6 +44,9 @@ test("menu lateral e título: a página e a seção em que a pessoa está ficam 
   // Relatórios
   await group("Relatórios").click();
   await expect(menu.getByRole("link", { name: "Incentivos", exact: true })).toHaveCount(0); // saiu do menu em 18/11
+  // o DRE voltou ao menu em 27/11; os outros relatórios novos seguem "Em breve"
+  await expect(menu.getByRole("link", { name: "DRE", exact: true })).toBeVisible();
+  await expect(menu.locator('[aria-disabled="true"]', { hasText: "Fluxo de caixa" })).toContainText("Em breve");
   await menu.getByRole("link", { name: "Relatório do projeto", exact: true }).click();
   await expect(title("Relatórios - Relatório do projeto")).toBeVisible();
   await expect(group("Relatórios")).toHaveAttribute("data-current", "true");
